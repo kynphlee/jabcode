@@ -1,0 +1,2 @@
+JABCode Error: No such file or directory
+JABCode Error: Opening png image failed

@@ -1,0 +1,20 @@
+-------------------------------------------------------------------------------
+Test set: com.jabcode.core.JABCodeTest
+-------------------------------------------------------------------------------
+Tests run: 6, Failures: 4, Errors: 0, Skipped: 0, Time elapsed: 0.02 s <<< FAILURE! - in com.jabcode.core.JABCodeTest
+testGenerateDefault(com.jabcode.core.JABCodeTest)  Time elapsed: 0.018 s  <<< FAILURE!
+java.lang.AssertionError: Exception thrown: Failed to generate JABCode
+	at com.jabcode.core.JABCodeTest.testGenerateDefault(JABCodeTest.java:79)
+
+testAllColorModes(com.jabcode.core.JABCodeTest)  Time elapsed: 0 s  <<< FAILURE!
+java.lang.AssertionError: Exception thrown: Failed to generate JABCode
+	at com.jabcode.core.JABCodeTest.testAllColorModes(JABCodeTest.java:150)
+
+testGenerateAndDecode(com.jabcode.core.JABCodeTest)  Time elapsed: 0.001 s  <<< FAILURE!
+java.lang.AssertionError: Exception thrown: Failed to generate JABCode
+	at com.jabcode.core.JABCodeTest.testGenerateAndDecode(JABCodeTest.java:186)
+
+testGenerateCustom(com.jabcode.core.JABCodeTest)  Time elapsed: 0 s  <<< FAILURE!
+java.lang.AssertionError: Exception thrown: Failed to generate JABCode
+	at com.jabcode.core.JABCodeTest.testGenerateCustom(JABCodeTest.java:114)
+

@@ -1,4 +1,4 @@
-PREFIX 	=
+PREFIX =
 CC 	= $(PREFIX)gcc
 AR 	= $(PREFIX)ar
 RANLIB	= $(PREFIX)ranlib
@@ -6,7 +6,8 @@ CFLAGS	= -O2 -std=c11
 
 TARGET = build/libjabcode.a
 
-OBJECTS := $(patsubst %.c,%.o,$(wildcard *.c))
+SOURCES := $(wildcard *.c)
+OBJECTS := $(SOURCES:.c=.o)
 
 $(TARGET): $(OBJECTS)
 	$(AR) cru $@ $?

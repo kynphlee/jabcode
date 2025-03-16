@@ -1,0 +1,1 @@
+This is a test of JABCode color modes. JABCode (Just Another Barcode) is a color 2D matrix symbology made of color squares arranged in either square or rectangle grids.

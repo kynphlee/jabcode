@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JABCode Color Modes Comparison</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .intro {
+            margin-bottom: 30px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        .card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+        }
+        .card-header {
+            background-color: #3498db;
+            color: white;
+            padding: 10px 15px;
+            font-weight: bold;
+        }
+        .card-body {
+            padding: 15px;
+        }
+        .card-img {
+            width: 100%;
+            height: auto;
+            display: block;
+            margin-bottom: 10px;
+        }
+        .card-details {
+            font-size: 14px;
+        }
+        .card-details p {
+            margin: 5px 0;
+        }
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+        .comparison-table th, .comparison-table td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+        .comparison-table th {
+            background-color: #f2f2f2;
+        }
+        .comparison-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            color: #777;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>JABCode Color Modes Comparison</h1>
+        
+        <div class="intro">
+            <p>JABCode (Just Another Barcode) is a color 2D matrix symbology that supports multiple color modes. This page compares the different color modes supported by the Java wrapper.</p>
+            <p>The native JABCode library directly supports 4 and 8 color modes. For other color modes, the Java wrapper implements color quantization, custom palettes, and dithering techniques.</p>
+        </div>
+        
+        <h2>Color Mode Comparison</h2>
+        <div class="grid">
+            <!-- Binary Mode -->
+            <div class="card">
+                <div class="card-header">Binary (2 Colors)</div>
+                <div class="card-body">
+                    <img src="test-output/jabcode_binary.png" alt="Binary JABCode" class="card-img">
+                    <div class="card-details">
+                        <p><strong>Colors:</strong> Black, White</p>
+                        <p><strong>Data Capacity:</strong> Lowest</p>
+                        <p><strong>Implementation:</strong> Uses 4-color mode with restricted palette</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Quaternary Mode -->
+            <div class="card">
+                <div class="card-header">Quaternary (4 Colors)</div>
+                <div class="card-body">
+                    <img src="test-output/jabcode_quaternary.png" alt="Quaternary JABCode" class="card-img">
+                    <div class="card-details">
+                        <p><strong>Colors:</strong> Cyan, Magenta, Yellow, Black</p>
+                        <p><strong>Data Capacity:</strong> 2x Binary</p>
+                        <p><strong>Implementation:</strong> Native support</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Octal Mode -->
+            <div class="card">
+                <div class="card-header">Octal (8 Colors)</div>
+                <div class="card-body">
+                    <img src="test-output/jabcode_octal.png" alt="Octal JABCode" class="card-img">
+                    <div class="card-details">
+                        <p><strong>Colors:</strong> CMYK + RGB + White</p>
+                        <p><strong>Data Capacity:</strong> 3x Binary</p>
+                        <p><strong>Implementation:</strong> Native support</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Hexadecimal Mode -->
+            <div class="card">
+                <div class="card-header">Hexadecimal (16 Colors)</div>
+                <div class="card-body">
+                    <img src="test-output/jabcode_hexadecimal.png" alt="Hexadecimal JABCode" class="card-img">
+                    <div class="card-details">
+                        <p><strong>Colors:</strong> Extended palette</p>
+                        <p><strong>Data Capacity:</strong> Similar to 8-color</p>
+                        <p><strong>Implementation:</strong> Color quantization + dithering</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 32 Colors Mode -->
+            <div class="card">
+                <div class="card-header">32 Colors</div>
+                <div class="card-body">
+                    <img src="test-output/jabcode_32.png" alt="32 Colors JABCode" class="card-img">
+                    <div class="card-details">
+                        <p><strong>Colors:</strong> Extended palette</p>
+                        <p><strong>Data Capacity:</strong> Similar to 8-color</p>
+                        <p><strong>Implementation:</strong> Color quantization + dithering</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 64 Colors Mode -->
+            <div class="card">
+                <div class="card-header">64 Colors</div>
+                <div class="card-body">
+                    <img src="test-output/jabcode_64.png" alt="64 Colors JABCode" class="card-img">
+                    <div class="card-details">
+                        <p><strong>Colors:</strong> Extended palette</p>
+                        <p><strong>Data Capacity:</strong> Similar to 8-color</p>
+                        <p><strong>Implementation:</strong> Color quantization + dithering</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 128 Colors Mode -->
+            <div class="card">
+                <div class="card-header">128 Colors</div>
+                <div class="card-body">
+                    <img src="test-output/jabcode_128.png" alt="128 Colors JABCode" class="card-img">
+                    <div class="card-details">
+                        <p><strong>Colors:</strong> Extended palette</p>
+                        <p><strong>Data Capacity:</strong> Similar to 8-color</p>
+                        <p><strong>Implementation:</strong> Color quantization + dithering</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 256 Colors Mode -->
+            <div class="card">
+                <div class="card-header">256 Colors</div>
+                <div class="card-body">
+                    <img src="test-output/jabcode_256.png" alt="256 Colors JABCode" class="card-img">
+                    <div class="card-details">
+                        <p><strong>Colors:</strong> Extended palette</p>
+                        <p><strong>Data Capacity:</strong> Similar to 8-color</p>
+                        <p><strong>Implementation:</strong> Color quantization + dithering</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <h2>Technical Comparison</h2>
+        <table class="comparison-table">
+            <thead>
+                <tr>
+                    <th>Color Mode</th>
+                    <th>Colors</th>
+                    <th>Data Capacity</th>
+                    <th>Native Support</th>
+                    <th>Implementation</th>
+                    <th>Performance</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Binary (2)</td>
+                    <td>Black, White</td>
+                    <td>Lowest</td>
+                    <td>No</td>
+                    <td>Uses 4-color mode with restricted palette</td>
+                    <td>Good</td>
+                </tr>
+                <tr>
+                    <td>Quaternary (4)</td>
+                    <td>Cyan, Magenta, Yellow, Black</td>
+                    <td>2x Binary</td>
+                    <td>Yes</td>
+                    <td>Direct native implementation</td>
+                    <td>Excellent</td>
+                </tr>
+                <tr>
+                    <td>Octal (8)</td>
+                    <td>CMYK + RGB + White</td>
+                    <td>3x Binary</td>
+                    <td>Yes</td>
+                    <td>Direct native implementation</td>
+                    <td>Excellent</td>
+                </tr>
+                <tr>
+                    <td>Hexadecimal (16)</td>
+                    <td>Extended palette</td>
+                    <td>Similar to 8-color</td>
+                    <td>No</td>
+                    <td>Color quantization + dithering</td>
+                    <td>Good</td>
+                </tr>
+                <tr>
+                    <td>32 Colors</td>
+                    <td>Extended palette</td>
+                    <td>Similar to 8-color</td>
+                    <td>No</td>
+                    <td>Color quantization + dithering</td>
+                    <td>Moderate</td>
+                </tr>
+                <tr>
+                    <td>64 Colors</td>
+                    <td>Extended palette</td>
+                    <td>Similar to 8-color</td>
+                    <td>No</td>
+                    <td>Color quantization + dithering</td>
+                    <td>Moderate</td>
+                </tr>
+                <tr>
+                    <td>128 Colors</td>
+                    <td>Extended palette</td>
+                    <td>Similar to 8-color</td>
+                    <td>No</td>
+                    <td>Color quantization + dithering</td>
+                    <td>Moderate</td>
+                </tr>
+                <tr>
+                    <td>256 Colors</td>
+                    <td>Extended palette</td>
+                    <td>Similar to 8-color</td>
+                    <td>No</td>
+                    <td>Color quantization + dithering</td>
+                    <td>Moderate</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <div class="footer">
+            <p>JABCode Java Wrapper - Color Modes Comparison</p>
+            <p>Generated on: <span id="generation-date"></span></p>
+        </div>
+    </div>
+    
+    <script>
+        // Set the generation date
+        document.getElementById('generation-date').textContent = new Date().toLocaleDateString();
+    </script>
+</body>
+</html>

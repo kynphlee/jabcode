@@ -1,0 +1,1 @@
+JAB Code (Just Another Barcode) is a colour 2D matrix symbology made of colour squares arranged in either square or rectangle grids.

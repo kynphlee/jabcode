@@ -1,0 +1,22 @@
+JABCode Java Library
+Copyright 2025 JABCode Java Wrapper Contributors
+
+This product includes software developed by the JABCode Java Wrapper Contributors.
+
+This product includes software licensed under the GNU Lesser General Public License v2.1:
+- JABCode C/C++ Library (https://github.com/jabcode/jabcode)
+
+This product includes software licensed under the Apache License 2.0:
+- JavaCPP (https://github.com/bytedeco/javacpp)
+- Apache Commons IO (https://commons.apache.org/proper/commons-io/)
+- Apache Commons Codec (https://commons.apache.org/proper/commons-codec/)
+
+This product includes software licensed under other licenses:
+- imgscalr (https://github.com/rkalla/imgscalr) - BSD License
+
+License Compliance Notice:
+When using this software, you must comply with both the Apache License 2.0 (for the Java wrapper) 
+and the GNU LGPL v2.1 (for the JABCode C/C++ library) as described in the README.md file.
+
+The JABCode C/C++ library is dynamically linked, which complies with LGPL requirements.
+Users can replace the LGPL library with a modified version if needed.
