@@ -1,0 +1,3 @@
+Decoding JABCode from: output/jabcode_8_colors.png
+Image dimensions: 1356x1356 pixels
+Loaded native library from java.library.path: /mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/./lib/libjabcode_jni.so

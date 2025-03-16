@@ -1,0 +1,1 @@
+extern jab_encode* createEncode(jab_int32 color_number, jab_int32 symbol_number);
