@@ -93,16 +93,19 @@ error() {
   exit 1
 }
 
-# Set up paths
+# Set up paths (script now lives under repo_root/scripts/javacpp-wrapper)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-SRC_DIR="$(dirname "$PROJECT_DIR")/src"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+WRAPPER_SRC_DIR="$REPO_ROOT/javacpp-wrapper"
+SRC_DIR="$REPO_ROOT/src"
 JABCODE_SRC_DIR="$SRC_DIR/jabcode"
 JABCODE_BUILD_DIR="$JABCODE_SRC_DIR/build"
 JABCODE_LIB_DIR="$JABCODE_SRC_DIR/lib"
-WRAPPER_SRC_DIR="$PROJECT_DIR"
-WRAPPER_BUILD_DIR="$PROJECT_DIR/build"
-WRAPPER_LIB_DIR="$PROJECT_DIR/lib"
+WRAPPER_BUILD_DIR="$WRAPPER_SRC_DIR/build"
+WRAPPER_LIB_DIR="$WRAPPER_SRC_DIR/lib"
+WRAPPER_JAB_SRC_DIR="$WRAPPER_SRC_DIR/src/jabcode"
+WRAPPER_JAB_BUILD_DIR="$WRAPPER_JAB_SRC_DIR/build"
+WRAPPER_JAB_LIB_DIR="$WRAPPER_JAB_SRC_DIR/lib"
 
 # Create directories if they don't exist
 mkdir -p "$JABCODE_BUILD_DIR"
@@ -138,7 +141,7 @@ if [[ "$CLEAN" == "true" ]]; then
   
   # Clean Maven build artifacts
   log "Cleaning Maven build artifacts..."
-  cd "$PROJECT_DIR" && mvn clean
+  cd "$WRAPPER_SRC_DIR" && mvn clean
   
   # Clean log files
   log "Cleaning log files..."
@@ -189,6 +192,13 @@ build_jni() {
   # Create build directory if it doesn't exist
   mkdir -p "$WRAPPER_BUILD_DIR"
   
+  # Ensure embedded JABCode (with generateJABCode) is built
+  if [[ -d "$WRAPPER_JAB_SRC_DIR" ]]; then
+    log "Building embedded JABCode sources at $WRAPPER_JAB_SRC_DIR (with -fPIC)"
+    (cd "$WRAPPER_JAB_SRC_DIR" && make clean || true)
+    (cd "$WRAPPER_JAB_SRC_DIR" && make CFLAGS="-O2 -std=c11 -fPIC") || error "Failed to build embedded JABCode lib with -fPIC"
+  fi
+
   # Compile the JNI interface
   cd "$WRAPPER_SRC_DIR" || error "Failed to change to wrapper source directory"
   
@@ -215,6 +225,8 @@ build_jni() {
     # Compile the JNI interface
     g++ -c -fPIC -I"$JAVA_HOME/include" -I"$JAVA_HOME/include/linux" -I"$JABCODE_SRC_DIR/include" -I"$WRAPPER_SRC_DIR" -I"$WRAPPER_SRC_DIR/src/main/c" -o "$WRAPPER_BUILD_DIR/JABCodeNative_jni.o" "$WRAPPER_SRC_DIR/src/main/c/JABCodeNative_jni.cpp" || error "Failed to compile JABCodeNative_jni.cpp"
     
+    # (Removed) C++ shim compilation is no longer needed; all calls go through pure C wrappers.
+    
     # Compile the create_encode_wrapper
     g++ -c -fPIC -I"$JABCODE_SRC_DIR/include" -o "$WRAPPER_BUILD_DIR/create_encode_wrapper.o" "$WRAPPER_SRC_DIR/src/main/c/create_encode_wrapper.cpp" || error "Failed to compile create_encode_wrapper.cpp"
     
@@ -223,11 +235,27 @@ build_jni() {
   else
     log "Building standard JNI interface..."
     
-    # Compile the JNI interface
-    g++ -c -fPIC -I"$JAVA_HOME/include" -I"$JAVA_HOME/include/linux" -I"$JABCODE_SRC_DIR/include" -o "$WRAPPER_BUILD_DIR/JABCodeNative_jni.o" "$WRAPPER_SRC_DIR/src/main/c/JABCodeNative_jni.cpp" || error "Failed to compile JABCodeNative_jni.cpp"
+    # Compile the C wrapper (needed for _c functions) as pure C to avoid C++ name mangling
+    gcc -c -fPIC -I"$JABCODE_SRC_DIR/include" -o "$WRAPPER_BUILD_DIR/jabcode_c_wrapper.o" "$WRAPPER_SRC_DIR/src/main/c/jabcode_c_wrapper.c" || error "Failed to compile jabcode_c_wrapper.c"
     
-    # Link the JNI interface with the JABCode library
-    g++ -shared -o "$WRAPPER_LIB_DIR/libjabcode_jni.so" "$WRAPPER_BUILD_DIR/JABCodeNative_jni.o" -L"$JABCODE_LIB_DIR" -ljabcode || error "Failed to link libjabcode_jni.so"
+    # Compile JNI glue exporting Java_*Ptr symbols to call _c functions via jlong pointers
+    g++ -c -fPIC -I"$JAVA_HOME/include" -I"$JAVA_HOME/include/linux" -I"$JABCODE_SRC_DIR/include" -I"$WRAPPER_SRC_DIR" -I"$WRAPPER_SRC_DIR/src/main/c" -o "$WRAPPER_BUILD_DIR/JABCodeNative_jni.o" "$WRAPPER_SRC_DIR/src/main/c/JABCodeNative_jni.cpp" || error "Failed to compile JABCodeNative_jni.cpp"
+
+    # Link JNI library exporting explicit Java_*Ptr symbols and C wrapper calls underneath
+    g++ -shared -o "$WRAPPER_LIB_DIR/libjniJABCodeNative.so" \
+       "$WRAPPER_BUILD_DIR/JABCodeNative_jni.o" "$WRAPPER_BUILD_DIR/jabcode_c_wrapper.o" \
+       -Wl,--no-undefined -Wl,-z,defs -Wl,-z,now -Wl,--trace-symbol=_Z12createEncodeii \
+       "$WRAPPER_JAB_BUILD_DIR/libjabcode.a" \
+       -lpng16 -lz -lm -ljpeg -ltiff \
+       -lstdc++ || error "Failed to link libjniJABCodeNative.so"
+
+    # Place the library where JavaCPP Loader expects it: under the package path of JABCodeNative
+    TARGET_NATIVE_DIR1="$WRAPPER_SRC_DIR/target/classes/com/jabcode/internal/linux-x86_64"
+    TARGET_NATIVE_DIR2="$WRAPPER_SRC_DIR/target/classes/com/jabcode/linux-x86_64"
+    mkdir -p "$TARGET_NATIVE_DIR1" "$TARGET_NATIVE_DIR2"
+    cp -f "$WRAPPER_LIB_DIR/libjniJABCodeNative.so" "$TARGET_NATIVE_DIR1/" || error "Failed to copy platform library to target/classes (internal)"
+    # Optional secondary location for backward compatibility
+    cp -f "$WRAPPER_LIB_DIR/libjniJABCodeNative.so" "$TARGET_NATIVE_DIR2/" || true
   fi
   
   log "JNI interface built successfully."
@@ -243,7 +271,7 @@ build_java() {
   fi
   
   # Build the Java wrapper using Maven
-  cd "$PROJECT_DIR" || error "Failed to change to project directory"
+  cd "$WRAPPER_SRC_DIR" || error "Failed to change to wrapper source directory"
   
   log "Running Maven build..."
   mvn clean package -DskipTests || error "Maven build failed"
@@ -265,7 +293,7 @@ run_tests() {
   fi
   
   # Run tests using Maven
-  cd "$PROJECT_DIR" || error "Failed to change to project directory"
+  cd "$WRAPPER_SRC_DIR" || error "Failed to change to wrapper source directory"
   
   log "Running Maven tests..."
   mvn test || error "Maven tests failed"

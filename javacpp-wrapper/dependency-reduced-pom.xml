@@ -33,7 +33,7 @@
         <targetPath>com/jabcode</targetPath>
         <directory>${project.basedir}/src/main/c</directory>
         <includes>
-          <include>jabcode_c_wrapper.cpp</include>
+          <include>jabcode_c_wrapper.c</include>
           <include>jabcode_c_wrapper.h</include>
         </includes>
       </resource>
@@ -87,8 +87,7 @@
                 <includePath>${project.basedir}/../src/jabcode/include/</includePath>
               </includePaths>
               <sourceFilenames>
-                <sourceFilename>${project.basedir}/src/main/c/jabcode_c_wrapper.cpp</sourceFilename>
-                <sourceFilename>${project.basedir}/src/main/c/create_encode_wrapper.cpp</sourceFilename>
+                <sourceFilename>${project.basedir}/src/main/c/jabcode_c_wrapper.c</sourceFilename>
                 <sourceFilename>${project.basedir}/src/main/c/JABCodeNative_jni.cpp</sourceFilename>
               </sourceFilenames>
               <linkPaths>
@@ -98,7 +97,6 @@
               </linkPaths>
               <libraries>
                 <library>jabcode</library>
-                <library>jabcode_wrapper</library>
                 <library>png16</library>
                 <library>z</library>
               </libraries>
@@ -120,8 +118,7 @@
                 <includePath>${project.basedir}/../src/jabcode/include/</includePath>
               </includePaths>
               <sourceFilenames>
-                <sourceFilename>${project.basedir}/src/main/c/jabcode_c_wrapper.cpp</sourceFilename>
-                <sourceFilename>${project.basedir}/src/main/c/create_encode_wrapper.cpp</sourceFilename>
+                <sourceFilename>${project.basedir}/src/main/c/jabcode_c_wrapper.c</sourceFilename>
                 <sourceFilename>${project.basedir}/src/main/c/JABCodeNative_jni.cpp</sourceFilename>
               </sourceFilenames>
               <linkPaths>
@@ -131,7 +128,6 @@
               </linkPaths>
               <libraries>
                 <library>jabcode</library>
-                <library>jabcode_wrapper</library>
                 <library>png16</library>
                 <library>z</library>
               </libraries>
@@ -220,7 +216,6 @@
                 <argument>${project.basedir}/scripts/build.sh</argument>
                 <argument>--core</argument>
                 <argument>--jni</argument>
-                <argument>--fixed</argument>
                 <argument>--verbose</argument>
               </arguments>
             </configuration>
@@ -255,6 +250,7 @@
           <argLine>-Djava.library.path=${project.basedir}/libs:${project.basedir}/lib:${project.basedir}/../lib:${project.build.directory}/classes/com/jabcode/${javacpp.platform}:${project.basedir}/libs/linux-x86_64</argLine>
           <environmentVariables>
             <LD_LIBRARY_PATH>${project.basedir}/libs:${project.basedir}/lib:${project.basedir}/../lib:${project.build.directory}/classes/com/jabcode/${javacpp.platform}:${project.basedir}/libs/linux-x86_64</LD_LIBRARY_PATH>
+            <LD_PRELOAD>${project.basedir}/lib/libjabcode_jni.so</LD_PRELOAD>
           </environmentVariables>
           <systemPropertyVariables>
             <skipNativeTests>${skipNativeTests}</skipNativeTests>

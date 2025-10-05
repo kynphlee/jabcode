@@ -12,13 +12,15 @@ import org.bytedeco.javacpp.tools.*;
     target = "com.jabcode.internal.JABCodeNative",
     value = {
         @Platform(
-            include = {"jabcode.h", "jabcode_c_wrapper.h"},
-            link = {"jabcode", "png", "z"}
+            include = {"jabcode.h", "jabcode_c_wrapper.h"}
         )
     }
 )
 public class JABCodePresets implements InfoMapper {
     public void map(InfoMap infoMap) {
+        // Avoid generating problematic macro constants
+        infoMap.put(new Info("VERSION", "BUILD_DATE").skip());
+
         // Map functions to use C wrapper functions instead of C++ functions directly
         infoMap.put(new Info("createEncode").javaNames("createEncode").cppNames("createEncode_c"));
         infoMap.put(new Info("destroyEncode").javaNames("destroyEncode").cppNames("destroyEncode_c"));

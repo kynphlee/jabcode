@@ -57,7 +57,7 @@ javacpp-wrapper/
 The easiest way to build the library is to use the provided build script:
 
 ```bash
-cd javacpp-wrapper/scripts
+cd scripts/javacpp-wrapper
 ./build.sh --all
 ```
 
@@ -91,25 +91,25 @@ If you prefer to build the components manually, follow these steps:
 
 1. Build the core JABCode C/C++ library:
    ```bash
-   cd javacpp-wrapper/scripts
+   cd scripts/javacpp-wrapper
    ./build-core-library.sh
    ```
 
 2. Build the JNI interface:
    ```bash
-   cd javacpp-wrapper/scripts
+   cd scripts/javacpp-wrapper
    ./build-jni-interface.sh
    ```
 
 3. Build the Java wrapper:
    ```bash
-   cd javacpp-wrapper/scripts
+   cd scripts/javacpp-wrapper
    ./build-java-wrapper.sh
    ```
 
 4. Verify the build:
    ```bash
-   cd javacpp-wrapper/scripts
+   cd scripts/javacpp-wrapper
    ./verify-full-build.sh
    ```
 
@@ -190,7 +190,7 @@ public class AdvancedExample {
 If you encounter issues, you can run the build script with the `--verbose` option to get more detailed output:
 
 ```bash
-cd javacpp-wrapper/scripts
+cd scripts/javacpp-wrapper
 ./build.sh --all --verbose
 ```
 

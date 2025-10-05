@@ -7,7 +7,7 @@ import org.bytedeco.javacpp.*;
 import org.bytedeco.javacpp.annotation.*;
 
 public class JABCodeNative extends com.jabcode.JABCodePresets {
-    static { Loader.load(); }
+    static { Loader.load(JABCodeNative.class); }
 
 // Parsed from jabcode.h
 
@@ -28,7 +28,7 @@ public class JABCodeNative extends com.jabcode.JABCodePresets {
 // #define JABCODE_H
 
 public static final String VERSION = "2.0.0";
-public static final String BUILD_DATE = "Mar 16 2025";
+public static final String BUILD_DATE = "Oct 4 2025";
 
 public static final int MAX_SYMBOL_NUMBER =       61;
 public static final int MAX_COLOR_NUMBER =        256;
@@ -316,11 +316,29 @@ public static native @Cast("jab_boolean") byte saveImageCMYK(jab_bitmap bitmap, 
 public static native @Cast("jab_boolean") byte saveImageCMYK(jab_bitmap bitmap, @Cast("jab_boolean") byte isCMYK, @Cast("jab_char*") ByteBuffer filename);
 public static native @Cast("jab_boolean") byte saveImageCMYK(jab_bitmap bitmap, @Cast("jab_boolean") byte isCMYK, @Cast("jab_char*") byte[] filename);
 public static native jab_bitmap readImage(@Cast("jab_char*") BytePointer filename);
-public static native jab_bitmap readImage(@Cast("jab_char*") ByteBuffer filename);
-public static native jab_bitmap readImage(@Cast("jab_char*") byte[] filename);
-public static native void reportError(@Cast("jab_char*") BytePointer message);
-public static native void reportError(@Cast("jab_char*") ByteBuffer message);
-public static native void reportError(@Cast("jab_char*") byte[] message);
+ public static native jab_bitmap readImage(@Cast("jab_char*") ByteBuffer filename);
+ public static native jab_bitmap readImage(@Cast("jab_char*") byte[] filename);
+ public static native void reportError(@Cast("jab_char*") BytePointer message);
+ public static native void reportError(@Cast("jab_char*") ByteBuffer message);
+ public static native void reportError(@Cast("jab_char*") byte[] message);
+
+  // Pointer-based JNI helpers (direct JNI exports in JABCodeNative_jni.cpp)
+  public static native long createEncodePtr(@Cast("jab_int32") int color_number, @Cast("jab_int32") int symbol_number);
+  public static native void destroyEncodePtr(long encPtr);
+  public static native @Cast("jab_int32") int generateJABCodePtr(long encPtr, long dataPtr);
+  public static native long decodeJABCodePtr(long bitmapPtr, @Cast("jab_int32") int mode, int[] status);
+  public static native long decodeJABCodeExPtr(long bitmapPtr, @Cast("jab_int32") int mode, int[] status, long symbolsPtr, @Cast("jab_int32") int max_symbol_number);
+  public static native @Cast("jboolean") boolean saveImagePtr(long bitmapPtr, String filename);
+  public static native long readImagePtr(String filename);
+  public static native long createDataFromBytes(byte[] arr);
+  public static native void destroyDataPtr(long dataPtr);
+  public static native long getBitmapFromEncodePtr(long encPtr);
+  public static native byte[] getDataBytes(long dataPtr);
+  public static native void setModuleSizePtr(long encPtr, int value);
+  public static native void setMasterSymbolWidthPtr(long encPtr, int value);
+  public static native void setMasterSymbolHeightPtr(long encPtr, int value);
+  public static native void setSymbolVersionPtr(long encPtr, int index, int vx, int vy);
+  public static native void setSymbolPositionPtr(long encPtr, int index, int pos);
 
 // #endif
 
@@ -335,10 +353,11 @@ public static native void reportError(@Cast("jab_char*") byte[] message);
 // #ifndef JABCODE_C_WRAPPER_H
 // #define JABCODE_C_WRAPPER_H
 
-// #include "jabcode.h"
-
 // #ifdef __cplusplus
 // #endif
+
+// Ensure jabcode.h also has C linkage when included in C++ compilation units
+// #include "jabcode.h"
 
 // C wrapper functions for JABCode library
 public static native @Cast("jab_boolean") byte saveImageCMYK_c(jab_bitmap bitmap, @Cast("jab_boolean") byte isCMYK, @Cast("jab_char*") BytePointer filename);
