@@ -42,7 +42,7 @@ EOF
 
 # Now modify the build script to include our fix in every build
 # First, check if the patch is already applied
-if grep -q "create_encode_wrapper.cpp" javacpp-wrapper/scripts/build.sh; then
+if grep -q "create_encode_wrapper.cpp" scripts/javacpp-wrapper/build.sh; then
     echo "Build script already includes our fix"
 else
     # Add our file to the source files in the JavaCPP plugin configuration

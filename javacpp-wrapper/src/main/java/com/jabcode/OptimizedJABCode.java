@@ -21,13 +21,15 @@ import com.jabcode.internal.NativeLibraryLoader;
  */
 public class OptimizedJABCode {
     
-    // Load the native library
+    // Load the native library (optional manual path). Default is to rely on JavaCPP Loader.
     static {
-        try {
-            NativeLibraryLoader.load();
-        } catch (Throwable e) {
-            System.err.println("Failed to load native library: " + e.getMessage());
-            throw new RuntimeException("Failed to load native library", e);
+        if (Boolean.getBoolean("jabcode.native.loader")) {
+            try {
+                NativeLibraryLoader.load();
+            } catch (Throwable e) {
+                System.err.println("Failed to load native library via NativeLibraryLoader: " + e.getMessage());
+                throw new RuntimeException("Failed to load native library", e);
+            }
         }
     }
     

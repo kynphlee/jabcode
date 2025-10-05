@@ -31,7 +31,7 @@ Both 4-color and 8-color JAB Codes were successfully decoded with only minor dif
 
 ## Files
 
-- `generate_jabcodes.sh`: Shell script to generate and compare JAB Codes with different color modes
+- `scripts/generate_jabcodes.sh`: Shell script to generate and compare JAB Codes with different color modes
 - `output/jabcode_4_colors.png`: 4-color JAB Code image
 - `output/jabcode_8_colors.png`: 8-color JAB Code image
 - `output/sample_text.txt`: Original sample text
@@ -44,7 +44,7 @@ Both 4-color and 8-color JAB Codes were successfully decoded with only minor dif
 To run the tests yourself:
 
 ```bash
-./generate_jabcodes.sh
+./scripts/generate_jabcodes.sh
 ```
 
 This will generate JAB Codes for both color modes, decode them, and compare the results.

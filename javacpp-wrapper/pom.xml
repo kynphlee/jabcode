@@ -147,7 +147,7 @@
             <resource>
                 <directory>${project.basedir}/src/main/c</directory>
                 <includes>
-                    <include>jabcode_c_wrapper.cpp</include>
+                    <include>jabcode_c_wrapper.c</include>
                     <include>jabcode_c_wrapper.h</include>
                 </includes>
                 <targetPath>com/jabcode</targetPath>
@@ -233,8 +233,7 @@
                             </includePaths>
                             <!-- Add additional source files to compile -->
                             <sourceFilenames>
-                                <sourceFilename>${project.basedir}/src/main/c/jabcode_c_wrapper.cpp</sourceFilename>
-                                <sourceFilename>${project.basedir}/src/main/c/create_encode_wrapper.cpp</sourceFilename>
+                                <sourceFilename>${project.basedir}/src/main/c/jabcode_c_wrapper.c</sourceFilename>
                                 <sourceFilename>${project.basedir}/src/main/c/JABCodeNative_jni.cpp</sourceFilename>
                             </sourceFilenames>
                             <linkPaths>
@@ -244,7 +243,6 @@
                             </linkPaths>
                             <libraries>
                                 <library>jabcode</library>
-                                <library>jabcode_wrapper</library>
                                 <library>png16</library>
                                 <library>z</library>
                             </libraries>
@@ -268,8 +266,7 @@
                             </includePaths>
                             <!-- Add additional source files to compile -->
                             <sourceFilenames>
-                                <sourceFilename>${project.basedir}/src/main/c/jabcode_c_wrapper.cpp</sourceFilename>
-                                <sourceFilename>${project.basedir}/src/main/c/create_encode_wrapper.cpp</sourceFilename>
+                                <sourceFilename>${project.basedir}/src/main/c/jabcode_c_wrapper.c</sourceFilename>
                                 <sourceFilename>${project.basedir}/src/main/c/JABCodeNative_jni.cpp</sourceFilename>
                             </sourceFilenames>
                             <linkPaths>
@@ -279,7 +276,6 @@
                             </linkPaths>
                             <libraries>
                                 <library>jabcode</library>
-                                <library>jabcode_wrapper</library>
                                 <library>png16</library>
                                 <library>z</library>
                             </libraries>
@@ -353,7 +349,6 @@
                                 <argument>${project.basedir}/scripts/build.sh</argument>
                                 <argument>--core</argument>
                                 <argument>--jni</argument>
-                                <argument>--fixed</argument>
                                 <argument>--verbose</argument>
                             </arguments>
                         </configuration>

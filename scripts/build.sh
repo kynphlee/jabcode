@@ -52,21 +52,19 @@ fi
 # Build the JNI interface
 if [ "$JNI_FLAG" = true ]; then
     echo "Building JNI interface..."
-    cd javacpp-wrapper/scripts && ./build.sh --jni
-    cd ../..
+    scripts/javacpp-wrapper/build.sh --jni
 fi
 
 # Build the fixed JNI interface
 if [ "$FIXED_FLAG" = true ]; then
     echo "Building fixed JNI interface..."
-    cd javacpp-wrapper/scripts && ./build.sh --fixed
-    cd ../..
+    scripts/javacpp-wrapper/build.sh --fixed
 fi
 
 # Organize the files
 if [ "$ORGANIZE_FLAG" = true ]; then
     echo "Organizing files..."
-    ./organize.sh
+    scripts/organize.sh
 fi
 
 echo "Build completed."
