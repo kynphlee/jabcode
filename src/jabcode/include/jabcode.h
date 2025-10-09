@@ -14,6 +14,10 @@
 #ifndef JABCODE_H
 #define JABCODE_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define VERSION "2.0.0"
 #define BUILD_DATE __DATE__
 
@@ -172,5 +176,9 @@ extern jab_boolean saveImage(jab_bitmap* bitmap, jab_char* filename);
 extern jab_boolean saveImageCMYK(jab_bitmap* bitmap, jab_boolean isCMYK, jab_char* filename);
 extern jab_bitmap* readImage(jab_char* filename);
 extern void reportError(jab_char* message);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

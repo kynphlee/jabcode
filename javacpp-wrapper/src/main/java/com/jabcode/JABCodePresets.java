@@ -12,7 +12,9 @@ import org.bytedeco.javacpp.tools.*;
     target = "com.jabcode.internal.JABCodeNative",
     value = {
         @Platform(
-            include = {"jabcode.h", "jabcode_c_wrapper.h"}
+            include = {"jabcode.h", "jabcode_c_wrapper.h"},
+            resource = {"com/jabcode/jabcode_c_wrapper.c", "com/jabcode/JABCodeNative_jni.cpp"},
+            link = {"jabcode", "png16", "z"}
         )
     }
 )
@@ -29,5 +31,29 @@ public class JABCodePresets implements InfoMapper {
         infoMap.put(new Info("decodeJABCodeEx").javaNames("decodeJABCodeEx").cppNames("decodeJABCodeEx_c"));
         infoMap.put(new Info("saveImage").javaNames("saveImage").cppNames("saveImage_c"));
         infoMap.put(new Info("readImage").javaNames("readImage").cppNames("readImage_c"));
+
+        // Our custom pointer-based JNI functions are implemented manually in
+        // src/main/c/JABCodeNative_jni.cpp. Instruct JavaCPP to skip generating
+        // wrappers for these names to avoid unresolved symbol calls like
+        // createEncodePtr() in jniJABCodeNative.cpp.
+        infoMap.put(new Info(
+            "createEncodePtr",
+            "destroyEncodePtr",
+            "generateJABCodePtr",
+            "decodeJABCodePtr",
+            "decodeJABCodeExPtr",
+            "saveImagePtr",
+            "readImagePtr",
+            "createDataFromBytes",
+            "destroyDataPtr",
+            "getBitmapFromEncodePtr",
+            "getDataBytes",
+            "setModuleSizePtr",
+            "setMasterSymbolWidthPtr",
+            "setMasterSymbolHeightPtr",
+            "setSymbolVersionPtr",
+            "setSymbolPositionPtr",
+            "debugDecodeExInfoPtr"
+        ).skip());
     }
 }
