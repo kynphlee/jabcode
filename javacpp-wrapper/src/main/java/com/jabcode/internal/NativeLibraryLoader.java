@@ -39,11 +39,27 @@ public class NativeLibraryLoader {
     public static void load() {
         if (LOADED.compareAndSet(false, true)) {
             try {
-                // First try to load from the Java library path
-                System.loadLibrary("jabcode_jni");
-                loadedLibraryPath = findLibraryPath("jabcode_jni");
-                System.out.println("Loaded native library from java.library.path: " + loadedLibraryPath);
-                return;
+                // Prefer JavaCPP loader first to avoid duplicate loads and path ambiguity
+                try {
+                    org.bytedeco.javacpp.Loader.load(com.jabcode.internal.JABCodeNative.class);
+                    // Also attempt to load pointer JNI explicitly; ignore if absent
+                    try { org.bytedeco.javacpp.Loader.load(com.jabcode.internal.JABCodeNativePtr.class); } catch (Throwable ignore2) {}
+                    loadedLibraryPath = "Loaded via JavaCPP Loader";
+                    return;
+                } catch (Throwable ignore) {
+                    // Fallback to manual strategies below
+                }
+                // Prefer the canonical JavaCPP name first, then fall back to legacy alias (manual path)
+                tryLoadByNameOrPath("jniJABCodeNative", getLibraryNameVariant("jniJABCodeNative"));
+                if (loadedLibraryPath == null) {
+                    tryLoadByNameOrPath("jabcode_jni", getLibraryName());
+                }
+                if (loadedLibraryPath != null) {
+                    System.out.println("Loaded native library from java.library.path: " + loadedLibraryPath);
+                    // Best-effort: load alternates so all JNI symbols (including Ptr) are available
+                    bestEffortLoadAlternates();
+                    return;
+                }
             } catch (UnsatisfiedLinkError e) {
                 // If that fails, try to load from standard locations
                 String libraryPath = findLibraryInStandardLocations();
@@ -51,6 +67,8 @@ public class NativeLibraryLoader {
                     System.load(libraryPath);
                     loadedLibraryPath = libraryPath;
                     System.out.println("Loaded native library from: " + loadedLibraryPath);
+                    // Best-effort: load alternates so all JNI symbols (including Ptr) are available
+                    bestEffortLoadAlternates();
                     return;
                 }
                 
@@ -75,13 +93,44 @@ public class NativeLibraryLoader {
             }
         }
     }
+
+    private static void bestEffortLoadAlternates() {
+        // These calls are best-effort; ignore failures if already loaded or not present
+        tryLoadByNameOrPath("jniJABCodeNative", getLibraryNameVariant("jniJABCodeNative"));
+        tryLoadByNameOrPath("jniJABCodeNativePtr", getLibraryNameVariant("jniJABCodeNativePtr"));
+        tryLoadByNameOrPath("jabcode_jni", getLibraryName());
+    }
+
+    private static void tryLoadByNameOrPath(String baseName, String fileName) {
+        try {
+            System.loadLibrary(baseName);
+            if (loadedLibraryPath == null) {
+                loadedLibraryPath = findLibraryPath(baseName);
+            }
+            return;
+        } catch (Throwable ignore) {
+            // Fall through to search standard locations
+        }
+        try {
+            String path = findSpecificLibraryInStandardLocations(fileName);
+            if (path != null) {
+                System.load(path);
+                if (loadedLibraryPath == null) {
+                    loadedLibraryPath = path;
+                }
+            }
+        } catch (Throwable ignore) {
+            // ignore
+        }
+    }
     
     /**
      * Find the library in standard locations
      * @return the path to the library, or null if not found
      */
     private static String findLibraryInStandardLocations() {
-        String libraryName = getLibraryName();
+        // Prefer the canonical name first
+        String libraryName = getLibraryNameVariant("jniJABCodeNative");
         String currentDir = System.getProperty("user.dir");
         
         for (String location : STANDARD_LOCATIONS) {
@@ -90,7 +139,25 @@ public class NativeLibraryLoader {
                 return libraryFile.getAbsolutePath();
             }
         }
-        
+        // Fallback to the legacy alias used by some loaders
+        libraryName = getLibraryName();
+        for (String location : STANDARD_LOCATIONS) {
+            File libraryFile = new File(currentDir, location + File.separator + libraryName);
+            if (libraryFile.exists()) {
+                return libraryFile.getAbsolutePath();
+            }
+        }
+        return null;
+    }
+
+    private static String findSpecificLibraryInStandardLocations(String fileName) {
+        String currentDir = System.getProperty("user.dir");
+        for (String location : STANDARD_LOCATIONS) {
+            File libraryFile = new File(currentDir, location + File.separator + fileName);
+            if (libraryFile.exists()) {
+                return libraryFile.getAbsolutePath();
+            }
+        }
         return null;
     }
     
@@ -151,6 +218,29 @@ public class NativeLibraryLoader {
             return "libjabcode_jni.dylib";
         } else {
             return "libjabcode_jni.so";
+        }
+    }
+
+    private static String getLibraryNameVariant(String base) {
+        String osName = System.getProperty("os.name").toLowerCase();
+        if (osName.contains("win")) {
+            return base + ".dll";
+        } else if (osName.contains("mac")) {
+            return "lib" + base + ".dylib";
+        } else {
+            return "lib" + base + ".so";
+        }
+    }
+    
+    private static String detectPlatform() {
+        String osName = System.getProperty("os.name").toLowerCase();
+        String arch = System.getProperty("os.arch").toLowerCase();
+        if (osName.contains("win")) {
+            return arch.contains("64") ? "windows-x86_64" : "windows-x86";
+        } else if (osName.contains("mac")) {
+            return arch.contains("aarch64") || arch.contains("arm64") ? "macosx-arm64" : "macosx-x86_64";
+        } else {
+            return arch.contains("64") ? "linux-x86_64" : "linux-x86";
         }
     }
     

@@ -9,7 +9,24 @@ import org.bytedeco.javacpp.annotation.Cast;
  * under the JNI class name com.jabcode.internal.JABCodeNativePtr.
  */
 public class JABCodeNativePtr {
-    static { Loader.load(); }
+    // Load the primary JNI first, then try to load a dedicated Ptr JNI library if present.
+    // This allows two configurations to work:
+    // 1) Single library: libjniJABCodeNative.so contains the Ptr JNI symbols
+    // 2) Dual library:  libjniJABCodeNative.so + libjniJABCodeNativePtr.so (only Ptr symbols)
+    static {
+        Loader.load(JABCodeNative.class);
+        try {
+            Loader.load(); // attempts to load libjniJABCodeNativePtr.so by convention
+        } catch (Throwable ignore) {
+            // It's fine if a separate Ptr library isn't present; we rely on the primary library.
+        }
+        // Fallback: try explicit System.loadLibrary by canonical name
+        try {
+            System.loadLibrary("jniJABCodeNativePtr");
+        } catch (Throwable ignore) {
+            // ignore
+        }
+    }
 
     // Encoder / Data lifecycle
     public static native long createEncodePtr(@Cast("jab_int32") int color_number, @Cast("jab_int32") int symbol_number);

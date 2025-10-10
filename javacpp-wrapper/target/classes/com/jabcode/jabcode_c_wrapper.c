@@ -1,13 +1,10 @@
 /**
- * JABCode C Wrapper Implementation
- * This file provides C wrapper functions for the JABCode C++ library
+ * JABCode C Wrapper Implementation (C language)
+ * Provides C wrapper functions over the JABCode C library APIs.
  */
 
 #include "jabcode_c_wrapper.h"
 #include <stdio.h>
-
-// C wrapper functions for JABCode library
-extern "C" {
 
 jab_encode* createEncode_c(jab_int32 color_number, jab_int32 symbol_number) {
     return createEncode(color_number, symbol_number);
@@ -42,8 +39,5 @@ jab_bitmap* readImage_c(jab_char* filename) {
 }
 
 void reportError_c(jab_char* message) {
-    // This is a simple wrapper for the reportError function
-    printf("JABCode Error: %s\n", message);
+    reportError(message);
 }
-
-} // extern "C"

@@ -16,7 +16,7 @@ $(TARGET_STATIC): $(OBJECTS)
 	$(RANLIB) $@
 
 $(TARGET_SHARED): $(OBJECTS)
-	$(CC) -shared -Wl,-soname,libjabcode.so -o $@ $^ -lm
+	$(CC) -shared -Wl,-soname,libjabcode.so -o $@ $^ -lm -lpng16 -lz
 
 $(OBJECTS): %.o: %.c
 	$(CC) -c -I. -I./include $(CFLAGS) $< -o $@
