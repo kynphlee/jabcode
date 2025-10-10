@@ -44,7 +44,14 @@ public class NativeLibraryLoader {
                     org.bytedeco.javacpp.Loader.load(com.jabcode.internal.JABCodeNative.class);
                     // Also attempt to load pointer JNI explicitly; ignore if absent
                     try { org.bytedeco.javacpp.Loader.load(com.jabcode.internal.JABCodeNativePtr.class); } catch (Throwable ignore2) {}
-                    loadedLibraryPath = "Loaded via JavaCPP Loader";
+                    // Attempt to resolve actual file path from java.library.path so tests can verify existence
+                    String resolved = findLibraryPath("jniJABCodeNative");
+                    if (resolved == null || resolved.startsWith("Unknown")) {
+                        resolved = findLibraryPath("jabcode_jni");
+                    }
+                    loadedLibraryPath = (resolved != null && !resolved.startsWith("Unknown"))
+                        ? resolved
+                        : "Unknown (Loaded via JavaCPP Loader)";
                     return;
                 } catch (Throwable ignore) {
                     // Fallback to manual strategies below
