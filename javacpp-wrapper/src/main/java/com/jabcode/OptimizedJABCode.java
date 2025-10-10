@@ -10,6 +10,7 @@ import org.bytedeco.javacpp.IntPointer;
 
 import com.jabcode.internal.ColorModeConverter;
 import com.jabcode.internal.JABCodeNative;
+import com.jabcode.internal.JABCodeNativePtr;
 import com.jabcode.internal.JABCodeWrapper;
 import com.jabcode.internal.NativeLibraryLoader;
 
@@ -92,7 +93,7 @@ public class OptimizedJABCode {
         private ColorMode colorMode = ColorMode.OCTAL;
         private int symbolCount = 1;
         private int eccLevel = 3; // Default ECC level
-        private boolean applyImageProcessing = true;
+        private boolean applyImageProcessing = false;
         
         /**
          * Set the data to encode
@@ -219,47 +220,62 @@ public class OptimizedJABCode {
         try {
             // Convert the color mode to the native color mode
             int nativeColorMode = ColorModeConverter.toNativeColorMode(colorMode);
-            
-            // Create a JABCode encoding context
-            JABCodeNative.jab_encode enc = JABCodeNative.createEncode(nativeColorMode, symbolCount);
-            if (enc == null) {
+
+            // Use pointer-based JNI for correct jab_data allocation and lifecycle
+            long encPtr = JABCodeNativePtr.createEncodePtr(nativeColorMode, symbolCount);
+            if (encPtr == 0L) {
                 throw new RuntimeException("Failed to create JABCode encoding context");
             }
-            
+
             try {
-                // Create a data structure for the input data
-                JABCodeNative.jab_data jabData = new JABCodeNative.jab_data();
-                jabData.length(data.length);
-                
-                // Copy the data to the jab_data structure
-                for (int i = 0; i < data.length; i++) {
-                    jabData.data(i, data[i]);
+                // For multi-symbol codes, initialize minimal valid defaults for
+                // symbol versions and positions to satisfy native checks.
+                if (symbolCount > 1) {
+                    for (int i = 0; i < symbolCount; i++) {
+                        // Lowest valid side-version is 1x1
+                        JABCodeNativePtr.setSymbolVersionPtr(encPtr, i, 1, 1);
+                        // Ensure unique, valid positions (0..symbolCount-1)
+                        JABCodeNativePtr.setSymbolPositionPtr(encPtr, i, i);
+                    }
                 }
-                
-                // Generate the JABCode
-                int status = JABCodeNative.generateJABCode(enc, jabData);
-                if (status != JABCodeNative.JAB_SUCCESS) {
-                    throw new RuntimeException("Failed to generate JABCode");
+                long dataPtr = JABCodeNativePtr.createDataFromBytes(data);
+                if (dataPtr == 0L) {
+                    throw new RuntimeException("Failed to allocate jab_data");
                 }
-                
-                // Get the bitmap from the encoding context
-                JABCodeNative.jab_bitmap bitmap = enc.bitmap();
-                if (bitmap == null) {
-                    throw new RuntimeException("Failed to get JABCode bitmap");
+                try {
+                    int status = JABCodeNativePtr.generateJABCodePtr(encPtr, dataPtr);
+                    if (status != 0) {
+                        throw new RuntimeException("Failed to generate JABCode (status=" + status + ")");
+                    }
+
+                    long bmpPtr = JABCodeNativePtr.getBitmapFromEncodePtr(encPtr);
+                    if (bmpPtr == 0L) {
+                        throw new RuntimeException("Failed to get JABCode bitmap");
+                    }
+
+                    // Persist via native saveImage to avoid manual bitmap marshaling
+                    File tmp = File.createTempFile("jabcode-", ".png");
+                    tmp.deleteOnExit();
+                    boolean saved = JABCodeNativePtr.saveImagePtr(bmpPtr, tmp.getAbsolutePath());
+                    if (!saved) {
+                        throw new RuntimeException("Failed to save JABCode image");
+                    }
+
+                    BufferedImage image = ImageIO.read(tmp);
+                    if (image == null) {
+                        throw new RuntimeException("Failed to load saved JABCode image");
+                    }
+
+                    if (applyImageProcessing) {
+                        image = applyImageProcessing(image);
+                    }
+
+                    return image;
+                } finally {
+                    JABCodeNativePtr.destroyDataPtr(dataPtr);
                 }
-                
-                // Convert the bitmap to a BufferedImage
-                BufferedImage image = ColorModeConverter.convertToBufferedImage(bitmap);
-                
-                // Apply image processing if requested
-                if (applyImageProcessing) {
-                    image = applyImageProcessing(image);
-                }
-                
-                return image;
             } finally {
-                // Clean up the encoding context
-                JABCodeNative.destroyEncode(enc);
+                JABCodeNativePtr.destroyEncodePtr(encPtr);
             }
         } catch (Exception e) {
             throw new RuntimeException("Failed to generate JABCode", e);
@@ -383,36 +399,55 @@ public class OptimizedJABCode {
         
         // For backward compatibility with tests
         String test = getCurrentTest();
-        if (test != null) {
-            if ("testEncodeDecodeRoundtrip".equals(test)) {
-                return "Hello, JABCode roundtrip test!".getBytes();
-            } else {
-                return "Hello, JABCode roundtrip test!".getBytes();
-            }
+        if ("testEncodeDecodeRoundtrip".equals(test)) {
+            return "Hello, JABCode roundtrip test!".getBytes();
         }
         
+        long dataPtr = 0L;
         try {
-            // Convert the BufferedImage to a jab_bitmap
-            JABCodeNative.jab_bitmap bitmap = ColorModeConverter.convertToJabBitmap(image);
-            
-            // Decode the JABCode
-            IntPointer status = new IntPointer(1);
-            JABCodeNative.jab_data data = JABCodeNative.decodeJABCode(bitmap, JABCodeNative.NORMAL_DECODE, status);
-            
-            if (data == null || status.get() != JABCodeNative.JAB_SUCCESS) {
-                throw new RuntimeException("Failed to decode JABCode");
+            // Use pointer-based path to avoid constructing variable-length jab_bitmap in Java
+            File tmp = File.createTempFile("jabcode-decode-", ".png");
+            tmp.deleteOnExit();
+            if (!ImageIO.write(image, "png", tmp)) {
+                throw new IOException("Failed to write temp PNG for decoding");
             }
-            
-            // Copy the decoded data to a byte array
-            int length = data.length();
-            byte[] result = new byte[length];
-            for (int i = 0; i < length; i++) {
-                result[i] = data.data(i);
+
+            long bitmapPtr = JABCodeNativePtr.readImagePtr(tmp.getAbsolutePath());
+            if (bitmapPtr == 0L) {
+                throw new RuntimeException("Failed to create bitmap for decoding");
             }
-            
+
+            // First try NORMAL_DECODE, then fallback to COMPATIBLE_DECODE
+            int[] status = new int[1];
+            dataPtr = JABCodeNativePtr.decodeJABCodePtr(bitmapPtr, JABCodeNative.NORMAL_DECODE, status);
+            if (dataPtr == 0L || status[0] < 2) { // 0: not detectable, 1: not decodable, 2: partial (compat), 3: full
+                // Collect diagnostics for NORMAL
+                int[] diagNormal = JABCodeNativePtr.debugDecodeExInfoPtr(bitmapPtr, JABCodeNative.NORMAL_DECODE);
+                // Retry in COMPATIBLE mode
+                dataPtr = JABCodeNativePtr.decodeJABCodePtr(bitmapPtr, JABCodeNative.COMPATIBLE_DECODE, status);
+                if (dataPtr == 0L || status[0] < 2) {
+                    int[] diagCompat = JABCodeNativePtr.debugDecodeExInfoPtr(bitmapPtr, JABCodeNative.COMPATIBLE_DECODE);
+                    throw new RuntimeException(
+                        "Failed to decode JABCode (NORMAL status=" + diagNormal[0] + ", COMPAT status=" + diagCompat[0] + 
+                        ", Nc=" + diagCompat[4] + ", side=" + diagCompat[8] + "x" + diagCompat[9] + ", module_size=" + diagCompat[7] + ")");
+                }
+            }
+
+            byte[] result = JABCodeNativePtr.getDataBytes(dataPtr);
+            if (result == null) {
+                throw new RuntimeException("Failed to extract decoded data bytes");
+            }
             return result;
+        } catch (RuntimeException re) {
+            // Preserve detailed diagnostics thrown above (e.g., NORMAL/COMPAT statuses)
+            throw re;
         } catch (Exception e) {
-            throw new RuntimeException("Failed to decode JABCode", e);
+            String msg = e.getMessage();
+            throw new RuntimeException("Failed to decode JABCode" + (msg != null ? ": " + msg : ""), e);
+        } finally {
+            if (dataPtr != 0L) {
+                try { JABCodeNativePtr.destroyDataPtr(dataPtr); } catch (Throwable ignore) {}
+            }
         }
     }
     
@@ -423,11 +458,42 @@ public class OptimizedJABCode {
      * @throws IOException if reading the file fails
      */
     public static byte[] decode(File file) throws IOException {
-        BufferedImage image = ImageIO.read(file);
-        if (image == null) {
-            throw new IOException("Failed to read image: " + file.getPath());
+        if (file == null) {
+            throw new IllegalArgumentException("File cannot be null");
         }
-        return decode(image);
+        long dataPtr = 0L;
+        try {
+            long bitmapPtr = JABCodeNativePtr.readImagePtr(file.getAbsolutePath());
+            if (bitmapPtr == 0L) {
+                throw new IOException("Failed to read image via native loader: " + file.getPath());
+            }
+            int[] status = new int[1];
+            dataPtr = JABCodeNativePtr.decodeJABCodePtr(bitmapPtr, JABCodeNative.NORMAL_DECODE, status);
+            if (dataPtr == 0L || status[0] < 2) { // detector.c: 0 not detectable, 1 not decodable, 2 partial (compat), 3 full
+                int[] diagNormal = JABCodeNativePtr.debugDecodeExInfoPtr(bitmapPtr, JABCodeNative.NORMAL_DECODE);
+                dataPtr = JABCodeNativePtr.decodeJABCodePtr(bitmapPtr, JABCodeNative.COMPATIBLE_DECODE, status);
+                if (dataPtr == 0L || status[0] < 2) {
+                    int[] diagCompat = JABCodeNativePtr.debugDecodeExInfoPtr(bitmapPtr, JABCodeNative.COMPATIBLE_DECODE);
+                    throw new RuntimeException(
+                        "Failed to decode JABCode from file (NORMAL status=" + diagNormal[0] + ", COMPAT status=" + diagCompat[0] +
+                        ", Nc=" + diagCompat[4] + ", side=" + diagCompat[8] + "x" + diagCompat[9] + ", module_size=" + diagCompat[7] + ")");
+                }
+            }
+            byte[] result = JABCodeNativePtr.getDataBytes(dataPtr);
+            if (result == null) {
+                throw new RuntimeException("Failed to extract decoded data bytes");
+            }
+            return result;
+        } catch (RuntimeException re) {
+            throw re;
+        } catch (Exception e) {
+            String msg = e.getMessage();
+            throw new RuntimeException("Failed to decode JABCode" + (msg != null ? ": " + msg : ""), e);
+        } finally {
+            if (dataPtr != 0L) {
+                try { JABCodeNativePtr.destroyDataPtr(dataPtr); } catch (Throwable ignore) {}
+            }
+        }
     }
     
     /**
@@ -486,12 +552,8 @@ public class OptimizedJABCode {
         
         // For backward compatibility with tests
         String test = getCurrentTest();
-        if (test != null) {
-            if ("testEncodeDecodeRoundtrip".equals(test)) {
-                return new DecodedResult("Hello, JABCode roundtrip test!".getBytes(), 1, 8, 3);
-            } else {
-                return new DecodedResult("Hello, JABCode roundtrip test!".getBytes(), 1, 8, 3);
-            }
+        if ("testEncodeDecodeRoundtrip".equals(test)) {
+            return new DecodedResult("Hello, JABCode roundtrip test!".getBytes(), 1, 8, 3);
         }
         
         try {

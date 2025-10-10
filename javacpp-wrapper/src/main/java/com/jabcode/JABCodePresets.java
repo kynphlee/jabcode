@@ -1,7 +1,6 @@
 package com.jabcode;
 
 import org.bytedeco.javacpp.annotation.*;
-import org.bytedeco.javacpp.*;
 import org.bytedeco.javacpp.tools.*;
 
 /**
@@ -14,7 +13,9 @@ import org.bytedeco.javacpp.tools.*;
         @Platform(
             include = {"jabcode.h", "jabcode_c_wrapper.h"},
             resource = {"com/jabcode/jabcode_c_wrapper.c", "com/jabcode/JABCodeNative_jni.cpp"},
-            link = {"jabcode", "png16", "z"}
+            // Order reversed by JavaCPP at link time; specify in reverse to obtain:
+            // final linker order: -ljabcode -lpng16 -lz (so --as-needed retains png/z)
+            link = {"z", "png16", "jabcode"}
         )
     }
 )

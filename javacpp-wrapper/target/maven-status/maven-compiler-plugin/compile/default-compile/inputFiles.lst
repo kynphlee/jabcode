@@ -14,6 +14,7 @@
 /mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/javacpp-wrapper/src/main/java/com/jabcode/SimpleJABCode.java
 /mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/javacpp-wrapper/src/main/java/com/jabcode/internal/JABCodeNativeBridge.java
 /mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/javacpp-wrapper/src/main/java/com/jabcode/internal/JABCodeNative.java
+/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/javacpp-wrapper/src/main/java/com/jabcode/internal/JABCodeNativePtr.java
 /mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/javacpp-wrapper/src/main/java/com/jabcode/examples/JABCodeExample.java
 /mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/javacpp-wrapper/src/main/java/com/jabcode/internal/NativeLibraryLoader.java
 /mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/javacpp-wrapper/src/main/java/com/jabcode/internal/JABCodeHelper.java

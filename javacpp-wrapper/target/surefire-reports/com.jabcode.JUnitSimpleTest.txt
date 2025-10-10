@@ -1,8 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: com.jabcode.JUnitSimpleTest
 -------------------------------------------------------------------------------
-Tests run: 2, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 0.001 s <<< FAILURE! - in com.jabcode.JUnitSimpleTest
-testEncode(com.jabcode.JUnitSimpleTest)  Time elapsed: 0.001 s  <<< FAILURE!
-java.lang.AssertionError: Exception occurred: Failed to generate JABCode
-	at com.jabcode.JUnitSimpleTest.testEncode(JUnitSimpleTest.java:45)
-
+Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.031 s - in com.jabcode.JUnitSimpleTest

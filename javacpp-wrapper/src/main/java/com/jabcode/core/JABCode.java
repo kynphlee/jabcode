@@ -246,7 +246,8 @@ public class JABCode {
             // Use OptimizedJABCode for decoding
             return OptimizedJABCode.decode(image);
         } catch (Exception e) {
-            throw new JABCodeException("Failed to decode JABCode", e);
+            String msg = e.getMessage();
+            throw new JABCodeException("Failed to decode JABCode" + (msg != null ? ": " + msg : ""), e);
         }
     }
     
@@ -258,11 +259,15 @@ public class JABCode {
      * @throws IOException if reading the file fails
      */
     public static byte[] decode(File file) throws IOException {
-        BufferedImage image = ImageIO.read(file);
-        if (image == null) {
-            throw new IOException("Failed to read image: " + file.getPath());
+        if (file == null) {
+            throw new IllegalArgumentException("File cannot be null");
         }
-        return decode(image);
+        try {
+            return OptimizedJABCode.decode(file);
+        } catch (Exception e) {
+            String msg = e.getMessage();
+            throw new JABCodeException("Failed to decode JABCode" + (msg != null ? ": " + msg : ""), e);
+        }
     }
     
     /**
@@ -334,7 +339,8 @@ public class JABCode {
             
             return result;
         } catch (Exception e) {
-            throw new JABCodeException("Failed to decode JABCode with extended information", e);
+            String msg = e.getMessage();
+            throw new JABCodeException("Failed to decode JABCode with extended information" + (msg != null ? ": " + msg : ""), e);
         }
     }
     

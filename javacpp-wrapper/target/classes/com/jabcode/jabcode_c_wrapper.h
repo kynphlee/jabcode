@@ -6,11 +6,12 @@
 #ifndef JABCODE_C_WRAPPER_H
 #define JABCODE_C_WRAPPER_H
 
-#include "jabcode.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+// Ensure jabcode.h also has C linkage when included in C++ compilation units
+#include "jabcode.h"
 
 // C wrapper functions for JABCode library
 jab_encode* createEncode_c(jab_int32 color_number, jab_int32 symbol_number);
