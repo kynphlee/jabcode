@@ -5,13 +5,9 @@ import java.io.File;
 import java.io.IOException;
 import javax.imageio.ImageIO;
 
-import org.bytedeco.javacpp.BytePointer;
-import org.bytedeco.javacpp.IntPointer;
-
 import com.jabcode.internal.ColorModeConverter;
 import com.jabcode.internal.JABCodeNative;
 import com.jabcode.internal.JABCodeNativePtr;
-import com.jabcode.internal.JABCodeWrapper;
 import com.jabcode.internal.NativeLibraryLoader;
 
 /**
@@ -32,6 +28,26 @@ public class OptimizedJABCode {
                 throw new RuntimeException("Failed to load native library", e);
             }
         }
+    }
+
+    /**
+     * Decode a JABCode from a file, with optional image preprocessing (sharpening, contrast) applied.
+     * This is useful for high-color validation where alignment/color sampling benefits from preprocessing.
+     */
+    public static byte[] decodeWithProcessing(File file, boolean applyProcessing) throws IOException {
+        if (!applyProcessing) {
+            return decode(file);
+        }
+        if (file == null) {
+            throw new IllegalArgumentException("File cannot be null");
+        }
+        // Load via Java, preprocess, then reuse decode(BufferedImage) path (which uses native under the hood)
+        BufferedImage img = ImageIO.read(file);
+        if (img == null) {
+            throw new IOException("Failed to load image for preprocessing: " + file);
+        }
+        img = applyImageProcessing(img);
+        return decode(img);
     }
     
     /**
@@ -228,23 +244,114 @@ public class OptimizedJABCode {
             }
 
             try {
-                // For multi-symbol codes, initialize minimal valid defaults for
-                // symbol versions and positions to satisfy native checks.
+                // Ensure unique, valid positions AND minimal valid versions for multi-symbol encodes.
                 if (symbolCount > 1) {
                     for (int i = 0; i < symbolCount; i++) {
-                        // Lowest valid side-version is 1x1
-                        JABCodeNativePtr.setSymbolVersionPtr(encPtr, i, 1, 1);
-                        // Ensure unique, valid positions (0..symbolCount-1)
                         JABCodeNativePtr.setSymbolPositionPtr(encPtr, i, i);
+                        JABCodeNativePtr.setSymbolVersionPtr(encPtr, i, 1, 1);
                     }
                 }
+                boolean highColor = ColorModeConverter.isHighColorNativeEnabled();
+                // For high-color single-symbol encodes, enforce a minimum version to ensure alignment patterns exist.
+                if (highColor && symbolCount == 1 && nativeColorMode >= 16) {
+                    // Heuristic min side_version by color count to ensure sufficient APs
+                    int minV;
+                    if (nativeColorMode >= 256)      minV = 20; // 256 colors (v20=97x97)
+                    else if (nativeColorMode >= 128) minV = 18; // 128 colors (v18=81x81)
+                    else if (nativeColorMode >= 64)  minV = 16; // 64 colors (v16=73x73)
+                    else                              minV = 16; // 16/32 colors -> v16 (73x73)
+                    JABCodeNativePtr.setSymbolVersionPtr(encPtr, 0, minV, minV);
+                    // Increase module size to improve sampling robustness for high-color metadata.
+                    // Use 24 for <=32 colors, 28 for 64 colors, 32 for 128 colors, 36 for 256 colors.
+                    int msz = (nativeColorMode >= 256) ? 36 : (nativeColorMode >= 128) ? 32 : (nativeColorMode >= 64) ? 28 : 24;
+                    JABCodeNativePtr.setModuleSizePtr(encPtr, msz);
+                    // Debug: log intended encode parameters before generation
+                    int[] dbgPre = JABCodeNativePtr.debugEncodeInfoPtr(encPtr);
+                    System.out.println("[HC-ENCODE pre] color=" + dbgPre[0] + ", v=(" + dbgPre[1] + "," + dbgPre[2] + "), msz=" + dbgPre[3]);
+                }
+                // Apply ECC level to all symbols
+                try {
+                    JABCodeNativePtr.setAllEccLevelsPtr(encPtr, eccLevel);
+                } catch (Throwable ignore) {}
+
+                // Let native encoder auto-derive symbol versions/sizes for best fit.
                 long dataPtr = JABCodeNativePtr.createDataFromBytes(data);
                 if (dataPtr == 0L) {
                     throw new RuntimeException("Failed to allocate jab_data");
                 }
                 try {
                     int status = JABCodeNativePtr.generateJABCodePtr(encPtr, dataPtr);
-                    if (status != 0) {
+                    if (highColor) {
+                        int[] dbgPost = JABCodeNativePtr.debugEncodeInfoPtr(encPtr);
+                        System.out.println("[HC-ENCODE post] status=" + status + ", color=" + dbgPost[0] + ", v=(" + dbgPost[1] + "," + dbgPost[2] + "), msz=" + dbgPost[3]);
+                    }
+                    // If generation fails, attempt corrective strategies only when high-color native is enabled.
+                    if (status != 0 && highColor) {
+                        boolean recovered = false;
+                        // Case A: incorrect version/position -> try minimal valid versions for multi-symbol
+                        if (status == 3 && symbolCount > 1) {
+                            int[] vers = new int[] {1, 2, 3, 4, 6, 8};
+                            for (int v : vers) {
+                                try {
+                                    for (int i = 0; i < symbolCount; i++) {
+                                        JABCodeNativePtr.setSymbolVersionPtr(encPtr, i, v, v);
+                                        JABCodeNativePtr.setSymbolPositionPtr(encPtr, i, i);
+                                    }
+                                    int st2 = JABCodeNativePtr.generateJABCodePtr(encPtr, dataPtr);
+                                    if (st2 == 0) { recovered = true; break; }
+                                } catch (Throwable ignore) { /* continue */ }
+                            }
+                        }
+                        // Case B: input too long
+                        if (!recovered && status == 4) {
+                            // B1: single-symbol escalation of side_version before splitting
+                            if (symbolCount == 1) {
+                                int[] singleVers = new int[] {6, 8, 10, 12, 14, 16, 18, 20, 24, 28, 32};
+                                for (int v : singleVers) {
+                                    try {
+                                        JABCodeNativePtr.setSymbolVersionPtr(encPtr, 0, v, v);
+                                        int st2 = JABCodeNativePtr.generateJABCodePtr(encPtr, dataPtr);
+                                        if (st2 == 0) { recovered = true; break; }
+                                    } catch (Throwable ignore) { /* continue */ }
+                                }
+                            }
+                            // B2: if still not recovered, increase symbol count and/or versions
+                            if (!recovered) {
+                                int maxSymbols = Math.max(4, symbolCount);
+                                for (int sc = Math.max(2, symbolCount); sc <= maxSymbols && !recovered; sc++) {
+                                    long enc2 = JABCodeNativePtr.createEncodePtr(nativeColorMode, sc);
+                                    if (enc2 == 0L) continue;
+                                    try {
+                                        for (int i = 0; i < sc; i++) {
+                                            JABCodeNativePtr.setSymbolPositionPtr(enc2, i, i);
+                                        }
+                                        int[] vers = new int[] {2, 3, 4, 5, 6, 8, 10, 12};
+                                        for (int v : vers) {
+                                            for (int i = 0; i < sc; i++) {
+                                                JABCodeNativePtr.setSymbolVersionPtr(enc2, i, v, v);
+                                            }
+                                            int st2 = JABCodeNativePtr.generateJABCodePtr(enc2, dataPtr);
+                                            if (st2 == 0) {
+                                                // switch to the successful encoder
+                                                JABCodeNativePtr.destroyEncodePtr(encPtr);
+                                                encPtr = enc2;
+                                                recovered = true;
+                                                break;
+                                            }
+                                        }
+                                    } finally {
+                                        if (!recovered) {
+                                            try { JABCodeNativePtr.destroyEncodePtr(enc2); } catch (Throwable ignore) {}
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (!recovered) {
+                            throw new RuntimeException("Failed to generate JABCode (status=" + status + ")");
+                        }
+                    } else if (status != 0) {
+                        // In default mode, fail fast as before
                         throw new RuntimeException("Failed to generate JABCode (status=" + status + ")");
                     }
 
@@ -352,7 +459,7 @@ public class OptimizedJABCode {
      * @return the encoded JABCode as a BufferedImage
      */
     public static BufferedImage encode(byte[] data) {
-        return encode(data, ColorMode.OCTAL, 1, 3, true); // Default ECC level is 3
+        return encode(data, ColorMode.OCTAL, 1, 3, false); // Default ECC level is 3; image processing disabled by default
     }
     
     /**
@@ -364,7 +471,7 @@ public class OptimizedJABCode {
         if (data == null) {
             throw new IllegalArgumentException("Data cannot be null");
         }
-        return encode(data.getBytes(), ColorMode.OCTAL, 1, 3, true); // Default ECC level is 3
+        return encode(data.getBytes(), ColorMode.OCTAL, 1, 3, false); // Default ECC level is 3; image processing disabled by default
     }
     
     // Thread-local variable to store the current test being run
@@ -556,37 +663,57 @@ public class OptimizedJABCode {
             return new DecodedResult("Hello, JABCode roundtrip test!".getBytes(), 1, 8, 3);
         }
         
+        long dataPtr = 0L;
         try {
-            // Convert the BufferedImage to a jab_bitmap
-            JABCodeNative.jab_bitmap bitmap = ColorModeConverter.convertToJabBitmap(image);
-            
-            // Create a decoded symbol array
-            JABCodeNative.jab_decoded_symbol symbols = new JABCodeNative.jab_decoded_symbol(maxSymbolCount);
-            
-            // Decode the JABCode
-            IntPointer status = new IntPointer(1);
-            JABCodeNative.jab_data data = JABCodeNative.decodeJABCodeEx(bitmap, JABCodeNative.NORMAL_DECODE, status, symbols, maxSymbolCount);
-            
-            if (data == null || status.get() != JABCodeNative.JAB_SUCCESS) {
-                throw new RuntimeException("Failed to decode JABCode");
+            // Use pointer-based path for decode; write temp PNG to reuse native I/O
+            File tmp = File.createTempFile("jabcode-decode-", ".png");
+            tmp.deleteOnExit();
+            if (!ImageIO.write(image, "png", tmp)) {
+                throw new IOException("Failed to write temp PNG for decoding");
             }
-            
-            // Copy the decoded data to a byte array
-            int length = data.length();
-            byte[] result = new byte[length];
-            for (int i = 0; i < length; i++) {
-                result[i] = data.data(i);
+
+            long bitmapPtr = JABCodeNativePtr.readImagePtr(tmp.getAbsolutePath());
+            if (bitmapPtr == 0L) {
+                throw new RuntimeException("Failed to create bitmap for decoding");
             }
-            
-            // Get the metadata from the first symbol
-            JABCodeNative.jab_metadata metadata = symbols.metadata();
-            int colorCount = metadata.Nc() & 0xFF;
-            int symbolCount = 1; // For now, just return 1
-            int eccLevel = metadata.ecl().x(); // Get the ECC level from the metadata
-            
+
+            int[] status = new int[1];
+            int modeUsed = JABCodeNative.NORMAL_DECODE;
+            dataPtr = JABCodeNativePtr.decodeJABCodePtr(bitmapPtr, JABCodeNative.NORMAL_DECODE, status);
+            if (dataPtr == 0L || status[0] < 2) { // 0:not detectable, 1:not decodable, 2:partial, 3:full
+                int[] diagNormal = JABCodeNativePtr.debugDecodeExInfoPtr(bitmapPtr, JABCodeNative.NORMAL_DECODE);
+                dataPtr = JABCodeNativePtr.decodeJABCodePtr(bitmapPtr, JABCodeNative.COMPATIBLE_DECODE, status);
+                modeUsed = JABCodeNative.COMPATIBLE_DECODE;
+                if (dataPtr == 0L || status[0] < 2) {
+                    int[] diagCompat = JABCodeNativePtr.debugDecodeExInfoPtr(bitmapPtr, JABCodeNative.COMPATIBLE_DECODE);
+                    throw new RuntimeException(
+                        "Failed to decode JABCode (NORMAL status=" + diagNormal[0] + ", COMPAT status=" + diagCompat[0] +
+                        ", Nc=" + diagCompat[4] + ", side=" + diagCompat[8] + "x" + diagCompat[9] + ", module_size=" + diagCompat[7] + ")");
+                }
+            }
+
+            byte[] result = JABCodeNativePtr.getDataBytes(dataPtr);
+            if (result == null) {
+                throw new RuntimeException("Failed to extract decoded data bytes");
+            }
+
+            // Gather extended info via debug helper
+            int[] info = JABCodeNativePtr.debugDecodeExInfoPtr(bitmapPtr, modeUsed);
+            int Nc = info[4];
+            int colorCount = 1 << (Nc + 1); // Nc encodes log2(colors)-1
+            int eccLevel = info[5]; // ecl.x
+            int symbolCount = 1; // Placeholder until full multi-symbol extraction is wired via Ptr JNI
+
             return new DecodedResult(result, symbolCount, colorCount, eccLevel);
+        } catch (RuntimeException re) {
+            throw re;
         } catch (Exception e) {
-            throw new RuntimeException("Failed to decode JABCode with extended information", e);
+            String msg = e.getMessage();
+            throw new RuntimeException("Failed to decode JABCode with extended information" + (msg != null ? ": " + msg : ""), e);
+        } finally {
+            if (dataPtr != 0L) {
+                try { JABCodeNativePtr.destroyDataPtr(dataPtr); } catch (Throwable ignore) {}
+            }
         }
     }
     
@@ -626,6 +753,84 @@ public class OptimizedJABCode {
             throw new IllegalArgumentException("File path cannot be null");
         }
         saveToFile(image, new File(filePath));
+    }
+
+    /**
+     * Encode and save directly via native saveImagePtr to preserve the palette (recommended for ≥16 colors).
+     * This bypasses Java ImageIO writing for the initial encode output, avoiding palette quantization.
+     */
+    public static void encodeToFileNative(byte[] data, ColorMode colorMode, int symbolCount, int eccLevel, boolean applyImageProcessing, File file) throws IOException {
+        if (data == null || data.length == 0) {
+            throw new IllegalArgumentException("Data cannot be null/empty");
+        }
+        if (file == null) {
+            throw new IllegalArgumentException("File cannot be null");
+        }
+        if (symbolCount < 1 || symbolCount > JABCodeNative.MAX_SYMBOL_NUMBER) {
+            throw new IllegalArgumentException("Symbol count must be between 1 and " + JABCodeNative.MAX_SYMBOL_NUMBER);
+        }
+        if (eccLevel < 0 || eccLevel > 10) {
+            throw new IllegalArgumentException("ECC level must be between 0 and 10");
+        }
+
+        int nativeColorMode = ColorModeConverter.toNativeColorMode(colorMode);
+        long encPtr = JABCodeNativePtr.createEncodePtr(nativeColorMode, symbolCount);
+        if (encPtr == 0L) throw new IOException("Failed to create JABCode encoding context");
+        long dataPtr = 0L;
+        try {
+            // Multi-symbol baseline positions and minimal versions
+            if (symbolCount > 1) {
+                for (int i = 0; i < symbolCount; i++) {
+                    JABCodeNativePtr.setSymbolPositionPtr(encPtr, i, i);
+                    JABCodeNativePtr.setSymbolVersionPtr(encPtr, i, 1, 1);
+                }
+            }
+            boolean highColor = ColorModeConverter.isHighColorNativeEnabled();
+            if (highColor && symbolCount == 1 && nativeColorMode >= 16) {
+                int minV;
+                if (nativeColorMode >= 256)      minV = 18;
+                else if (nativeColorMode >= 128) minV = 16;
+                else                               minV = 14; // 64 and 16/32 use 14
+                JABCodeNativePtr.setSymbolVersionPtr(encPtr, 0, minV, minV);
+                int msz = (nativeColorMode >= 256) ? 32 : (nativeColorMode >= 128) ? 28 : (nativeColorMode >= 64) ? 24 : 20;
+                JABCodeNativePtr.setModuleSizePtr(encPtr, msz);
+                int[] dbgPre = JABCodeNativePtr.debugEncodeInfoPtr(encPtr);
+                System.out.println("[HC-ENCODE pre] color=" + dbgPre[0] + ", v=(" + dbgPre[1] + "," + dbgPre[2] + "), msz=" + dbgPre[3]);
+            }
+
+            // Apply ECC level to all symbols
+            try {
+                JABCodeNativePtr.setAllEccLevelsPtr(encPtr, eccLevel);
+            } catch (Throwable ignore) {}
+            dataPtr = JABCodeNativePtr.createDataFromBytes(data);
+            if (dataPtr == 0L) throw new IOException("Failed to allocate jab_data");
+            int status = JABCodeNativePtr.generateJABCodePtr(encPtr, dataPtr);
+            if (status != 0) throw new IOException("Failed to generate JABCode (status=" + status + ")");
+            int[] dbgPost = JABCodeNativePtr.debugEncodeInfoPtr(encPtr);
+            System.out.println("[HC-ENCODE post] status=" + status + ", color=" + dbgPost[0] + ", v=(" + dbgPost[1] + "," + dbgPost[2] + "), msz=" + dbgPost[3]);
+
+            long bmpPtr = JABCodeNativePtr.getBitmapFromEncodePtr(encPtr);
+            if (bmpPtr == 0L) throw new IOException("Failed to get JABCode bitmap");
+
+            // Optionally apply image processing and overwrite via Java path; otherwise save natively.
+            if (applyImageProcessing) {
+                File tmp = File.createTempFile("jabcode-enc-", ".png");
+                tmp.deleteOnExit();
+                if (!JABCodeNativePtr.saveImagePtr(bmpPtr, tmp.getAbsolutePath())) {
+                    throw new IOException("Failed to save native image (pre-process)");
+                }
+                BufferedImage img = ImageIO.read(tmp);
+                if (img == null) throw new IOException("Failed to load native-saved image for processing");
+                img = applyImageProcessing(img);
+                saveToFile(img, file);
+            } else {
+                boolean ok = JABCodeNativePtr.saveImagePtr(bmpPtr, file.getAbsolutePath());
+                if (!ok) throw new IOException("Failed to save native image to file: " + file);
+            }
+        } finally {
+            if (dataPtr != 0L) try { JABCodeNativePtr.destroyDataPtr(dataPtr); } catch (Throwable ignore) {}
+            try { JABCodeNativePtr.destroyEncodePtr(encPtr); } catch (Throwable ignore) {}
+        }
     }
     
     /**

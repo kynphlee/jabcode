@@ -51,8 +51,25 @@ public class JABCodeNativePtr {
     public static native void setMasterSymbolHeightPtr(long encPtr, int value);
     public static native void setSymbolVersionPtr(long encPtr, int index, int vx, int vy);
     public static native void setSymbolPositionPtr(long encPtr, int index, int pos);
+    public static native void setSymbolEccLevelPtr(long encPtr, int index, int level);
+    public static native void setAllEccLevelsPtr(long encPtr, int level);
 
     // Debug helper
     // Returns: [status, default_mode, side_version.x, side_version.y, Nc, ecl.x, ecl.y, module_size(int), side_size.x, side_size.y, data_ok]
     public static native int[] debugDecodeExInfoPtr(long bitmapPtr, int mode);
+    // Detector stats: [status, Nc, side_x, side_y, msz, ap0x, ap0y, ap1x, ap1y, ap2x, ap2y, ap3x, ap3y]
+    public static native int[] debugDetectorStatsPtr(long bitmapPtr, int mode);
+
+    // Encode debug helper
+    // Returns: [color_number, version_x, version_y, module_size]
+    public static native int[] debugEncodeInfoPtr(long encPtr);
+
+    // Experimental: adjust Nc detection thresholds (for tests)
+    public static native void setNcThresholds(int thsBlack, double thsStd);
+    // Experimental: force Nc in decoder (for tests); pass -1 to reset
+    public static native void setForceNc(int nc);
+    // Experimental: use default palette grid for >=16 colors during decode (for tests)
+    public static native void setUseDefaultPaletteHighColor(int flag);
+    // Experimental: force ECL (wc, wr) during decode (for tests); pass <=0 to disable
+    public static native void setForceEcl(int wc, int wr);
 }

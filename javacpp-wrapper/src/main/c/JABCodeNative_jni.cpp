@@ -101,6 +101,44 @@ JNIEXPORT jintArray JNICALL Java_com_jabcode_internal_JABCodeNativePtr_debugDeco
 
 } // extern "C"
 
+extern "C" {
+
+JNIEXPORT jintArray JNICALL Java_com_jabcode_internal_JABCodeNativePtr_debugDetectorStatsPtr(JNIEnv* env, jclass, jlong bitmapPtr, jint mode) {
+    // Layout: [status, Nc, side_x, side_y, msz, ap0x, ap0y, ap1x, ap1y, ap2x, ap2y, ap3x, ap3y]
+    const int OUT_LEN = 13;
+    jint out[OUT_LEN];
+    for (int i = 0; i < OUT_LEN; ++i) out[i] = 0;
+    if (!bitmapPtr) {
+        jintArray arr = env->NewIntArray(OUT_LEN);
+        if (!arr) return NULL;
+        env->SetIntArrayRegion(arr, 0, OUT_LEN, out);
+        return arr;
+    }
+    jab_decoded_symbol sym[1];
+    memset(sym, 0, sizeof(sym));
+    jab_int32 status = 0;
+    jab_data* data = decodeJABCodeEx_c((jab_bitmap*)bitmapPtr, (jab_int32)mode, &status, sym, 1);
+
+    out[0] = (jint)status;
+    out[1] = (jint)sym[0].metadata.Nc;
+    out[2] = (jint)sym[0].side_size.x;
+    out[3] = (jint)sym[0].side_size.y;
+    out[4] = (jint)(sym[0].module_size + (sym[0].module_size >= 0 ? 0.5f : -0.5f));
+    // pattern positions (rounded)
+    for (int i = 0; i < 4; ++i) {
+        int base = 5 + i*2;
+        out[base + 0] = (jint)(sym[0].pattern_positions[i].x + (sym[0].pattern_positions[i].x >= 0 ? 0.5f : -0.5f));
+        out[base + 1] = (jint)(sym[0].pattern_positions[i].y + (sym[0].pattern_positions[i].y >= 0 ? 0.5f : -0.5f));
+    }
+
+    jintArray arr = env->NewIntArray(OUT_LEN);
+    if (!arr) return NULL;
+    env->SetIntArrayRegion(arr, 0, OUT_LEN, out);
+    return arr;
+}
+
+} // extern "C"
+
 
 // Note: JNI_OnLoad is provided by JavaCPP's generated loader (jnijavacpp.cpp).
 // Do not define it here to avoid duplicate symbol errors during linking.
@@ -142,6 +180,26 @@ JNIEXPORT jbyteArray JNICALL Java_com_jabcode_internal_JABCodeNativePtr_getDataB
     return out;
 }
 
+JNIEXPORT void JNICALL Java_com_jabcode_internal_JABCodeNativePtr_setNcThresholds(JNIEnv* env, jclass, jint thsBlack, jdouble thsStd) {
+    (void)env;
+    setNcThresholds_c((jab_int32)thsBlack, (jab_double)thsStd);
+}
+
+JNIEXPORT void JNICALL Java_com_jabcode_internal_JABCodeNativePtr_setForceNc(JNIEnv* env, jclass, jint nc) {
+    (void)env;
+    setForceNc_c((jab_int32)nc);
+}
+
+JNIEXPORT void JNICALL Java_com_jabcode_internal_JABCodeNativePtr_setUseDefaultPaletteHighColor(JNIEnv* env, jclass, jint flag) {
+    (void)env;
+    setUseDefaultPaletteHighColor_c((jab_int32)flag);
+}
+
+JNIEXPORT void JNICALL Java_com_jabcode_internal_JABCodeNativePtr_setForceEcl(JNIEnv* env, jclass, jint wc, jint wr) {
+    (void)env;
+    setForceEcl_c((jab_int32)wc, (jab_int32)wr);
+}
+
 // Simple setters for primary encode parameters
 JNIEXPORT void JNICALL Java_com_jabcode_internal_JABCodeNativePtr_setModuleSizePtr(JNIEnv* env, jclass, jlong encPtr, jint value) {
     (void)env;
@@ -179,6 +237,42 @@ JNIEXPORT void JNICALL Java_com_jabcode_internal_JABCodeNativePtr_setSymbolPosit
     if (!enc) return;
     if (index < 0 || index >= enc->symbol_number) return;
     enc->symbol_positions[index] = (jab_int32)pos;
+}
+
+JNIEXPORT void JNICALL Java_com_jabcode_internal_JABCodeNativePtr_setSymbolEccLevelPtr(JNIEnv* env, jclass, jlong encPtr, jint index, jint level) {
+    (void)env;
+    jab_encode* enc = (jab_encode*)encPtr;
+    if (!enc || !enc->symbol_ecc_levels) return;
+    if (index < 0 || index >= enc->symbol_number) return;
+    if (level < 0) level = 0;
+    if (level > 10) level = 10;
+    enc->symbol_ecc_levels[index] = (jab_byte)level;
+}
+
+JNIEXPORT void JNICALL Java_com_jabcode_internal_JABCodeNativePtr_setAllEccLevelsPtr(JNIEnv* env, jclass, jlong encPtr, jint level) {
+    (void)env;
+    jab_encode* enc = (jab_encode*)encPtr;
+    if (!enc || !enc->symbol_ecc_levels) return;
+    if (level < 0) level = 0;
+    if (level > 10) level = 10;
+    for (jab_int32 i = 0; i < enc->symbol_number; ++i) {
+        enc->symbol_ecc_levels[i] = (jab_byte)level;
+    }
+}
+
+JNIEXPORT jintArray JNICALL Java_com_jabcode_internal_JABCodeNativePtr_debugEncodeInfoPtr(JNIEnv* env, jclass, jlong encPtr) {
+    jint out[4] = {0};
+    jab_encode* enc = (jab_encode*)encPtr;
+    if (enc) {
+        out[0] = (jint)enc->color_number;
+        out[1] = (jint)enc->symbol_versions[0].x;
+        out[2] = (jint)enc->symbol_versions[0].y;
+        out[3] = (jint)enc->module_size;
+    }
+    jintArray arr = env->NewIntArray(4);
+    if (!arr) return NULL;
+    env->SetIntArrayRegion(arr, 0, 4, out);
+    return arr;
 }
 
 } // extern "C"
