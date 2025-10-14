@@ -21,20 +21,9 @@
 #include "ldpc.h"
 #include "encoder.h"
 
-// Default-palette override for high-color (test-only)
-extern void setDefaultPalette(jab_int32 color_number, jab_byte* palette);
-extern void genColorPalette(jab_int32 color_number, jab_byte* palette);
-static jab_int32 g_use_default_palette_highcolor = 0;
-void setUseDefaultPaletteHighColor_c(jab_int32 flag) { g_use_default_palette_highcolor = flag; }
-
 // Force Nc for testing
 static jab_int32 g_force_nc = -1;
 void setForceNc_c(jab_int32 nc){ g_force_nc = nc; }
-
-// Force ECL (wc, wr) for testing
-static jab_int32 g_force_wc = -1;
-static jab_int32 g_force_wr = -1;
-void setForceEcl_c(jab_int32 wc, jab_int32 wr) { g_force_wc = wc; g_force_wr = wr; }
 
 // Tunable thresholds for Nc detection (default to original constants)
 static jab_int32 g_ths_black_nc = 80;
@@ -295,13 +284,6 @@ jab_int32 readColorPaletteInMaster(jab_bitmap* matrix, jab_decoded_symbol* symbo
 		color_counter++;
 	}
 
-	// If enabled, regenerate default palette grid for high-color to avoid sampling drift
-	if (g_use_default_palette_highcolor && color_number >= 16) {
-		for (jab_int32 i = 0; i < COLOR_PALETTE_NUMBER; i++) {
-			genColorPalette(color_number, symbol->palette + i * color_number * 3);
-		}
-	}
-
 	//interpolate the palette if there are more than 64 colors
 	if(color_number > 64)
 	{
@@ -383,13 +365,6 @@ jab_int32 readColorPaletteInSlave(jab_bitmap* matrix, jab_decoded_symbol* symbol
 
 		//next color
 		color_counter++;
-	}
-
-	// If enabled, regenerate default palette grid for high-color to avoid sampling drift
-	if (g_use_default_palette_highcolor && color_number >= 16) {
-		for (jab_int32 i = 0; i < COLOR_PALETTE_NUMBER; i++) {
-			genColorPalette(color_number, symbol->palette + i * color_number * 3);
-		}
 	}
 
 	//interpolate the palette if there are more than 64 colors
@@ -938,7 +913,6 @@ jab_int32 decodeMasterMetadataPartII(jab_bitmap* matrix, jab_decoded_symbol* sym
 	//read MSK
 	bit_index = V_length + E_length;
 	symbol->metadata.mask_type = (part2[bit_index+0] << 2) + (part2[bit_index+1] << 1) + part2[bit_index+2];
-	if (g_force_wc > 0 && g_force_wr > 0) { symbol->metadata.ecl.x = g_force_wc; symbol->metadata.ecl.y = g_force_wr; }
 
 	symbol->metadata.docked_position = 0;
 
@@ -1175,7 +1149,7 @@ void loadDefaultMasterMetadata(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 #endif
 	//set default metadata values
 	symbol->metadata.default_mode = 1;
-	symbol->metadata.Nc = (g_force_nc >= 0 ? g_force_nc : DEFAULT_MODULE_COLOR_MODE);
+	symbol->metadata.Nc = DEFAULT_MODULE_COLOR_MODE;
 	symbol->metadata.ecl.x = ecclevel2wcwr[DEFAULT_ECC_LEVEL][0];
 	symbol->metadata.ecl.y = ecclevel2wcwr[DEFAULT_ECC_LEVEL][1];
 	symbol->metadata.mask_type = DEFAULT_MASKING_REFERENCE;

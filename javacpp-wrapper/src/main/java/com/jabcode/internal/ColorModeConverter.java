@@ -21,6 +21,17 @@ import com.jabcode.OptimizedJABCode.ColorMode;
  * This class provides methods for converting between different color modes for JABCode
  */
 public class ColorModeConverter {
+    // Feature flag to enable true ≥16-color native mapping. Default: disabled for stability.
+    public static boolean isHighColorNativeEnabled() {
+        try {
+            if (Boolean.getBoolean("jabcode.highcolor.native")) return true;
+        } catch (SecurityException ignore) {}
+        try {
+            String env = System.getenv("JABCODE_HIGHCOLOR_NATIVE");
+            return env != null && env.equalsIgnoreCase("true");
+        } catch (SecurityException ignore) {}
+        return false;
+    }
     
     // Standard palettes for different color modes
     private static final int[][] BINARY_PALETTE = {
@@ -47,24 +58,29 @@ public class ColorModeConverter {
     };
     
     /**
-     * Convert a color mode to the native color mode supported by the JABCode library
-     * @param colorMode the color mode to convert
-     * @return the native color mode (4 or 8)
+     * Convert a color mode to the native color number supported by the JABCode library.
+     * Current implementation maps ≥16-color modes to 8 to preserve stable digital roundtrips.
+     * High-color native mapping will be enabled in a later phase once topology tuning is complete.
      */
     public static int toNativeColorMode(ColorMode colorMode) {
+        boolean highColor = isHighColorNativeEnabled();
         switch (colorMode) {
             case BINARY:
-                return 4; // Use 4-color mode with custom palette
+                return 4; // Map 2-color request to 4-color native
             case QUATERNARY:
                 return 4;
             case OCTAL:
                 return 8;
             case HEXADECIMAL:
+                return highColor ? 16 : 8; // Temporarily map to 8 unless flag enabled
             case MODE_32:
+                return highColor ? 32 : 8;
             case MODE_64:
+                return highColor ? 64 : 8;
             case MODE_128:
+                return highColor ? 128 : 8;
             case MODE_256:
-                return 8; // Use 8-color mode with dithering
+                return highColor ? 256 : 8;
             default:
                 throw new IllegalArgumentException("Unsupported color mode: " + colorMode);
         }

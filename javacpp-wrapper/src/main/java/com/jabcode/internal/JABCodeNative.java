@@ -354,6 +354,18 @@ public static native @Cast("jab_boolean") byte saveImageCMYK_c(jab_bitmap bitmap
 public static native void reportError_c(@Cast("jab_char*") BytePointer message);
 public static native void reportError_c(@Cast("jab_char*") ByteBuffer message);
 public static native void reportError_c(@Cast("jab_char*") byte[] message);
+// Experimental: adjust Nc detection thresholds (for tests)
+public static native void setNcThresholds_c(@Cast("jab_int32") int ths_black, @Cast("jab_double") double ths_std);
+// Experimental: force Nc value in decoder (for tests)
+public static native void setForceNc_c(@Cast("jab_int32") int nc);
+// Experimental: fetch last Nc RGB samples (4x RGB), 4 module values, and final Nc
+public static native void getLastNcDebug_c(@Cast("jab_int32*") IntPointer out, @Cast("jab_int32") int len);
+public static native void getLastNcDebug_c(@Cast("jab_int32*") IntBuffer out, @Cast("jab_int32") int len);
+public static native void getLastNcDebug_c(@Cast("jab_int32*") int[] out, @Cast("jab_int32") int len);
+// Experimental: use default palette grid for >=16 colors during decode (for tests)
+public static native void setUseDefaultPaletteHighColor_c(@Cast("jab_int32") int flag);
+// Experimental: force ECL (wc, wr) during decode (for tests)
+public static native void setForceEcl_c(@Cast("jab_int32") int wc, @Cast("jab_int32") int wr);
 
 // #ifdef __cplusplus
 // #endif
