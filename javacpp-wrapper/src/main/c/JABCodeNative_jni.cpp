@@ -200,6 +200,112 @@ JNIEXPORT void JNICALL Java_com_jabcode_internal_JABCodeNativePtr_setForceEcl(JN
     setForceEcl_c((jab_int32)wc, (jab_int32)wr);
 }
 
+JNIEXPORT void JNICALL Java_com_jabcode_internal_JABCodeNativePtr_setForceMask(JNIEnv* env, jclass, jint mask) {
+    (void)env;
+    setForceMask_c((jab_int32)mask);
+}
+
+JNIEXPORT void JNICALL Java_com_jabcode_internal_JABCodeNativePtr_setClassifierDebug(JNIEnv* env, jclass, jint enable) {
+    (void)env;
+    setClassifierDebug_c((jab_int32)enable);
+}
+
+JNIEXPORT void JNICALL Java_com_jabcode_internal_JABCodeNativePtr_setClassifierMode(JNIEnv* env, jclass, jint mode) {
+    (void)env;
+    setClassifierMode_c((jab_int32)mode);
+}
+
+JNIEXPORT jintArray JNICALL Java_com_jabcode_internal_JABCodeNativePtr_getClassifierStats(JNIEnv* env, jclass, jint len) {
+    jab_int32* out = (jab_int32*)malloc(len * sizeof(jab_int32));
+    if (!out) return NULL;
+    memset(out, 0, len * sizeof(jab_int32));
+    getClassifierStats_c(out, (jab_int32)len);
+    jintArray result = env->NewIntArray(len);
+    if (result) {
+        env->SetIntArrayRegion(result, 0, len, out);
+    }
+    free(out);
+    return result;
+}
+
+JNIEXPORT jintArray JNICALL Java_com_jabcode_internal_JABCodeNativePtr_getLdpcInputDebug(JNIEnv* env, jclass, jint which, jint len) {
+    jab_int32* out = (jab_int32*)malloc(len * sizeof(jab_int32));
+    if (!out) return NULL;
+    memset(out, 0, len * sizeof(jab_int32));
+    getLdpcInputDebug_c(out, (jab_int32)len, (jab_int32)which);
+    jintArray result = env->NewIntArray(len);
+    if (result) {
+        env->SetIntArrayRegion(result, 0, len, out);
+    }
+    free(out);
+    return result;
+}
+
+JNIEXPORT jintArray JNICALL Java_com_jabcode_internal_JABCodeNativePtr_getDecodePipelineDebug(JNIEnv* env, jclass, jint len) {
+    jab_int32* out = (jab_int32*)malloc(len * sizeof(jab_int32));
+    if (!out) return NULL;
+    memset(out, 0, len * sizeof(jab_int32));
+    getDecodePipelineDebug_c(out, (jab_int32)len);
+    jintArray result = env->NewIntArray(len);
+    if (result) {
+        env->SetIntArrayRegion(result, 0, len, out);
+    }
+    free(out);
+    return result;
+}
+
+JNIEXPORT jintArray JNICALL Java_com_jabcode_internal_JABCodeNativePtr_getRawModuleSample(JNIEnv* env, jclass, jint len) {
+    jab_int32* out = (jab_int32*)malloc(len * sizeof(jab_int32));
+    if (!out) return NULL;
+    memset(out, 0, len * sizeof(jab_int32));
+    getRawModuleSample_c(out, (jab_int32)len);
+    jintArray result = env->NewIntArray(len);
+    if (result) {
+        env->SetIntArrayRegion(result, 0, len, out);
+    }
+    free(out);
+    return result;
+}
+
+JNIEXPORT jintArray JNICALL Java_com_jabcode_internal_JABCodeNativePtr_getPart2Debug(JNIEnv* env, jclass, jint len) {
+    jab_int32* out = (jab_int32*)malloc(len * sizeof(jab_int32));
+    if (!out) return NULL;
+    memset(out, 0, len * sizeof(jab_int32));
+    getPart2Debug_c(out, (jab_int32)len);
+    jintArray result = env->NewIntArray(len);
+    if (result) {
+        env->SetIntArrayRegion(result, 0, len, out);
+    }
+    free(out);
+    return result;
+}
+
+JNIEXPORT jintArray JNICALL Java_com_jabcode_internal_JABCodeNativePtr_getDecoderPaletteDebug(JNIEnv* env, jclass, jint len) {
+    jab_int32* out = (jab_int32*)malloc(len * sizeof(jab_int32));
+    if (!out) return NULL;
+    memset(out, 0, len * sizeof(jab_int32));
+    getDecoderPaletteDebug_c(out, (jab_int32)len);
+    jintArray result = env->NewIntArray(len);
+    if (result) {
+        env->SetIntArrayRegion(result, 0, len, out);
+    }
+    free(out);
+    return result;
+}
+
+JNIEXPORT jintArray JNICALL Java_com_jabcode_internal_JABCodeNativePtr_getEncoderDefaultPalette(JNIEnv* env, jclass, jint colorNumber, jint len) {
+    jab_int32* out = (jab_int32*)malloc(len * sizeof(jab_int32));
+    if (!out) return NULL;
+    memset(out, 0, len * sizeof(jab_int32));
+    getEncoderDefaultPalette_c((jab_int32)colorNumber, out, (jab_int32)len);
+    jintArray result = env->NewIntArray(len);
+    if (result) {
+        env->SetIntArrayRegion(result, 0, len, out);
+    }
+    free(out);
+    return result;
+}
+
 // Simple setters for primary encode parameters
 JNIEXPORT void JNICALL Java_com_jabcode_internal_JABCodeNativePtr_setModuleSizePtr(JNIEnv* env, jclass, jlong encPtr, jint value) {
     (void)env;

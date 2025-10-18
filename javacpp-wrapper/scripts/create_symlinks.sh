@@ -35,7 +35,7 @@ build_ptr_jni() {
       "$SRC_DIR/JABCodeNative_jni.cpp" \
       "$SRC_DIR/jabcode_c_wrapper.c" \
       -Wl,-rpath,'$ORIGIN/' -Wl,-z,noexecstack \
-      -Wl,--no-as-needed -L"$BASEDIR/src/jabcode/build" -L"$BASEDIR/../src/jabcode/build" -L"$BASEDIR/lib" -ljabcode -Wl,--as-needed -lpng16 -lz
+      -Wl,--no-as-needed -L"$BASEDIR/src/jabcode/build" -L"$BASEDIR/../src/jabcode/build" -L"$BASEDIR/lib" -ljabcode -ljabcode_wrapper -Wl,--as-needed -lpng16 -lz
   cp -f "$OUT_DIR_CLS/libjniJABCodeNativePtr.so" "$OUT_DIR_TEST/"
   # Also stage into lib/ and libs/
   cp -f "$OUT_DIR_CLS/libjniJABCodeNativePtr.so" "$PLAT_DIR/" || true

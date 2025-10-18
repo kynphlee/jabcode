@@ -72,4 +72,22 @@ public class JABCodeNativePtr {
     public static native void setUseDefaultPaletteHighColor(int flag);
     // Experimental: force ECL (wc, wr) during decode (for tests); pass <=0 to disable
     public static native void setForceEcl(int wc, int wr);
+    // Experimental: force mask type during demask (for tests). Use -1 to reset/disable.
+    public static native void setForceMask(int mask);
+    // Experimental: classifier debug controls and stats (for tests)
+    public static native void setClassifierDebug(int enable);
+    public static native void setClassifierMode(int mode);
+    public static native int[] getClassifierStats(int len);
+
+    // Experimental: pipeline debug (for tests)
+    public static native int[] getDecodePipelineDebug(int len);
+    public static native int[] getRawModuleSample(int len);
+    // Experimental: Part II debug (for tests) -> [count, wc, wr, mask, bits...]
+    public static native int[] getPart2Debug(int len);
+    // Experimental: palette dumps
+    public static native int[] getDecoderPaletteDebug(int len);
+    public static native int[] getEncoderDefaultPalette(int colorNumber, int len);
+
+    // Experimental: LDPC input bits before(0)/after(1) deinterleave (bits as ints)
+    public static native int[] getLdpcInputDebug(int which, int len);
 }
