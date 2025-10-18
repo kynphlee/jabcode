@@ -113,19 +113,11 @@ static jab_int32 g_dbg_p2_wc = -1;
 static jab_int32 g_dbg_p2_wr = -1;
 static jab_int32 g_dbg_p2_mask = -1;
 static jab_byte g_dbg_p2_bits[64] = {0};
-
-// LDPC input debug (first up to 128 bits)
-static jab_int32 g_dbg_pre_len = 0;
-static jab_int32 g_dbg_post_len = 0;
-static jab_byte g_dbg_pre_bits[128] = {0};
-static jab_byte g_dbg_post_bits[128] = {0};
-
 // Decoder palette debug (first palette block only)
 static jab_int32 g_dbg_pal_len = 0; // bytes
 static jab_byte g_dbg_pal[256 * 3] = {0};
 // Interpolation detector (test-only): set to 1 if interpolatePalette() is invoked
 static jab_int32 g_dbg_interpolated = 0;
-
 
 // Force mask for testing
 static jab_int32 g_force_mask = -1;
@@ -148,10 +140,6 @@ static void resetDecodePipelineDebug() {
     g_dbg_p2_wc = -1; g_dbg_p2_wr = -1; g_dbg_p2_mask = -1;
     for (int i = 0; i < 64; ++i) g_dbg_p2_bits[i] = 0;
     g_dbg_interpolated = 0;
-    // LDPC debug resets
-    g_dbg_pre_len = 0;
-    g_dbg_post_len = 0;
-    for (int i = 0; i < 128; ++i) { g_dbg_pre_bits[i] = 0; g_dbg_post_bits[i] = 0; }
 }
 
 void getDecodePipelineDebug_c(jab_int32* out, jab_int32 len) {
@@ -204,17 +192,6 @@ void getDecoderPaletteDebug_c(jab_int32* out, jab_int32 len) {
     for (jab_int32 i = 0; i < n; ++i) out[i] = (jab_int32)g_dbg_pal[i];
     for (jab_int32 i = n; i < len; ++i) out[i] = 0;
 }
-
-void getLdpcInputDebug_c(jab_int32* out, jab_int32 len, jab_int32 which)
-{
-    if (!out || len <= 0) return;
-    const jab_byte* src = (which ? g_dbg_post_bits : g_dbg_pre_bits);
-    jab_int32 n = len;
-    if (n > 128) n = 128;
-    for (jab_int32 i = 0; i < n; ++i) out[i] = (jab_int32)src[i];
-    for (jab_int32 i = n; i < len; ++i) out[i] = 0;
-}
-
 
 /**
  * @brief Copy 16-color sub-blocks of 64-color palette into 32-color blocks of 256-color palette and interpolate into 32 colors
@@ -626,33 +603,6 @@ jab_int32 getNearestPalette(jab_bitmap* matrix, jab_int32 x, jab_int32 y)
 	return p_index;
 }
 
-// Raw RGB classifier helper (test-only). No normalization, no 0/7 luminance fix.
-static jab_byte decodeModuleHD_raw_branch(jab_byte* palette, jab_int32 color_number, jab_int32 p_index, jab_byte rgb[3])
-{
-    jab_byte index1 = 0, index2 = 0;
-    jab_int32 min1 = 255*255*3 + 1, min2 = 255*255*3 + 1;
-    for (jab_int32 i = 0; i < color_number; i++)
-    {
-        jab_int32 pr = palette[color_number*3*p_index + i*3 + 0];
-        jab_int32 pg = palette[color_number*3*p_index + i*3 + 1];
-        jab_int32 pb = palette[color_number*3*p_index + i*3 + 2];
-        jab_int32 dr = (jab_int32)rgb[0] - pr;
-        jab_int32 dg = (jab_int32)rgb[1] - pg;
-        jab_int32 db = (jab_int32)rgb[2] - pb;
-        jab_int32 diff = dr*dr + dg*dg + db*db;
-        if (diff < min1) { min2 = min1; index2 = index1; min1 = diff; index1 = (jab_byte)i; }
-        else if (diff < min2) { min2 = diff; index2 = (jab_byte)i; }
-    }
-    if (g_clf_debug_enabled) {
-        g_clf_last_color_number = color_number;
-        g_clf_total++;
-        g_clf_nonblack++;
-        if (index1 >= 0 && index1 < 256) { g_clf_hist[index1]++; }
-    }
-    return index1;
-}
-
-
 /**
  * @brief Decode a module using hard decision
  * @param matrix the symbol matrix
@@ -694,10 +644,6 @@ jab_byte decodeModuleHD(jab_bitmap* matrix, jab_byte* palette, jab_int32 color_n
 	}
 	if(palette)
 	{
-		if (g_classifier_mode == 1) {
-			return decodeModuleHD_raw_branch(palette, color_number, p_index, rgb);
-		}
-
 	    //normalize the RGB values
         jab_float rgb_max = MAX(rgb[0], MAX(rgb[1], rgb[2]));
         jab_float r = (jab_float)rgb[0] / rgb_max;
@@ -1540,18 +1486,9 @@ jab_int32 decodeSymbol(jab_bitmap* matrix, jab_decoded_symbol* symbol, jab_byte*
 	g_dbg_Pg = Pg;
 	g_dbg_Pn = Pn;
 
-	
-    // LDPC input debug: capture first bits before deinterleave
-    g_dbg_pre_len = (Pg < 128 ? Pg : 128);
-    for (jab_int32 i = 0; i < g_dbg_pre_len; ++i) g_dbg_pre_bits[i] = raw_data->data[i];
-//deinterleave data
+	//deinterleave data
 	raw_data->length = Pg;	//drop the padding bits
     deinterleaveData(raw_data);
-
-    // LDPC input debug: capture first bits after deinterleave
-    g_dbg_post_len = (Pn < 128 ? Pn : 128);
-    for (jab_int32 i = 0; i < g_dbg_post_len; ++i) g_dbg_post_bits[i] = raw_data->data[i];
-
 
 #if TEST_MODE
 	JAB_REPORT_INFO(("wc:%d, wr:%d, Pg:%d, Pn: %d", wc, wr, Pg, Pn))

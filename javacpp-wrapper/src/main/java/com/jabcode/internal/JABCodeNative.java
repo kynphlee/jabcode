@@ -366,6 +366,39 @@ public static native void getLastNcDebug_c(@Cast("jab_int32*") int[] out, @Cast(
 public static native void setUseDefaultPaletteHighColor_c(@Cast("jab_int32") int flag);
 // Experimental: force ECL (wc, wr) during decode (for tests)
 public static native void setForceEcl_c(@Cast("jab_int32") int wc, @Cast("jab_int32") int wr);
+// Experimental: classifier debug controls and stats (for tests)
+    public static native void setClassifierDebug_c(@Cast("jab_int32") int enable);
+    public static native void setClassifierMode_c(@Cast("jab_int32") int mode);
+    public static native void getClassifierStats_c(@Cast("jab_int32*") IntPointer out, @Cast("jab_int32") int len);
+    public static native void getClassifierStats_c(@Cast("jab_int32*") IntBuffer out, @Cast("jab_int32") int len);
+    public static native void getClassifierStats_c(@Cast("jab_int32*") int[] out, @Cast("jab_int32") int len);
+
+    // Experimental: pipeline debug (for tests)
+    public static native void getDecodePipelineDebug_c(@Cast("jab_int32*") IntPointer out, @Cast("jab_int32") int len);
+    public static native void getDecodePipelineDebug_c(@Cast("jab_int32*") IntBuffer out, @Cast("jab_int32") int len);
+    public static native void getDecodePipelineDebug_c(@Cast("jab_int32*") int[] out, @Cast("jab_int32") int len);
+    public static native void getRawModuleSample_c(@Cast("jab_int32*") IntPointer out, @Cast("jab_int32") int len);
+    public static native void getRawModuleSample_c(@Cast("jab_int32*") IntBuffer out, @Cast("jab_int32") int len);
+    public static native void getRawModuleSample_c(@Cast("jab_int32*") int[] out, @Cast("jab_int32") int len);
+    // Experimental: Part II debug (for tests)
+    public static native void getPart2Debug_c(@Cast("jab_int32*") IntPointer out, @Cast("jab_int32") int len);
+    public static native void getPart2Debug_c(@Cast("jab_int32*") IntBuffer out, @Cast("jab_int32") int len);
+    public static native void getPart2Debug_c(@Cast("jab_int32*") int[] out, @Cast("jab_int32") int len);
+    // Experimental: force mask type during demask (for tests). Use -1 to disable.
+    public static native void setForceMask_c(@Cast("jab_int32") int mask);
+    // Experimental: decoder palette dump (first palette block, bytes as ints)
+    public static native void getDecoderPaletteDebug_c(@Cast("jab_int32*") IntPointer out, @Cast("jab_int32") int len);
+    public static native void getDecoderPaletteDebug_c(@Cast("jab_int32*") IntBuffer out, @Cast("jab_int32") int len);
+    public static native void getDecoderPaletteDebug_c(@Cast("jab_int32*") int[] out, @Cast("jab_int32") int len);
+    // Experimental: encoder default palette dump for given color_number (bytes as ints)
+    public static native void getEncoderDefaultPalette_c(@Cast("jab_int32") int color_number, @Cast("jab_int32*") IntPointer out, @Cast("jab_int32") int len);
+    public static native void getEncoderDefaultPalette_c(@Cast("jab_int32") int color_number, @Cast("jab_int32*") IntBuffer out, @Cast("jab_int32") int len);
+    public static native void getEncoderDefaultPalette_c(@Cast("jab_int32") int color_number, @Cast("jab_int32*") int[] out, @Cast("jab_int32") int len);
+
+    // Experimental: LDPC input bits before(0)/after(1) deinterleave (bits as ints)
+    public static native void getLdpcInputDebug_c(@Cast("jab_int32*") IntPointer out, @Cast("jab_int32") int len, @Cast("jab_int32") int which);
+    public static native void getLdpcInputDebug_c(@Cast("jab_int32*") IntBuffer out, @Cast("jab_int32") int len, @Cast("jab_int32") int which);
+    public static native void getLdpcInputDebug_c(@Cast("jab_int32*") int[] out, @Cast("jab_int32") int len, @Cast("jab_int32") int which);
 
 // #ifdef __cplusplus
 // #endif

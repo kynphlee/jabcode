@@ -33,6 +33,25 @@ void getLastNcDebug_c(jab_int32* out, jab_int32 len);
 void setUseDefaultPaletteHighColor_c(jab_int32 flag);
 // Experimental: force ECL (wc, wr) during decode (for tests)
 void setForceEcl_c(jab_int32 wc, jab_int32 wr);
+// Experimental: classifier debug controls and stats (for tests)
+    void setClassifierDebug_c(jab_int32 enable);
+    void setClassifierMode_c(jab_int32 mode);
+    void getClassifierStats_c(jab_int32* out, jab_int32 len);
+
+    // Experimental: pipeline debug (for tests)
+    void getDecodePipelineDebug_c(jab_int32* out, jab_int32 len);
+    void getRawModuleSample_c(jab_int32* out, jab_int32 len);
+    // Experimental: Part II debug (for tests)
+    void getPart2Debug_c(jab_int32* out, jab_int32 len);
+    // Experimental: force mask type during demask (for tests). Use -1 to disable.
+    void setForceMask_c(jab_int32 mask);
+    // Experimental: decoder palette dump (first palette block, bytes as ints)
+    void getDecoderPaletteDebug_c(jab_int32* out, jab_int32 len);
+    // Experimental: encoder default palette dump for given color_number (bytes as ints)
+    void getEncoderDefaultPalette_c(jab_int32 color_number, jab_int32* out, jab_int32 len);
+
+    // Experimental: LDPC input bits before(0)/after(1) deinterleave (bits as ints)
+    void getLdpcInputDebug_c(jab_int32* out, jab_int32 len, jab_int32 which);
 
 #ifdef __cplusplus
 }
