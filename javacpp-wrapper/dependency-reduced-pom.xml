@@ -4,7 +4,7 @@
   <groupId>com.jabcode</groupId>
   <artifactId>jabcode-java</artifactId>
   <name>JABCode Java Library</name>
-  <version>1.0.0</version>
+  <version>1.0.2-SNAPSHOT</version>
   <description>Java library for generating and decoding JABCode (Just Another Barcode) 2D color barcodes</description>
   <url>https://github.com/jabcode/jabcode-java</url>
   <developers>
@@ -471,18 +471,6 @@
       <groupId>org.imgscalr</groupId>
       <artifactId>imgscalr-lib</artifactId>
       <version>4.2</version>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.bytedeco</groupId>
-      <artifactId>javacv</artifactId>
-      <version>1.5.9</version>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.bytedeco</groupId>
-      <artifactId>javacv-platform</artifactId>
-      <version>1.5.9</version>
       <scope>compile</scope>
     </dependency>
     <dependency>

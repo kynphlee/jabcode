@@ -6,7 +6,7 @@
 
     <groupId>com.jabcode</groupId>
     <artifactId>jabcode-java</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.2-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>JABCode Java Library</name>
@@ -52,6 +52,11 @@
             <artifactId>javacpp</artifactId>
             <version>${javacpp.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.bytedeco</groupId>
+            <artifactId>javacpp-platform</artifactId>
+            <version>${javacpp.version}</version>
+        </dependency>
         
         <!-- JavaCV dependencies removed and backed up in unused-dependencies.xml -->
         
@@ -77,17 +82,7 @@
         </dependency>
         
         <!-- ZXing, Apache Commons Math, BoofCV, and TwelveMonkeys ImageIO dependencies removed and backed up in unused-dependencies.xml -->
-        <!-- JavaCV for advanced image processing -->
-        <dependency>
-            <groupId>org.bytedeco</groupId>
-            <artifactId>javacv</artifactId>
-            <version>${javacpp.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.bytedeco</groupId>
-            <artifactId>javacv-platform</artifactId>
-            <version>${javacpp.version}</version>
-        </dependency>
+        <!-- JavaCV dependencies removed to avoid exposing unshaded org.bytedeco classes to consumers -->
 
         <!-- ZXing for barcode processing -->
         <dependency>
@@ -461,7 +456,9 @@
                 </configuration>
             </plugin>
             
-            <!-- Shade dependencies to avoid conflicts -->
+            <!-- Shade plugin disabled: JavaCPP cannot be relocated due to hardcoded JNI references -->
+            <!-- Use dependency convergence instead to ensure all deps use same JavaCPP version -->
+            <!--
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
@@ -472,44 +469,10 @@
                         <goals>
                             <goal>shade</goal>
                         </goals>
-                        <configuration>
-                            <relocations>
-                                <relocation>
-                                    <pattern>org.bytedeco</pattern>
-                                    <shadedPattern>com.jabcode.internal.bytedeco</shadedPattern>
-                                </relocation>
-                            </relocations>
-                            <minimizeJar>false</minimizeJar>
-                            <artifactSet>
-                                <includes>
-                                    <include>org.bytedeco:javacpp</include>
-                                    <include>org.bytedeco:javacpp-platform</include>
-                                    <include>org.bytedeco:javacpp:*</include>
-                                </includes>
-                            </artifactSet>
-                            <createDependencyReducedPom>true</createDependencyReducedPom>
-                            <filters>
-                                <filter>
-                                    <artifact>*:*</artifact>
-                                    <excludes>
-                                        <exclude>META-INF/*.SF</exclude>
-                                        <exclude>META-INF/*.DSA</exclude>
-                                        <exclude>META-INF/*.RSA</exclude>
-                                    </excludes>
-                                </filter>
-                            </filters>
-                            <!-- Ensure native libraries are included in the JAR -->
-                            <transformers>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <manifestEntries>
-                                        <Build-Date>${maven.build.timestamp}</Build-Date>
-                                    </manifestEntries>
-                                </transformer>
-                            </transformers>
-                        </configuration>
                     </execution>
                 </executions>
             </plugin>
+            -->
             
             <!-- Copy native libraries to the correct location -->
             <plugin>
