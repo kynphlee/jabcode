@@ -1,8 +1,0 @@
--------------------------------------------------------------------------------
-Test set: com.jabcode.util.NativeLibraryLocationTest
--------------------------------------------------------------------------------
-Tests run: 1, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 0.001 s <<< FAILURE! - in com.jabcode.util.NativeLibraryLocationTest
-testLibraryLocation(com.jabcode.util.NativeLibraryLocationTest)  Time elapsed: 0.001 s  <<< FAILURE!
-java.lang.AssertionError: Exception thrown: Library file should exist
-	at com.jabcode.util.NativeLibraryLocationTest.testLibraryLocation(NativeLibraryLocationTest.java:53)
-

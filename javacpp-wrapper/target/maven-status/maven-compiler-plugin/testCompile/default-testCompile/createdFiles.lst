@@ -1,5 +1,7 @@
 com/jabcode/SimpleTest.class
+com/jabcode/CapacityAndTopologyTest.class
 com/jabcode/tests/JABCodeGenerationTest.class
+com/jabcode/LowColorRoundtripTest.class
 com/jabcode/LibraryLoadJUnitTest.class
 com/jabcode/test/DecodeTest.class
 com/jabcode/core/JABCodeDecoderTest.class
@@ -11,6 +13,7 @@ com/jabcode/LibraryLoadTest.class
 com/jabcode/util/NativeLibraryLocationTest.class
 com/jabcode/SimpleWrapperTest.class
 com/jabcode/OptimizedJABCodeTest.class
+com/jabcode/HighColorRoundtripTest.class
 com/jabcode/core/JABCodeTest.class
 com/jabcode/JABCodeColorModesTest.class
 com/jabcode/test/ColorModeTest.class

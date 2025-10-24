@@ -6,13 +6,6 @@ import java.util.Arrays;
 
 import org.apache.commons.math3.util.FastMath;
 import org.bytedeco.javacpp.BytePointer;
-import org.bytedeco.javacv.Java2DFrameConverter;
-import org.bytedeco.javacv.OpenCVFrameConverter;
-import org.bytedeco.opencv.global.opencv_imgproc;
-import org.bytedeco.opencv.global.opencv_core;
-import org.bytedeco.opencv.opencv_core.Mat;
-import org.bytedeco.opencv.opencv_core.CvScalar;
-import org.bytedeco.opencv.opencv_core.TermCriteria;
 
 import com.jabcode.OptimizedJABCode.ColorMode;
 
@@ -189,22 +182,22 @@ public class ColorModeConverter {
      * @return the binary image
      */
     private static BufferedImage convertToBinary(BufferedImage image) {
-        // Convert to OpenCV Mat
-        Java2DFrameConverter java2dConverter = new Java2DFrameConverter();
-        OpenCVFrameConverter.ToMat matConverter = new OpenCVFrameConverter.ToMat();
-        
-        Mat mat = matConverter.convert(java2dConverter.convert(image));
-        Mat grayMat = new Mat();
-        Mat binaryMat = new Mat();
-        
-        // Convert to grayscale
-        opencv_imgproc.cvtColor(mat, grayMat, opencv_imgproc.COLOR_BGR2GRAY);
-        
-        // Apply threshold to get binary image
-        opencv_imgproc.threshold(grayMat, binaryMat, 128, 255, opencv_imgproc.THRESH_BINARY);
-        
-        // Convert back to BufferedImage
-        return java2dConverter.convert(matConverter.convert(binaryMat));
+        int width = image.getWidth();
+        int height = image.getHeight();
+        BufferedImage result = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int rgb = image.getRGB(x, y);
+                int r = (rgb >> 16) & 0xFF;
+                int g = (rgb >> 8) & 0xFF;
+                int b = (rgb) & 0xFF;
+                // Luma approximation
+                int gray = (int)(0.299 * r + 0.587 * g + 0.114 * b);
+                int bw = (gray >= 128) ? 0xFFFFFF : 0x000000;
+                result.setRGB(x, y, bw);
+            }
+        }
+        return result;
     }
     
     /**
