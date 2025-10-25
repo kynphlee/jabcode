@@ -44,6 +44,16 @@ public class JABCodeNativePtr {
     // Utils
     public static native long getBitmapFromEncodePtr(long encPtr);
     public static native byte[] getDataBytes(long dataPtr);
+    
+    /**
+     * Convert native bitmap to ARGB int array for direct BufferedImage creation.
+     * Returns int[] with format: [width, height, pixel0, pixel1, ..., pixelN]
+     * where each pixel is 0xAARRGGBB.
+     * 
+     * @param bitmapPtr pointer to jab_bitmap
+     * @return int array with width, height, and ARGB pixels, or null if bitmapPtr is 0
+     */
+    public static native int[] bitmapToARGB(long bitmapPtr);
 
     // Encoder tuning
     public static native void setModuleSizePtr(long encPtr, int value);

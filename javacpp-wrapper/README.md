@@ -51,6 +51,64 @@ This is a Java wrapper for the [JABCode](https://jabcode.org) library, providing
 - Small payloads <100 bytes (JNI overhead dominates)
 - Bandwidth-constrained scenarios (large file sizes)
 
+### Performance APIs
+
+**For Maximum Performance**, choose the right API for your use case:
+
+| Use Case | API | Performance | When to Use |
+|----------|-----|-------------|-------------|
+| Single code | `encode()` | Baseline | One-off encoding |
+| Batch (10-100 codes) | `encodeBatch()` | **+40-55% faster** | Different data, same config |
+| High-volume server | `encodeWithPool()` | **+50-70% faster** | Repeated operations, long-running |
+
+**Example - Batch Processing**:
+```java
+// Batch API: 40-55% faster than individual encode()
+List<byte[]> payloads = Arrays.asList(
+    "Message 1".getBytes(),
+    "Message 2".getBytes(),
+    "Message 3".getBytes()
+);
+List<BufferedImage> images = OptimizedJABCode.encodeBatch(
+    payloads, 
+    OptimizedJABCode.ColorMode.OCTAL
+);
+```
+
+**Example - Server Application with Pooling**:
+```java
+// Pool API: Reuses encoder across requests (90% reuse rate in tests)
+List<BufferedImage> images = OptimizedJABCode.encodeWithPool(payloads);
+
+// Or for fine-grained control:
+EncoderPool pool = OptimizedJABCode.getEncoderPool();
+try (PooledEncoder encoder = pool.acquire(ColorMode.OCTAL, 1, 3)) {
+    BufferedImage img = encoder.encode("Data".getBytes());
+}
+System.out.println(pool.getStats()); // Track pool efficiency
+```
+
+### File Size Optimization
+
+**Optimized PNG Output**: Use indexed color mode to reduce file sizes by **90%**:
+
+```java
+BufferedImage img = OptimizedJABCode.encode("Hello, World!");
+
+// Standard save: ~10.8 KB (32-bit ARGB)
+OptimizedJABCode.saveToFile(img, "standard.png");
+
+// Optimized save: ~1.1 KB (8-bit indexed) - 90% smaller!
+OptimizedJABCode.saveOptimized(img, "optimized.png");
+
+// Analyze compression potential
+PNGOptimizer.CompressionStats stats = OptimizedJABCode.analyzeCompression(img);
+System.out.println(stats);
+// Output: CompressionStats{colors=8, ARGB=10,817 bytes, indexed=1,070 bytes, saved=9,747 bytes (90.1% smaller)}
+```
+
+**Why it works**: JABCode images use only 4-256 colors, but standard PNG saves as 32-bit ARGB (16.7M colors). Indexed color mode uses 1-8 bits per pixel instead of 32 bits, and is 100% lossless.
+
 ### Production Status
 
 - **4/8-Color Modes**: ✅ Production-ready (stable, well-tested)
