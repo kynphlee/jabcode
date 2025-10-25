@@ -66,6 +66,64 @@ JNIEXPORT jlong JNICALL Java_com_jabcode_internal_JABCodeNativePtr_readImagePtr(
     return (jlong)result;
 }
 
+/**
+ * Convert jab_bitmap to ARGB int array for direct BufferedImage creation in Java.
+ * Returns a Java int[] array containing width, height, and ARGB pixels.
+ * Format: [width, height, pixel0, pixel1, ..., pixelN]
+ * where each pixel is 0xAARRGGBB (alpha=0xFF for opaque)
+ */
+JNIEXPORT jintArray JNICALL Java_com_jabcode_internal_JABCodeNativePtr_bitmapToARGB(JNIEnv *env, jclass cls, jlong bitmapPtr) {
+    if (!bitmapPtr) {
+        return NULL;
+    }
+    
+    jab_bitmap* bitmap = (jab_bitmap*)bitmapPtr;
+    jab_int32 width = bitmap->width;
+    jab_int32 height = bitmap->height;
+    jab_int32 channel_count = bitmap->channel_count;
+    
+    // Create Java int array: [width, height, pixel0, pixel1, ...]
+    jint totalSize = 2 + (width * height);
+    jintArray result = env->NewIntArray(totalSize);
+    if (!result) {
+        return NULL; // OutOfMemoryError thrown by JVM
+    }
+    
+    // Allocate temporary buffer for pixel data
+    jint* buffer = new jint[totalSize];
+    buffer[0] = width;
+    buffer[1] = height;
+    
+    // Convert pixels to ARGB format
+    jab_byte* pixel = bitmap->pixel;
+    for (jab_int32 i = 0; i < width * height; i++) {
+        jab_byte r, g, b;
+        if (channel_count >= 3) {
+            // RGB or RGBA bitmap
+            r = pixel[i * channel_count + 0];
+            g = pixel[i * channel_count + 1];
+            b = pixel[i * channel_count + 2];
+        } else if (channel_count == 1) {
+            // Grayscale bitmap
+            r = g = b = pixel[i];
+        } else {
+            // Unsupported format - default to black
+            r = g = b = 0;
+        }
+        
+        // Pack as 0xAARRGGBB (alpha=0xFF for opaque)
+        buffer[2 + i] = (jint)(0xFF000000 | (r << 16) | (g << 8) | b);
+    }
+    
+    // Copy to Java array
+    env->SetIntArrayRegion(result, 0, totalSize, buffer);
+    
+    // Clean up
+    delete[] buffer;
+    
+    return result;
+}
+
 JNIEXPORT jintArray JNICALL Java_com_jabcode_internal_JABCodeNativePtr_debugDecodeExInfoPtr(JNIEnv *env, jclass, jlong bitmapPtr, jint mode) {
     // Return layout:
     // [status, default_mode, side_version.x, side_version.y, Nc, ecl.x, ecl.y, module_size(int), side_size.x, side_size.y, data_ok]
