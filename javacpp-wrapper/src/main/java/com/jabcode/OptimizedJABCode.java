@@ -1294,4 +1294,312 @@ public class OptimizedJABCode {
     public static EncoderPool getEncoderPool() {
         return EncoderPool.getDefault();
     }
+    
+    // ========== ISO-IEC-23634 Section 4.5: Symbol Cascading ==========
+    
+    /**
+     * Symbol position layout following ISO-IEC-23634 Figure 14.
+     * 
+     * <p>Positions 0-60 define the spatial arrangement of cascaded symbols:</p>
+     * <ul>
+     *   <li>Position 0: Primary symbol (master, center)</li>
+     *   <li>Positions 1-4: Layer 1 (top, bottom, left, right of master)</li>
+     *   <li>Positions 5-12: Layer 2 (surrounding Layer 1)</li>
+     *   <li>Positions 13-60: Layers 3-5 (extended cascade)</li>
+     * </ul>
+     * 
+     * <p><b>Common layouts:</b></p>
+     * <pre>
+     * 3×3 Grid (9 symbols):
+     * ┌────┬────┬────┐
+     * │ 6  │ 1  │ 7  │  Positions: {0, 1, 2, 3, 4, 6, 7, 9, 10}
+     * ├────┼────┼────┤
+     * │ 3  │ 0  │ 4  │  Primary (0) at center
+     * ├────┼────┼────┤
+     * │ 9  │ 2  │ 10 │
+     * └────┴────┴────┘
+     * 
+     * Plus Shape (5 symbols):
+     * ┌────┬────┬────┐
+     * │    │ 1  │    │  Positions: {0, 1, 2, 3, 4}
+     * ├────┼────┼────┤
+     * │ 3  │ 0  │ 4  │  Primary (0) at center
+     * ├────┼────┼────┤
+     * │    │ 2  │    │
+     * └────┴────┴────┘
+     * </pre>
+     */
+    public static class CascadeLayout {
+        
+        /**
+         * 3×3 grid layout with primary symbol in center (9 symbols).
+         * ISO positions: 0(center), 1(top), 2(bottom), 3(left), 4(right),
+         * 6(top-left), 7(top-right), 9(bottom-left), 10(bottom-right)
+         */
+        public static final int[] GRID_3X3 = {0, 1, 2, 3, 4, 6, 7, 9, 10};
+        
+        /**
+         * Plus/cross shape with primary in center (5 symbols).
+         * ISO positions: 0(center), 1(top), 2(bottom), 3(left), 4(right)
+         */
+        public static final int[] PLUS_SHAPE = {0, 1, 2, 3, 4};
+        
+        /**
+         * Horizontal line (3 symbols).
+         * ISO positions: 3(left), 0(center), 4(right)
+         */
+        public static final int[] HORIZONTAL_3 = {3, 0, 4};
+        
+        /**
+         * Vertical line (3 symbols).
+         * ISO positions: 1(top), 0(center), 2(bottom)
+         */
+        public static final int[] VERTICAL_3 = {1, 0, 2};
+        
+        /**
+         * L-shape (3 symbols).
+         * ISO positions: 0(corner), 1(top), 4(right)
+         */
+        public static final int[] L_SHAPE = {0, 1, 4};
+        
+        /**
+         * Sequential layout (positions = indices).
+         * This is the default used by standard encode() methods.
+         * 
+         * @param count number of symbols
+         * @return array where positions[i] = i
+         */
+        public static int[] sequential(int count) {
+            if (count < 1 || count > JABCodeNative.MAX_SYMBOL_NUMBER) {
+                throw new IllegalArgumentException("Symbol count must be 1-" + JABCodeNative.MAX_SYMBOL_NUMBER);
+            }
+            int[] positions = new int[count];
+            for (int i = 0; i < count; i++) {
+                positions[i] = i;
+            }
+            return positions;
+        }
+        
+        /**
+         * Validate ISO positions array.
+         * Ensures position 0 exists (primary), all positions in range 0-60, and no duplicates.
+         * 
+         * @param positions array of ISO positions
+         * @throws IllegalArgumentException if validation fails
+         */
+        public static void validate(int[] positions) {
+            if (positions == null || positions.length == 0) {
+                throw new IllegalArgumentException("Positions array cannot be null or empty");
+            }
+            if (positions.length > JABCodeNative.MAX_SYMBOL_NUMBER) {
+                throw new IllegalArgumentException("Too many symbols: " + positions.length + 
+                    " (max " + JABCodeNative.MAX_SYMBOL_NUMBER + ")");
+            }
+            
+            // Check for position 0 (primary symbol)
+            boolean hasPrimary = false;
+            java.util.Set<Integer> seen = new java.util.HashSet<>();
+            
+            for (int i = 0; i < positions.length; i++) {
+                int pos = positions[i];
+                
+                // Validate range
+                if (pos < 0 || pos >= JABCodeNative.MAX_SYMBOL_NUMBER) {
+                    throw new IllegalArgumentException("Position at index " + i + " is out of range: " + 
+                        pos + " (must be 0-" + (JABCodeNative.MAX_SYMBOL_NUMBER - 1) + ")");
+                }
+                
+                // Check for duplicates
+                if (seen.contains(pos)) {
+                    throw new IllegalArgumentException("Duplicate position: " + pos);
+                }
+                seen.add(pos);
+                
+                // Check for primary
+                if (pos == 0) {
+                    hasPrimary = true;
+                }
+            }
+            
+            if (!hasPrimary) {
+                throw new IllegalArgumentException("Position 0 (primary symbol) must be included");
+            }
+        }
+    }
+    
+    /**
+     * Encode with custom ISO-IEC-23634 symbol positions (full cascading support).
+     * 
+     * <p>This method provides full control over symbol spatial arrangement according to
+     * ISO-IEC-23634 section 4.5. Symbols are positioned using the standard's predefined
+     * 61-position layout (0-60), where position 0 is always the primary (master) symbol.</p>
+     * 
+     * <p><b>Example - 3×3 Grid:</b></p>
+     * <pre>
+     * // Create 3×3 grid with primary in center
+     * BufferedImage img = OptimizedJABCode.encodeWithCascade(
+     *     largeData,
+     *     ColorMode.QUATERNARY,
+     *     CascadeLayout.GRID_3X3,  // ISO positions for 3×3 layout
+     *     5                         // Higher ECC for multi-symbol
+     * );
+     * </pre>
+     * 
+     * <p><b>Example - Custom Layout:</b></p>
+     * <pre>
+     * // Custom L-shape arrangement
+     * int[] customPositions = {0, 1, 4};  // Primary + top + right
+     * BufferedImage img = OptimizedJABCode.encodeWithCascade(
+     *     data,
+     *     ColorMode.OCTAL,
+     *     customPositions,
+     *     3
+     * );
+     * </pre>
+     * 
+     * @param data the data to encode
+     * @param colorMode the color mode to use
+     * @param isoPositions array of ISO-IEC-23634 positions (0-60), must include position 0
+     * @param eccLevel error correction level (0-10)
+     * @return the encoded JABCode as a BufferedImage
+     * @throws IllegalArgumentException if positions are invalid
+     * @throws RuntimeException if encoding fails
+     */
+    public static BufferedImage encodeWithCascade(
+            byte[] data,
+            ColorMode colorMode,
+            int[] isoPositions,
+            int eccLevel) {
+        
+        return encodeWithCascade(data, colorMode, isoPositions, eccLevel, false);
+    }
+    
+    /**
+     * Encode with custom ISO-IEC-23634 symbol positions and optional image processing.
+     * 
+     * @param data the data to encode
+     * @param colorMode the color mode to use
+     * @param isoPositions array of ISO-IEC-23634 positions (0-60), must include position 0
+     * @param eccLevel error correction level (0-10)
+     * @param applyImageProcessing whether to apply image sharpening
+     * @return the encoded JABCode as a BufferedImage
+     * @throws IllegalArgumentException if positions are invalid
+     * @throws RuntimeException if encoding fails
+     */
+    public static BufferedImage encodeWithCascade(
+            byte[] data,
+            ColorMode colorMode,
+            int[] isoPositions,
+            int eccLevel,
+            boolean applyImageProcessing) {
+        
+        if (data == null) {
+            throw new IllegalArgumentException("Data cannot be null");
+        }
+        if (data.length == 0) {
+            throw new IllegalArgumentException("Data cannot be empty");
+        }
+        
+        // Validate ISO positions
+        CascadeLayout.validate(isoPositions);
+        
+        int symbolCount = isoPositions.length;
+        
+        if (eccLevel < 0 || eccLevel > 10) {
+            throw new IllegalArgumentException("ECC level must be between 0 and 10");
+        }
+        
+        try {
+            int nativeColorMode = ColorModeConverter.toNativeColorMode(colorMode);
+            
+            // Create encoder with specified symbol count
+            long encPtr = JABCodeNativePtr.createEncodePtr(nativeColorMode, symbolCount);
+            if (encPtr == 0L) {
+                throw new RuntimeException("Failed to create JABCode encoding context");
+            }
+            
+            try {
+                // Set custom ISO positions for each symbol
+                for (int i = 0; i < symbolCount; i++) {
+                    JABCodeNativePtr.setSymbolPositionPtr(encPtr, i, isoPositions[i]);
+                    
+                    // Set minimal initial versions (library will auto-adjust if needed)
+                    JABCodeNativePtr.setSymbolVersionPtr(encPtr, i, 1, 1);
+                }
+                
+                // Apply ECC level to all symbols
+                try {
+                    JABCodeNativePtr.setAllEccLevelsPtr(encPtr, eccLevel);
+                } catch (Throwable ignore) {}
+                
+                // Generate the code
+                long dataPtr = JABCodeNativePtr.createDataFromBytes(data);
+                if (dataPtr == 0L) {
+                    throw new RuntimeException("Failed to allocate jab_data");
+                }
+                
+                try {
+                    int status = JABCodeNativePtr.generateJABCodePtr(encPtr, dataPtr);
+                    
+                    if (status != 0) {
+                        throw new RuntimeException("Failed to generate cascaded JABCode (status=" + status + 
+                            "). Try reducing data size or increasing symbol count.");
+                    }
+                    
+                    // Get the bitmap
+                    long bmpPtr = JABCodeNativePtr.getBitmapFromEncodePtr(encPtr);
+                    if (bmpPtr == 0L) {
+                        throw new RuntimeException("Failed to get JABCode bitmap");
+                    }
+                    
+                    // Save to temp file and load
+                    File tmp = File.createTempFile("jabcode-cascade-", ".png");
+                    tmp.deleteOnExit();
+                    boolean saved = JABCodeNativePtr.saveImagePtr(bmpPtr, tmp.getAbsolutePath());
+                    if (!saved) {
+                        throw new RuntimeException("Failed to save JABCode image");
+                    }
+                    
+                    BufferedImage image = ImageIO.read(tmp);
+                    if (image == null) {
+                        throw new RuntimeException("Failed to load saved JABCode image");
+                    }
+                    
+                    if (applyImageProcessing) {
+                        image = applyImageProcessing(image);
+                    }
+                    
+                    return image;
+                    
+                } finally {
+                    JABCodeNativePtr.destroyDataPtr(dataPtr);
+                }
+            } finally {
+                JABCodeNativePtr.destroyEncodePtr(encPtr);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to generate cascaded JABCode", e);
+        }
+    }
+    
+    /**
+     * Encode with custom ISO-IEC-23634 symbol positions (string overload).
+     * 
+     * @param data the data to encode as a string
+     * @param colorMode the color mode to use
+     * @param isoPositions array of ISO-IEC-23634 positions (0-60)
+     * @param eccLevel error correction level (0-10)
+     * @return the encoded JABCode as a BufferedImage
+     */
+    public static BufferedImage encodeWithCascade(
+            String data,
+            ColorMode colorMode,
+            int[] isoPositions,
+            int eccLevel) {
+        
+        if (data == null) {
+            throw new IllegalArgumentException("Data cannot be null");
+        }
+        return encodeWithCascade(data.getBytes(), colorMode, isoPositions, eccLevel, false);
+    }
 }
