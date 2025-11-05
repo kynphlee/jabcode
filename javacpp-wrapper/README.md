@@ -208,3 +208,5 @@ When using this software, you must comply with both licenses.
 - JABCode was developed by Fraunhofer SIT
 - This Java wrapper uses JavaCPP for JNI bindings
 - The native JABCode library is available at [github.com/jabcode/jabcode](https://github.com/jabcode/jabcode)
+
+This should be in the my-branch of my repo
