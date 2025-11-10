@@ -6,11 +6,12 @@
 #ifndef JABCODE_C_WRAPPER_H
 #define JABCODE_C_WRAPPER_H
 
-#include "jabcode.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+// Ensure jabcode.h also has C linkage when included in C++ compilation units
+#include "jabcode.h"
 
 // C wrapper functions for JABCode library
 jab_encode* createEncode_c(jab_int32 color_number, jab_int32 symbol_number);
@@ -22,6 +23,35 @@ jab_boolean saveImage_c(jab_bitmap* bitmap, jab_char* filename);
 jab_boolean saveImageCMYK_c(jab_bitmap* bitmap, jab_boolean isCMYK, jab_char* filename);
 jab_bitmap* readImage_c(jab_char* filename);
 void reportError_c(jab_char* message);
+// Experimental: adjust Nc detection thresholds (for tests)
+void setNcThresholds_c(jab_int32 ths_black, jab_double ths_std);
+// Experimental: force Nc value in decoder (for tests)
+void setForceNc_c(jab_int32 nc);
+// Experimental: fetch last Nc RGB samples (4x RGB), 4 module values, and final Nc
+void getLastNcDebug_c(jab_int32* out, jab_int32 len);
+// Experimental: use default palette grid for >=16 colors during decode (for tests)
+void setUseDefaultPaletteHighColor_c(jab_int32 flag);
+// Experimental: force ECL (wc, wr) during decode (for tests)
+void setForceEcl_c(jab_int32 wc, jab_int32 wr);
+// Experimental: classifier debug controls and stats (for tests)
+    void setClassifierDebug_c(jab_int32 enable);
+    void setClassifierMode_c(jab_int32 mode);
+    void getClassifierStats_c(jab_int32* out, jab_int32 len);
+
+    // Experimental: pipeline debug (for tests)
+    void getDecodePipelineDebug_c(jab_int32* out, jab_int32 len);
+    void getRawModuleSample_c(jab_int32* out, jab_int32 len);
+    // Experimental: Part II debug (for tests)
+    void getPart2Debug_c(jab_int32* out, jab_int32 len);
+    // Experimental: force mask type during demask (for tests). Use -1 to disable.
+    void setForceMask_c(jab_int32 mask);
+    // Experimental: decoder palette dump (first palette block, bytes as ints)
+    void getDecoderPaletteDebug_c(jab_int32* out, jab_int32 len);
+    // Experimental: encoder default palette dump for given color_number (bytes as ints)
+    void getEncoderDefaultPalette_c(jab_int32 color_number, jab_int32* out, jab_int32 len);
+
+    // Experimental: LDPC input bits before(0)/after(1) deinterleave (bits as ints)
+    void getLdpcInputDebug_c(jab_int32* out, jab_int32 len, jab_int32 which);
 
 #ifdef __cplusplus
 }

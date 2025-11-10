@@ -17,6 +17,7 @@ com/jabcode/core/JABCode$JABCodeException.class
 com/jabcode/util/FileUtils.class
 com/jabcode/OptimizedJABCode.class
 com/jabcode/internal/JABCodeNative$jab_symbol.class
+com/jabcode/internal/JABCodeNativePtr.class
 com/jabcode/internal/JABCodeHelper.class
 com/jabcode/internal/JABCodeNativeMapping$jab_metadata.class
 com/jabcode/util/JABCodeTestHelper.class

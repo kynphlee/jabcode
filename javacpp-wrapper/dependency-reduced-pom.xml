@@ -4,7 +4,7 @@
   <groupId>com.jabcode</groupId>
   <artifactId>jabcode-java</artifactId>
   <name>JABCode Java Library</name>
-  <version>1.0.0</version>
+  <version>1.0.2-SNAPSHOT</version>
   <description>Java library for generating and decoding JABCode (Just Another Barcode) 2D color barcodes</description>
   <url>https://github.com/jabcode/jabcode-java</url>
   <developers>
@@ -33,8 +33,9 @@
         <targetPath>com/jabcode</targetPath>
         <directory>${project.basedir}/src/main/c</directory>
         <includes>
-          <include>jabcode_c_wrapper.cpp</include>
+          <include>jabcode_c_wrapper.c</include>
           <include>jabcode_c_wrapper.h</include>
+          <include>JABCodeNative_jni.cpp</include>
         </includes>
       </resource>
       <resource>
@@ -79,6 +80,7 @@
                 <compilerOption>-std=c++11</compilerOption>
               </compilerOptions>
               <linkPaths>
+                <linkPath>${project.basedir}/src/jabcode/build/</linkPath>
                 <linkPath>${project.basedir}/../src/jabcode/build/</linkPath>
                 <linkPath>${project.basedir}/../src/jabcode/lib/</linkPath>
               </linkPaths>
@@ -87,18 +89,17 @@
                 <includePath>${project.basedir}/../src/jabcode/include/</includePath>
               </includePaths>
               <sourceFilenames>
-                <sourceFilename>${project.basedir}/src/main/c/jabcode_c_wrapper.cpp</sourceFilename>
-                <sourceFilename>${project.basedir}/src/main/c/create_encode_wrapper.cpp</sourceFilename>
+                <sourceFilename>${project.basedir}/src/main/c/jabcode_c_wrapper.c</sourceFilename>
                 <sourceFilename>${project.basedir}/src/main/c/JABCodeNative_jni.cpp</sourceFilename>
               </sourceFilenames>
               <linkPaths>
+                <linkPath>${project.basedir}/src/jabcode/build/</linkPath>
                 <linkPath>${project.basedir}/../src/jabcode/build/</linkPath>
                 <linkPath>${project.basedir}/../src/jabcode/lib/</linkPath>
                 <linkPath>${project.basedir}/lib/</linkPath>
               </linkPaths>
               <libraries>
                 <library>jabcode</library>
-                <library>jabcode_wrapper</library>
                 <library>png16</library>
                 <library>z</library>
               </libraries>
@@ -120,18 +121,17 @@
                 <includePath>${project.basedir}/../src/jabcode/include/</includePath>
               </includePaths>
               <sourceFilenames>
-                <sourceFilename>${project.basedir}/src/main/c/jabcode_c_wrapper.cpp</sourceFilename>
-                <sourceFilename>${project.basedir}/src/main/c/create_encode_wrapper.cpp</sourceFilename>
+                <sourceFilename>${project.basedir}/src/main/c/jabcode_c_wrapper.c</sourceFilename>
                 <sourceFilename>${project.basedir}/src/main/c/JABCodeNative_jni.cpp</sourceFilename>
               </sourceFilenames>
               <linkPaths>
+                <linkPath>${project.basedir}/src/jabcode/build/</linkPath>
                 <linkPath>${project.basedir}/../src/jabcode/build/</linkPath>
                 <linkPath>${project.basedir}/../src/jabcode/lib/</linkPath>
                 <linkPath>${project.basedir}/lib/</linkPath>
               </linkPaths>
               <libraries>
                 <library>jabcode</library>
-                <library>jabcode_wrapper</library>
                 <library>png16</library>
                 <library>z</library>
               </libraries>
@@ -145,6 +145,7 @@
             <includePath>${project.basedir}/../src/jabcode/include/</includePath>
           </includePaths>
           <linkPaths>
+            <linkPath>${project.basedir}/src/jabcode/build/</linkPath>
             <linkPath>${project.basedir}/../src/jabcode/build/</linkPath>
             <linkPath>${project.basedir}/../src/jabcode/lib/</linkPath>
           </linkPaths>
@@ -155,6 +156,7 @@
             <includePath>${project.basedir}/../src/jabcode/include/</includePath>
           </includePaths>
           <linkPaths>
+            <linkPath>${project.basedir}/src/jabcode/build/</linkPath>
             <linkPath>${project.basedir}/../src/jabcode/build/</linkPath>
             <linkPath>${project.basedir}/../src/jabcode/lib/</linkPath>
             <linkPath>${project.basedir}/../src/</linkPath>
@@ -195,6 +197,20 @@
         <version>3.1.0</version>
         <executions>
           <execution>
+            <id>build-core-lib</id>
+            <phase>generate-resources</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>make</executable>
+              <arguments>
+                <argument>-C</argument>
+                <argument>${project.basedir}/../src/jabcode</argument>
+              </arguments>
+            </configuration>
+          </execution>
+          <execution>
             <id>fix-build-date</id>
             <phase>process-classes</phase>
             <goals>
@@ -215,13 +231,27 @@
               <goal>exec</goal>
             </goals>
             <configuration>
+              <skip>true</skip>
               <executable>bash</executable>
               <arguments>
                 <argument>${project.basedir}/scripts/build.sh</argument>
                 <argument>--core</argument>
                 <argument>--jni</argument>
-                <argument>--fixed</argument>
                 <argument>--verbose</argument>
+              </arguments>
+            </configuration>
+          </execution>
+          <execution>
+            <id>create-symlinks</id>
+            <phase>test-compile</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>bash</executable>
+              <arguments>
+                <argument>-c</argument>
+                <argument>bash ${project.basedir}/scripts/create_symlinks.sh ${project.basedir} ${project.build.directory} ${javacpp.platform}</argument>
               </arguments>
             </configuration>
           </execution>
@@ -252,13 +282,13 @@
         <configuration>
           <forkCount>0</forkCount>
           <reuseForks>false</reuseForks>
-          <argLine>-Djava.library.path=${project.basedir}/libs:${project.basedir}/lib:${project.basedir}/../lib:${project.build.directory}/classes/com/jabcode/${javacpp.platform}:${project.basedir}/libs/linux-x86_64</argLine>
+          <argLine>-Xcheck:jni -Djava.library.path=${project.build.directory}/classes/com/jabcode/${javacpp.platform}:${project.build.directory}/test-classes/com/jabcode/${javacpp.platform}:${project.build.directory}/classes/com/jabcode/${javacpp.platform}:${project.build.directory}/test-classes/com/jabcode/${javacpp.platform}:${project.basedir}/libs:${project.basedir}/lib:${project.basedir}/libs:${project.basedir}/lib:${project.basedir}/../lib:${project.basedir}/libs/linux-x86_64</argLine>
           <environmentVariables>
-            <LD_LIBRARY_PATH>${project.basedir}/libs:${project.basedir}/lib:${project.basedir}/../lib:${project.build.directory}/classes/com/jabcode/${javacpp.platform}:${project.basedir}/libs/linux-x86_64</LD_LIBRARY_PATH>
+            <LD_LIBRARY_PATH>${project.build.directory}/classes/com/jabcode/${javacpp.platform}:${project.build.directory}/test-classes/com/jabcode/${javacpp.platform}:${project.basedir}/libs:${project.basedir}/lib:${project.basedir}/../lib:${project.basedir}/libs/linux-x86_64</LD_LIBRARY_PATH>
           </environmentVariables>
           <systemPropertyVariables>
             <skipNativeTests>${skipNativeTests}</skipNativeTests>
-            <java.library.path>${project.basedir}/libs:${project.basedir}/lib:${project.basedir}/../lib:${project.build.directory}/classes/com/jabcode/${javacpp.platform}:${project.basedir}/libs/linux-x86_64</java.library.path>
+            <java.library.path>${project.build.directory}/classes/com/jabcode/${javacpp.platform}:${project.build.directory}/test-classes/com/jabcode/${javacpp.platform}:${project.basedir}/libs:${project.basedir}/lib:${project.basedir}/../lib:${project.basedir}/libs/linux-x86_64</java.library.path>
           </systemPropertyVariables>
           <includes>
             <include>**/*Test.java</include>
@@ -365,27 +395,6 @@
           </execution>
         </executions>
       </plugin>
-      <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>exec-maven-plugin</artifactId>
-        <version>3.1.0</version>
-        <executions>
-          <execution>
-            <id>create-symlinks</id>
-            <phase>process-test-resources</phase>
-            <goals>
-              <goal>exec</goal>
-            </goals>
-            <configuration>
-              <executable>bash</executable>
-              <arguments>
-                <argument>-c</argument>
-                <argument>mkdir -p ${project.build.directory}/test-classes/com/jabcode/${javacpp.platform}</argument>
-              </arguments>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
     </plugins>
   </build>
   <profiles>
@@ -462,18 +471,6 @@
       <groupId>org.imgscalr</groupId>
       <artifactId>imgscalr-lib</artifactId>
       <version>4.2</version>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.bytedeco</groupId>
-      <artifactId>javacv</artifactId>
-      <version>1.5.9</version>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.bytedeco</groupId>
-      <artifactId>javacv-platform</artifactId>
-      <version>1.5.9</version>
       <scope>compile</scope>
     </dependency>
     <dependency>

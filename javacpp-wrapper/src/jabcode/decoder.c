@@ -21,6 +21,201 @@
 #include "ldpc.h"
 #include "encoder.h"
 
+// Default-palette override for high-color (test-only)
+extern void setDefaultPalette(jab_int32 color_number, jab_byte* palette);
+extern void genColorPalette(jab_int32 color_number, jab_byte* palette);
+static jab_int32 g_use_default_palette_highcolor = 0;
+void setUseDefaultPaletteHighColor_c(jab_int32 flag) { g_use_default_palette_highcolor = flag; }
+
+// Force Nc for testing
+static jab_int32 g_force_nc = -1;
+void setForceNc_c(jab_int32 nc){ g_force_nc = nc; }
+
+// Force ECL (wc, wr) for testing
+static jab_int32 g_force_wc = -1;
+static jab_int32 g_force_wr = -1;
+void setForceEcl_c(jab_int32 wc, jab_int32 wr) { g_force_wc = wc; g_force_wr = wr; }
+
+// Tunable thresholds for Nc detection (default to original constants)
+static jab_int32 g_ths_black_nc = 80;
+static jab_double g_ths_std_nc = 0.08;
+
+// Exposed via C wrapper for JNI to adjust in tests/experiments
+void setNcThresholds_c(jab_int32 ths_black, jab_double ths_std)
+{
+    if (ths_black > 0 && ths_black < 255) g_ths_black_nc = ths_black;
+    if (ths_std > 0.0 && ths_std < 1.0) g_ths_std_nc = ths_std;
+}
+
+// Classification debug and mode toggle (test-only)
+static jab_int32 g_clf_debug_enabled = 0;
+static jab_int32 g_classifier_mode = 0; // 0: normalized RGB (default), 1: raw RGB distance no 0/7 luminance fix
+static jab_int32 g_clf_last_color_number = 0;
+static jab_int64 g_clf_total = 0;
+static jab_int64 g_clf_nonblack = 0;
+static jab_int64 g_clf_black = 0;
+static jab_int32 g_clf_hist[256] = {0};
+static jab_double g_clf_margin_sum = 0.0; // sum of (min2 - min1) for non-black classifications
+
+static void resetClassifierStats() {
+    g_clf_total = 0;
+    g_clf_nonblack = 0;
+    g_clf_black = 0;
+    g_clf_margin_sum = 0.0;
+    for (int i = 0; i < 256; ++i) g_clf_hist[i] = 0;
+}
+void setClassifierDebug_c(jab_int32 enable) {
+    g_clf_debug_enabled = enable ? 1 : 0;
+    resetClassifierStats();
+}
+
+void setClassifierMode_c(jab_int32 mode) { g_classifier_mode = mode; }
+
+void getClassifierStats_c(jab_int32* out, jab_int32 len) {
+    if (!out || len <= 0) return;
+    jab_int32 header_size = 6;
+    jab_int32 nonblack_i = (jab_int32)(g_clf_nonblack > 0 ? (g_clf_nonblack > 0x7fffffff ? 0x7fffffff : g_clf_nonblack) : 0);
+    jab_int32 total_i = (jab_int32)(g_clf_total > 0x7fffffff ? 0x7fffffff : g_clf_total);
+    jab_int32 black_i = (jab_int32)(g_clf_black > 0x7fffffff ? 0x7fffffff : g_clf_black);
+    jab_int32 avg_margin_micro = (nonblack_i > 0) ? (jab_int32)((g_clf_margin_sum / (jab_double)g_clf_nonblack) * 1000000.0) : 0;
+    if (len > 0) out[0] = total_i;
+    if (len > 1) out[1] = black_i;
+    if (len > 2) out[2] = nonblack_i;
+    if (len > 3) out[3] = avg_margin_micro;
+    if (len > 4) out[4] = g_clf_last_color_number;
+    if (len > 5) out[5] = g_classifier_mode;
+    // copy histogram bins as space allows
+    jab_int32 bins_to_copy = len - header_size;
+    if (bins_to_copy > 0) {
+        if (bins_to_copy > 256) bins_to_copy = 256;
+        for (jab_int32 i = 0; i < bins_to_copy; ++i) {
+            out[header_size + i] = (jab_int32)(g_clf_hist[i] > 0x7fffffff ? 0x7fffffff : g_clf_hist[i]);
+        }
+    }
+}
+
+// Pipeline debug (test-only)
+static jab_int32 g_dbg_part1_ret = 0;
+static jab_int32 g_dbg_part2_ret = 0;
+static jab_int32 g_dbg_bits_per_module = 0;
+static jab_int32 g_dbg_mask_type = -1;
+static jab_int32 g_dbg_wc = 0;
+static jab_int32 g_dbg_wr = 0;
+static jab_int32 g_dbg_Pg = 0;
+static jab_int32 g_dbg_Pn = 0;
+static jab_int32 g_dbg_raw_mod_len = 0;
+static jab_int32 g_dbg_raw_data_len = 0;
+static jab_int32 g_dbg_sample_len = 0;
+static jab_byte g_dbg_sample[64] = {0};
+// Part II debug (header + first bits)
+static jab_int32 g_dbg_p2_count = 0;
+static jab_int32 g_dbg_p2_wc = -1;
+static jab_int32 g_dbg_p2_wr = -1;
+static jab_int32 g_dbg_p2_mask = -1;
+static jab_byte g_dbg_p2_bits[64] = {0};
+
+// LDPC input debug (first up to 128 bits)
+static jab_int32 g_dbg_pre_len = 0;
+static jab_int32 g_dbg_post_len = 0;
+static jab_byte g_dbg_pre_bits[128] = {0};
+static jab_byte g_dbg_post_bits[128] = {0};
+
+// Decoder palette debug (first palette block only)
+static jab_int32 g_dbg_pal_len = 0; // bytes
+static jab_byte g_dbg_pal[256 * 3] = {0};
+// Interpolation detector (test-only): set to 1 if interpolatePalette() is invoked
+static jab_int32 g_dbg_interpolated = 0;
+
+
+// Force mask for testing
+static jab_int32 g_force_mask = -1;
+void setForceMask_c(jab_int32 mask) { g_force_mask = mask; }
+
+static void resetDecodePipelineDebug() {
+    g_dbg_part1_ret = 0;
+    g_dbg_part2_ret = 0;
+    g_dbg_bits_per_module = 0;
+    g_dbg_mask_type = -1;
+    g_dbg_wc = 0;
+    g_dbg_wr = 0;
+    g_dbg_Pg = 0;
+    g_dbg_Pn = 0;
+    g_dbg_raw_mod_len = 0;
+    g_dbg_raw_data_len = 0;
+    g_dbg_sample_len = 0;
+    for (int i = 0; i < 64; ++i) g_dbg_sample[i] = 0;
+    g_dbg_p2_count = 0;
+    g_dbg_p2_wc = -1; g_dbg_p2_wr = -1; g_dbg_p2_mask = -1;
+    for (int i = 0; i < 64; ++i) g_dbg_p2_bits[i] = 0;
+    g_dbg_interpolated = 0;
+    // LDPC debug resets
+    g_dbg_pre_len = 0;
+    g_dbg_post_len = 0;
+    for (int i = 0; i < 128; ++i) { g_dbg_pre_bits[i] = 0; g_dbg_post_bits[i] = 0; }
+}
+
+void getDecodePipelineDebug_c(jab_int32* out, jab_int32 len) {
+    if (!out || len <= 0) return;
+    // Layout: [part1_ret, part2_ret, bits_per_module, mask_type, wc, wr, Pg, Pn, raw_mod_len, raw_data_len, clf_total, interpolated]
+    jab_int32 tmp[12];
+    tmp[0] = g_dbg_part1_ret;
+    tmp[1] = g_dbg_part2_ret;
+    tmp[2] = g_dbg_bits_per_module;
+    tmp[3] = g_dbg_mask_type;
+    tmp[4] = g_dbg_wc;
+    tmp[5] = g_dbg_wr;
+    tmp[6] = g_dbg_Pg;
+    tmp[7] = g_dbg_Pn;
+    tmp[8] = g_dbg_raw_mod_len;
+    tmp[9] = g_dbg_raw_data_len;
+    tmp[10] = (jab_int32)(g_clf_total > 0x7fffffff ? 0x7fffffff : g_clf_total);
+    tmp[11] = g_dbg_interpolated;
+    jab_int32 n = len < 12 ? len : 12;
+    for (jab_int32 i = 0; i < n; ++i) out[i] = tmp[i];
+    for (jab_int32 i = n; i < len; ++i) out[i] = 0;
+}
+
+void getRawModuleSample_c(jab_int32* out, jab_int32 len) {
+    if (!out || len <= 0) return;
+    jab_int32 n = g_dbg_sample_len;
+    if (n > len) n = len;
+    for (jab_int32 i = 0; i < n; ++i) out[i] = (jab_int32)g_dbg_sample[i];
+    for (jab_int32 i = n; i < len; ++i) out[i] = 0;
+}
+
+void getPart2Debug_c(jab_int32* out, jab_int32 len) {
+    if (!out || len <= 0) return;
+    // Layout: [count, wc, wr, mask, bits...]
+    jab_int32 header = 4;
+    if (len >= 1) out[0] = g_dbg_p2_count;
+    if (len >= 2) out[1] = g_dbg_p2_wc;
+    if (len >= 3) out[2] = g_dbg_p2_wr;
+    if (len >= 4) out[3] = g_dbg_p2_mask;
+    jab_int32 nbits = len - header;
+    if (nbits > 64) nbits = 64;
+    for (jab_int32 i = 0; i < nbits; ++i) out[header + i] = (jab_int32)g_dbg_p2_bits[i];
+    for (jab_int32 i = header + nbits; i < len; ++i) out[i] = 0;
+}
+
+void getDecoderPaletteDebug_c(jab_int32* out, jab_int32 len) {
+    if (!out || len <= 0) return;
+    jab_int32 n = g_dbg_pal_len / 1; // bytes to ints one-to-one
+    if (n > len) n = len;
+    for (jab_int32 i = 0; i < n; ++i) out[i] = (jab_int32)g_dbg_pal[i];
+    for (jab_int32 i = n; i < len; ++i) out[i] = 0;
+}
+
+void getLdpcInputDebug_c(jab_int32* out, jab_int32 len, jab_int32 which)
+{
+    if (!out || len <= 0) return;
+    const jab_byte* src = (which ? g_dbg_post_bits : g_dbg_pre_bits);
+    jab_int32 n = len;
+    if (n > 128) n = 128;
+    for (jab_int32 i = 0; i < n; ++i) out[i] = (jab_int32)src[i];
+    for (jab_int32 i = n; i < len; ++i) out[i] = 0;
+}
+
+
 /**
  * @brief Copy 16-color sub-blocks of 64-color palette into 32-color blocks of 256-color palette and interpolate into 32 colors
  * @param palette the color palette
@@ -61,6 +256,8 @@ void copyAndInterpolateSubblockFrom16To32(jab_byte* palette, jab_int32 dst_offse
 */
 void interpolatePalette(jab_byte* palette, jab_int32 color_number)
 {
+	// Test-only: mark that interpolation was invoked
+	g_dbg_interpolated = 1;
 	for(jab_int32 i=0; i<COLOR_PALETTE_NUMBER; i++)
 	{
 		jab_int32 offset = color_number * 3 * i;
@@ -269,10 +466,27 @@ jab_int32 readColorPaletteInMaster(jab_bitmap* matrix, jab_decoded_symbol* symbo
 		color_counter++;
 	}
 
-	//interpolate the palette if there are more than 64 colors
-	if(color_number > 64)
+	// If enabled, regenerate default palette grid for high-color to avoid sampling drift
+	if (g_use_default_palette_highcolor && color_number >= 16) {
+		for (jab_int32 i = 0; i < COLOR_PALETTE_NUMBER; i++) {
+			genColorPalette(color_number, symbol->palette + i * color_number * 3);
+		}
+	}
+
+	//interpolate the palette if there are more than 64 colors, unless using default high-color grid
+	if (!(g_use_default_palette_highcolor && color_number >= 16))
 	{
-		interpolatePalette(symbol->palette, color_number);
+		if(color_number > 64)
+		{
+			interpolatePalette(symbol->palette, color_number);
+		}
+	}
+	// Debug: store first palette block
+	{
+		jab_int32 bytes = color_number * 3;
+		if (bytes > (jab_int32)sizeof(g_dbg_pal)) bytes = (jab_int32)sizeof(g_dbg_pal);
+		if (bytes > 0) memcpy(g_dbg_pal, symbol->palette, (size_t)bytes);
+		g_dbg_pal_len = bytes;
 	}
 	return JAB_SUCCESS;
 }
@@ -352,10 +566,27 @@ jab_int32 readColorPaletteInSlave(jab_bitmap* matrix, jab_decoded_symbol* symbol
 		color_counter++;
 	}
 
-	//interpolate the palette if there are more than 64 colors
-	if(color_number > 64)
+	// If enabled, regenerate default palette grid for high-color to avoid sampling drift
+	if (g_use_default_palette_highcolor && color_number >= 16) {
+		for (jab_int32 i = 0; i < COLOR_PALETTE_NUMBER; i++) {
+			genColorPalette(color_number, symbol->palette + i * color_number * 3);
+		}
+	}
+
+	//interpolate the palette if there are more than 64 colors, unless using default high-color grid
+	if (!(g_use_default_palette_highcolor && color_number >= 16))
 	{
-		interpolatePalette(symbol->palette, color_number);
+		if(color_number > 64)
+		{
+			interpolatePalette(symbol->palette, color_number);
+		}
+	}
+	// Debug: store first palette block
+	{
+		jab_int32 bytes = color_number * 3;
+		if (bytes > (jab_int32)sizeof(g_dbg_pal)) bytes = (jab_int32)sizeof(g_dbg_pal);
+		if (bytes > 0) memcpy(g_dbg_pal, symbol->palette, (size_t)bytes);
+		g_dbg_pal_len = bytes;
 	}
 	return JAB_SUCCESS;
 }
@@ -395,6 +626,33 @@ jab_int32 getNearestPalette(jab_bitmap* matrix, jab_int32 x, jab_int32 y)
 	return p_index;
 }
 
+// Raw RGB classifier helper (test-only). No normalization, no 0/7 luminance fix.
+static jab_byte decodeModuleHD_raw_branch(jab_byte* palette, jab_int32 color_number, jab_int32 p_index, jab_byte rgb[3])
+{
+    jab_byte index1 = 0, index2 = 0;
+    jab_int32 min1 = 255*255*3 + 1, min2 = 255*255*3 + 1;
+    for (jab_int32 i = 0; i < color_number; i++)
+    {
+        jab_int32 pr = palette[color_number*3*p_index + i*3 + 0];
+        jab_int32 pg = palette[color_number*3*p_index + i*3 + 1];
+        jab_int32 pb = palette[color_number*3*p_index + i*3 + 2];
+        jab_int32 dr = (jab_int32)rgb[0] - pr;
+        jab_int32 dg = (jab_int32)rgb[1] - pg;
+        jab_int32 db = (jab_int32)rgb[2] - pb;
+        jab_int32 diff = dr*dr + dg*dg + db*db;
+        if (diff < min1) { min2 = min1; index2 = index1; min1 = diff; index1 = (jab_byte)i; }
+        else if (diff < min2) { min2 = diff; index2 = (jab_byte)i; }
+    }
+    if (g_clf_debug_enabled) {
+        g_clf_last_color_number = color_number;
+        g_clf_total++;
+        g_clf_nonblack++;
+        if (index1 >= 0 && index1 < 256) { g_clf_hist[index1]++; }
+    }
+    return index1;
+}
+
+
 /**
  * @brief Decode a module using hard decision
  * @param matrix the symbol matrix
@@ -426,10 +684,20 @@ jab_byte decodeModuleHD(jab_bitmap* matrix, jab_byte* palette, jab_int32 color_n
 	if(rgb[0] < pal_ths[p_index*3 + 0] && rgb[1] < pal_ths[p_index*3 + 1] && rgb[2] < pal_ths[p_index*3 + 2])
 	{
 		index1 = 0;
+		if (g_clf_debug_enabled) {
+			g_clf_last_color_number = color_number;
+			g_clf_total++;
+			g_clf_black++;
+			if (index1 >= 0 && index1 < 256) { g_clf_hist[index1]++; }
+		}
 		return index1;
 	}
 	if(palette)
 	{
+		if (g_classifier_mode == 1) {
+			return decodeModuleHD_raw_branch(palette, color_number, p_index, rgb);
+		}
+
 	    //normalize the RGB values
         jab_float rgb_max = MAX(rgb[0], MAX(rgb[1], rgb[2]));
         jab_float r = (jab_float)rgb[0] / rgb_max;
@@ -503,6 +771,13 @@ jab_byte decodeModuleHD(jab_bitmap* matrix, jab_byte* palette, jab_int32 color_n
 			//printf("final: %d\n", index1);
 		}
 */
+		if (g_clf_debug_enabled) {
+			g_clf_last_color_number = color_number;
+			g_clf_total++;
+			g_clf_nonblack++;
+			if (index1 >= 0 && index1 < 256) { g_clf_hist[index1]++; }
+			if (min2 >= min1) { g_clf_margin_sum += (min2 - min1); }
+		}
 	}
 	else	//if no palette is available, decode the module as black/white
 	{
@@ -518,8 +793,8 @@ jab_byte decodeModuleHD(jab_bitmap* matrix, jab_byte* palette, jab_int32 color_n
 */
 jab_byte decodeModuleNc(jab_byte* rgb)
 {
-	jab_int32 ths_black = 80;
-	jab_double ths_std = 0.08;
+	jab_int32 ths_black = g_ths_black_nc;
+	jab_double ths_std = g_ths_std_nc;
 	//check black pixel
 	if(rgb[0] < ths_black && rgb[1] < ths_black && rgb[2] < ths_black)
 	{
@@ -585,6 +860,23 @@ void getPaletteThreshold(jab_byte* palette, jab_int32 color_number, jab_float* p
 		palette_ths[0] = (cpr0 + cpr1) / 2.0f;
 		palette_ths[1] = (cpg0 + cpg1) / 2.0f;
 		palette_ths[2] = (cpb0 + cpb1) / 2.0f;
+	}
+	else
+	{
+		// For >=16 colors, approximate thresholds using midpoints of per-channel min/max
+		jab_int32 min_r = 255, min_g = 255, min_b = 255;
+		jab_int32 max_r = 0,   max_g = 0,   max_b = 0;
+		for (jab_int32 i = 0; i < color_number; ++i) {
+			jab_int32 r = palette[i*3 + 0];
+			jab_int32 g = palette[i*3 + 1];
+			jab_int32 b = palette[i*3 + 2];
+			if (r < min_r) min_r = r; if (r > max_r) max_r = r;
+			if (g < min_g) min_g = g; if (g > max_g) max_g = g;
+			if (b < min_b) min_b = b; if (b > max_b) max_b = b;
+		}
+		palette_ths[0] = (min_r + max_r) / 2.0f;
+		palette_ths[1] = (min_g + max_g) / 2.0f;
+		palette_ths[2] = (min_b + max_b) / 2.0f;
 	}
 }
 
@@ -799,7 +1091,7 @@ jab_int32 decodeMasterMetadataPartI(jab_bitmap* matrix, jab_decoded_symbol* symb
 		return JAB_FAILURE;
 	}
 	//parse part1
-	symbol->metadata.Nc = (part1[0] << 2) + (part1[1] << 1) + part1[2];
+	symbol->metadata.Nc = (part1[0] << 2) + (part1[1] << 1) + part1[2]; if (g_force_nc >= 0) symbol->metadata.Nc = g_force_nc;
 
 	return JAB_SUCCESS;
 }
@@ -838,6 +1130,7 @@ jab_int32 decodeMasterMetadataPartII(jab_bitmap* matrix, jab_decoded_symbol* sym
 			if(part2_bit_count < MASTER_METADATA_PART2_LENGTH)
 			{
 				part2[part2_bit_count] = bit;
+				if (part2_bit_count < 64) { g_dbg_p2_bits[part2_bit_count] = bit; }
 				part2_bit_count++;
 			}
 			else	//if part2 is full, stop
@@ -851,6 +1144,9 @@ jab_int32 decodeMasterMetadataPartII(jab_bitmap* matrix, jab_decoded_symbol* sym
 		(*module_count)++;
 		getNextMetadataModuleInMaster(matrix->height, matrix->width, (*module_count), x, y);
     }
+
+	// record how many bits were accumulated for Part II
+	g_dbg_p2_count = part2_bit_count;
 
 	//decode ldpc for part2
 	if( !decodeLDPChd(part2, MASTER_METADATA_PART2_LENGTH, MASTER_METADATA_PART2_LENGTH > 36 ? 4 : 3, 0) )
@@ -898,6 +1194,11 @@ jab_int32 decodeMasterMetadataPartII(jab_bitmap* matrix, jab_decoded_symbol* sym
 	//read MSK
 	bit_index = V_length + E_length;
 	symbol->metadata.mask_type = (part2[bit_index+0] << 2) + (part2[bit_index+1] << 1) + part2[bit_index+2];
+	// Update Part II debug header fields
+	g_dbg_p2_wc = symbol->metadata.ecl.x;
+	g_dbg_p2_wr = symbol->metadata.ecl.y;
+	g_dbg_p2_mask = symbol->metadata.mask_type;
+	if (g_force_wc > 0 && g_force_wr > 0) { symbol->metadata.ecl.x = g_force_wc; symbol->metadata.ecl.y = g_force_wr; }
 
 	symbol->metadata.docked_position = 0;
 
@@ -1134,7 +1435,7 @@ void loadDefaultMasterMetadata(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 #endif
 	//set default metadata values
 	symbol->metadata.default_mode = 1;
-	symbol->metadata.Nc = DEFAULT_MODULE_COLOR_MODE;
+	symbol->metadata.Nc = (g_force_nc >= 0 ? g_force_nc : DEFAULT_MODULE_COLOR_MODE);
 	symbol->metadata.ecl.x = ecclevel2wcwr[DEFAULT_ECC_LEVEL][0];
 	symbol->metadata.ecl.y = ecclevel2wcwr[DEFAULT_ECC_LEVEL][1];
 	symbol->metadata.mask_type = DEFAULT_MASKING_REFERENCE;
@@ -1196,14 +1497,24 @@ jab_int32 decodeSymbol(jab_bitmap* matrix, jab_decoded_symbol* symbol, jab_byte*
 	fclose(fp);
 #endif // TEST_MODE
 
-	//demask
-	demaskSymbol(raw_module_data, data_map, symbol->side_size, symbol->metadata.mask_type, (jab_int32)pow(2, symbol->metadata.Nc + 1));
+	//demask (allow forced mask override for testing)
+	jab_int32 use_mask = (g_force_mask >= 0) ? g_force_mask : symbol->metadata.mask_type;
+	g_dbg_mask_type = use_mask;
+	demaskSymbol(raw_module_data, data_map, symbol->side_size, use_mask, (jab_int32)pow(2, symbol->metadata.Nc + 1));
 	free(data_map);
 #if TEST_MODE
 	fp = fopen("jab_demasked_module_data.bin", "wb");
 	fwrite(raw_module_data->data, raw_module_data->length, 1, fp);
 	fclose(fp);
 #endif // TEST_MODE
+
+	// Pipeline debug: capture bits_per_module, raw_module length and a small sample
+	g_dbg_bits_per_module = symbol->metadata.Nc + 1;
+	g_dbg_raw_mod_len = raw_module_data->length;
+	g_dbg_sample_len = (raw_module_data->length < 64) ? raw_module_data->length : 64;
+	for (jab_int32 i = 0; i < g_dbg_sample_len; ++i) {
+		g_dbg_sample[i] = raw_module_data->data[i];
+	}
 
 	//change to one-bit-per-byte representation
 	jab_data* raw_data = rawModuleData2RawData(raw_module_data, symbol->metadata.Nc + 1);
@@ -1213,16 +1524,34 @@ jab_int32 decodeSymbol(jab_bitmap* matrix, jab_decoded_symbol* symbol, jab_byte*
 		JAB_REPORT_ERROR(("Reading raw data in symbol %d failed", symbol->index))
 		return FATAL_ERROR;
 	}
+	// Pipeline debug: record raw_data length before trimming
+	g_dbg_raw_data_len = raw_data->length;
 
 	//calculate Pn and Pg
 	jab_int32 wc = symbol->metadata.ecl.x;
 	jab_int32 wr = symbol->metadata.ecl.y;
+	// Apply forced ECL if set (test-only)
+	if (g_force_wc > 0 && g_force_wr > 0) { wc = g_force_wc; wr = g_force_wr; symbol->metadata.ecl.x = wc; symbol->metadata.ecl.y = wr; }
     jab_int32 Pg = (raw_data->length / wr) * wr;	//max_gross_payload = floor(capacity / wr) * wr
     jab_int32 Pn = Pg * (wr - wc) / wr;				//code_rate = 1 - wc/wr = (wr - wc)/wr, max_net_payload = max_gross_payload * code_rate
+	// Pipeline debug: LDPC params
+	g_dbg_wc = wc;
+	g_dbg_wr = wr;
+	g_dbg_Pg = Pg;
+	g_dbg_Pn = Pn;
 
-	//deinterleave data
+	
+    // LDPC input debug: capture first bits before deinterleave
+    g_dbg_pre_len = (Pg < 128 ? Pg : 128);
+    for (jab_int32 i = 0; i < g_dbg_pre_len; ++i) g_dbg_pre_bits[i] = raw_data->data[i];
+//deinterleave data
 	raw_data->length = Pg;	//drop the padding bits
     deinterleaveData(raw_data);
+
+    // LDPC input debug: capture first bits after deinterleave
+    g_dbg_post_len = (Pn < 128 ? Pn : 128);
+    for (jab_int32 i = 0; i < g_dbg_post_len; ++i) g_dbg_post_bits[i] = raw_data->data[i];
+
 
 #if TEST_MODE
 	JAB_REPORT_INFO(("wc:%d, wr:%d, Pg:%d, Pn: %d", wc, wr, Pg, Pn))
@@ -1316,6 +1645,7 @@ jab_int32 decodeMaster(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 	}
 
 	//create data map
+	resetDecodePipelineDebug();
 	jab_byte* data_map = (jab_byte*)calloc(1, matrix->width*matrix->height*sizeof(jab_byte));
 	if(data_map == NULL)
 	{
@@ -1330,6 +1660,7 @@ jab_int32 decodeMaster(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 
 	//decode metadata PartI (Nc)
 	jab_int32 decode_partI_ret = decodeMasterMetadataPartI(matrix, symbol, data_map, &module_count, &x, &y);
+	g_dbg_part1_ret = decode_partI_ret;
 	if(decode_partI_ret == JAB_FAILURE)
 	{
 		return JAB_FAILURE;
@@ -1368,10 +1699,19 @@ jab_int32 decodeMaster(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 	//decode metadata PartII
 	if(decode_partI_ret == JAB_SUCCESS)
 	{
-		if(decodeMasterMetadataPartII(matrix, symbol, data_map, norm_palette, pal_ths, &module_count, &x, &y) <= 0)
+		jab_int32 part2ret = decodeMasterMetadataPartII(matrix, symbol, data_map, norm_palette, pal_ths, &module_count, &x, &y);
+		g_dbg_part2_ret = part2ret;
+		if(part2ret <= 0)
 		{
 			return JAB_FAILURE;
 		}
+	}
+	else if (decode_partI_ret == DECODE_METADATA_FAILED && g_force_nc >= 0)
+	{
+		// Treat forced Nc as Part I success for test instrumentation: attempt Part II to parse ECL/mask
+		jab_int32 part2ret = decodeMasterMetadataPartII(matrix, symbol, data_map, norm_palette, pal_ths, &module_count, &x, &y);
+		g_dbg_part2_ret = part2ret;
+		// Do not early-return failure here; continue to attempt payload to gather LDPC telemetry
 	}
 
 	//decode master symbol
@@ -1393,6 +1733,7 @@ jab_int32 decodeSlave(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 	}
 
 	//create data map
+	resetDecodePipelineDebug();
 	jab_byte* data_map = (jab_byte*)calloc(1, matrix->width*matrix->height*sizeof(jab_byte));
 	if(data_map == NULL)
 	{
@@ -1410,20 +1751,19 @@ jab_int32 decodeSlave(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 
 	//normalize the RGB values in color palettes
 	jab_int32 color_number = (jab_int32)pow(2, symbol->metadata.Nc + 1);
-	jab_float norm_palette[color_number * 4 * COLOR_PALETTE_NUMBER];	//each color contains 4 normalized values, i.e. R, G, B and Luminance
+	jab_float norm_palette[color_number * 4 * COLOR_PALETTE_NUMBER];
 	normalizeColorPalette(symbol, norm_palette, color_number);
 
 	//get the palette RGB thresholds
 	jab_float pal_ths[3 * COLOR_PALETTE_NUMBER];
 	for(jab_int32 i=0; i<COLOR_PALETTE_NUMBER; i++)
 	{
-		getPaletteThreshold(symbol->palette + i*3, color_number, &pal_ths[i*3]);
+		getPaletteThreshold(symbol->palette + (color_number*3)*i, color_number, &pal_ths[i*3]);
 	}
 
 	//decode slave symbol
 	return decodeSymbol(matrix, symbol, data_map, norm_palette, pal_ths, 1);
 }
-
 /**
  * @brief Read bit data
  * @param data the data buffer

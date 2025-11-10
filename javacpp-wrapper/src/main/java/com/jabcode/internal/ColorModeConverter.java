@@ -6,13 +6,6 @@ import java.util.Arrays;
 
 import org.apache.commons.math3.util.FastMath;
 import org.bytedeco.javacpp.BytePointer;
-import org.bytedeco.javacv.Java2DFrameConverter;
-import org.bytedeco.javacv.OpenCVFrameConverter;
-import org.bytedeco.opencv.global.opencv_imgproc;
-import org.bytedeco.opencv.global.opencv_core;
-import org.bytedeco.opencv.opencv_core.Mat;
-import org.bytedeco.opencv.opencv_core.CvScalar;
-import org.bytedeco.opencv.opencv_core.TermCriteria;
 
 import com.jabcode.OptimizedJABCode.ColorMode;
 
@@ -21,6 +14,17 @@ import com.jabcode.OptimizedJABCode.ColorMode;
  * This class provides methods for converting between different color modes for JABCode
  */
 public class ColorModeConverter {
+    // Feature flag to enable true ≥16-color native mapping. Default: disabled for stability.
+    public static boolean isHighColorNativeEnabled() {
+        try {
+            if (Boolean.getBoolean("jabcode.highcolor.native")) return true;
+        } catch (SecurityException ignore) {}
+        try {
+            String env = System.getenv("JABCODE_HIGHCOLOR_NATIVE");
+            return env != null && env.equalsIgnoreCase("true");
+        } catch (SecurityException ignore) {}
+        return false;
+    }
     
     // Standard palettes for different color modes
     private static final int[][] BINARY_PALETTE = {
@@ -47,24 +51,29 @@ public class ColorModeConverter {
     };
     
     /**
-     * Convert a color mode to the native color mode supported by the JABCode library
-     * @param colorMode the color mode to convert
-     * @return the native color mode (4 or 8)
+     * Convert a color mode to the native color number supported by the JABCode library.
+     * Current implementation maps ≥16-color modes to 8 to preserve stable digital roundtrips.
+     * High-color native mapping will be enabled in a later phase once topology tuning is complete.
      */
     public static int toNativeColorMode(ColorMode colorMode) {
+        boolean highColor = isHighColorNativeEnabled();
         switch (colorMode) {
             case BINARY:
-                return 4; // Use 4-color mode with custom palette
+                return 4; // Map 2-color request to 4-color native
             case QUATERNARY:
                 return 4;
             case OCTAL:
                 return 8;
             case HEXADECIMAL:
+                return highColor ? 16 : 8; // Temporarily map to 8 unless flag enabled
             case MODE_32:
+                return highColor ? 32 : 8;
             case MODE_64:
+                return highColor ? 64 : 8;
             case MODE_128:
+                return highColor ? 128 : 8;
             case MODE_256:
-                return 8; // Use 8-color mode with dithering
+                return highColor ? 256 : 8;
             default:
                 throw new IllegalArgumentException("Unsupported color mode: " + colorMode);
         }
@@ -173,22 +182,22 @@ public class ColorModeConverter {
      * @return the binary image
      */
     private static BufferedImage convertToBinary(BufferedImage image) {
-        // Convert to OpenCV Mat
-        Java2DFrameConverter java2dConverter = new Java2DFrameConverter();
-        OpenCVFrameConverter.ToMat matConverter = new OpenCVFrameConverter.ToMat();
-        
-        Mat mat = matConverter.convert(java2dConverter.convert(image));
-        Mat grayMat = new Mat();
-        Mat binaryMat = new Mat();
-        
-        // Convert to grayscale
-        opencv_imgproc.cvtColor(mat, grayMat, opencv_imgproc.COLOR_BGR2GRAY);
-        
-        // Apply threshold to get binary image
-        opencv_imgproc.threshold(grayMat, binaryMat, 128, 255, opencv_imgproc.THRESH_BINARY);
-        
-        // Convert back to BufferedImage
-        return java2dConverter.convert(matConverter.convert(binaryMat));
+        int width = image.getWidth();
+        int height = image.getHeight();
+        BufferedImage result = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int rgb = image.getRGB(x, y);
+                int r = (rgb >> 16) & 0xFF;
+                int g = (rgb >> 8) & 0xFF;
+                int b = (rgb) & 0xFF;
+                // Luma approximation
+                int gray = (int)(0.299 * r + 0.587 * g + 0.114 * b);
+                int bw = (gray >= 128) ? 0xFFFFFF : 0x000000;
+                result.setRGB(x, y, bw);
+            }
+        }
+        return result;
     }
     
     /**

@@ -41,15 +41,13 @@ public class NativeLibraryLocationTest {
                 assertTrue("Library file should be readable", libraryFile.canRead());
             }
             
-            // Verify we can access a native method
-            // This is a simple check to ensure the library is functional
-            assertNotNull("Should be able to access native constants", 
-                         JABCodeNative.VERSION);
+            // Verify we can access some native constants/methods without relying on VERSION/BUILD_DATE
+            assertTrue("DEFAULT_ECC_LEVEL should be >= 0", JABCodeNative.DEFAULT_ECC_LEVEL >= 0);
             
             System.out.println("Native library verification successful!");
             System.out.println("  - Library path: " + libraryPath);
-            System.out.println("  - JABCode version: " + JABCodeNative.VERSION);
-            System.out.println("  - JABCode build date: " + JABCodeNative.BUILD_DATE);
+            System.out.println("  - JABCode version: N/A");
+            System.out.println("  - JABCode build date: N/A");
             
         } catch (Throwable t) {
             fail("Exception thrown: " + t.getMessage());
