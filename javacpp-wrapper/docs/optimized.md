@@ -102,12 +102,12 @@ To build and test the OptimizedJABCode class:
 
 1. Compile the native library:
    ```bash
-   ./build.sh
+   scripts/javacpp-wrapper/build.sh --all
    ```
 
 2. Run the JUnit tests:
    ```bash
-   ./test-optimized.sh
+   scripts/javacpp-wrapper/test-optimized.sh
    ```
 
 The tests will verify all functionality of the OptimizedJABCode class, including:

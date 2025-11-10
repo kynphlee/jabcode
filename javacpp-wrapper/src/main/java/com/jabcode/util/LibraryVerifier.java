@@ -24,9 +24,9 @@ public class LibraryVerifier {
             String libraryPath = NativeLibraryLoader.getLoadedLibraryPath();
             System.out.println("Loaded native library from classpath: " + libraryPath);
             
-            // Verify we can access native constants
-            System.out.println("JABCode version: " + JABCodeNative.VERSION);
-            System.out.println("JABCode build date: " + JABCodeNative.BUILD_DATE);
+            // Version/Build date constants may be omitted from generated bindings
+            System.out.println("JABCode version: N/A");
+            System.out.println("JABCode build date: N/A");
             
             // Print diagnostic information
             System.out.println("\nDiagnostic information:");

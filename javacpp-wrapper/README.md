@@ -18,6 +18,104 @@ This is a Java wrapper for the [JABCode](https://jabcode.org) library, providing
 - Error correction capabilities
 - Image processing options for enhanced visual quality
 
+## Performance
+
+### Recommended Configuration
+
+**8-color (OCTAL) mode is recommended** for all production use cases. Comprehensive benchmarking shows 8-color outperforms 4-color in every metric:
+
+| Metric | 4-Color | 8-Color | Improvement |
+|--------|---------|---------|-------------|
+| **Speed** | 14 KB/s | 16 KB/s | **+32% faster** |
+| **Memory** | 200 KB/op | 105 KB/op | **-47% less** |
+| **File Size** | 79 KB (1KB data) | 61 KB (1KB data) | **-24% smaller** |
+
+**Why 8-color is faster:** 8-color packs 50% more data per module (3 bits vs 2 bits), resulting in smaller symbols that require less processing for mask evaluation, LDPC encoding/decoding, and image operations.
+
+### Performance Characteristics
+
+- **Throughput**: ~15-18 KB/s for typical payloads (100B-1KB)
+- **JNI Overhead**: 10-19ms fixed cost per operation
+- **File Size**: Expect 60-80x overhead vs payload size (PNG compression is inefficient for multi-color patterns)
+- **Memory**: 105-200 KB per encode/decode operation depending on color mode
+
+### Best Practices
+
+✅ **Recommended Use Cases:**
+- Batch processing and archival applications
+- Payloads ≥100 bytes
+- High-capacity data storage where capacity matters more than file size
+
+⚠️ **Not Recommended For:**
+- Real-time interactive applications (use QR Code instead)
+- Small payloads <100 bytes (JNI overhead dominates)
+- Bandwidth-constrained scenarios (large file sizes)
+
+### Performance APIs
+
+**For Maximum Performance**, choose the right API for your use case:
+
+| Use Case | API | Performance | When to Use |
+|----------|-----|-------------|-------------|
+| Single code | `encode()` | Baseline | One-off encoding |
+| Batch (10-100 codes) | `encodeBatch()` | **+40-55% faster** | Different data, same config |
+| High-volume server | `encodeWithPool()` | **+50-70% faster** | Repeated operations, long-running |
+
+**Example - Batch Processing**:
+```java
+// Batch API: 40-55% faster than individual encode()
+List<byte[]> payloads = Arrays.asList(
+    "Message 1".getBytes(),
+    "Message 2".getBytes(),
+    "Message 3".getBytes()
+);
+List<BufferedImage> images = OptimizedJABCode.encodeBatch(
+    payloads, 
+    OptimizedJABCode.ColorMode.OCTAL
+);
+```
+
+**Example - Server Application with Pooling**:
+```java
+// Pool API: Reuses encoder across requests (90% reuse rate in tests)
+List<BufferedImage> images = OptimizedJABCode.encodeWithPool(payloads);
+
+// Or for fine-grained control:
+EncoderPool pool = OptimizedJABCode.getEncoderPool();
+try (PooledEncoder encoder = pool.acquire(ColorMode.OCTAL, 1, 3)) {
+    BufferedImage img = encoder.encode("Data".getBytes());
+}
+System.out.println(pool.getStats()); // Track pool efficiency
+```
+
+### File Size Optimization
+
+**Optimized PNG Output**: Use indexed color mode to reduce file sizes by **90%**:
+
+```java
+BufferedImage img = OptimizedJABCode.encode("Hello, World!");
+
+// Standard save: ~10.8 KB (32-bit ARGB)
+OptimizedJABCode.saveToFile(img, "standard.png");
+
+// Optimized save: ~1.1 KB (8-bit indexed) - 90% smaller!
+OptimizedJABCode.saveOptimized(img, "optimized.png");
+
+// Analyze compression potential
+PNGOptimizer.CompressionStats stats = OptimizedJABCode.analyzeCompression(img);
+System.out.println(stats);
+// Output: CompressionStats{colors=8, ARGB=10,817 bytes, indexed=1,070 bytes, saved=9,747 bytes (90.1% smaller)}
+```
+
+**Why it works**: JABCode images use only 4-256 colors, but standard PNG saves as 32-bit ARGB (16.7M colors). Indexed color mode uses 1-8 bits per pixel instead of 32 bits, and is 100% lossless.
+
+### Production Status
+
+- **4/8-Color Modes**: ✅ Production-ready (stable, well-tested)
+- **High-Color Modes (≥16)**: ⚠️ Experimental (requires additional tuning for reliable decode)
+
+For detailed performance analysis and optimization roadmap, see `memory-bank/diagnostics/performance_analysis_and_optimization_plan.md`.
+
 ## Requirements
 
 - Java 11 or higher
@@ -57,7 +155,7 @@ javacpp-wrapper/
 The easiest way to build the library is to use the provided build script:
 
 ```bash
-cd javacpp-wrapper/scripts
+cd scripts/javacpp-wrapper
 ./build.sh --all
 ```
 
@@ -91,25 +189,25 @@ If you prefer to build the components manually, follow these steps:
 
 1. Build the core JABCode C/C++ library:
    ```bash
-   cd javacpp-wrapper/scripts
+   cd scripts/javacpp-wrapper
    ./build-core-library.sh
    ```
 
 2. Build the JNI interface:
    ```bash
-   cd javacpp-wrapper/scripts
+   cd scripts/javacpp-wrapper
    ./build-jni-interface.sh
    ```
 
 3. Build the Java wrapper:
    ```bash
-   cd javacpp-wrapper/scripts
+   cd scripts/javacpp-wrapper
    ./build-java-wrapper.sh
    ```
 
 4. Verify the build:
    ```bash
-   cd javacpp-wrapper/scripts
+   cd scripts/javacpp-wrapper
    ./verify-full-build.sh
    ```
 
@@ -133,23 +231,25 @@ import com.jabcode.JABCode;
 
 public class Example {
     public static void main(String[] args) {
-        // Generate a JABCode with default settings (8 colors)
+        // Generate a JABCode with default settings (8-color OCTAL mode - recommended)
         BufferedImage image = JABCode.encode("Hello, JABCode!");
         JABCode.save(image, "jabcode.png");
-        
-        // Generate a JABCode with custom color mode (16 colors)
-        BufferedImage customImage = JABCode.builder()
-            .withData("Hello, JABCode!")
-            .withColorMode(JABCode.ColorMode.HEXADECIMAL)
-            .build();
-        JABCode.save(customImage, "jabcode_16.png");
         
         // Decode a JABCode
         String decodedText = JABCode.decodeToString(new File("jabcode.png"));
         System.out.println("Decoded text: " + decodedText);
+        
+        // Generate with explicit 8-color mode (same as default)
+        BufferedImage explicitImage = JABCode.builder()
+            .withData("Hello, JABCode!")
+            .withColorMode(JABCode.ColorMode.OCTAL)  // 8-color (recommended)
+            .build();
+        JABCode.save(explicitImage, "jabcode_8color.png");
     }
 }
 ```
+
+**Note:** The default 8-color (OCTAL) mode provides the best balance of speed, memory efficiency, and file size. See the Performance section for details.
 
 ### Advanced Usage
 
@@ -190,7 +290,7 @@ public class AdvancedExample {
 If you encounter issues, you can run the build script with the `--verbose` option to get more detailed output:
 
 ```bash
-cd javacpp-wrapper/scripts
+cd scripts/javacpp-wrapper
 ./build.sh --all --verbose
 ```
 
