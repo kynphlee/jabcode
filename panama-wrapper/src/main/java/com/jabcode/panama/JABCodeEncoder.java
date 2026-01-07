@@ -61,10 +61,12 @@ public class JABCodeEncoder {
             private int masterSymbolHeight = 0;    // Auto height
             
             public Builder colorNumber(int colorNumber) {
-                if (colorNumber != 2 && colorNumber != 4 && colorNumber != 8) {
-                    throw new IllegalArgumentException("Color number must be 2, 4, or 8");
+                // Allowed per ISO/IEC 23634 Annex G: 4,8,16,32,64,128,256
+                switch (colorNumber) {
+                    case 4, 8, 16, 32, 64, 128, 256 -> this.colorNumber = colorNumber;
+                    default -> throw new IllegalArgumentException(
+                        "Color number must be one of 4,8,16,32,64,128,256");
                 }
-                this.colorNumber = colorNumber;
                 return this;
             }
             
@@ -122,7 +124,7 @@ public class JABCodeEncoder {
      * Encode data into JABCode format with specified parameters
      * 
      * @param data The data to encode
-     * @param colorNumber Number of colors (2, 4, or 8)
+     * @param colorNumber Number of colors (4,8,16,32,64,128,256)
      * @param eccLevel Error correction level (0-10)
      * @return Encoded bitmap data as byte array, or null if encoding fails
      */

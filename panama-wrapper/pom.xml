@@ -58,13 +58,7 @@
             <scope>test</scope>
         </dependency>
         
-        <!-- Optional: Image I/O for PNG handling -->
-        <dependency>
-            <groupId>javax.imageio</groupId>
-            <artifactId>javax.imageio-core</artifactId>
-            <version>1.4.0</version>
-            <scope>provided</scope>
-        </dependency>
+        
     </dependencies>
 
     <build>
