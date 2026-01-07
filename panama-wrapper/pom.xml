@@ -50,6 +50,13 @@
             <version>5.10.1</version>
             <scope>test</scope>
         </dependency>
+        <!-- Mockito for JUnit 5 -->
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <version>5.8.0</version>
+            <scope>test</scope>
+        </dependency>
         
         <!-- Optional: Image I/O for PNG handling -->
         <dependency>
@@ -105,6 +112,7 @@
                 <version>3.2.3</version>
                 <configuration>
                     <argLine>
+                        ${argLine}
                         --enable-native-access=ALL-UNNAMED
                         -Djava.library.path=${jabcode.lib.path}
                     </argLine>
@@ -113,6 +121,26 @@
                         <DYLD_LIBRARY_PATH>${jabcode.lib.path}</DYLD_LIBRARY_PATH>
                     </environmentVariables>
                 </configuration>
+            </plugin>
+            <!-- JaCoCo code coverage -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.11</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
 
             <!-- JAR plugin - set up manifest for native access -->
