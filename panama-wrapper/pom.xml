@@ -1,0 +1,268 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.jabcode</groupId>
+    <artifactId>jabcode-panama</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+
+    <name>JABCode Panama Wrapper</name>
+    <description>Pure Java wrapper for JABCode using Project Panama (Foreign Function &amp; Memory API)</description>
+    <url>https://github.com/jabcode/jabcode</url>
+
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <properties>
+        <!-- Use JDK 23 or 25 for Panama FFM API -->
+        <maven.compiler.source>23</maven.compiler.source>
+        <maven.compiler.target>23</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        
+        <!-- Paths -->
+        <jabcode.header.path>../src/jabcode/include/jabcode.h</jabcode.header.path>
+        <jabcode.include.dir>../src/jabcode/include</jabcode.include.dir>
+        <jabcode.lib.path>../lib</jabcode.lib.path>
+        <jextract.output.dir>${project.build.directory}/generated-sources/jextract</jextract.output.dir>
+        
+        <!-- Panama bindings package -->
+        <panama.package>com.jabcode.panama.bindings</panama.package>
+        
+        <!-- Skip tests by default (require native lib setup) -->
+        <skipTests>false</skipTests>
+    </properties>
+
+    <dependencies>
+        <!-- No external dependencies! Panama FFM is built into JDK 23+ -->
+        
+        <!-- Testing -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.10.1</version>
+            <scope>test</scope>
+        </dependency>
+        
+        <!-- Optional: Image I/O for PNG handling -->
+        <dependency>
+            <groupId>javax.imageio</groupId>
+            <artifactId>javax.imageio-core</artifactId>
+            <version>1.4.0</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Compiler Plugin - JDK 23+ required -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.12.1</version>
+                <configuration>
+                    <source>23</source>
+                    <target>23</target>
+                    <compilerArgs>
+                        <!-- Enable preview features if needed -->
+                        <!-- <arg>-enable-preview</arg> -->
+                    </compilerArgs>
+                </configuration>
+            </plugin>
+
+            <!-- Add generated sources to build -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>3.5.0</version>
+                <executions>
+                    <execution>
+                        <id>add-jextract-sources</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>add-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <source>${jextract.output.dir}</source>
+                            </sources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Surefire for tests - enable native access -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.3</version>
+                <configuration>
+                    <argLine>
+                        --enable-native-access=ALL-UNNAMED
+                        -Djava.library.path=${jabcode.lib.path}
+                    </argLine>
+                    <environmentVariables>
+                        <LD_LIBRARY_PATH>${jabcode.lib.path}</LD_LIBRARY_PATH>
+                        <DYLD_LIBRARY_PATH>${jabcode.lib.path}</DYLD_LIBRARY_PATH>
+                    </environmentVariables>
+                </configuration>
+            </plugin>
+
+            <!-- JAR plugin - set up manifest for native access -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.3.0</version>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+                        </manifest>
+                        <manifestEntries>
+                            <Enable-Native-Access>ALL-UNNAMED</Enable-Native-Access>
+                        </manifestEntries>
+                    </archive>
+                </configuration>
+            </plugin>
+
+            <!-- Exec plugin for running jextract -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.1.1</version>
+                <executions>
+                    <execution>
+                        <id>generate-panama-bindings</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <executable>${env.JAVA_HOME}/bin/jextract</executable>
+                            <arguments>
+                                <!-- Output directory -->
+                                <argument>--output</argument>
+                                <argument>${jextract.output.dir}</argument>
+                                
+                                <!-- Target package -->
+                                <argument>--target-package</argument>
+                                <argument>${panama.package}</argument>
+                                
+                                <!-- Library name -->
+                                <argument>--library</argument>
+                                <argument>jabcode</argument>
+                                
+                                <!-- Include directories -->
+                                <argument>-I</argument>
+                                <argument>${jabcode.include.dir}</argument>
+                                
+                                <!-- Include specific functions -->
+                                <argument>--include-function</argument>
+                                <argument>createEncode</argument>
+                                
+                                <argument>--include-function</argument>
+                                <argument>destroyEncode</argument>
+                                
+                                <argument>--include-function</argument>
+                                <argument>generateJABCode</argument>
+                                
+                                <argument>--include-function</argument>
+                                <argument>decodeJABCode</argument>
+                                
+                                <argument>--include-function</argument>
+                                <argument>decodeJABCodeEx</argument>
+                                
+                                <argument>--include-function</argument>
+                                <argument>saveImage</argument>
+                                
+                                <argument>--include-function</argument>
+                                <argument>saveImageCMYK</argument>
+                                
+                                <argument>--include-function</argument>
+                                <argument>readImage</argument>
+                                
+                                <argument>--include-function</argument>
+                                <argument>reportError</argument>
+                                
+                                <!-- Include specific structs -->
+                                <argument>--include-struct</argument>
+                                <argument>jab_encode</argument>
+                                
+                                <argument>--include-struct</argument>
+                                <argument>jab_data</argument>
+                                
+                                <argument>--include-struct</argument>
+                                <argument>jab_bitmap</argument>
+                                
+                                <argument>--include-struct</argument>
+                                <argument>jab_decoded_symbol</argument>
+                                
+                                <argument>--include-struct</argument>
+                                <argument>jab_metadata</argument>
+                                
+                                <argument>--include-struct</argument>
+                                <argument>jab_symbol</argument>
+                                
+                                <argument>--include-struct</argument>
+                                <argument>jab_vector2d</argument>
+                                
+                                <argument>--include-struct</argument>
+                                <argument>jab_point</argument>
+                                
+                                <!-- Input header file -->
+                                <argument>${jabcode.header.path}</argument>
+                            </arguments>
+                            <skip>${skipJextract}</skip>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Clean plugin - remove generated sources -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-clean-plugin</artifactId>
+                <version>3.3.2</version>
+                <configuration>
+                    <filesets>
+                        <fileset>
+                            <directory>${jextract.output.dir}</directory>
+                        </fileset>
+                    </filesets>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <!-- Profile for manual jextract (if not using maven exec) -->
+        <profile>
+            <id>skip-jextract</id>
+            <activation>
+                <property>
+                    <name>skipJextract</name>
+                    <value>true</value>
+                </property>
+            </activation>
+        </profile>
+
+        <!-- Profile for JDK 25 -->
+        <profile>
+            <id>jdk25</id>
+            <activation>
+                <jdk>25</jdk>
+            </activation>
+            <properties>
+                <maven.compiler.source>25</maven.compiler.source>
+                <maven.compiler.target>25</maven.compiler.target>
+            </properties>
+        </profile>
+    </profiles>
+</project>
