@@ -1,5 +1,7 @@
 package com.jabcode.panama;
 
+import com.jabcode.panama.bindings.jabcode_h;
+
 import java.lang.foreign.*;
 import java.nio.charset.StandardCharsets;
 
@@ -148,32 +150,37 @@ public class JABCodeEncoder {
             throw new IllegalArgumentException("Data cannot be null or empty");
         }
         
-        // Note: Implementation will use generated Panama bindings
-        // This is a template showing the API structure
-        
-        // TODO: Once bindings are generated, implement using:
-        // try (Arena arena = Arena.ofConfined()) {
-        //     // Create encoder
-        //     MemorySegment enc = createEncode(colorNumber, symbolNumber);
-        //     
-        //     // Prepare data
-        //     byte[] bytes = data.getBytes(StandardCharsets.UTF_8);
-        //     MemorySegment dataSegment = arena.allocateFrom(ValueLayout.JAVA_BYTE, bytes);
-        //     
-        //     // Call generateJABCode
-        //     int result = generateJABCode(enc, dataSegment, bytes.length);
-        //     
-        //     // Extract bitmap
-        //     MemorySegment bitmap = ... get bitmap from enc
-        //     
-        //     // Return byte array
-        //     return ...
-        // }
-        
-        throw new UnsupportedOperationException(
-            "Implementation requires generated Panama bindings. " +
-            "Run: ./jextract.sh to generate bindings first."
-        );
+        try (Arena arena = Arena.ofConfined()) {
+            // Create encoder
+            MemorySegment enc = jabcode_h.createEncode(
+                config.getColorNumber(),
+                config.getSymbolNumber()
+            );
+            
+            if (enc == null || enc.address() == 0) {
+                return null;
+            }
+            
+            try {
+                // Prepare jab_data structure: { int32 length; char data[]; }
+                byte[] bytes = data.getBytes(StandardCharsets.UTF_8);
+                MemorySegment jabData = createJabData(arena, bytes);
+                
+                // Generate JABCode
+                int result = jabcode_h.generateJABCode(enc, jabData);
+                if (result != 1) { // JAB_SUCCESS = 1
+                    return null;
+                }
+                
+                // Bitmap extraction not yet implemented - use encodeToPNG() instead
+                return null;
+                
+            } finally {
+                jabcode_h.destroyEncode(enc);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Encoding failed", e);
+        }
     }
     
     /**
@@ -185,10 +192,96 @@ public class JABCodeEncoder {
      * @return true if successful, false otherwise
      */
     public boolean encodeToPNG(String data, String outputPath, Config config) {
-        // TODO: Implement using generated bindings and saveImage function
-        throw new UnsupportedOperationException(
-            "Implementation requires generated Panama bindings. " +
-            "Run: ./jextract.sh to generate bindings first."
-        );
+        if (data == null || data.isEmpty()) {
+            throw new IllegalArgumentException("Data cannot be null or empty");
+        }
+        
+        try (Arena arena = Arena.ofConfined()) {
+            // Create encoder
+            MemorySegment enc = jabcode_h.createEncode(
+                config.getColorNumber(),
+                config.getSymbolNumber()
+            );
+            
+            if (enc == null || enc.address() == 0) {
+                return false;
+            }
+            
+            try {
+                // Prepare data
+                byte[] bytes = data.getBytes(StandardCharsets.UTF_8);
+                MemorySegment jabData = createJabData(arena, bytes);
+                
+                // Generate JABCode
+                int result = jabcode_h.generateJABCode(enc, jabData);
+                if (result != 0) {  // 0 = success, non-zero = error code
+                    return false;
+                }
+                
+                // Get bitmap from encoder (at offset 60 in jab_encode struct)
+                MemorySegment bitmapPtr = getBitmapFromEncoder(enc);
+                if (bitmapPtr == null || bitmapPtr.address() == 0) {
+                    return false;
+                }
+                
+                // Save to file
+                MemorySegment filenameSegment = arena.allocateFrom(outputPath);
+                byte saveResult = jabcode_h.saveImage(bitmapPtr, filenameSegment);
+                
+                return saveResult == 1; // JAB_SUCCESS = 1
+                
+            } finally {
+                jabcode_h.destroyEncode(enc);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Encoding to PNG failed", e);
+        }
+    }
+    
+    /**
+     * Create jab_data structure in native memory.
+     * The C struct is: { int32 length; char data[]; }
+     */
+    private MemorySegment createJabData(Arena arena, byte[] data) {
+        // Allocate: 4 bytes for length + data bytes
+        long size = 4 + data.length;
+        MemorySegment jabData = arena.allocate(size, 4); // 4-byte alignment
+        
+        // Set length field (first 4 bytes)
+        jabData.set(ValueLayout.JAVA_INT, 0, data.length);
+        
+        // Copy data (flexible array member starts at offset 4)
+        MemorySegment.copy(data, 0, jabData, ValueLayout.JAVA_BYTE, 4, data.length);
+        
+        return jabData;
+    }
+    
+    /**
+     * Get bitmap pointer from jab_encode struct.
+     * The bitmap field is at offset 64 (on 64-bit systems with 8-byte alignment).
+     */
+    private MemorySegment getBitmapFromEncoder(MemorySegment enc) {
+        // jab_encode layout (64-bit pointers with proper alignment):
+        // int32 color_number (0)
+        // int32 symbol_number (4)
+        // int32 module_size (8)
+        // int32 master_symbol_width (12)
+        // int32 master_symbol_height (16)
+        // [4 bytes padding for pointer alignment]
+        // byte* palette (24, 8 bytes)
+        // vector2d* symbol_versions (32, 8 bytes)
+        // byte* symbol_ecc_levels (40, 8 bytes)
+        // int32* symbol_positions (48, 8 bytes)
+        // symbol* symbols (56, 8 bytes)
+        // bitmap* bitmap (64, 8 bytes) <-- THIS
+        
+        long bitmapFieldOffset = 64;
+        long bitmapAddress = enc.get(ValueLayout.ADDRESS, bitmapFieldOffset).address();
+        
+        if (bitmapAddress == 0) {
+            return null;
+        }
+        
+        return MemorySegment.ofAddress(bitmapAddress);
     }
 }

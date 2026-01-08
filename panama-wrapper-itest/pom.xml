@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.jabcode</groupId>
+    <artifactId>jabcode-panama-itest</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+
+    <name>JABCode Panama Integration Tests</name>
+    <description>Integration tests for JABCode Panama wrapper (separate module for native library loading)</description>
+
+    <properties>
+        <maven.compiler.source>23</maven.compiler.source>
+        <maven.compiler.target>23</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        
+        <!-- Native library path - override with -Djabcode.lib.path=... -->
+        <jabcode.lib.path>../src/jabcode/build</jabcode.lib.path>
+    </properties>
+
+    <dependencies>
+        <!-- Main Panama wrapper module -->
+        <dependency>
+            <groupId>com.jabcode</groupId>
+            <artifactId>jabcode-panama</artifactId>
+            <version>1.0.0-SNAPSHOT</version>
+        </dependency>
+
+        <!-- JUnit 5 for testing -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.10.1</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Compiler plugin -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.12.1</version>
+                <configuration>
+                    <release>23</release>
+                </configuration>
+            </plugin>
+
+            <!-- Surefire for tests - NO JaCoCo interference -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.3</version>
+                <configuration>
+                    <argLine>
+                        --enable-native-access=ALL-UNNAMED
+                        -Djava.library.path=${jabcode.lib.path}
+                    </argLine>
+                    <environmentVariables>
+                        <LD_LIBRARY_PATH>${jabcode.lib.path}</LD_LIBRARY_PATH>
+                        <DYLD_LIBRARY_PATH>${jabcode.lib.path}</DYLD_LIBRARY_PATH>
+                    </environmentVariables>
+                    <!-- Ensure tests run in forked JVM -->
+                    <forkCount>1</forkCount>
+                    <reuseForks>false</reuseForks>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
