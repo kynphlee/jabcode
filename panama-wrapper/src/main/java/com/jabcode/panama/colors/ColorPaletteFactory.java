@@ -5,6 +5,8 @@ import com.jabcode.panama.colors.palettes.Mode2Palette;
 import com.jabcode.panama.colors.palettes.Mode3Palette;
 import com.jabcode.panama.colors.palettes.Mode4Palette;
 import com.jabcode.panama.colors.palettes.Mode5Palette;
+import com.jabcode.panama.colors.palettes.Mode6Palette;
+import com.jabcode.panama.colors.palettes.Mode7Palette;
 
 /**
  * Factory for creating ColorPalette instances per ColorMode.
@@ -19,7 +21,8 @@ public final class ColorPaletteFactory {
             case MODE_16 -> new Mode3Palette();
             case MODE_32 -> new Mode4Palette();
             case MODE_64 -> new Mode5Palette();
-            // Modes 128+ will be added in the next phase
+            case MODE_128 -> new Mode6Palette();
+            case MODE_256 -> new Mode7Palette();
             default -> throw new IllegalArgumentException("Unsupported mode in current phase: " + mode);
         };
     }

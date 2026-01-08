@@ -307,12 +307,136 @@ Check:
 2. `jabcode.h` exists at `../src/jabcode/include/jabcode.h`
 3. Include paths are correct
 
+## Color Modes Implementation
+
+This wrapper includes comprehensive support for all 8 JABCode color modes per ISO/IEC 23634:
+
+### Supported Modes
+
+| Mode | Nc | Colors | Bits/Module | Interpolation | Status |
+|------|----|----|-------------|---------------|--------|
+| Reserved | 0 | 0 | - | - | Not used |
+| **Mode 1** | 1 | 4 | 2 | No | ✅ Ready |
+| **Mode 2** | 2 | 8 | 3 | No | ✅ Ready |
+| **Mode 3** | 3 | 16 | 4 | No | ✅ Ready |
+| **Mode 4** | 4 | 32 | 5 | No | ✅ Ready |
+| **Mode 5** | 5 | 64 | 6 | No | ✅ Ready |
+| **Mode 6** | 6 | 128 | 7 | Yes (R) | ✅ Ready |
+| **Mode 7** | 7 | 256 | 8 | Yes (R+G) | ✅ Ready |
+
+### Color Mode API
+
+```java
+import com.jabcode.panama.colors.*;
+
+// Select color mode
+ColorMode mode = ColorMode.MODE_16;  // 16 colors
+
+// Get palette
+ColorPalette palette = ColorPaletteFactory.create(mode);
+
+// Palette operations
+int[][] fullPalette = palette.generateFullPalette();
+int[][] embeddedPalette = palette.generateEmbeddedPalette();
+int[] rgb = palette.getRGB(5);  // Get color at index 5
+int index = palette.getColorIndex(255, 0, 0);  // Find nearest color
+
+// Mode properties
+int bitsPerModule = mode.getBitsPerModule();  // 4 for Mode 3
+boolean needsInterp = mode.requiresInterpolation();  // false for Mode 3
+```
+
+### Encoding with Color Modes
+
+```java
+var config = JABCodeEncoder.Config.builder()
+    .colorNumber(16)      // Use 16-color mode
+    .eccLevel(5)
+    .symbolNumber(1)
+    .build();
+
+byte[] encoded = encoder.encodeWithConfig("Data", config);
+```
+
+### Utilities Available
+
+#### BitStream Encoding/Decoding
+```java
+import com.jabcode.panama.bits.*;
+
+// Encode variable-width values
+var encoder = new BitStreamEncoder();
+encoder.writeBits(0b101, 3);  // Write 3-bit value
+encoder.writeBits(0b11, 2);   // Write 2-bit value
+encoder.alignToByte();
+byte[] packed = encoder.toByteArray();
+
+// Decode
+var decoder = new BitStreamDecoder(packed);
+int val1 = decoder.readBits(3);  // Read 3 bits
+int val2 = decoder.readBits(2);  // Read 2 bits
+```
+
+#### Data Masking
+```java
+import com.jabcode.panama.mask.DataMasking;
+
+// Apply ISO/IEC 23634 Table 22 mask patterns
+int maskValue = DataMasking.maskAt(x, y, maskRef, colorCount);
+```
+
+#### Palette Quality
+```java
+import com.jabcode.panama.quality.PaletteQuality;
+
+// ISO 8.3 quality metrics
+double minSep = PaletteQuality.minColorSeparation(palette);
+boolean accurate = PaletteQuality.validatePaletteAccuracy(palette, maxError);
+double variation = PaletteQuality.colorVariation(palette);
+```
+
+### Architecture
+
+```
+com.jabcode.panama
+├── colors/              # Color mode core
+│   ├── ColorMode        # Enum for Nc 0-7
+│   ├── ColorPalette     # Interface
+│   ├── ColorUtils       # Distance, nearest-color
+│   ├── ColorPaletteFactory
+│   ├── palettes/        # Mode1-7 implementations
+│   └── interp/          # Interpolation for Mode 6-7
+├── bits/                # Variable bit-width packing
+│   ├── BitStreamEncoder
+│   └── BitStreamDecoder
+├── mask/                # ISO Table 22 masking
+│   └── DataMasking
+├── encode/              # Encoding utilities
+│   ├── PaletteEmbedding # Palette metadata encoding
+│   └── NcMetadata       # Nc 3-color encoding
+└── quality/             # ISO 8.3 metrics
+    └── PaletteQuality
+```
+
+### Roadmap Status
+
+✅ **Phase 1:** Foundation (ColorMode, palettes, utilities)  
+✅ **Phase 2:** Extended modes (16/32/64)  
+✅ **Phase 3:** High-color modes (128/256 with interpolation)  
+✅ **Phase 4:** Encoder/Decoder integration utilities  
+✅ **Phase 5:** ISO quality metrics  
+✅ **Phase 6:** Documentation & examples  
+
+**Next:** Full encoder/decoder integration pending Panama bindings generation via jextract.
+
 ## Resources
 
 - **JEP 454:** https://openjdk.org/jeps/454
 - **Panama Tutorial:** https://foojay.io/today/project-panama-for-newbies-part-1/
 - **jextract Guide:** https://github.com/openjdk/jextract
 - **Comparison:** `/memory-bank/integration-approaches-comparison.md`
+- **Color Modes Roadmap:** `/memory-bank/research/panama-poc/03-panama-implementation-roadmap.md`
+- **Spec Audit:** `/memory-bank/research/panama-poc/codebase-audit/`
 
 ## License
 
