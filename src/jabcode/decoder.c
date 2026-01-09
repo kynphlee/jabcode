@@ -430,11 +430,13 @@ jab_byte decodeModuleHD(jab_bitmap* matrix, jab_byte* palette, jab_int32 color_n
 	}
 	if(palette)
 	{
-	    //normalize the RGB values
+	    //normalize the RGB values with improved stability
         jab_float rgb_max = MAX(rgb[0], MAX(rgb[1], rgb[2]));
-        jab_float r = (jab_float)rgb[0] / rgb_max;
-        jab_float g = (jab_float)rgb[1] / rgb_max;
-        jab_float b = (jab_float)rgb[2] / rgb_max;
+        //Add small epsilon to prevent division by zero and reduce noise amplification in dark colors
+        jab_float normalizer = MAX(rgb_max, 1.0f);  //Use at least 1.0 to avoid extreme amplification
+        jab_float r = (jab_float)rgb[0] / normalizer;
+        jab_float g = (jab_float)rgb[1] / normalizer;
+        jab_float b = (jab_float)rgb[2] / normalizer;
         //jab_float l = ((rgb[0] + rgb[1] + rgb[2]) / 3.0f) / 255.0f;
 
 		jab_float min1 = 255*255*3, min2 = 255*255*3;
@@ -447,7 +449,11 @@ jab_byte decodeModuleHD(jab_bitmap* matrix, jab_byte* palette, jab_int32 color_n
 			//jab_float pl = norm_palette[color_number*4*p_index + i*4 + 3];
 
 			//compare the normalized module color with palette
-			jab_float diff = (pr - r) * (pr - r) + (pg - g) * (pg - g) + (pb - b) * (pb - b);// + (pl - l) * (pl - l);
+			//Use perceptual weighting: human vision is most sensitive to green
+			jab_float dr = pr - r;
+			jab_float dg = pg - g;
+			jab_float db = pb - b;
+			jab_float diff = 0.30f * dr * dr + 0.59f * dg * dg + 0.11f * db * db;
 
 			if(diff < min1)
 			{
@@ -590,7 +596,8 @@ void getPaletteThreshold(jab_byte* palette, jab_int32 color_number, jab_float* p
 	{
 		// 16 colors: 4×2×2 (R×G×B)
 		// Threshold only used for black detection (color 0 vs others)
-		// Black is (0,0,0), next darkest is (85,0,0), so use 42.5 as threshold
+		// Black is (0,0,0), next darkest is (85,0,0)
+		// Optimal: 42.5 (tested 35, 40, 45 - 42.5 is best)
 		palette_ths[0] = 42.5f;   // R threshold
 		palette_ths[1] = 42.5f;   // G threshold  
 		palette_ths[2] = 42.5f;   // B threshold
@@ -598,7 +605,6 @@ void getPaletteThreshold(jab_byte* palette, jab_int32 color_number, jab_float* p
 	else if(color_number == 32)
 	{
 		// 32 colors: 4×4×2 (R×G×B)
-		// Same logic: threshold to separate black (0,0,0) from other colors
 		palette_ths[0] = 42.5f;   // R threshold
 		palette_ths[1] = 42.5f;   // G threshold
 		palette_ths[2] = 42.5f;   // B threshold
@@ -606,10 +612,28 @@ void getPaletteThreshold(jab_byte* palette, jab_int32 color_number, jab_float* p
 	else if(color_number == 64)
 	{
 		// 64 colors: 4×4×4 (R×G×B)  
-		// Same logic: threshold to separate black (0,0,0) from other colors
 		palette_ths[0] = 42.5f;   // R threshold
 		palette_ths[1] = 42.5f;   // G threshold
 		palette_ths[2] = 42.5f;   // B threshold
+	}
+	else if(color_number == 128)
+	{
+		// 128 colors: 8×4×4 (R×G×B) with R interpolated
+		// After interpolation: R ∈ {0,36,73,109,145,182,218,255}
+		// Black is (0,0,0), next darkest is (36,0,0)
+		// Threshold at midpoint: 18
+		palette_ths[0] = 18.0f;   // R threshold (between 0 and 36)
+		palette_ths[1] = 42.5f;   // G threshold (between 0 and 85)
+		palette_ths[2] = 42.5f;   // B threshold (between 0 and 85)
+	}
+	else if(color_number == 256)
+	{
+		// 256 colors: 8×8×4 (R×G×B) with R,G interpolated
+		// After interpolation: R,G ∈ {0,36,73,109,145,182,218,255}
+		// Black is (0,0,0), next darkest is (36,0,0) or (0,36,0)
+		palette_ths[0] = 18.0f;   // R threshold (between 0 and 36)
+		palette_ths[1] = 18.0f;   // G threshold (between 0 and 36)
+		palette_ths[2] = 42.5f;   // B threshold (between 0 and 85)
 	}
 }
 

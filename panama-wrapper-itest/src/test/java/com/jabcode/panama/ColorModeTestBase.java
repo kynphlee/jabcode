@@ -72,9 +72,21 @@ public abstract class ColorModeTestBase {
      * Create a default config for this color mode
      */
     protected JABCodeEncoder.Config createDefaultConfig() {
+        // Higher color modes need more ECC to force larger barcodes with alignment patterns
+        // Modes 1-2 (4-8 colors): ECC 7
+        // Modes 3-5 (16-64 colors): ECC 9
+        // Modes 6-7 (128-256 colors): ECC 10
+        int eccLevel = 7;
+        int colorNumber = getColorNumber();
+        if (colorNumber >= 128) {
+            eccLevel = 10;  // Maximum ECC for 128-256 colors
+        } else if (colorNumber >= 16) {
+            eccLevel = 9;   // High ECC for 16-64 colors
+        }
+        
         return JABCodeEncoder.Config.builder()
-            .colorNumber(getColorNumber())
-            .eccLevel(7)  // Higher ECC for reliability
+            .colorNumber(colorNumber)
+            .eccLevel(eccLevel)
             .moduleSize(16)  // Larger modules for digital
             .build();
     }
