@@ -1,8 +1,8 @@
 -------------------------------------------------------------------------------
 Test set: com.jabcode.panama.ColorMode4Test
 -------------------------------------------------------------------------------
-Tests run: 10, Failures: 7, Errors: 0, Skipped: 0, Time elapsed: 0.192 s <<< FAILURE! -- in com.jabcode.panama.ColorMode4Test
-com.jabcode.panama.ColorMode4Test.testModuleSizes -- Time elapsed: 0.063 s <<< FAILURE!
+Tests run: 10, Failures: 7, Errors: 0, Skipped: 0, Time elapsed: 0.208 s <<< FAILURE! -- in com.jabcode.panama.ColorMode4Test
+com.jabcode.panama.ColorMode4Test.testModuleSizes -- Time elapsed: 0.065 s <<< FAILURE!
 org.opentest4j.AssertionFailedError: Decoding should succeed for 32-color mode ==> expected: not <null>
 	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:152)
 	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
@@ -16,7 +16,7 @@ org.opentest4j.AssertionFailedError: Decoding should succeed for 32-color mode =
 	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
 	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
 
-com.jabcode.panama.ColorMode4Test.testLongMessage -- Time elapsed: 0.028 s <<< FAILURE!
+com.jabcode.panama.ColorMode4Test.testLongMessage -- Time elapsed: 0.029 s <<< FAILURE!
 org.opentest4j.AssertionFailedError: Decoding should succeed for 32-color mode ==> expected: not <null>
 	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:152)
 	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
@@ -30,7 +30,7 @@ org.opentest4j.AssertionFailedError: Decoding should succeed for 32-color mode =
 	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
 	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
 
-com.jabcode.panama.ColorMode4Test.testEccLevels -- Time elapsed: 0.016 s <<< FAILURE!
+com.jabcode.panama.ColorMode4Test.testEccLevels -- Time elapsed: 0.015 s <<< FAILURE!
 org.opentest4j.AssertionFailedError: Decoding should succeed for 32-color mode ==> expected: not <null>
 	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:152)
 	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
@@ -44,7 +44,7 @@ org.opentest4j.AssertionFailedError: Decoding should succeed for 32-color mode =
 	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
 	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
 
-com.jabcode.panama.ColorMode4Test.testUnicode -- Time elapsed: 0.009 s <<< FAILURE!
+com.jabcode.panama.ColorMode4Test.testUnicode -- Time elapsed: 0.008 s <<< FAILURE!
 org.opentest4j.AssertionFailedError: Decoding should succeed for 32-color mode ==> expected: not <null>
 	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:152)
 	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
@@ -58,7 +58,7 @@ org.opentest4j.AssertionFailedError: Decoding should succeed for 32-color mode =
 	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
 	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
 
-com.jabcode.panama.ColorMode4Test.testDataDensity -- Time elapsed: 0.006 s <<< FAILURE!
+com.jabcode.panama.ColorMode4Test.testDataDensity -- Time elapsed: 0.020 s <<< FAILURE!
 org.opentest4j.AssertionFailedError: Decoding should succeed for 32-color mode ==> expected: not <null>
 	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:152)
 	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)

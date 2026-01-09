@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd" version="3.0" name="com.jabcode.panama.ColorMode3Test" time="0.243" tests="14" errors="1" skipped="0" failures="10">
+<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd" version="3.0" name="com.jabcode.panama.ColorMode3Test" time="0.546" tests="14" errors="1" skipped="0" failures="8">
   <properties>
     <property name="java.specification.version" value="23"/>
     <property name="sun.jnu.encoding" value="UTF-8"/>
@@ -12,9 +12,9 @@
     <property name="sun.java.launcher" value="SUN_STANDARD"/>
     <property name="user.country" value="US"/>
     <property name="sun.boot.library.path" value="/home/kynphlee/tools/compilers/java/jdk-23.0.1/lib"/>
-    <property name="sun.java.command" value="/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest/target/surefire/surefirebooter-20260108210129374_3.jar /mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest/target/surefire 2026-01-08T21-01-29_246-jvmRun1 surefire-20260108210129374_1tmp surefire_0-20260108210129374_2tmp"/>
+    <property name="sun.java.command" value="/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest/target/surefire/surefirebooter-20260108213906211_6.jar /mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest/target/surefire 2026-01-08T21-39-06_026-jvmRun1 surefire-20260108213906211_4tmp surefire_1-20260108213906211_5tmp"/>
     <property name="jdk.debug" value="release"/>
-    <property name="test" value="ColorMode3Test"/>
+    <property name="test" value="ColorMode3Test,ColorMode4Test,ColorMode5Test"/>
     <property name="surefire.test.class.path" value="/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest/target/test-classes:/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest/target/classes:/home/kynphlee/.m2/repository/com/jabcode/jabcode-panama/1.0.0-SNAPSHOT/jabcode-panama-1.0.0-SNAPSHOT.jar:/home/kynphlee/.m2/repository/org/junit/jupiter/junit-jupiter/5.10.1/junit-jupiter-5.10.1.jar:/home/kynphlee/.m2/repository/org/junit/jupiter/junit-jupiter-api/5.10.1/junit-jupiter-api-5.10.1.jar:/home/kynphlee/.m2/repository/org/opentest4j/opentest4j/1.3.0/opentest4j-1.3.0.jar:/home/kynphlee/.m2/repository/org/junit/platform/junit-platform-commons/1.10.1/junit-platform-commons-1.10.1.jar:/home/kynphlee/.m2/repository/org/apiguardian/apiguardian-api/1.1.2/apiguardian-api-1.1.2.jar:/home/kynphlee/.m2/repository/org/junit/jupiter/junit-jupiter-params/5.10.1/junit-jupiter-params-5.10.1.jar:/home/kynphlee/.m2/repository/org/junit/jupiter/junit-jupiter-engine/5.10.1/junit-jupiter-engine-5.10.1.jar:/home/kynphlee/.m2/repository/org/junit/platform/junit-platform-engine/1.10.1/junit-platform-engine-1.10.1.jar:"/>
     <property name="sun.cpu.endian" value="little"/>
     <property name="user.home" value="/home/kynphlee"/>
@@ -28,7 +28,7 @@
     <property name="line.separator" value="&#10;"/>
     <property name="java.specification.name" value="Java Platform API Specification"/>
     <property name="java.vm.specification.vendor" value="Oracle Corporation"/>
-    <property name="surefire.real.class.path" value="/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest/target/surefire/surefirebooter-20260108210129374_3.jar"/>
+    <property name="surefire.real.class.path" value="/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest/target/surefire/surefirebooter-20260108213906211_6.jar"/>
     <property name="sun.management.compiler" value="HotSpot 64-Bit Tiered Compilers"/>
     <property name="java.runtime.version" value="23.0.1+11-39"/>
     <property name="user.name" value="kynphlee"/>
@@ -69,8 +69,8 @@
 	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
 ]]></failure>
   </testcase>
-  <testcase name="testBitsPerModule" classname="com.jabcode.panama.ColorMode3Test" time="0.001"/>
-  <testcase name="testModuleSizes" classname="com.jabcode.panama.ColorMode3Test" time="0.015">
+  <testcase name="testBitsPerModule" classname="com.jabcode.panama.ColorMode3Test" time="0.002"/>
+  <testcase name="testModuleSizes" classname="com.jabcode.panama.ColorMode3Test" time="0.016">
     <failure message="Decoding should succeed for 16-color mode ==&gt; expected: not &lt;null&gt;" type="org.opentest4j.AssertionFailedError"><![CDATA[org.opentest4j.AssertionFailedError: Decoding should succeed for 16-color mode ==> expected: not <null>
 	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:152)
 	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
@@ -85,7 +85,7 @@
 	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
 ]]></failure>
   </testcase>
-  <testcase name="testLongMessage" classname="com.jabcode.panama.ColorMode3Test" time="0.032">
+  <testcase name="testLongMessage" classname="com.jabcode.panama.ColorMode3Test" time="0.035">
     <failure message="Decoding should succeed for 16-color mode ==&gt; expected: not &lt;null&gt;" type="org.opentest4j.AssertionFailedError"><![CDATA[org.opentest4j.AssertionFailedError: Decoding should succeed for 16-color mode ==> expected: not <null>
 	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:152)
 	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
@@ -115,23 +115,9 @@
 	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
 ]]></failure>
   </testcase>
-  <testcase name="testEccLevels" classname="com.jabcode.panama.ColorMode3Test" time="0.015">
-    <failure message="Decoding should succeed for 16-color mode ==&gt; expected: not &lt;null&gt;" type="org.opentest4j.AssertionFailedError"><![CDATA[org.opentest4j.AssertionFailedError: Decoding should succeed for 16-color mode ==> expected: not <null>
-	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:152)
-	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
-	at org.junit.jupiter.api.AssertNotNull.failNull(AssertNotNull.java:49)
-	at org.junit.jupiter.api.AssertNotNull.assertNotNull(AssertNotNull.java:35)
-	at org.junit.jupiter.api.Assertions.assertNotNull(Assertions.java:312)
-	at com.jabcode.panama.ColorModeTestBase.assertRoundTrip(ColorModeTestBase.java:110)
-	at com.jabcode.panama.ColorModeTestBase.testVariousEccLevels(ColorModeTestBase.java:150)
-	at com.jabcode.panama.ColorMode3Test.testEccLevels(ColorMode3Test.java:40)
-	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
-]]></failure>
-  </testcase>
+  <testcase name="testEccLevels" classname="com.jabcode.panama.ColorMode3Test" time="0.178"/>
   <testcase name="testNoInterpolation" classname="com.jabcode.panama.ColorMode3Test" time="0.001"/>
-  <testcase name="testUnicode" classname="com.jabcode.panama.ColorMode3Test" time="0.009">
+  <testcase name="testUnicode" classname="com.jabcode.panama.ColorMode3Test" time="0.01">
     <failure message="Decoding should succeed for 16-color mode ==&gt; expected: not &lt;null&gt;" type="org.opentest4j.AssertionFailedError"><![CDATA[org.opentest4j.AssertionFailedError: Decoding should succeed for 16-color mode ==> expected: not <null>
 	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:152)
 	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
@@ -172,7 +158,7 @@
 	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
 ]]></error>
   </testcase>
-  <testcase name="testHigherDensity" classname="com.jabcode.panama.ColorMode3Test" time="0.014">
+  <testcase name="testHigherDensity" classname="com.jabcode.panama.ColorMode3Test" time="0.03">
     <failure message="Decoding should succeed for 16-color mode ==&gt; expected: not &lt;null&gt;" type="org.opentest4j.AssertionFailedError"><![CDATA[org.opentest4j.AssertionFailedError: Decoding should succeed for 16-color mode ==> expected: not <null>
 	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:152)
 	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
@@ -186,23 +172,9 @@
 	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
 ]]></failure>
   </testcase>
-  <testcase name="testSimpleMessage" classname="com.jabcode.panama.ColorMode3Test" time="0.015">
-    <failure message="Decoding should succeed for 16-color mode ==&gt; expected: not &lt;null&gt;" type="org.opentest4j.AssertionFailedError"><![CDATA[org.opentest4j.AssertionFailedError: Decoding should succeed for 16-color mode ==> expected: not <null>
-	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:152)
-	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
-	at org.junit.jupiter.api.AssertNotNull.failNull(AssertNotNull.java:49)
-	at org.junit.jupiter.api.AssertNotNull.assertNotNull(AssertNotNull.java:35)
-	at org.junit.jupiter.api.Assertions.assertNotNull(Assertions.java:312)
-	at com.jabcode.panama.ColorModeTestBase.assertRoundTrip(ColorModeTestBase.java:110)
-	at com.jabcode.panama.ColorModeTestBase.assertRoundTrip(ColorModeTestBase.java:122)
-	at com.jabcode.panama.ColorMode3Test.testSimpleMessage(ColorMode3Test.java:28)
-	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
-]]></failure>
-  </testcase>
+  <testcase name="testSimpleMessage" classname="com.jabcode.panama.ColorMode3Test" time="0.047"/>
   <testcase name="testNcValue" classname="com.jabcode.panama.ColorMode3Test" time="0.001"/>
-  <testcase name="testVariousLengths" classname="com.jabcode.panama.ColorMode3Test" time="0.015">
+  <testcase name="testVariousLengths" classname="com.jabcode.panama.ColorMode3Test" time="0.093">
     <failure message="Decoding should succeed for 16-color mode ==&gt; expected: not &lt;null&gt;" type="org.opentest4j.AssertionFailedError"><![CDATA[org.opentest4j.AssertionFailedError: Decoding should succeed for 16-color mode ==> expected: not <null>
 	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:152)
 	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)

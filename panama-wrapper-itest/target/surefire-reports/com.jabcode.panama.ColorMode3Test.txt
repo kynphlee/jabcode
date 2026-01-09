@@ -1,7 +1,7 @@
 -------------------------------------------------------------------------------
 Test set: com.jabcode.panama.ColorMode3Test
 -------------------------------------------------------------------------------
-Tests run: 14, Failures: 10, Errors: 1, Skipped: 0, Time elapsed: 0.243 s <<< FAILURE! -- in com.jabcode.panama.ColorMode3Test
+Tests run: 14, Failures: 8, Errors: 1, Skipped: 0, Time elapsed: 0.546 s <<< FAILURE! -- in com.jabcode.panama.ColorMode3Test
 com.jabcode.panama.ColorMode3Test.testSpecialCharacters -- Time elapsed: 0.088 s <<< FAILURE!
 org.opentest4j.AssertionFailedError: Decoding should succeed for 16-color mode ==> expected: not <null>
 	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:152)
@@ -16,7 +16,7 @@ org.opentest4j.AssertionFailedError: Decoding should succeed for 16-color mode =
 	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
 	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
 
-com.jabcode.panama.ColorMode3Test.testModuleSizes -- Time elapsed: 0.015 s <<< FAILURE!
+com.jabcode.panama.ColorMode3Test.testModuleSizes -- Time elapsed: 0.016 s <<< FAILURE!
 org.opentest4j.AssertionFailedError: Decoding should succeed for 16-color mode ==> expected: not <null>
 	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:152)
 	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
@@ -30,7 +30,7 @@ org.opentest4j.AssertionFailedError: Decoding should succeed for 16-color mode =
 	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
 	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
 
-com.jabcode.panama.ColorMode3Test.testLongMessage -- Time elapsed: 0.032 s <<< FAILURE!
+com.jabcode.panama.ColorMode3Test.testLongMessage -- Time elapsed: 0.035 s <<< FAILURE!
 org.opentest4j.AssertionFailedError: Decoding should succeed for 16-color mode ==> expected: not <null>
 	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:152)
 	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
@@ -58,21 +58,7 @@ org.opentest4j.AssertionFailedError: Decoding should succeed for 16-color mode =
 	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
 	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
 
-com.jabcode.panama.ColorMode3Test.testEccLevels -- Time elapsed: 0.015 s <<< FAILURE!
-org.opentest4j.AssertionFailedError: Decoding should succeed for 16-color mode ==> expected: not <null>
-	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:152)
-	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
-	at org.junit.jupiter.api.AssertNotNull.failNull(AssertNotNull.java:49)
-	at org.junit.jupiter.api.AssertNotNull.assertNotNull(AssertNotNull.java:35)
-	at org.junit.jupiter.api.Assertions.assertNotNull(Assertions.java:312)
-	at com.jabcode.panama.ColorModeTestBase.assertRoundTrip(ColorModeTestBase.java:110)
-	at com.jabcode.panama.ColorModeTestBase.testVariousEccLevels(ColorModeTestBase.java:150)
-	at com.jabcode.panama.ColorMode3Test.testEccLevels(ColorMode3Test.java:40)
-	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
-
-com.jabcode.panama.ColorMode3Test.testUnicode -- Time elapsed: 0.009 s <<< FAILURE!
+com.jabcode.panama.ColorMode3Test.testUnicode -- Time elapsed: 0.010 s <<< FAILURE!
 org.opentest4j.AssertionFailedError: Decoding should succeed for 16-color mode ==> expected: not <null>
 	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:152)
 	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
@@ -110,7 +96,7 @@ java.lang.IllegalArgumentException: Data cannot be null or empty
 	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
 	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
 
-com.jabcode.panama.ColorMode3Test.testHigherDensity -- Time elapsed: 0.014 s <<< FAILURE!
+com.jabcode.panama.ColorMode3Test.testHigherDensity -- Time elapsed: 0.030 s <<< FAILURE!
 org.opentest4j.AssertionFailedError: Decoding should succeed for 16-color mode ==> expected: not <null>
 	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:152)
 	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
@@ -123,21 +109,7 @@ org.opentest4j.AssertionFailedError: Decoding should succeed for 16-color mode =
 	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
 	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
 
-com.jabcode.panama.ColorMode3Test.testSimpleMessage -- Time elapsed: 0.015 s <<< FAILURE!
-org.opentest4j.AssertionFailedError: Decoding should succeed for 16-color mode ==> expected: not <null>
-	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:152)
-	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
-	at org.junit.jupiter.api.AssertNotNull.failNull(AssertNotNull.java:49)
-	at org.junit.jupiter.api.AssertNotNull.assertNotNull(AssertNotNull.java:35)
-	at org.junit.jupiter.api.Assertions.assertNotNull(Assertions.java:312)
-	at com.jabcode.panama.ColorModeTestBase.assertRoundTrip(ColorModeTestBase.java:110)
-	at com.jabcode.panama.ColorModeTestBase.assertRoundTrip(ColorModeTestBase.java:122)
-	at com.jabcode.panama.ColorMode3Test.testSimpleMessage(ColorMode3Test.java:28)
-	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
-
-com.jabcode.panama.ColorMode3Test.testVariousLengths -- Time elapsed: 0.015 s <<< FAILURE!
+com.jabcode.panama.ColorMode3Test.testVariousLengths -- Time elapsed: 0.093 s <<< FAILURE!
 org.opentest4j.AssertionFailedError: Decoding should succeed for 16-color mode ==> expected: not <null>
 	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:152)
 	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
