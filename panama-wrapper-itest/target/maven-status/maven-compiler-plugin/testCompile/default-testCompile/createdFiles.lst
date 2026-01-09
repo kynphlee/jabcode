@@ -1,3 +1,11 @@
 com/jabcode/panama/HigherColorModeTest.class
+com/jabcode/panama/ColorMode6Test.class
+com/jabcode/panama/ColorModeTestBase.class
+com/jabcode/panama/ColorMode5Test.class
+com/jabcode/panama/ColorMode3Test.class
+com/jabcode/panama/AllColorModesTest.class
+com/jabcode/panama/ColorMode4Test.class
 com/jabcode/panama/JABCodeEncoderIntegrationTest.class
+com/jabcode/panama/ColorPaletteInterpolatorTest.class
 com/jabcode/panama/JABCodeDecoderIntegrationTest.class
+com/jabcode/panama/ColorMode7Test.class

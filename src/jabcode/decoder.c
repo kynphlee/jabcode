@@ -586,6 +586,47 @@ void getPaletteThreshold(jab_byte* palette, jab_int32 color_number, jab_float* p
 		palette_ths[1] = (cpg0 + cpg1) / 2.0f;
 		palette_ths[2] = (cpb0 + cpb1) / 2.0f;
 	}
+	else if(color_number == 16)
+	{
+		// 16 colors: 4×2×2 (R×G×B)
+		// R: 4 levels {0, 85, 170, 255} → 3 thresholds
+		// G: 2 levels {0, 255} → 1 threshold
+		// B: 2 levels {0, 255} → 1 threshold
+		palette_ths[0] = 42.5f;   // R: between 0 and 85
+		palette_ths[1] = 127.5f;  // R: between 85 and 170
+		palette_ths[2] = 212.5f;  // R: between 170 and 255
+		palette_ths[3] = 127.5f;  // G: between 0 and 255
+		palette_ths[4] = 127.5f;  // B: between 0 and 255
+	}
+	else if(color_number == 32)
+	{
+		// 32 colors: 4×4×2 (R×G×B)
+		// R: 4 levels → 3 thresholds
+		// G: 4 levels → 3 thresholds
+		// B: 2 levels → 1 threshold
+		palette_ths[0] = 42.5f;   // R: between 0 and 85
+		palette_ths[1] = 127.5f;  // R: between 85 and 170
+		palette_ths[2] = 212.5f;  // R: between 170 and 255
+		palette_ths[3] = 42.5f;   // G: between 0 and 85
+		palette_ths[4] = 127.5f;  // G: between 85 and 170
+		palette_ths[5] = 212.5f;  // G: between 170 and 255
+		palette_ths[6] = 127.5f;  // B: between 0 and 255
+	}
+	else if(color_number == 64)
+	{
+		// 64 colors: 4×4×4 (R×G×B)
+		// All channels use 4 levels {0, 85, 170, 255}
+		// Each needs 3 thresholds: 42.5, 127.5, 212.5
+		palette_ths[0] = 42.5f;   // R: between 0 and 85
+		palette_ths[1] = 127.5f;  // R: between 85 and 170
+		palette_ths[2] = 212.5f;  // R: between 170 and 255
+		palette_ths[3] = 42.5f;   // G: between 0 and 85
+		palette_ths[4] = 127.5f;  // G: between 85 and 170
+		palette_ths[5] = 212.5f;  // G: between 170 and 255
+		palette_ths[6] = 42.5f;   // B: between 0 and 85
+		palette_ths[7] = 127.5f;  // B: between 85 and 170
+		palette_ths[8] = 212.5f;  // B: between 170 and 255
+	}
 }
 
 /**
