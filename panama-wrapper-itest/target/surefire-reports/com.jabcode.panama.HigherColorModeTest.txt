@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: com.jabcode.panama.HigherColorModeTest
+-------------------------------------------------------------------------------
+Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.233 s -- in com.jabcode.panama.HigherColorModeTest
