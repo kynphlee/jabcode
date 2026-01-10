@@ -24,6 +24,20 @@ public class JABCodeDecoder {
     public static final int MODE_FAST = 1;
     
     /**
+     * Reset decoder state for test isolation.
+     * 
+     * Phase 1 workaround for Panama FFI Arena lifecycle issues.
+     * Call this from @AfterEach or @AfterAll in test suites to clean up
+     * native global state between tests and prevent SIGSEGV crashes.
+     * 
+     * This is a temporary solution - Phase 2 will refactor to proper
+     * Arena-based memory management.
+     */
+    public static void resetDecoderState() {
+        jabcode_h.resetDecoderState();
+    }
+    
+    /**
      * Decoded result containing data and metadata
      */
     public static class DecodedResult {

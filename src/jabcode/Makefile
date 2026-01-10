@@ -2,7 +2,8 @@ PREFIX =
 CC 	= $(PREFIX)gcc
 AR 	= $(PREFIX)ar
 RANLIB	= $(PREFIX)ranlib
-CFLAGS	= -O2 -std=c11 -fPIC
+# Production build with debug symbols
+CFLAGS	= -g -O2 -std=c11 -fPIC
 
 CORE_DIR := build
 STATIC_LIB := $(CORE_DIR)/libjabcode.a

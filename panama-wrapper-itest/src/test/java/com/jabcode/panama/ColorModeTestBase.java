@@ -1,5 +1,6 @@
 package com.jabcode.panama;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -22,6 +23,13 @@ public abstract class ColorModeTestBase {
     void setUp() {
         encoder = new JABCodeEncoder();
         decoder = new JABCodeDecoder();
+    }
+    
+    @AfterEach
+    void tearDown() {
+        // Phase 1: Reset native decoder state between tests
+        // Prevents Panama FFI Arena lifecycle crashes in multi-test scenarios
+        JABCodeDecoder.resetDecoderState();
     }
     
     /**

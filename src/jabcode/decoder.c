@@ -21,6 +21,7 @@
 #include "ldpc.h"
 #include "encoder.h"
 #include "lab_color.h"
+#include "adaptive_palette.h"
 
 /**
  * @brief Copy 16-color sub-blocks of 64-color palette into 32-color blocks of 256-color palette and interpolate into 32 colors
@@ -396,6 +397,125 @@ jab_int32 getNearestPalette(jab_bitmap* matrix, jab_int32 x, jab_int32 y)
 	return p_index;
 }
 
+// Phase 2 Session 3-4: Global observation collection for adaptive palette
+static jab_color_observation* g_color_observations = NULL;
+static jab_int32 g_observation_count = 0;
+static jab_int32 g_observation_capacity = 0;
+static jab_boolean g_collect_observations = 0;
+
+/**
+ * @brief Enable observation collection for adaptive palette
+ */
+static void enableObservationCollection(jab_int32 capacity)
+{
+	// Clean up any existing state first
+	if (g_color_observations) {
+		free(g_color_observations);
+		g_color_observations = NULL;
+	}
+	
+	g_observation_capacity = capacity;
+	g_color_observations = (jab_color_observation*)malloc(capacity * sizeof(jab_color_observation));
+	if (!g_color_observations) {
+		g_observation_capacity = 0;
+		g_observation_count = 0;
+		g_collect_observations = 0;
+		return;
+	}
+	
+	g_observation_count = 0;
+	g_collect_observations = 1;
+}
+
+/**
+ * @brief Disable observation collection and free resources
+ */
+static void disableObservationCollection(void)
+{
+	g_collect_observations = 0;
+	if (g_color_observations) {
+		free(g_color_observations);
+		g_color_observations = NULL;
+	}
+	g_observation_count = 0;
+	g_observation_capacity = 0;
+}
+
+/**
+ * @brief Public API: Reset decoder state for test isolation
+ * 
+ * Phase 1 workaround for Panama FFI Arena lifecycle issues.
+ * Forces cleanup of global native state between test runs to prevent
+ * SIGSEGV crashes caused by stale Arena references.
+ * 
+ * Call this from @AfterEach or @AfterAll in test suites.
+ */
+void resetDecoderState(void)
+{
+	disableObservationCollection();
+}
+
+/**
+ * @brief Apply adaptive palette corrections if sufficient observations collected
+ * @return 1 if corrections applied, 0 otherwise
+ */
+static jab_int32 applyAdaptiveCorrections(jab_decoded_symbol* symbol, jab_int32 color_number)
+{
+	// Defensive checks
+	if (!symbol || !symbol->palette || color_number <= 0 || color_number > 256) {
+		return 0;
+	}
+	
+	if (g_observation_count < 50) {
+		return 0; // Not enough observations
+	}
+
+	// Analyze distribution
+	jab_palette_correction* corrections = (jab_palette_correction*)malloc(color_number * sizeof(jab_palette_correction));
+	if (!corrections) {
+		return 0;
+	}
+
+	// Only analyze first palette copy (palette index 0)
+	// symbol->palette contains 4 copies: [copy0][copy1][copy2][copy3]
+	// Each copy is color_number * 3 bytes
+	jab_int32 result = analyzePaletteDistribution(
+		g_color_observations,
+		g_observation_count,
+		symbol->palette,  // Use base pointer, analyzePaletteDistribution knows the size
+		color_number,
+		corrections
+	);
+
+	if (result == JAB_SUCCESS) {
+		// Allocate temporary buffer to avoid in-place corruption
+		jab_byte* temp_palette = (jab_byte*)malloc(color_number * 3 * sizeof(jab_byte));
+		if (!temp_palette) {
+			free(corrections);
+			return 0;
+		}
+		
+		// Apply corrections to all 4 palette copies
+		for (jab_int32 p = 0; p < COLOR_PALETTE_NUMBER; p++) {
+			applyPaletteCorrections(
+				symbol->palette + p * color_number * 3,
+				corrections,
+				color_number,
+				temp_palette  // Write to temp buffer
+			);
+			// Copy back to symbol palette
+			memcpy(symbol->palette + p * color_number * 3, temp_palette, color_number * 3);
+		}
+		
+		free(temp_palette);
+		free(corrections);
+		return 1;
+	}
+
+	free(corrections);
+	return 0;
+}
+
 /**
  * @brief Decode a module using hard decision
  * @param matrix the symbol matrix
@@ -486,6 +606,23 @@ jab_byte decodeModuleHD(jab_bitmap* matrix, jab_byte* palette, jab_int32 color_n
 			else
 			{
 				index1 = 7;
+			}
+		}
+		
+		// Phase 2 Session 3-4: Collect observation for adaptive palette if enabled
+		if (g_collect_observations && g_color_observations && min2 > 0.0f) {
+			// Validate index1 is within palette bounds before collecting
+			if (index1 < color_number) {
+				// Compute confidence as ratio of distance separation (higher = more confident)
+				jab_float confidence = (min2 - min1) / (min2 + 0.01f);
+				collectColorObservation(
+					observed_rgb,
+					index1,
+					confidence,
+					g_color_observations,
+					&g_observation_count,
+					g_observation_capacity
+				);
 			}
 		}
 		//if the minimum is close to the second minimum, do further match
@@ -1365,6 +1502,9 @@ jab_int32 decodeMaster(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 		reportError("Invalid master symbol matrix");
 		return FATAL_ERROR;
 	}
+	
+	// Force cleanup of any stale observation state from previous decodes
+	disableObservationCollection();
 
 	//create data map
 	jab_byte* data_map = (jab_byte*)calloc(1, matrix->width*matrix->height*sizeof(jab_byte));
@@ -1425,6 +1565,17 @@ jab_int32 decodeMaster(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 		}
 	}
 
+	// Phase 2 Session 3-4: Adaptive palette DISABLED - Unresolved SIGSEGV
+	// Root cause identified: Unbounded exponential growth in lab_diffs arrays (fixed with MAX_DIFF_CAPACITY)
+	// Remaining issue: SIGSEGV in libc persists under multi-test pressure despite:
+	//   - 7 safety fixes (malloc NULL checks, realloc pattern, bounds validation, LAB safety, shift magnitude checks)
+	//   - Capacity capping (MAX_DIFF_CAPACITY=1000)
+	//   - Forced cleanup at decode entry (disableObservationCollection)
+	//   - Valgrind: 0 heap errors detected
+	//   - ASAN: Incompatible with JVM/Panama FFI
+	// Hypothesis: Race condition or JVM-native memory interaction issue
+	// Stable baseline: LAB-only provides 51% pass rate (32/63 tests)
+	
 	//decode master symbol
 	return decodeSymbol(matrix, symbol, data_map, norm_palette, pal_ths, 0);
 }

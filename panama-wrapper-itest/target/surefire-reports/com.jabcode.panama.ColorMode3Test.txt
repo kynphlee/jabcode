@@ -1,12 +1,12 @@
 -------------------------------------------------------------------------------
 Test set: com.jabcode.panama.ColorMode3Test
 -------------------------------------------------------------------------------
-Tests run: 14, Failures: 0, Errors: 1, Skipped: 0, Time elapsed: 0.654 s <<< FAILURE! -- in com.jabcode.panama.ColorMode3Test
+Tests run: 14, Failures: 0, Errors: 1, Skipped: 0, Time elapsed: 0.561 s <<< FAILURE! -- in com.jabcode.panama.ColorMode3Test
 com.jabcode.panama.ColorMode3Test.testEmptyString -- Time elapsed: 0.003 s <<< ERROR!
 java.lang.IllegalArgumentException: Data cannot be null or empty
 	at com.jabcode.panama.JABCodeEncoder.encodeToPNG(JABCodeEncoder.java:196)
-	at com.jabcode.panama.ColorModeTestBase.assertRoundTrip(ColorModeTestBase.java:112)
-	at com.jabcode.panama.ColorModeTestBase.assertRoundTrip(ColorModeTestBase.java:134)
+	at com.jabcode.panama.ColorModeTestBase.assertRoundTrip(ColorModeTestBase.java:120)
+	at com.jabcode.panama.ColorModeTestBase.assertRoundTrip(ColorModeTestBase.java:142)
 	at com.jabcode.panama.ColorMode3Test.testEmptyString(ColorMode3Test.java:52)
 	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
 	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
