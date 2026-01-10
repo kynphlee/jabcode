@@ -22,7 +22,7 @@
     </licenses>
 
     <properties>
-        <!-- Use JDK 23 or 25 for Panama FFM API -->
+        <!-- Use JDK 23 for Panama FFM API -->
         <maven.compiler.source>23</maven.compiler.source>
         <maven.compiler.target>23</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -168,7 +168,7 @@
                             <goal>exec</goal>
                         </goals>
                         <configuration>
-                            <executable>${env.JAVA_HOME}/bin/jextract</executable>
+                            <executable>/home/kynphlee/tools/compilers/java/jextract/jextract-25/bin/jextract</executable>
                             <arguments>
                                 <!-- Output directory -->
                                 <argument>--output</argument>
