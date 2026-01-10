@@ -3,6 +3,8 @@ package com.jabcode.panama;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 /**
  * Test suite for Color Mode 4 (32 colors, 5 bits per module)
  * 
@@ -59,19 +61,19 @@ class ColorMode4Test extends ColorModeTestBase {
     @Test
     @DisplayName("Verify Nc value is 4")
     void testNcValue() {
-        assertEquals(4, getNcValue(), "Nc should be 4 for 32-color mode");
+        assertEquals(4, getNcValue());
     }
     
     @Test
     @DisplayName("Verify bits per module is 5")
     void testBitsPerModule() {
-        assertEquals(5, getBitsPerModule(), "Should use 5 bits per module");
+        assertEquals(5, getBitsPerModule());
     }
     
     @Test
     @DisplayName("Should not require interpolation")
     void testNoInterpolation() {
-        assertFalse(requiresInterpolation(), "32-color mode should not require interpolation");
+        assertFalse(requiresInterpolation());
     }
     
     @Test

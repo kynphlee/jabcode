@@ -79,6 +79,7 @@ jextract \
     --include-function generateJABCode \
     --include-function decodeJABCode \
     --include-function decodeJABCodeEx \
+    --include-function decodeJABCodeWithObservations \
     --include-function resetDecoderState \
     --include-function saveImage \
     --include-function saveImageCMYK \

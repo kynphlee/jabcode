@@ -397,62 +397,63 @@ jab_int32 getNearestPalette(jab_bitmap* matrix, jab_int32 x, jab_int32 y)
 	return p_index;
 }
 
-// Phase 2 Session 3-4: Global observation collection for adaptive palette
-static jab_color_observation* g_color_observations = NULL;
-static jab_int32 g_observation_count = 0;
-static jab_int32 g_observation_capacity = 0;
-static jab_boolean g_collect_observations = 0;
+// Phase 2: Arena-based observation collection - no global state
+// Observation buffer is now passed from Java via Arena allocation
 
 /**
- * @brief Enable observation collection for adaptive palette
+ * @brief Observation collection context (per-decode session)
  */
-static void enableObservationCollection(jab_int32 capacity)
+typedef struct {
+	jab_color_observation* buffer;  // Arena-allocated from Java
+	jab_int32 capacity;              // Buffer capacity
+	jab_int32 count;                 // Current observation count
+	jab_boolean enabled;             // Collection enabled flag
+} observation_context_t;
+
+// Thread-local context (no global malloc'd state)
+static __thread observation_context_t g_obs_ctx = {NULL, 0, 0, 0};
+
+/**
+ * @brief Initialize observation collection with external buffer
+ * @param buffer Arena-allocated buffer from Java (can be NULL to disable)
+ * @param capacity Buffer capacity
+ */
+static void initObservationContext(jab_color_observation* buffer, jab_int32 capacity)
 {
-	// Clean up any existing state first
-	if (g_color_observations) {
-		free(g_color_observations);
-		g_color_observations = NULL;
-	}
-	
-	g_observation_capacity = capacity;
-	g_color_observations = (jab_color_observation*)malloc(capacity * sizeof(jab_color_observation));
-	if (!g_color_observations) {
-		g_observation_capacity = 0;
-		g_observation_count = 0;
-		g_collect_observations = 0;
-		return;
-	}
-	
-	g_observation_count = 0;
-	g_collect_observations = 1;
+	g_obs_ctx.buffer = buffer;
+	g_obs_ctx.capacity = capacity;
+	g_obs_ctx.count = 0;
+	g_obs_ctx.enabled = (buffer != NULL && capacity > 0) ? 1 : 0;
 }
 
 /**
- * @brief Disable observation collection and free resources
+ * @brief Clear observation context (no memory to free - Java owns it)
  */
-static void disableObservationCollection(void)
+static void clearObservationContext(void)
 {
-	g_collect_observations = 0;
-	if (g_color_observations) {
-		free(g_color_observations);
-		g_color_observations = NULL;
-	}
-	g_observation_count = 0;
-	g_observation_capacity = 0;
+	g_obs_ctx.buffer = NULL;
+	g_obs_ctx.capacity = 0;
+	g_obs_ctx.count = 0;
+	g_obs_ctx.enabled = 0;
+}
+
+/**
+ * @brief Get current observation count
+ */
+static jab_int32 getObservationCount(void)
+{
+	return g_obs_ctx.count;
 }
 
 /**
  * @brief Public API: Reset decoder state for test isolation
  * 
- * Phase 1 workaround for Panama FFI Arena lifecycle issues.
- * Forces cleanup of global native state between test runs to prevent
- * SIGSEGV crashes caused by stale Arena references.
- * 
- * Call this from @AfterEach or @AfterAll in test suites.
+ * Phase 1 workaround - retained for backward compatibility.
+ * In Phase 2, this is a no-op since Java owns memory lifecycle.
  */
 void resetDecoderState(void)
 {
-	disableObservationCollection();
+	clearObservationContext();
 }
 
 /**
@@ -466,7 +467,7 @@ static jab_int32 applyAdaptiveCorrections(jab_decoded_symbol* symbol, jab_int32 
 		return 0;
 	}
 	
-	if (g_observation_count < 50) {
+	if (g_obs_ctx.count < 50) {
 		return 0; // Not enough observations
 	}
 
@@ -480,8 +481,8 @@ static jab_int32 applyAdaptiveCorrections(jab_decoded_symbol* symbol, jab_int32 
 	// symbol->palette contains 4 copies: [copy0][copy1][copy2][copy3]
 	// Each copy is color_number * 3 bytes
 	jab_int32 result = analyzePaletteDistribution(
-		g_color_observations,
-		g_observation_count,
+		g_obs_ctx.buffer,
+		g_obs_ctx.count,
 		symbol->palette,  // Use base pointer, analyzePaletteDistribution knows the size
 		color_number,
 		corrections
@@ -609,8 +610,8 @@ jab_byte decodeModuleHD(jab_bitmap* matrix, jab_byte* palette, jab_int32 color_n
 			}
 		}
 		
-		// Phase 2 Session 3-4: Collect observation for adaptive palette if enabled
-		if (g_collect_observations && g_color_observations && min2 > 0.0f) {
+		// Phase 2: Collect observation for adaptive palette if enabled
+		if (g_obs_ctx.enabled && g_obs_ctx.buffer && min2 > 0.0f) {
 			// Validate index1 is within palette bounds before collecting
 			if (index1 < color_number) {
 				// Compute confidence as ratio of distance separation (higher = more confident)
@@ -619,9 +620,9 @@ jab_byte decodeModuleHD(jab_bitmap* matrix, jab_byte* palette, jab_int32 color_n
 					observed_rgb,
 					index1,
 					confidence,
-					g_color_observations,
-					&g_observation_count,
-					g_observation_capacity
+					g_obs_ctx.buffer,
+					&g_obs_ctx.count,
+					g_obs_ctx.capacity
 				);
 			}
 		}
@@ -1503,8 +1504,8 @@ jab_int32 decodeMaster(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 		return FATAL_ERROR;
 	}
 	
-	// Force cleanup of any stale observation state from previous decodes
-	disableObservationCollection();
+	// Phase 2: No cleanup needed - Java manages observation buffer lifecycle
+	// Context is initialized per-decode via decodeJABCodeWithObservations
 
 	//create data map
 	jab_byte* data_map = (jab_byte*)calloc(1, matrix->width*matrix->height*sizeof(jab_byte));
@@ -2031,4 +2032,49 @@ jab_data* decodeData(jab_data* bits)
 
 	free(decoded_bytes);
 	return decoded_data;
+}
+
+/**
+ * @brief Decode with Arena-allocated observation buffer
+ * 
+ * Phase 2: Proper Panama FFI integration using Arena-managed memory.
+ * Java allocates observation buffer via Arena, C writes to it, Java analyzes.
+ * No malloc/free in C for observations - Java owns lifecycle.
+ *
+ * @param bitmap Barcode image
+ * @param mode Decode mode
+ * @param status Output status code
+ * @param observation_buffer Arena-allocated buffer (can be NULL)
+ * @param buffer_capacity Buffer capacity in number of observations
+ * @param observation_count Output: number of observations collected
+ * @return Decoded data or NULL
+ */
+jab_data* decodeJABCodeWithObservations(
+    jab_bitmap* bitmap, 
+    jab_int32 mode, 
+    jab_int32* status,
+    void* observation_buffer,
+    jab_int32 buffer_capacity,
+    jab_int32* observation_count
+)
+{
+    // Initialize observation context with Arena buffer
+    if (observation_buffer && buffer_capacity > 0) {
+        initObservationContext((jab_color_observation*)observation_buffer, buffer_capacity);
+    } else {
+        clearObservationContext();
+    }
+    
+    // Call standard decode
+    jab_data* result = decodeJABCode(bitmap, mode, status);
+    
+    // Return observation count to Java
+    if (observation_count) {
+        *observation_count = getObservationCount();
+    }
+    
+    // Clear context (doesn't free - Java owns memory)
+    clearObservationContext();
+    
+    return result;
 }

@@ -3,6 +3,8 @@ package com.jabcode.panama;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 /**
  * Test suite for Color Mode 7 (256 colors, 8 bits per module)
  * 
@@ -61,19 +63,19 @@ class ColorMode7Test extends ColorModeTestBase {
     @Test
     @DisplayName("Verify Nc value is 7")
     void testNcValue() {
-        assertEquals(7, getNcValue(), "Nc should be 7 for 256-color mode");
+        assertEquals(7, getNcValue());
     }
     
     @Test
     @DisplayName("Verify bits per module is 8")
     void testBitsPerModule() {
-        assertEquals(8, getBitsPerModule(), "Should use 8 bits per module (maximum)");
+        assertEquals(8, getBitsPerModule());
     }
     
     @Test
     @DisplayName("Should require interpolation")
     void testRequiresInterpolation() {
-        assertTrue(requiresInterpolation(), "256-color mode should require interpolation");
+        assertTrue(requiresInterpolation());
     }
     
     @Test

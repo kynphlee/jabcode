@@ -172,6 +172,7 @@ extern void destroyEncode(jab_encode* enc);
 extern jab_int32 generateJABCode(jab_encode* enc, jab_data* data);
 extern jab_data* decodeJABCode(jab_bitmap* bitmap, jab_int32 mode, jab_int32* status);
 extern jab_data* decodeJABCodeEx(jab_bitmap* bitmap, jab_int32 mode, jab_int32* status, jab_decoded_symbol* symbols, jab_int32 max_symbol_number);
+extern jab_data* decodeJABCodeWithObservations(jab_bitmap* bitmap, jab_int32 mode, jab_int32* status, void* observation_buffer, jab_int32 buffer_capacity, jab_int32* observation_count);
 extern void resetDecoderState(void);
 extern jab_boolean saveImage(jab_bitmap* bitmap, jab_char* filename);
 extern jab_boolean saveImageCMYK(jab_bitmap* bitmap, jab_boolean isCMYK, jab_char* filename);

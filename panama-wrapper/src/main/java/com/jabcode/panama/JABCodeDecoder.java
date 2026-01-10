@@ -26,15 +26,117 @@ public class JABCodeDecoder {
     /**
      * Reset decoder state for test isolation.
      * 
-     * Phase 1 workaround for Panama FFI Arena lifecycle issues.
-     * Call this from @AfterEach or @AfterAll in test suites to clean up
-     * native global state between tests and prevent SIGSEGV crashes.
-     * 
-     * This is a temporary solution - Phase 2 will refactor to proper
-     * Arena-based memory management.
+     * Phase 1 workaround - retained for backward compatibility.
+     * In Phase 2, this is largely a no-op since Java owns memory lifecycle.
      */
     public static void resetDecoderState() {
         jabcode_h.resetDecoderState();
+    }
+    
+    /**
+     * Observation buffer size for adaptive palette
+     */
+    private static final int MAX_OBSERVATIONS = 10000;
+    
+    /**
+     * Phase 2: Arena-based decode with observation collection
+     * 
+     * Properly integrates with Panama FFI using Arena-managed memory.
+     * Allocates observation buffer via Arena, C writes to it, no malloc/free in C.
+     * 
+     * @param imagePath Path to image file
+     * @param mode Decode mode
+     * @param collectObservations Whether to collect color observations
+     * @return DecodedResult with data, metadata, and optional observations
+     */
+    public DecodedResultWithObservations decodeWithObservations(
+            Path imagePath, 
+            int mode, 
+            boolean collectObservations) {
+        
+        if (imagePath == null) {
+            throw new IllegalArgumentException("Image path cannot be null");
+        }
+        
+        try (Arena arena = Arena.ofConfined()) {
+            // Load image
+            MemorySegment imagePathSegment = arena.allocateFrom(imagePath.toString());
+            MemorySegment bitmapPtr = jabcode_h.readImage(imagePathSegment);
+            
+            if (bitmapPtr.address() == 0) {
+                return new DecodedResultWithObservations(null, 0, false, null, 0);
+            }
+            
+            try {
+                // Allocate status
+                MemorySegment statusPtr = arena.allocate(ValueLayout.JAVA_INT);
+                
+                // Arena-allocate observation buffer if requested
+                MemorySegment obsBuffer = null;
+                MemorySegment obsCountPtr = null;
+                int obsCount = 0;
+                
+                if (collectObservations) {
+                    // Allocate buffer for observations (RGB + index + confidence)
+                    // sizeof(jab_color_observation) = 3 + 1 + 4 = 8 bytes
+                    long obsStructSize = 8;
+                    obsBuffer = arena.allocate(obsStructSize * MAX_OBSERVATIONS);
+                    obsCountPtr = arena.allocate(ValueLayout.JAVA_INT);
+                }
+                
+                // Decode with observations
+                MemorySegment dataPtr;
+                if (collectObservations) {
+                    dataPtr = jabcode_h.decodeJABCodeWithObservations(
+                        bitmapPtr, mode, statusPtr, 
+                        obsBuffer, MAX_OBSERVATIONS, obsCountPtr
+                    );
+                    obsCount = obsCountPtr.get(ValueLayout.JAVA_INT, 0);
+                } else {
+                    dataPtr = jabcode_h.decodeJABCode(bitmapPtr, mode, statusPtr);
+                }
+                
+                if (dataPtr.address() == 0) {
+                    return new DecodedResultWithObservations(null, 0, false, obsBuffer, obsCount);
+                }
+                
+                // Read decoded data
+                int length = dataPtr.get(ValueLayout.JAVA_INT, 0);
+                byte[] decodedBytes = new byte[length];
+                MemorySegment dataSegment = dataPtr.asSlice(4, length);
+                MemorySegment.copy(dataSegment, ValueLayout.JAVA_BYTE, 0,
+                                 decodedBytes, 0, length);
+                
+                String decodedString = new String(decodedBytes, StandardCharsets.UTF_8);
+                
+                return new DecodedResultWithObservations(
+                    decodedString, 1, true, obsBuffer, obsCount
+                );
+                
+            } finally {
+                // Bitmap cleanup handled by C library
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Decoding with observations failed", e);
+        }
+    }
+    
+    /**
+     * Extended result with observation data
+     */
+    public static class DecodedResultWithObservations extends DecodedResult {
+        private final MemorySegment observations;
+        private final int observationCount;
+        
+        public DecodedResultWithObservations(String data, int symbolCount, boolean success,
+                                            MemorySegment observations, int observationCount) {
+            super(data, symbolCount, success);
+            this.observations = observations;
+            this.observationCount = observationCount;
+        }
+        
+        public MemorySegment getObservations() { return observations; }
+        public int getObservationCount() { return observationCount; }
     }
     
     /**

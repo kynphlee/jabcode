@@ -203,6 +203,9 @@
                                 <argument>decodeJABCodeEx</argument>
                                 
                                 <argument>--include-function</argument>
+                                <argument>decodeJABCodeWithObservations</argument>
+                                
+                                <argument>--include-function</argument>
                                 <argument>resetDecoderState</argument>
                                 
                                 <argument>--include-function</argument>
