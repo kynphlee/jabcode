@@ -20,6 +20,7 @@
 #include "decoder.h"
 #include "ldpc.h"
 #include "encoder.h"
+#include "lab_color.h"
 
 /**
  * @brief Copy 16-color sub-blocks of 64-color palette into 32-color blocks of 256-color palette and interpolate into 32 colors
@@ -420,6 +421,10 @@ jab_byte decodeModuleHD(jab_bitmap* matrix, jab_byte* palette, jab_int32 color_n
 	rgb[1] = matrix->pixel[mtx_offset + 1];
 	rgb[2] = matrix->pixel[mtx_offset + 2];
 
+	// Phase 2: Convert observed RGB to LAB for perceptual comparison
+	jab_rgb_color observed_rgb = {rgb[0], rgb[1], rgb[2]};
+	jab_lab_color observed_lab = rgb_to_lab(observed_rgb);
+
 	jab_byte index1 = 0, index2 = 0;
 
 	//check black module
@@ -439,21 +444,18 @@ jab_byte decodeModuleHD(jab_bitmap* matrix, jab_byte* palette, jab_int32 color_n
         jab_float b = (jab_float)rgb[2] / normalizer;
         //jab_float l = ((rgb[0] + rgb[1] + rgb[2]) / 3.0f) / 255.0f;
 
-		jab_float min1 = 255*255*3, min2 = 255*255*3;
+		jab_float min1 = 10000.0f, min2 = 10000.0f;
 		for(jab_int32 i=0; i<color_number; i++)
 		{
-			//normalize the color values in color palette
-			jab_float pr = norm_palette[color_number*4*p_index + i*4 + 0];
-			jab_float pg = norm_palette[color_number*4*p_index + i*4 + 1];
-			jab_float pb = norm_palette[color_number*4*p_index + i*4 + 2];
-			//jab_float pl = norm_palette[color_number*4*p_index + i*4 + 3];
+			// Phase 2: Use LAB perceptual distance (ΔE) instead of RGB Euclidean
+			jab_byte pal_r = palette[color_number*3*p_index + i*3 + 0];
+			jab_byte pal_g = palette[color_number*3*p_index + i*3 + 1];
+			jab_byte pal_b = palette[color_number*3*p_index + i*3 + 2];
+			jab_rgb_color palette_rgb = {pal_r, pal_g, pal_b};
+			jab_lab_color palette_lab = rgb_to_lab(palette_rgb);
 
-			//compare the normalized module color with palette
-			//Use perceptual weighting: human vision is most sensitive to green
-			jab_float dr = pr - r;
-			jab_float dg = pg - g;
-			jab_float db = pb - b;
-			jab_float diff = 0.30f * dr * dr + 0.59f * dg * dg + 0.11f * db * db;
+			// Calculate perceptual color difference (ΔE76)
+			jab_float diff = delta_e_76(observed_lab, palette_lab);
 
 			if(diff < min1)
 			{
