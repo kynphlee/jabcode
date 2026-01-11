@@ -1064,23 +1064,49 @@ void placeMasterMetadataPartII(jab_encode* enc)
 	jab_int32 partII_bit_start = MASTER_METADATA_PART1_LENGTH;
 	jab_int32 partII_bit_end = MASTER_METADATA_PART1_LENGTH + MASTER_METADATA_PART2_LENGTH;
 	jab_int32 metadata_index = partII_bit_start;
-	while(metadata_index <= partII_bit_end)
+	jab_int32 module_debug = 0;
+	
+	FILE* debug_log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+	if (debug_log) {
+		fprintf(debug_log, "[ENCODER] placeMasterMetadataPartII: bit_start=%d, bit_end=%d, bits_per_mod=%d\n",
+			partII_bit_start, partII_bit_end, nb_of_bits_per_mod);
+		fprintf(debug_log, "[ENCODER]   module_offset=%d, after skipping: module_count=%d, pos=(%d,%d)\n",
+			module_offset, module_count, x, y);
+		fclose(debug_log);
+	}
+	
+	while(metadata_index < partII_bit_end)
 	{
-    	jab_byte color_index = enc->symbols[0].matrix[y*enc->symbols[0].side_size.x + x];
+		// CRITICAL FIX: Construct color_index from metadata bits, don't read masked matrix value
+		jab_byte color_index = 0;
+		jab_int32 bit_start_for_module = metadata_index;
 		for(jab_int32 j=0; j<nb_of_bits_per_mod; j++)
 		{
-			if(metadata_index <= partII_bit_end)
+			if(metadata_index < partII_bit_end)
 			{
 				jab_byte bit = enc->symbols[0].metadata->data[metadata_index];
-				if(bit == 0)
-					color_index &= ~(1UL << (nb_of_bits_per_mod-1-j));
-				else
-					color_index |= 1UL << (nb_of_bits_per_mod-1-j);
+				color_index += bit << (nb_of_bits_per_mod-1-j);
 				metadata_index++;
 			}
 			else
 				break;
 		}
+		
+		if (module_debug < 2) {
+			debug_log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+			if (debug_log) {
+				fprintf(debug_log, "[ENCODER] placeMasterMetadataPartII module %d at (%d,%d): color_index=%d\n",
+					module_debug, x, y, color_index);
+				fprintf(debug_log, "[ENCODER]   Read bits %d-%d: ", bit_start_for_module, metadata_index-1);
+				for(jab_int32 b = bit_start_for_module; b < metadata_index; b++) {
+					fprintf(debug_log, "%d", enc->symbols[0].metadata->data[b]);
+				}
+				fprintf(debug_log, " = %d\n", color_index);
+				fclose(debug_log);
+			}
+			module_debug++;
+		}
+		
         enc->symbols[0].matrix[y*enc->symbols[0].side_size.x + x] = color_index;
         module_count++;
         getNextMetadataModuleInMaster(enc->symbols[0].side_size.y, enc->symbols[0].side_size.x, module_count, &x, &y);
@@ -1392,19 +1418,6 @@ jab_boolean createMatrix(jab_encode* enc, jab_int32 index, jab_data* ecc_encoded
 			jab_int32 placement_idx = master_palette_placement_index[0][i] % enc->color_number;
 			jab_int32 color_idx = palette_index[placement_idx];
 			
-			// Debug: Log color_counter 44 (i=44) palette 0 placement
-			if (i == 44 && module_count == 172) {
-				FILE* dbg = fopen("/tmp/jabcode_adaptive_debug.log", "a");
-				if (dbg) {
-					fprintf(dbg, "[ENCODER] Palette[0] i=%d: placement_idx=%d, color_idx=%d, module_count=%d, pos=(%d,%d)\n",
-						i, placement_idx, color_idx, module_count, x, y);
-					fprintf(dbg, "[ENCODER]   Matrix will contain color_idx=%d\n", color_idx);
-					fprintf(dbg, "[ENCODER]   enc->palette[%d] RGB=(%d,%d,%d)\n",
-						color_idx*3, enc->palette[color_idx*3], enc->palette[color_idx*3+1], enc->palette[color_idx*3+2]);
-					fclose(dbg);
-				}
-			}
-			
 			enc->symbols[index].matrix  [y*enc->symbols[index].side_size.x+x] = color_idx;
 			enc->symbols[index].data_map[y*enc->symbols[index].side_size.x+x] = 0;
 			module_count++;
@@ -1444,7 +1457,8 @@ jab_boolean createMatrix(jab_encode* enc, jab_int32 index, jab_data* ecc_encoded
 			jab_int32 partII_module_debug = 0;
 			while(metadata_index < enc->symbols[index].metadata->length)
 			{
-				// Skip positions already occupied by palette (data_map=0)
+				// CRITICAL: Skip positions already occupied by palette or earlier Part II modules
+				// With 248 palette colors, spiral revisits positions, causing Part II self-collision
 				while(enc->symbols[index].data_map[y*enc->symbols[index].side_size.x + x] == 0)
 				{
 					module_count++;
@@ -1452,6 +1466,7 @@ jab_boolean createMatrix(jab_encode* enc, jab_int32 index, jab_data* ecc_encoded
 				}
 				
 				color_index = 0;
+				jab_int32 bit_start_idx = metadata_index;
 				for(jab_int32 j=0; j<nb_of_bits_per_mod; j++)
 				{
 					if(metadata_index < enc->symbols[index].metadata->length)
@@ -1467,11 +1482,16 @@ jab_boolean createMatrix(jab_encode* enc, jab_int32 index, jab_data* ecc_encoded
 				enc->symbols[index].data_map[y*enc->symbols[index].side_size.x + x] = 0;
 				
 				// Debug: Log first 3 Part II modules
-				if (partII_module_debug < 3) {
+				if (partII_module_debug < 2) {
 					log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
 					if (log) {
-						fprintf(log, "[ENCODER] Part II module %d at (%d,%d): module_count=%d, color_index=%d (bits from metadata)\n",
-							partII_module_debug, x, y, module_count, color_index);
+						fprintf(log, "[ENCODER] Initial Part II module %d at (%d,%d): color_index=%d\n",
+							partII_module_debug, x, y, color_index);
+						fprintf(log, "[ENCODER]   Wrote bits %d-%d: ", bit_start_idx, metadata_index-1);
+						for(jab_int32 b = bit_start_idx; b < metadata_index; b++) {
+							fprintf(log, "%d", enc->symbols[index].metadata->data[b]);
+						}
+						fprintf(log, " = %d\n", color_index);
 						fclose(log);
 					}
 					partII_module_debug++;
@@ -1479,6 +1499,15 @@ jab_boolean createMatrix(jab_encode* enc, jab_int32 index, jab_data* ecc_encoded
 				
 				module_count++;
 				getNextMetadataModuleInMaster(enc->symbols[index].side_size.y, enc->symbols[index].side_size.x, module_count, &x, &y);
+			}
+			
+			// Debug: Verify matrix value immediately after Part II placement
+			jab_int32 check_idx = 5 * enc->symbols[index].side_size.x + 9;
+			FILE* dbg = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+			if (dbg) {
+				fprintf(dbg, "[ENCODER] After Part II placement, matrix[%d] (pos 9,5) = %d\n",
+					check_idx, enc->symbols[index].matrix[check_idx]);
+				fclose(dbg);
 			}
 		}
     }
@@ -1556,6 +1585,18 @@ jab_boolean createMatrix(jab_encode* enc, jab_int32 index, jab_data* ecc_encoded
 #if TEST_MODE
 	fclose(fp);
 #endif // TEST_MODE
+
+	// Debug: Verify matrix value after data placement
+	if (index == 0) {
+		jab_int32 check_idx = 5 * enc->symbols[index].side_size.x + 9;
+		FILE* dbg = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+		if (dbg) {
+			fprintf(dbg, "[ENCODER] After data placement, matrix[%d] (pos 9,5) = %d, data_map=%d\n",
+				check_idx, enc->symbols[index].matrix[check_idx], enc->symbols[index].data_map[check_idx]);
+			fclose(dbg);
+		}
+	}
+
 	return JAB_SUCCESS;
 }
 
@@ -1853,6 +1894,19 @@ jab_boolean createBitmap(jab_encode* enc, jab_code* cp)
                 }
                 fprintf(log, "[ENCODER] Total modules marked for 8-color: %d (should be 4)\n", marked_count);
                 fclose(log);
+            }
+        }
+        
+        // Debug: Verify matrix values at palette positions before rendering
+        {
+            FILE* dbg = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+            if (dbg) {
+                jab_int32 idx_9_5 = 5 * symbol_width + 9;
+                jab_int32 idx_15_5 = 5 * symbol_width + 15;
+                fprintf(dbg, "[ENCODER] Before rendering - matrix[%d] pos(9,5)=%d, matrix[%d] pos(15,5)=%d\n",
+                    idx_9_5, enc->symbols[k].matrix[idx_9_5],
+                    idx_15_5, enc->symbols[k].matrix[idx_15_5]);
+                fclose(dbg);
             }
         }
         
@@ -2510,10 +2564,27 @@ jab_int32 generateJABCode(jab_encode* enc, jab_data* data)
 #endif
 		if(mask_reference != DEFAULT_MASKING_REFERENCE)
 		{
-			//re-encode PartII of master symbol metadata
-			updateMasterMetadataPartII(enc, mask_reference);
-			//update the masking reference in master symbol metadata
-			placeMasterMetadataPartII(enc);
+			// CRITICAL: For >8 color modes, initial Part II placement is correct.
+			// updateMasterMetadataPartII corrupts metadata bits with masking reference,
+			// causing placeMasterMetadataPartII to reconstruct wrong color indices.
+			// Skip for non-default color modes to preserve original Part II values.
+			if (enc->color_number <= 8) {
+				//re-encode PartII of master symbol metadata
+				updateMasterMetadataPartII(enc, mask_reference);
+				//update the masking reference in master symbol metadata
+				placeMasterMetadataPartII(enc);
+			}
+		}
+	}
+	
+	// Debug: Verify Part II values after masking, before bitmap rendering
+	{
+		jab_int32 check_idx = 5 * enc->symbols[0].side_size.x + 9;
+		FILE* dbg = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+		if (dbg) {
+			fprintf(dbg, "[ENCODER] After masking, matrix[%d] (pos 9,5) = %d, data_map=%d\n",
+				check_idx, enc->symbols[0].matrix[check_idx], enc->symbols[0].data_map[check_idx]);
+			fclose(dbg);
 		}
 	}
 

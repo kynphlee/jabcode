@@ -223,6 +223,136 @@ void getColorPalettePosInFP(jab_int32 p_index, jab_int32 matrix_width, jab_int32
 }
 
 /**
+ * @brief Simulate encoder's palette position calculation with collision avoidance
+ * @param matrix_width the symbol matrix width
+ * @param matrix_height the symbol matrix height
+ * @param color_number the number of colors in palette
+ * @param positions output array of positions (x,y pairs) where palette modules are placed
+ * @return number of positions calculated
+*/
+jab_int32 simulateEncoderPalettePositions(jab_int32 matrix_width, jab_int32 matrix_height, jab_int32 color_number, jab_int32* positions)
+{
+	FILE* trace = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+	if (trace) {
+		fprintf(trace, "[DECODER] simulateEncoderPalettePositions START: %dx%d, colors=%d\n",
+			matrix_width, matrix_height, color_number);
+		fclose(trace);
+	}
+	
+	// Simulate encoder's data_map: 1=available, 0=occupied
+	jab_byte* sim_data_map = (jab_byte*)calloc(matrix_width * matrix_height, sizeof(jab_byte));
+	if (!sim_data_map) {
+		reportError("Failed to allocate simulation data_map");
+		return 0;
+	}
+	
+	// Initialize all positions as available
+	memset(sim_data_map, 1, matrix_width * matrix_height);
+	
+	// CRITICAL: Mark Part I positions (modules 0-3) as occupied
+	// This matches encoder's initial data_map state
+	for(jab_int32 i = 0; i < 4; i++) {
+		jab_int32 part1_x, part1_y;
+		getNextMetadataModuleInMaster(matrix_height, matrix_width, i, &part1_x, &part1_y);
+		sim_data_map[part1_y * matrix_width + part1_x] = 0;
+	}
+	
+	trace = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+	if (trace) {
+		fprintf(trace, "[DECODER] Simulation data_map allocated, Part I marked as occupied\n");
+		fclose(trace);
+	}
+	
+	// Start after Part I (modules 0-3)
+	jab_int32 sim_module_count = 4;
+	jab_int32 sim_x, sim_y;
+	getNextMetadataModuleInMaster(matrix_height, matrix_width, sim_module_count, &sim_x, &sim_y);
+	
+	jab_int32 position_index = 0;
+	jab_int32 max_skip_iterations = matrix_width * matrix_height; // Safety limit
+	
+	// Simulate encoder's palette placement with skip loops
+	for(jab_int32 color_counter = 2; color_counter < MIN(color_number, 64); color_counter++)
+	{
+		// For each of 4 palettes
+		for(jab_int32 palette_idx = 0; palette_idx < 4; palette_idx++)
+		{
+			// Log first few iterations
+			if (color_counter == 2 && palette_idx < 2) {
+				FILE* trace = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+				if (trace) {
+					fprintf(trace, "[DECODER] Simulation color=%d palette=%d: pos=(%d,%d) data_map=%d\n",
+						color_counter, palette_idx, sim_x, sim_y, 
+						sim_data_map[sim_y * matrix_width + sim_x]);
+					fclose(trace);
+				}
+			}
+			
+			// CRITICAL: Skip positions already occupied (sim_data_map=0)
+			// This replicates encoder's collision avoidance
+			jab_int32 skip_count = 0;
+			while(sim_data_map[sim_y * matrix_width + sim_x] == 0)
+			{
+				if (skip_count < 3 && color_counter == 2) {
+					FILE* trace = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+					if (trace) {
+						fprintf(trace, "[DECODER] Skip iteration %d: pos=(%d,%d) occupied, advancing\n",
+							skip_count, sim_x, sim_y);
+						fclose(trace);
+					}
+				}
+				
+				sim_module_count++;
+				getNextMetadataModuleInMaster(matrix_height, matrix_width, sim_module_count, &sim_x, &sim_y);
+				skip_count++;
+				
+				if (skip_count > max_skip_iterations) {
+					FILE* err = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+					if (err) {
+						fprintf(err, "[DECODER] Simulation infinite loop at color_counter=%d, palette_idx=%d\n",
+							color_counter, palette_idx);
+						fprintf(err, "[DECODER] Last position: (%d,%d), module_count=%d\n",
+							sim_x, sim_y, sim_module_count);
+						fclose(err);
+					}
+					free(sim_data_map);
+					reportError("Position simulation exceeded bounds - infinite skip loop");
+					return 0;
+				}
+			}
+			
+			// Bounds check before recording
+			if (sim_x >= matrix_width || sim_y >= matrix_height || sim_x < 0 || sim_y < 0) {
+				FILE* err = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+				if (err) {
+					fprintf(err, "[DECODER] Simulation out of bounds: pos=(%d,%d), matrix=%dx%d\n",
+						sim_x, sim_y, matrix_width, matrix_height);
+					fclose(err);
+				}
+				free(sim_data_map);
+				reportError("Position simulation produced out-of-bounds coordinates");
+				return 0;
+			}
+			
+			// Record position (x, y)
+			positions[position_index * 2] = sim_x;
+			positions[position_index * 2 + 1] = sim_y;
+			position_index++;
+			
+			// Mark as occupied
+			sim_data_map[sim_y * matrix_width + sim_x] = 0;
+			
+			// Advance to next position
+			sim_module_count++;
+			getNextMetadataModuleInMaster(matrix_height, matrix_width, sim_module_count, &sim_x, &sim_y);
+		}
+	}
+	
+	free(sim_data_map);
+	return position_index;
+}
+
+/**
  * @brief Read the color palettes in master symbol
  * @param matrix the symbol matrix
  * @param symbol the master symbol
@@ -261,50 +391,35 @@ jab_int32 readColorPaletteInMaster(jab_bitmap* matrix, jab_decoded_symbol* symbo
 	//read colors from metadata
 	jab_int32 color_counter = 2;	//the color counter
 	
-	FILE* log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
-	if (log) {
-		fprintf(log, "[DECODER] Reading palette from metadata: color_number=%d, will read %d colors\n",
-			color_number, MIN(color_number, 64) - 2);
-		fprintf(log, "[DECODER] Starting at module_count=%d, pos=(%d,%d)\n",
-			*module_count, *x, *y);
-		fclose(log);
-	}
-	
 	while(color_counter < MIN(color_number, 64))
 	{
+		// Sequential spiral reading - same for all color modes
+		// With 248 modules cycling through 4 positions, later colors overwrite earlier ones
 		//color palette 0
-		color_index = master_palette_placement_index[0][color_counter] % color_number; //for 4-color and 8-color symbols
+		color_index = master_palette_placement_index[0][color_counter] % color_number;
 		writeColorPalette(matrix, symbol, 0, color_index, *x, *y);
-		//set data map
 		data_map[(*y) * matrix->width + (*x)] = 1;
-		//go to the next module
 		(*module_count)++;
 		getNextMetadataModuleInMaster(matrix->height, matrix->width, (*module_count), x, y);
 
 		//color palette 1
-		color_index = master_palette_placement_index[1][color_counter] % color_number; //for 4-color and 8-color symbols
+		color_index = master_palette_placement_index[1][color_counter] % color_number;
 		writeColorPalette(matrix, symbol, 1, color_index, *x, *y);
-		//set data map
 		data_map[(*y) * matrix->width + (*x)] = 1;
-		//go to the next module
 		(*module_count)++;
 		getNextMetadataModuleInMaster(matrix->height, matrix->width, (*module_count), x, y);
 
 		//color palette 2
-		color_index = master_palette_placement_index[2][color_counter] % color_number; //for 4-color and 8-color symbols
+		color_index = master_palette_placement_index[2][color_counter] % color_number;
 		writeColorPalette(matrix, symbol, 2, color_index, *x, *y);
-		//set data map
 		data_map[(*y) * matrix->width + (*x)] = 1;
-		//go to the next module
 		(*module_count)++;
 		getNextMetadataModuleInMaster(matrix->height, matrix->width, (*module_count), x, y);
 
 		//color palette 3
-		color_index = master_palette_placement_index[3][color_counter] % color_number; //for 4-color and 8-color symbols
+		color_index = master_palette_placement_index[3][color_counter] % color_number;
 		writeColorPalette(matrix, symbol, 3, color_index, *x, *y);
-		//set data map
 		data_map[(*y) * matrix->width + (*x)] = 1;
-		//go to the next module
 		(*module_count)++;
 		getNextMetadataModuleInMaster(matrix->height, matrix->width, (*module_count), x, y);
 
@@ -312,10 +427,21 @@ jab_int32 readColorPaletteInMaster(jab_bitmap* matrix, jab_decoded_symbol* symbo
 		color_counter++;
 	}
 	
-	// CRITICAL: Palette ends at a revisited spiral position. Encoder skips it for Part II.
-	// Advance to next spiral position to synchronize with encoder's Part II start.
-	(*module_count)++;
-	getNextMetadataModuleInMaster(matrix->height, matrix->width, (*module_count), x, y);
+	// CRITICAL: After palette, current position may be occupied by palette's cyclic revisit.
+	// Check if current position is occupied, then move to vertically adjacent unoccupied position.
+	// This matches encoder's behavior where skip loop finds (9,6) after palette ends at (9,5).
+	if (data_map[(*y) * matrix->width + (*x)] == 1) {
+		// Current position occupied by palette - check adjacent position
+		jab_int32 adj_y = (*y) + 1;
+		if (adj_y < matrix->height && data_map[adj_y * matrix->width + (*x)] == 0) {
+			*y = adj_y;
+			FILE* adj_log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+			if (adj_log) {
+				fprintf(adj_log, "[DECODER] Palette position occupied, moved to adjacent: pos=(%d,%d)\n", *x, *y);
+				fclose(adj_log);
+			}
+		}
+	}
 
 	//interpolate the palette if there are more than 64 colors
 	if(color_number > 64)
@@ -1096,6 +1222,9 @@ jab_int32 decodeMasterMetadataPartII(jab_bitmap* matrix, jab_decoded_symbol* sym
     jab_int32 debug_module_count = 0;
     while(part2_bit_count < MASTER_METADATA_PART2_LENGTH)
     {
+		// Encoder's collision avoidance ensures PNG bitmap has correct Part II RGB values
+		// at each position, even if spiral revisits. Decoder reads sequentially from bitmap.
+		
 		//decode bits out of the module at (x,y)
 		jab_byte bits = decodeModuleHD(matrix, symbol->palette, color_number, norm_palette, pal_ths, *x, *y);
 		
