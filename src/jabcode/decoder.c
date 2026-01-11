@@ -1417,7 +1417,7 @@ jab_data* readRawModuleData(jab_bitmap* matrix, jab_decoded_symbol* symbol, jab_
 	{
 		for(jab_int32 i=0; i<matrix->height; i++)
 		{
-			if(data_map[i*matrix->width + j] == 0)
+			if(data_map[i*matrix->width + j] != 0)  // FIX: Read from data modules (!=0), not reserved (==0)
 			{
 				//decode bits out of the module at (x,y)
 				jab_byte bits = decodeModuleHD(matrix, symbol->palette, color_number, norm_palette, pal_ths, j, i, num_palettes);
