@@ -156,8 +156,20 @@ void writeColorPalette(jab_bitmap* matrix, jab_decoded_symbol* symbol, jab_int32
 	symbol->palette[palette_offset + color_index*3 + 1] = g;
 	symbol->palette[palette_offset + color_index*3 + 2] = b;
 	
-	// Debug: Track if indices 44 and 50 ever get written
+	// Debug: Track palette reconstruction order
 	static int palette_write_count = 0;
+	if (palette_write_count < 15 || color_index == 12 || color_index == 56) {
+		FILE* log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+		if (log) {
+			fprintf(log, "[DECODER] writeColorPalette #%d: p_index=%d, color_index=%d, pos=(%d,%d), RGB=(%d,%d,%d)\n",
+				palette_write_count, p_index, color_index, x, y, r, g, b);
+			fclose(log);
+		}
+	}
+	palette_write_count++;
+	
+	// Debug: Track if indices 44 and 50 ever get written
+	static int old_palette_write_count = 0;
 	static jab_boolean idx_44_written = 0;
 	static jab_boolean idx_50_written = 0;
 	
@@ -366,8 +378,10 @@ jab_int32 readColorPaletteInMaster(jab_bitmap* matrix, jab_decoded_symbol* symbo
 {
 	//allocate buffer for palette
 	jab_int32 color_number = (jab_int32)pow(2, symbol->metadata.Nc + 1);
+	// Per Annex G.3: 4 palettes for ≤8 colors, 2 palettes for >8 colors
+	jab_int32 num_palettes = (color_number > 8) ? 2 : COLOR_PALETTE_NUMBER;
 	free(symbol->palette);
-	symbol->palette = (jab_byte*)malloc(color_number * sizeof(jab_byte) * 3 * COLOR_PALETTE_NUMBER);
+	symbol->palette = (jab_byte*)malloc(color_number * sizeof(jab_byte) * 3 * num_palettes);
 	if(symbol->palette == NULL)
 	{
 		reportError("Memory allocation for master palette failed");
@@ -375,70 +389,61 @@ jab_int32 readColorPaletteInMaster(jab_bitmap* matrix, jab_decoded_symbol* symbo
 	}
 
 	//read colors from finder patterns
+	// Per ISO/IEC 23634:2022 Section 4.4.4 and Annex G.3:
+	// - For ≤8 colors: Colors 0-1 are in finder patterns, metadata starts at color 2
+	// - For >8 colors: All colors (0-63) are in metadata, finder patterns are detection only
 	jab_int32 color_index;			//the color index number in color palette
-	for(jab_int32 i=0; i<COLOR_PALETTE_NUMBER; i++)
+	jab_int32 color_counter;
+	
+	if(color_number <= 8)
 	{
-		jab_vector2d p1, p2;
-		getColorPalettePosInFP(i, matrix->width, matrix->height, &p1, &p2);
-		//color 0
-		color_index = master_palette_placement_index[i][0] % color_number; //for 4-color and 8-color symbols
-		writeColorPalette(matrix, symbol, i, color_index, p1.x, p1.y);
-		//color 1
-		color_index = master_palette_placement_index[i][1] % color_number; //for 4-color and 8-color symbols
-		writeColorPalette(matrix, symbol, i, color_index, p2.x, p2.y);
+		// Read colors 0-1 from all 4 finder pattern corners
+		for(jab_int32 i=0; i<COLOR_PALETTE_NUMBER; i++)
+		{
+			jab_vector2d p1, p2;
+			getColorPalettePosInFP(i, matrix->width, matrix->height, &p1, &p2);
+			//color 0
+			color_index = master_palette_placement_index[i][0] % color_number;
+			writeColorPalette(matrix, symbol, i, color_index, p1.x, p1.y);
+			//color 1
+			color_index = master_palette_placement_index[i][1] % color_number;
+			writeColorPalette(matrix, symbol, i, color_index, p2.x, p2.y);
+		}
+		color_counter = 2;  // Metadata starts at color 2
+	}
+	else
+	{
+		// For >8 colors, all palette colors are in metadata
+		color_counter = 0;  // Metadata starts at color 0
 	}
 
 	//read colors from metadata
-	jab_int32 color_counter = 2;	//the color counter
+	FILE* log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+	if(log) {
+		fprintf(log, "[DECODER] Starting metadata palette read: color_counter=%d, num_palettes=%d, color_number=%d\n", 
+			color_counter, num_palettes, color_number);
+		fclose(log);
+	}
 	
 	while(color_counter < MIN(color_number, 64))
 	{
-		// Sequential spiral reading - same for all color modes
-		// With 248 modules cycling through 4 positions, later colors overwrite earlier ones
-		//color palette 0
-		color_index = master_palette_placement_index[0][color_counter] % color_number;
-		writeColorPalette(matrix, symbol, 0, color_index, *x, *y);
-		data_map[(*y) * matrix->width + (*x)] = 1;
-		(*module_count)++;
-		getNextMetadataModuleInMaster(matrix->height, matrix->width, (*module_count), x, y);
-
-		//color palette 1
-		color_index = master_palette_placement_index[1][color_counter] % color_number;
-		writeColorPalette(matrix, symbol, 1, color_index, *x, *y);
-		data_map[(*y) * matrix->width + (*x)] = 1;
-		(*module_count)++;
-		getNextMetadataModuleInMaster(matrix->height, matrix->width, (*module_count), x, y);
-
-		//color palette 2
-		color_index = master_palette_placement_index[2][color_counter] % color_number;
-		writeColorPalette(matrix, symbol, 2, color_index, *x, *y);
-		data_map[(*y) * matrix->width + (*x)] = 1;
-		(*module_count)++;
-		getNextMetadataModuleInMaster(matrix->height, matrix->width, (*module_count), x, y);
-
-		//color palette 3
-		color_index = master_palette_placement_index[3][color_counter] % color_number;
-		writeColorPalette(matrix, symbol, 3, color_index, *x, *y);
-		data_map[(*y) * matrix->width + (*x)] = 1;
-		(*module_count)++;
-		getNextMetadataModuleInMaster(matrix->height, matrix->width, (*module_count), x, y);
-
-		//next color
+		for(jab_int32 p=0; p<num_palettes; p++)
+		{
+			color_index = master_palette_placement_index[p][color_counter] % color_number;
+			writeColorPalette(matrix, symbol, p, color_index, *x, *y);
+			data_map[(*y) * matrix->width + (*x)] = 1;
+			(*module_count)++;
+			getNextMetadataModuleInMaster(matrix->height, matrix->width, (*module_count), x, y);
+		}
 		color_counter++;
-	}
-	
-	// CRITICAL: After palette, current position may be occupied by palette's cyclic revisit.
-	// Check if current position is occupied, then move to vertically adjacent unoccupied position.
-	// This matches encoder's behavior where skip loop finds (9,6) after palette ends at (9,5).
-	if (data_map[(*y) * matrix->width + (*x)] == 1) {
-		// Current position occupied by palette - check adjacent position
-		jab_int32 adj_y = (*y) + 1;
-		if (adj_y < matrix->height && data_map[adj_y * matrix->width + (*x)] == 0) {
-			*y = adj_y;
-			FILE* adj_log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
-			if (adj_log) {
-				fprintf(adj_log, "[DECODER] Palette position occupied, moved to adjacent: pos=(%d,%d)\n", *x, *y);
-				fclose(adj_log);
+		
+		// Log every 10 colors to detect infinite loops
+		if(color_counter % 10 == 0) {
+			log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+			if(log) {
+				fprintf(log, "[DECODER] Palette progress: color_counter=%d/%d, module_count=%d\n", 
+					color_counter, MIN(color_number, 64), *module_count);
+				fclose(log);
 			}
 		}
 	}
@@ -539,9 +544,10 @@ jab_int32 readColorPaletteInSlave(jab_bitmap* matrix, jab_decoded_symbol* symbol
  * @param matrix the symbol matrix
  * @param x the x coordinate of the module
  * @param y the y coordinate of the module
+ * @param num_palettes the actual number of palettes (2 for Nc>=3, 4 for Nc<=2)
  * @return the index of the nearest color palette
 */
-jab_int32 getNearestPalette(jab_bitmap* matrix, jab_int32 x, jab_int32 y)
+jab_int32 getNearestPalette(jab_bitmap* matrix, jab_int32 x, jab_int32 y, jab_int32 num_palettes)
 {
 	//set the palette coordinate
 	jab_int32 px[COLOR_PALETTE_NUMBER], py[COLOR_PALETTE_NUMBER];
@@ -554,10 +560,10 @@ jab_int32 getNearestPalette(jab_bitmap* matrix, jab_int32 x, jab_int32 y)
 	px[3] = DISTANCE_TO_BORDER - 1 + 3;
 	py[3] = matrix->height- DISTANCE_TO_BORDER;
 
-	//calculate the nearest palette
+	//calculate the nearest palette (only check valid palettes)
 	jab_float min = DIST(0, 0, matrix->width, matrix->height);
 	jab_int32 p_index = 0;
-	for(jab_int32 i=0; i<COLOR_PALETTE_NUMBER; i++)
+	for(jab_int32 i=0; i<num_palettes; i++)
 	{
 		jab_float dist = DIST(x, y, px[i], py[i]);
 		if(dist < min)
@@ -668,8 +674,9 @@ static jab_int32 applyAdaptiveCorrections(jab_decoded_symbol* symbol, jab_int32 
 			return 0;
 		}
 		
-		// Apply corrections to all 4 palette copies
-		for (jab_int32 p = 0; p < COLOR_PALETTE_NUMBER; p++) {
+		// Apply corrections to all palette copies (2 for >8 colors, 4 for ≤8 colors)
+		jab_int32 num_palettes = (color_number > 8) ? 2 : COLOR_PALETTE_NUMBER;
+		for (jab_int32 p = 0; p < num_palettes; p++) {
 			applyPaletteCorrections(
 				symbol->palette + p * color_number * 3,
 				corrections,
@@ -700,10 +707,13 @@ static jab_int32 applyAdaptiveCorrections(jab_decoded_symbol* symbol, jab_int32 
  * @param y the y coordinate of the module
  * @return the decoded value
 */
-jab_byte decodeModuleHD(jab_bitmap* matrix, jab_byte* palette, jab_int32 color_number, jab_float* norm_palette, jab_float* pal_ths, jab_int32 x, jab_int32 y)
+jab_byte decodeModuleHD(jab_bitmap* matrix, jab_byte* palette, jab_int32 color_number, jab_float* norm_palette, jab_float* pal_ths, jab_int32 x, jab_int32 y, jab_int32 num_palettes)
 {
 	//get the nearest palette
-	jab_int32 p_index = getNearestPalette(matrix, x, y);
+	jab_int32 p_index = getNearestPalette(matrix, x, y, num_palettes);
+	
+	static int decode_debug_count = 0;
+	jab_boolean should_log = (decode_debug_count < 5 || (x == 14 && y == 12));
 
 	//read the RGB values
 	jab_byte rgb[3];
@@ -780,6 +790,20 @@ jab_byte decodeModuleHD(jab_bitmap* matrix, jab_byte* palette, jab_int32 color_n
 			{
 				index1 = 7;
 			}
+		}
+		
+		// Debug: Log decoded result
+		if (should_log) {
+			FILE* log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+			if (log) {
+				jab_byte found_r = palette[color_number*3*p_index + index1*3 + 0];
+				jab_byte found_g = palette[color_number*3*p_index + index1*3 + 1];
+				jab_byte found_b = palette[color_number*3*p_index + index1*3 + 2];
+				fprintf(log, "[DECODER] decodeModuleHD at (%d,%d): p_index=%d, observed RGB=(%d,%d,%d), found index=%d, palette[%d]=(%d,%d,%d)\n",
+					x, y, p_index, rgb[0], rgb[1], rgb[2], index1, index1, found_r, found_g, found_b);
+				fclose(log);
+			}
+			decode_debug_count++;
 		}
 		
 		// Phase 2: Collect observation for adaptive palette if enabled
@@ -969,6 +993,7 @@ void getNextMetadataModuleInMaster(jab_int32 matrix_height, jab_int32 matrix_wid
 	}
 	if(next_module_count % 4 == 0)
 	{
+        // Original spiral ranges - geometrically calculated for 21×21 matrix
         if( next_module_count <= 20 ||
            (next_module_count >= 44  && next_module_count <= 68)  ||
            (next_module_count >= 96  && next_module_count <= 124) ||
@@ -1217,6 +1242,7 @@ jab_int32 decodeMasterMetadataPartII(jab_bitmap* matrix, jab_decoded_symbol* sym
 
 	jab_int32 color_number = (jab_int32)pow(2, symbol->metadata.Nc + 1);
 	jab_int32 bits_per_module = (jab_int32)(log(color_number) / log(2));
+	jab_int32 num_palettes = (color_number > 8) ? 2 : COLOR_PALETTE_NUMBER;
 
     //read part2
     jab_int32 debug_module_count = 0;
@@ -1226,10 +1252,10 @@ jab_int32 decodeMasterMetadataPartII(jab_bitmap* matrix, jab_decoded_symbol* sym
 		// at each position, even if spiral revisits. Decoder reads sequentially from bitmap.
 		
 		//decode bits out of the module at (x,y)
-		jab_byte bits = decodeModuleHD(matrix, symbol->palette, color_number, norm_palette, pal_ths, *x, *y);
+		jab_byte bits = decodeModuleHD(matrix, symbol->palette, color_number, norm_palette, pal_ths, *x, *y, num_palettes);
 		
 		// Debug: Log first few module decodes
-		if (debug_module_count < 3) {
+		if (debug_module_count < 10) {
 			FILE* log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
 			if (log) {
 				// Get actual RGB from PNG
@@ -1374,6 +1400,7 @@ jab_int32 decodeMasterMetadataPartII(jab_bitmap* matrix, jab_decoded_symbol* sym
 jab_data* readRawModuleData(jab_bitmap* matrix, jab_decoded_symbol* symbol, jab_byte* data_map, jab_float* norm_palette, jab_float* pal_ths)
 {
     jab_int32 color_number = (jab_int32)pow(2, symbol->metadata.Nc + 1);
+	jab_int32 num_palettes = (color_number > 8) ? 2 : COLOR_PALETTE_NUMBER;
 	jab_int32 module_count = 0;
     jab_data* data = (jab_data*)malloc(sizeof(jab_data) + matrix->width * matrix->height * sizeof(jab_char));
     if(data == NULL)
@@ -1393,7 +1420,7 @@ jab_data* readRawModuleData(jab_bitmap* matrix, jab_decoded_symbol* symbol, jab_
 			if(data_map[i*matrix->width + j] == 0)
 			{
 				//decode bits out of the module at (x,y)
-				jab_byte bits = decodeModuleHD(matrix, symbol->palette, color_number, norm_palette, pal_ths, j, i);
+				jab_byte bits = decodeModuleHD(matrix, symbol->palette, color_number, norm_palette, pal_ths, j, i, num_palettes);
 				//write the bits into data
 				data->data[module_count] = (jab_char)bits;
 				module_count++;
@@ -1731,9 +1758,9 @@ jab_int32 decodeSymbol(jab_bitmap* matrix, jab_decoded_symbol* symbol, jab_byte*
 	return JAB_SUCCESS;
 }
 
-void normalizeColorPalette(jab_decoded_symbol* symbol, jab_float* norm_palette, jab_int32 color_number)
+void normalizeColorPalette(jab_decoded_symbol* symbol, jab_float* norm_palette, jab_int32 color_number, jab_int32 num_palettes)
 {
-	for(jab_int32 i=0; i<(color_number * COLOR_PALETTE_NUMBER); i++)
+	for(jab_int32 i=0; i<(color_number * num_palettes); i++)
 	{
 		jab_float rgb_max = MAX(symbol->palette[i*3 + 0], MAX(symbol->palette[i*3 + 1], symbol->palette[i*3 + 2]));
 		norm_palette[i*4 + 0] = (jab_float)symbol->palette[i*3 + 0] / rgb_max;
@@ -1846,14 +1873,43 @@ jab_int32 decodeMaster(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 		fclose(log);
 	}
 	
-	jab_float norm_palette[color_number * 4 * COLOR_PALETTE_NUMBER];	//each color contains 4 normalized values, i.e. R, G, B and Luminance
-	normalizeColorPalette(symbol, norm_palette, color_number);
+	// Per Annex G.3: dynamic palette count based on color mode
+	jab_int32 num_palettes = (color_number > 8) ? 2 : COLOR_PALETTE_NUMBER;
+	
+	log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+	if (log) {
+		fprintf(log, "[DECODER] About to normalize palette: num_palettes=%d, color_number=%d\n", 
+			num_palettes, color_number);
+		fclose(log);
+	}
+	
+	jab_float norm_palette[color_number * 4 * num_palettes];	//each color contains 4 normalized values, i.e. R, G, B and Luminance
+	normalizeColorPalette(symbol, norm_palette, color_number, num_palettes);
+	
+	log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+	if (log) {
+		fprintf(log, "[DECODER] Palette normalized successfully\n");
+		fclose(log);
+	}
 
 	//get the palette RGB thresholds
-	jab_float pal_ths[3 * COLOR_PALETTE_NUMBER];
-	for(jab_int32 i=0; i<COLOR_PALETTE_NUMBER; i++)
+	jab_float pal_ths[3 * num_palettes];
+	
+	log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+	if (log) {
+		fprintf(log, "[DECODER] Computing palette thresholds for %d palettes\n", num_palettes);
+		fclose(log);
+	}
+	
+	for(jab_int32 i=0; i<num_palettes; i++)
 	{
 		getPaletteThreshold(symbol->palette + (color_number*3)*i, color_number, &pal_ths[i*3]);
+	}
+	
+	log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+	if (log) {
+		fprintf(log, "[DECODER] Thresholds computed successfully\n");
+		fclose(log);
 	}
 
 	//decode metadata PartII
@@ -1935,17 +1991,25 @@ jab_int32 decodeMaster(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 			}
 			
 			// Re-normalize palette with corrections
-			normalizeColorPalette(symbol, norm_palette, color_number);
-			// Retry decode with corrected palette
-			jab_int32 retry_result = decodeSymbol(matrix, symbol, data_map, norm_palette, pal_ths, 0);
+			normalizeColorPalette(symbol, norm_palette, color_number, num_palettes);
 			
-			log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
-			if (log) {
-				fprintf(log, "[ADAPTIVE] Retry result: %s\n", 
-					retry_result == JAB_SUCCESS ? "SUCCESS" : "FAILED");
-				fclose(log);
+			// Allocate fresh data_map for retry (original was freed in first decode)
+			jab_byte* retry_data_map = (jab_byte*)calloc(1, matrix->width * matrix->height * sizeof(jab_byte));
+			if (retry_data_map == NULL) {
+				reportError("Memory allocation for retry data map failed");
+				result = FATAL_ERROR;
+			} else {
+				// Retry decode with corrected palette
+				jab_int32 retry_result = decodeSymbol(matrix, symbol, retry_data_map, norm_palette, pal_ths, 0);
+				
+				log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+				if (log) {
+					fprintf(log, "[ADAPTIVE] Retry result: %s\n", 
+						retry_result == JAB_SUCCESS ? "SUCCESS" : "FAILED");
+					fclose(log);
+				}
+				result = retry_result;
 			}
-			result = retry_result;
 		} else {
 			log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
 			if (log) {
@@ -1996,12 +2060,14 @@ jab_int32 decodeSlave(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 
 	//normalize the RGB values in color palettes
 	jab_int32 color_number = (jab_int32)pow(2, symbol->metadata.Nc + 1);
-	jab_float norm_palette[color_number * 4 * COLOR_PALETTE_NUMBER];	//each color contains 4 normalized values, i.e. R, G, B and Luminance
-	normalizeColorPalette(symbol, norm_palette, color_number);
+	// Per Annex G.3: dynamic palette count
+	jab_int32 num_palettes = (color_number > 8) ? 2 : COLOR_PALETTE_NUMBER;
+	jab_float norm_palette[color_number * 4 * num_palettes];	//each color contains 4 normalized values, i.e. R, G, B and Luminance
+	normalizeColorPalette(symbol, norm_palette, color_number, num_palettes);
 
 	//get the palette RGB thresholds
-	jab_float pal_ths[3 * COLOR_PALETTE_NUMBER];
-	for(jab_int32 i=0; i<COLOR_PALETTE_NUMBER; i++)
+	jab_float pal_ths[3 * num_palettes];
+	for(jab_int32 i=0; i<num_palettes; i++)
 	{
 		getPaletteThreshold(symbol->palette + i*3, color_number, &pal_ths[i*3]);
 	}

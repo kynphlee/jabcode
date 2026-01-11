@@ -111,6 +111,19 @@ void setDefaultPalette(jab_int32 color_number, jab_byte* palette)
     else
     {
     	genColorPalette(color_number, palette);
+    	
+    	// Debug: Log palette RGB for key indices in 64-color mode
+    	if (color_number == 64) {
+    		FILE* log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+    		if (log) {
+    			fprintf(log, "[ENCODER] 64-color palette generated:\n");
+    			fprintf(log, "[ENCODER]   palette[12] = RGB(%d,%d,%d)\n",
+    				palette[12*3], palette[12*3+1], palette[12*3+2]);
+    			fprintf(log, "[ENCODER]   palette[56] = RGB(%d,%d,%d)\n",
+    				palette[56*3], palette[56*3+1], palette[56*3+2]);
+    			fclose(log);
+    		}
+    	}
     }
 }
 
@@ -640,7 +653,10 @@ jab_int32 getSymbolCapacity(jab_encode* enc, jab_int32 index)
 		nb_modules_fp = 4 * 7;
 	}
     //number of modules for color palette
-    jab_int32 nb_modules_palette = enc->color_number > 64 ? (64-2)*COLOR_PALETTE_NUMBER : (enc->color_number-2)*COLOR_PALETTE_NUMBER;
+    // Per Annex G.3: 4 palettes for ≤8 colors, 2 palettes for >8 colors
+    jab_int32 num_palettes = (enc->color_number > 8) ? 2 : COLOR_PALETTE_NUMBER;
+    jab_int32 colors_to_encode = (enc->color_number > 8) ? MIN(enc->color_number, 64) : MIN(enc->color_number, 64) - 2;
+    jab_int32 nb_modules_palette = colors_to_encode * num_palettes;
 	//number of modules for alignment pattern
 	jab_int32 side_size_x = VERSION2SIZE(enc->symbol_versions[index].x);
 	jab_int32 side_size_y = VERSION2SIZE(enc->symbol_versions[index].y);
@@ -1053,12 +1069,31 @@ void placeMasterMetadataPartII(jab_encode* enc)
     jab_int32 y = MASTER_METADATA_Y;
     jab_int32 module_count = 0;
     //skip PartI and color palette
-    jab_int32 color_palette_size = MIN(enc->color_number-2, 64-2);
-    jab_int32 module_offset = MASTER_METADATA_PART1_MODULE_NUMBER + color_palette_size*COLOR_PALETTE_NUMBER;
+    // Per Annex G.3: 4 palettes for ≤8 colors, 2 palettes for >8 colors
+    jab_int32 num_palettes_skip = (enc->color_number > 8) ? 2 : COLOR_PALETTE_NUMBER;
+    jab_int32 colors_to_skip = (enc->color_number > 8) ? MIN(enc->color_number, 64) : MIN(enc->color_number, 64) - 2;
+    jab_int32 module_offset = MASTER_METADATA_PART1_MODULE_NUMBER + colors_to_skip * num_palettes_skip;
+    
+    FILE* skip_log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+    if(skip_log) {
+        fprintf(skip_log, "[ENCODER] Part II skip: module_offset=%d (4 Part I + %d colors × %d palettes)\n",
+            module_offset, colors_to_skip, num_palettes_skip);
+        fclose(skip_log);
+    }
+    
     for(jab_int32 i=0; i<module_offset; i++)
 	{
 		module_count++;
         getNextMetadataModuleInMaster(enc->symbols[0].side_size.y, enc->symbols[0].side_size.x, module_count, &x, &y);
+        
+        // Safety check for infinite loops
+        if(i > 0 && i % 20 == 0) {
+            skip_log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+            if(skip_log) {
+                fprintf(skip_log, "[ENCODER] Part II skip progress: %d/%d\n", i, module_offset);
+                fclose(skip_log);
+            }
+        }
 	}
 	//update PartII
 	jab_int32 partII_bit_start = MASTER_METADATA_PART1_LENGTH;
@@ -1092,7 +1127,7 @@ void placeMasterMetadataPartII(jab_encode* enc)
 				break;
 		}
 		
-		if (module_debug < 2) {
+		if (module_debug < 10) {
 			debug_log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
 			if (debug_log) {
 				fprintf(debug_log, "[ENCODER] placeMasterMetadataPartII module %d at (%d,%d): color_index=%d\n",
@@ -1108,6 +1143,7 @@ void placeMasterMetadataPartII(jab_encode* enc)
 		}
 		
         enc->symbols[0].matrix[y*enc->symbols[0].side_size.x + x] = color_index;
+        enc->symbols[0].data_map[y*enc->symbols[0].side_size.x + x] = 0;  // Mark as metadata (non-data) to prevent masking
         module_count++;
         getNextMetadataModuleInMaster(enc->symbols[0].side_size.y, enc->symbols[0].side_size.x, module_count, &x, &y);
     }
@@ -1413,30 +1449,24 @@ jab_boolean createMatrix(jab_encode* enc, jab_int32 index, jab_data* ecc_encoded
 			}
 		}
 		//color palette
-		for(jab_int32 i=2; i<MIN(enc->color_number, 64); i++)	//skip the first two colors in finder pattern
+		// Per ISO/IEC 23634:2022 Annex G.3:
+		// - For Nc≤2 (4/8 colors): Use 4 palettes, skip first 2 colors (in finder patterns)
+		// - For Nc≥3 (16/32/64+ colors): Use 2 palettes with up to 64 colors each
+		jab_int32 num_palettes = (enc->color_number > 8) ? 2 : 4;
+		jab_int32 start_color = (enc->color_number > 8) ? 0 : 2;
+		
+		for(jab_int32 i=start_color; i<MIN(enc->color_number, 64); i++)
 		{
-			jab_int32 placement_idx = master_palette_placement_index[0][i] % enc->color_number;
-			jab_int32 color_idx = palette_index[placement_idx];
-			
-			enc->symbols[index].matrix  [y*enc->symbols[index].side_size.x+x] = color_idx;
-			enc->symbols[index].data_map[y*enc->symbols[index].side_size.x+x] = 0;
-			module_count++;
-			getNextMetadataModuleInMaster(enc->symbols[index].side_size.y, enc->symbols[index].side_size.x, module_count, &x, &y);
-
-			enc->symbols[index].matrix  [y*enc->symbols[index].side_size.x+x] = palette_index[master_palette_placement_index[1][i]%enc->color_number];
-			enc->symbols[index].data_map[y*enc->symbols[index].side_size.x+x] = 0;
-			module_count++;
-			getNextMetadataModuleInMaster(enc->symbols[index].side_size.y, enc->symbols[index].side_size.x, module_count, &x, &y);
-
-			enc->symbols[index].matrix  [y*enc->symbols[index].side_size.x+x] = palette_index[master_palette_placement_index[2][i]%enc->color_number];
-			enc->symbols[index].data_map[y*enc->symbols[index].side_size.x+x] = 0;
-			module_count++;
-			getNextMetadataModuleInMaster(enc->symbols[index].side_size.y, enc->symbols[index].side_size.x, module_count, &x, &y);
-
-			enc->symbols[index].matrix  [y*enc->symbols[index].side_size.x+x] = palette_index[master_palette_placement_index[3][i]%enc->color_number];
-			enc->symbols[index].data_map[y*enc->symbols[index].side_size.x+x] = 0;
-			module_count++;
-			getNextMetadataModuleInMaster(enc->symbols[index].side_size.y, enc->symbols[index].side_size.x, module_count, &x, &y);
+			for(jab_int32 p=0; p<num_palettes; p++)
+			{
+				jab_int32 placement_idx = master_palette_placement_index[p][i] % enc->color_number;
+				jab_int32 color_idx = palette_index[placement_idx];
+				
+				enc->symbols[index].matrix  [y*enc->symbols[index].side_size.x+x] = color_idx;
+				enc->symbols[index].data_map[y*enc->symbols[index].side_size.x+x] = 0;
+				module_count++;
+				getNextMetadataModuleInMaster(enc->symbols[index].side_size.y, enc->symbols[index].side_size.x, module_count, &x, &y);
+			}
 		}
 		// Debug: Verify matrix and data_map at (9,5) after palette placement
 		{
@@ -1481,8 +1511,8 @@ jab_boolean createMatrix(jab_encode* enc, jab_int32 index, jab_data* ecc_encoded
 				enc->symbols[index].matrix  [y*enc->symbols[index].side_size.x + x] = color_index;
 				enc->symbols[index].data_map[y*enc->symbols[index].side_size.x + x] = 0;
 				
-				// Debug: Log first 3 Part II modules
-				if (partII_module_debug < 2) {
+				// Debug: Log first 10 Part II modules
+				if (partII_module_debug < 10) {
 					log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
 					if (log) {
 						fprintf(log, "[ENCODER] Initial Part II module %d at (%d,%d): color_index=%d\n",
