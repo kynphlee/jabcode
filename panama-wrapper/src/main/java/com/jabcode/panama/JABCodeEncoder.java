@@ -197,6 +197,9 @@ public class JABCodeEncoder {
         }
         
         try (Arena arena = Arena.ofConfined()) {
+            System.err.println("[ENCODER] Config: colorNumber=" + config.getColorNumber() + 
+                ", eccLevel=" + config.getEccLevel() + ", symbolNumber=" + config.getSymbolNumber());
+            
             // Create encoder
             MemorySegment enc = jabcode_h.createEncode(
                 config.getColorNumber(),
@@ -207,7 +210,32 @@ public class JABCodeEncoder {
                 return false;
             }
             
+            // Verify color_number was set correctly in struct (offset 0)
+            int actualColorNumber = enc.get(ValueLayout.JAVA_INT, 0);
+            System.err.println("[ENCODER] After createEncode: color_number in struct = " + actualColorNumber);
+            
             try {
+                // Set ECC level in encoder struct
+                // struct layout: color_number(0), symbol_number(4), module_size(8), 
+                //                master_width(12), master_height(16), padding(20),
+                //                palette*(24), symbol_versions*(32), symbol_ecc_levels*(40)
+                long eccLevelsOffset = 40; // Offset to symbol_ecc_levels pointer on 64-bit
+                long eccLevelsAddress = enc.get(ValueLayout.ADDRESS, eccLevelsOffset).address();
+                if (eccLevelsAddress != 0) {
+                    // Create writable segment from pointer (size = symbol_number bytes)
+                    MemorySegment eccLevelsArray = MemorySegment.ofAddress(eccLevelsAddress)
+                        .reinterpret(config.getSymbolNumber());
+                    // Set first symbol's ECC level
+                    eccLevelsArray.set(ValueLayout.JAVA_BYTE, 0, (byte) config.getEccLevel());
+                    
+                    // Verify ECC level was set
+                    byte actualEccLevel = eccLevelsArray.get(ValueLayout.JAVA_BYTE, 0);
+                    System.err.println("[ENCODER] ECC level set: requested=" + config.getEccLevel() + 
+                        ", actual=" + actualEccLevel);
+                } else {
+                    System.err.println("[ENCODER] WARNING: ECC levels array is NULL!");
+                }
+                
                 // Prepare data
                 byte[] bytes = data.getBytes(StandardCharsets.UTF_8);
                 MemorySegment jabData = createJabData(arena, bytes);

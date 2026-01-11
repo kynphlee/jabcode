@@ -147,9 +147,40 @@ void writeColorPalette(jab_bitmap* matrix, jab_decoded_symbol* symbol, jab_int32
 
 	jab_int32 palette_offset = color_number * 3 * p_index;
 	jab_int32 mtx_offset = y * mtx_bytes_per_row + x * mtx_bytes_per_pixel;
-	symbol->palette[palette_offset + color_index*3 + 0]	= matrix->pixel[mtx_offset + 0];
-	symbol->palette[palette_offset + color_index*3 + 1] = matrix->pixel[mtx_offset + 1];
-	symbol->palette[palette_offset + color_index*3 + 2] = matrix->pixel[mtx_offset + 2];
+	
+	jab_byte r = matrix->pixel[mtx_offset + 0];
+	jab_byte g = matrix->pixel[mtx_offset + 1];
+	jab_byte b = matrix->pixel[mtx_offset + 2];
+	
+	symbol->palette[palette_offset + color_index*3 + 0] = r;
+	symbol->palette[palette_offset + color_index*3 + 1] = g;
+	symbol->palette[palette_offset + color_index*3 + 2] = b;
+	
+	// Debug: Track if indices 44 and 50 ever get written
+	static int palette_write_count = 0;
+	static jab_boolean idx_44_written = 0;
+	static jab_boolean idx_50_written = 0;
+	
+	if (color_index == 44) {
+		idx_44_written = 1;
+		FILE* log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+		if (log) {
+			fprintf(log, "[DECODER] INDEX 44 WRITTEN: p_index=%d, pos=(%d,%d), RGB=(%d,%d,%d)\n",
+				p_index, x, y, r, g, b);
+			fclose(log);
+		}
+	}
+	if (color_index == 50) {
+		idx_50_written = 1;
+		FILE* log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+		if (log) {
+			fprintf(log, "[DECODER] INDEX 50 WRITTEN: p_index=%d, pos=(%d,%d), RGB=(%d,%d,%d)\n",
+				p_index, x, y, r, g, b);
+			fclose(log);
+		}
+	}
+	
+	palette_write_count++;
 }
 
 /**
@@ -229,6 +260,16 @@ jab_int32 readColorPaletteInMaster(jab_bitmap* matrix, jab_decoded_symbol* symbo
 
 	//read colors from metadata
 	jab_int32 color_counter = 2;	//the color counter
+	
+	FILE* log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+	if (log) {
+		fprintf(log, "[DECODER] Reading palette from metadata: color_number=%d, will read %d colors\n",
+			color_number, MIN(color_number, 64) - 2);
+		fprintf(log, "[DECODER] Starting at module_count=%d, pos=(%d,%d)\n",
+			*module_count, *x, *y);
+		fclose(log);
+	}
+	
 	while(color_counter < MIN(color_number, 64))
 	{
 		//color palette 0
@@ -270,6 +311,11 @@ jab_int32 readColorPaletteInMaster(jab_bitmap* matrix, jab_decoded_symbol* symbo
 		//next color
 		color_counter++;
 	}
+	
+	// CRITICAL: Palette ends at a revisited spiral position. Encoder skips it for Part II.
+	// Advance to next spiral position to synchronize with encoder's Part II start.
+	(*module_count)++;
+	getNextMetadataModuleInMaster(matrix->height, matrix->width, (*module_count), x, y);
 
 	//interpolate the palette if there are more than 64 colors
 	if(color_number > 64)
@@ -955,10 +1001,26 @@ jab_int32 decodeMasterMetadataPartI(jab_bitmap* matrix, jab_decoded_symbol* symb
 		getNextMetadataModuleInMaster(matrix->height, matrix->width, (*module_count), x, y);
 	}
 
+	// Debug: Log module colors read from PNG
+	FILE* log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+	if (log) {
+		fprintf(log, "[DECODER] Module colors from PNG: %d %d %d %d\n",
+			module_color[0], module_color[1], module_color[2], module_color[3]);
+		fclose(log);
+	}
+	
 	//decode encoded Nc
 	jab_byte bits[2];
 	bits[0] = decodeNcModuleColor(module_color[0], module_color[1]);	//the first 3 bits
 	bits[1] = decodeNcModuleColor(module_color[2], module_color[3]);	//the last 3 bits
+	
+	// Debug: Log decoded bits
+	log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+	if (log) {
+		fprintf(log, "[DECODER] Decoded Nc bits: bits[0]=%d, bits[1]=%d\n", bits[0], bits[1]);
+		fclose(log);
+	}
+	
 	if(bits[0] > 7 || bits[1] > 7)
 	{
 #if TEST_MODE
@@ -977,6 +1039,14 @@ jab_int32 decodeMasterMetadataPartI(jab_bitmap* matrix, jab_decoded_symbol* symb
 			part1[bit_count] = bit;
 			bit_count++;
 		}
+	}
+	
+	// Debug: Log final part1 bits
+	log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+	if (log) {
+		fprintf(log, "[DECODER] Part1 decoded bits: %d %d %d %d %d %d\n",
+			part1[0], part1[1], part1[2], part1[3], part1[4], part1[5]);
+		fclose(log);
 	}
 
 	//decode ldpc for part1
@@ -1007,6 +1077,13 @@ jab_int32 decodeMasterMetadataPartI(jab_bitmap* matrix, jab_decoded_symbol* symb
 */
 jab_int32 decodeMasterMetadataPartII(jab_bitmap* matrix, jab_decoded_symbol* symbol, jab_byte* data_map, jab_float* norm_palette, jab_float* pal_ths, jab_int32* module_count, jab_int32* x, jab_int32* y)
 {
+	FILE* dbg_log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+	if (dbg_log) {
+		fprintf(dbg_log, "[DECODER] Part II decode starting: module_count=%d, pos=(%d,%d), data_map[%d]=%d\n",
+			*module_count, *x, *y, (*y) * matrix->width + (*x), data_map[(*y) * matrix->width + (*x)]);
+		fclose(dbg_log);
+	}
+	
 	jab_byte part2[MASTER_METADATA_PART2_LENGTH] = {0};			//38 encoded bits
 	jab_int32 part2_bit_count = 0;
 	jab_uint32 V, E;
@@ -1016,10 +1093,40 @@ jab_int32 decodeMasterMetadataPartII(jab_bitmap* matrix, jab_decoded_symbol* sym
 	jab_int32 bits_per_module = (jab_int32)(log(color_number) / log(2));
 
     //read part2
+    jab_int32 debug_module_count = 0;
     while(part2_bit_count < MASTER_METADATA_PART2_LENGTH)
     {
 		//decode bits out of the module at (x,y)
 		jab_byte bits = decodeModuleHD(matrix, symbol->palette, color_number, norm_palette, pal_ths, *x, *y);
+		
+		// Debug: Log first few module decodes
+		if (debug_module_count < 3) {
+			FILE* log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+			if (log) {
+				// Get actual RGB from PNG
+				jab_int32 mtx_bytes_per_pixel = matrix->bits_per_pixel / 8;
+				jab_int32 mtx_bytes_per_row = matrix->width * mtx_bytes_per_pixel;
+				jab_int32 mtx_offset = (*y) * mtx_bytes_per_row + (*x) * mtx_bytes_per_pixel;
+				jab_byte* rgb_ptr = &matrix->pixel[mtx_offset];
+				
+				fprintf(log, "[DECODER] Part II module %d at (%d,%d): RGB=(%d,%d,%d), decoded bits=%d (binary: ", 
+					debug_module_count, *x, *y, rgb_ptr[0], rgb_ptr[1], rgb_ptr[2], bits);
+				for(int b = bits_per_module-1; b >= 0; b--) {
+					fprintf(log, "%d", (bits >> b) & 1);
+				}
+				fprintf(log, ")\n");
+				
+				// Show what palette index this should be
+				fprintf(log, "[DECODER] Expected palette index 50: RGB=(%d,%d,%d)\n",
+					symbol->palette[50*3], symbol->palette[50*3+1], symbol->palette[50*3+2]);
+				fprintf(log, "[DECODER] Expected palette index 44: RGB=(%d,%d,%d)\n",
+					symbol->palette[44*3], symbol->palette[44*3+1], symbol->palette[44*3+2]);
+				
+				fclose(log);
+			}
+			debug_module_count++;
+		}
+		
 		//write the bits into part2
 		for(jab_int32 i=0; i<bits_per_module; i++)
 		{
@@ -1041,8 +1148,25 @@ jab_int32 decodeMasterMetadataPartII(jab_bitmap* matrix, jab_decoded_symbol* sym
 		getNextMetadataModuleInMaster(matrix->height, matrix->width, (*module_count), x, y);
     }
 
+	// Debug: Log Part II bits before LDPC
+	FILE* log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+	if (log) {
+		fprintf(log, "[DECODER] Part II bits collected: %d bits\n", part2_bit_count);
+		fprintf(log, "[DECODER] Part II first 6 bits: %d %d %d %d %d %d\n",
+			part2[0], part2[1], part2[2], part2[3], part2[4], part2[5]);
+		fclose(log);
+	}
+	
 	//decode ldpc for part2
-	if( !decodeLDPChd(part2, MASTER_METADATA_PART2_LENGTH, MASTER_METADATA_PART2_LENGTH > 36 ? 4 : 3, 0) )
+	jab_boolean ldpc_result = decodeLDPChd(part2, MASTER_METADATA_PART2_LENGTH, MASTER_METADATA_PART2_LENGTH > 36 ? 4 : 3, 0);
+	
+	log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+	if (log) {
+		fprintf(log, "[DECODER] Part II LDPC decode result: %d\n", ldpc_result);
+		fclose(log);
+	}
+	
+	if( !ldpc_result )
 	{
 #if TEST_MODE
 		reportError("LDPC decoding for master metadata part 2 failed");
@@ -1498,6 +1622,14 @@ void normalizeColorPalette(jab_decoded_symbol* symbol, jab_float* norm_palette, 
 */
 jab_int32 decodeMaster(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 {
+	FILE* log;  // Declare once for entire function
+	
+	log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+	if (log) {
+		fprintf(log, "[DECODE] decodeMaster called\n");
+		fclose(log);
+	}
+	
 	if(matrix == NULL)
 	{
 		reportError("Invalid master symbol matrix");
@@ -1522,12 +1654,27 @@ jab_int32 decodeMaster(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 
 	//decode metadata PartI (Nc)
 	jab_int32 decode_partI_ret = decodeMasterMetadataPartI(matrix, symbol, data_map, &module_count, &x, &y);
+	
+	// Debug: Track metadata decode result
+	log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+	if (log) {
+		fprintf(log, "[DECODER] decodeMasterMetadataPartI returned: %d, module_count=%d, next_pos=(%d,%d)\n", 
+			decode_partI_ret, module_count, x, y);
+		fclose(log);
+	}
+	
 	if(decode_partI_ret == JAB_FAILURE)
 	{
 		return JAB_FAILURE;
 	}
 	if(decode_partI_ret == DECODE_METADATA_FAILED)
 	{
+		log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+		if (log) {
+			fprintf(log, "[DECODER] Metadata decode failed, loading defaults (Nc=2)\n");
+			fclose(log);
+		}
+		
 		//reset variables
 		x = MASTER_METADATA_X;
 		y = MASTER_METADATA_Y;
@@ -1539,7 +1686,22 @@ jab_int32 decodeMaster(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 	}
 
 	//read color palettes
-    if(readColorPaletteInMaster(matrix, symbol, data_map, &module_count, &x, &y) < 0)
+	jab_int32 palette_result = readColorPaletteInMaster(matrix, symbol, data_map, &module_count, &x, &y);
+	
+	log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+	if (log) {
+		fprintf(log, "[DECODER] After palette read: module_count=%d, next_pos=(%d,%d)\n", 
+			module_count, x, y);
+		fclose(log);
+	}
+	
+	log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+	if (log) {
+		fprintf(log, "[DECODER] readColorPaletteInMaster returned: %d\n", palette_result);
+		fclose(log);
+	}
+	
+    if(palette_result < 0)
 	{
 		reportError("Reading color palettes in master symbol failed");
 		return JAB_FAILURE;
@@ -1547,6 +1709,14 @@ jab_int32 decodeMaster(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 
 	//normalize the RGB values in color palettes
 	jab_int32 color_number = (jab_int32)pow(2, symbol->metadata.Nc + 1);
+	
+	log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+	if (log) {
+		fprintf(log, "[DECODER] Computed color_number from Nc=%d: %d colors\n", 
+			symbol->metadata.Nc, color_number);
+		fclose(log);
+	}
+	
 	jab_float norm_palette[color_number * 4 * COLOR_PALETTE_NUMBER];	//each color contains 4 normalized values, i.e. R, G, B and Luminance
 	normalizeColorPalette(symbol, norm_palette, color_number);
 
@@ -1560,25 +1730,109 @@ jab_int32 decodeMaster(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 	//decode metadata PartII
 	if(decode_partI_ret == JAB_SUCCESS)
 	{
-		if(decodeMasterMetadataPartII(matrix, symbol, data_map, norm_palette, pal_ths, &module_count, &x, &y) <= 0)
+		log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+		if (log) {
+			fprintf(log, "[DECODER] Attempting metadata Part II decode\n");
+			fclose(log);
+		}
+		
+		jab_int32 partII_result = decodeMasterMetadataPartII(matrix, symbol, data_map, norm_palette, pal_ths, &module_count, &x, &y);
+		
+		log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+		if (log) {
+			fprintf(log, "[DECODER] Metadata Part II decode returned: %d\n", partII_result);
+			fclose(log);
+		}
+		
+		if(partII_result <= 0)
 		{
+			log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+			if (log) {
+				fprintf(log, "[DECODER] Part II decode FAILED, returning JAB_FAILURE\n");
+				fclose(log);
+			}
 			return JAB_FAILURE;
 		}
 	}
 
-	// Phase 2 Session 3-4: Adaptive palette DISABLED - Unresolved SIGSEGV
-	// Root cause identified: Unbounded exponential growth in lab_diffs arrays (fixed with MAX_DIFF_CAPACITY)
-	// Remaining issue: SIGSEGV in libc persists under multi-test pressure despite:
-	//   - 7 safety fixes (malloc NULL checks, realloc pattern, bounds validation, LAB safety, shift magnitude checks)
-	//   - Capacity capping (MAX_DIFF_CAPACITY=1000)
-	//   - Forced cleanup at decode entry (disableObservationCollection)
-	//   - Valgrind: 0 heap errors detected
-	//   - ASAN: Incompatible with JVM/Panama FFI
-	// Hypothesis: Race condition or JVM-native memory interaction issue
-	// Stable baseline: LAB-only provides 51% pass rate (32/63 tests)
+	// Debug: Log metadata after decode
+	log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+	if (log) {
+		fprintf(log, "[DECODE] Metadata decoded successfully: Nc=%d, color_number=%d\n", 
+			symbol->metadata.Nc, color_number);
+		fprintf(log, "[DECODE] Palette size for decoding: %d colors\n", color_number);
+		fclose(log);
+	}
+
+	// Phase 2: Arena-based adaptive palette
+	// First pass: decode with observation collection
+	// Observations collected during decodeSymbol() for Nc >= 5
 	
 	//decode master symbol
-	return decodeSymbol(matrix, symbol, data_map, norm_palette, pal_ths, 0);
+	jab_int32 result = decodeSymbol(matrix, symbol, data_map, norm_palette, pal_ths, 0);
+	
+	// Debug: Track observation collection to file
+	log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+	if (log) {
+		fprintf(log, "[DECODE] After first pass: Nc=%d, observations=%d, enabled=%d, result=%d\n",
+			symbol->metadata.Nc, g_obs_ctx.count, g_obs_ctx.enabled, result);
+		fclose(log);
+	}
+	
+	if (symbol->metadata.Nc >= 5) {
+		log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+		if (log) {
+			fprintf(log, "[ADAPTIVE] First pass: Nc=%d, observations=%d, enabled=%d, result=%s\n",
+				symbol->metadata.Nc, g_obs_ctx.count, g_obs_ctx.enabled,
+				result == JAB_SUCCESS ? "SUCCESS" : "FAILED");
+			fclose(log);
+		}
+	}
+	
+	// If decode failed and we have observations, try applying corrections and re-decode
+	// Threshold lowered to 30 for investigation (was 50)
+	if (result != JAB_SUCCESS && symbol->metadata.Nc >= 5 && g_obs_ctx.count >= 30) {
+		log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+		if (log) {
+			fprintf(log, "[ADAPTIVE] Attempting correction with %d observations\n", g_obs_ctx.count);
+			fclose(log);
+		}
+		
+		if (applyAdaptiveCorrections(symbol, color_number)) {
+			log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+			if (log) {
+				fprintf(log, "[ADAPTIVE] Corrections applied, retrying decode\n");
+				fclose(log);
+			}
+			
+			// Re-normalize palette with corrections
+			normalizeColorPalette(symbol, norm_palette, color_number);
+			// Retry decode with corrected palette
+			jab_int32 retry_result = decodeSymbol(matrix, symbol, data_map, norm_palette, pal_ths, 0);
+			
+			log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+			if (log) {
+				fprintf(log, "[ADAPTIVE] Retry result: %s\n", 
+					retry_result == JAB_SUCCESS ? "SUCCESS" : "FAILED");
+				fclose(log);
+			}
+			result = retry_result;
+		} else {
+			log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+			if (log) {
+				fprintf(log, "[ADAPTIVE] Correction application failed\n");
+				fclose(log);
+			}
+		}
+	} else if (result != JAB_SUCCESS && symbol->metadata.Nc >= 5) {
+		log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+		if (log) {
+			fprintf(log, "[ADAPTIVE] Skip retry: insufficient observations (%d < 50)\n", g_obs_ctx.count);
+			fclose(log);
+		}
+	}
+	
+	return result;
 }
 
 /**
@@ -2058,11 +2312,31 @@ jab_data* decodeJABCodeWithObservations(
     jab_int32* observation_count
 )
 {
+    // Debug: Log entry
+    FILE* log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+    if (log) {
+        fprintf(log, "[ENTRY] decodeJABCodeWithObservations called: buffer=%p, capacity=%d\n",
+            observation_buffer, buffer_capacity);
+        fclose(log);
+    }
+    
     // Initialize observation context with Arena buffer
     if (observation_buffer && buffer_capacity > 0) {
         initObservationContext((jab_color_observation*)observation_buffer, buffer_capacity);
+        
+        log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+        if (log) {
+            fprintf(log, "[ENTRY] Observation context initialized: enabled=%d\n", g_obs_ctx.enabled);
+            fclose(log);
+        }
     } else {
         clearObservationContext();
+        
+        log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+        if (log) {
+            fprintf(log, "[ENTRY] Observation context cleared (no buffer provided)\n");
+            fclose(log);
+        }
     }
     
     // Call standard decode
@@ -2071,6 +2345,12 @@ jab_data* decodeJABCodeWithObservations(
     // Return observation count to Java
     if (observation_count) {
         *observation_count = getObservationCount();
+        
+        log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+        if (log) {
+            fprintf(log, "[EXIT] Returning observation count: %d\n", *observation_count);
+            fclose(log);
+        }
     }
     
     // Clear context (doesn't free - Java owns memory)

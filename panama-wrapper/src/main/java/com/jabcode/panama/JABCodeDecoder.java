@@ -82,17 +82,23 @@ public class JABCodeDecoder {
                     long obsStructSize = 8;
                     obsBuffer = arena.allocate(obsStructSize * MAX_OBSERVATIONS);
                     obsCountPtr = arena.allocate(ValueLayout.JAVA_INT);
+                    
+                    System.err.println("[JAVA] Allocated observation buffer: address=" + 
+                        obsBuffer.address() + ", capacity=" + MAX_OBSERVATIONS);
                 }
                 
                 // Decode with observations
                 MemorySegment dataPtr;
                 if (collectObservations) {
+                    System.err.println("[JAVA] Calling decodeJABCodeWithObservations");
                     dataPtr = jabcode_h.decodeJABCodeWithObservations(
                         bitmapPtr, mode, statusPtr, 
                         obsBuffer, MAX_OBSERVATIONS, obsCountPtr
                     );
                     obsCount = obsCountPtr.get(ValueLayout.JAVA_INT, 0);
+                    System.err.println("[JAVA] Decode complete: obsCount=" + obsCount);
                 } else {
+                    System.err.println("[JAVA] Calling standard decodeJABCode (no observations)");
                     dataPtr = jabcode_h.decodeJABCode(bitmapPtr, mode, statusPtr);
                 }
                 

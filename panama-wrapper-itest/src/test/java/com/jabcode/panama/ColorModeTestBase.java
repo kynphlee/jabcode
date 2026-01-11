@@ -125,10 +125,18 @@ public abstract class ColorModeTestBase {
         assertTrue(outputFile.toFile().exists(), "Output file should exist");
         assertTrue(outputFile.toFile().length() > 0, "Output file should not be empty");
         
-        // Decode
-        String decoded = decoder.decodeFromFile(outputFile);
-        assertNotNull(decoded, 
+        // Decode with observation collection for adaptive palette (Nc >= 5)
+        boolean collectObservations = getNcValue() >= 5;
+        JABCodeDecoder.DecodedResultWithObservations result = 
+            decoder.decodeWithObservations(outputFile, JABCodeDecoder.MODE_NORMAL, collectObservations);
+        
+        assertNotNull(result, "Decode result should not be null");
+        assertTrue(result.isSuccess(), 
             String.format("Decoding should succeed for %d-color mode", getColorNumber()));
+        
+        String decoded = result.getData();
+        assertNotNull(decoded, 
+            String.format("Decoded data should not be null for %d-color mode", getColorNumber()));
         
         // Verify content
         assertEquals(message, decoded, 
