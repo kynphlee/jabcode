@@ -1354,6 +1354,7 @@ jab_int32 decodeMasterMetadataPartII(jab_bitmap* matrix, jab_decoded_symbol* sym
 	{
 		E += part2[i] << (E_length/2 - 1 - (i - bit_index));
 	}
+	jab_int32 E_part1 = E;
 	symbol->metadata.ecl.x = E + 3;		//wc = E_part1 + 3
 	//get wr (the second half of E)
 	E = 0;
@@ -1361,7 +1362,16 @@ jab_int32 decodeMasterMetadataPartII(jab_bitmap* matrix, jab_decoded_symbol* sym
 	{
 		E += part2[i+E_length/2] << (E_length/2 - 1 - (i - bit_index));
 	}
+	jab_int32 E_part2 = E;
 	symbol->metadata.ecl.y = E + 4;		//wr = E_part2 + 4
+	
+	// Debug: Log decoded error correction parameters
+	log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+	if (log) {
+		fprintf(log, "[DECODER] Part II E params: E_part1=%d, E_part2=%d, wc=%d, wr=%d\n",
+			E_part1, E_part2, symbol->metadata.ecl.x, symbol->metadata.ecl.y);
+		fclose(log);
+	}
 
 	//read MSK
 	bit_index = V_length + E_length;
@@ -1413,16 +1423,30 @@ jab_data* readRawModuleData(jab_bitmap* matrix, jab_decoded_symbol* symbol, jab_
 	jab_byte decoded_module_color_index[matrix->height * matrix->width];
 #endif
 
+	jab_int32 data_module_seq = 0;
 	for(jab_int32 j=0; j<matrix->width; j++)
 	{
 		for(jab_int32 i=0; i<matrix->height; i++)
 		{
-			if(data_map[i*matrix->width + j] != 0)  // FIX: Read from data modules (!=0), not reserved (==0)
+			if(data_map[i*matrix->width + j] == 0)  // fillDataMap marks reserved as 1, read data from 0
 			{
 				//decode bits out of the module at (x,y)
 				jab_byte bits = decodeModuleHD(matrix, symbol->palette, color_number, norm_palette, pal_ths, j, i, num_palettes);
 				//write the bits into data
 				data->data[module_count] = (jab_char)bits;
+				
+				// Debug: Log first 20 data module reads
+				if (data_module_seq < 20) {
+					jab_int32 linear_index = i * matrix->width + j;
+					FILE* log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+					if (log) {
+						fprintf(log, "[DECODER] Data module #%d: pos(%d,%d) index=%d, color=%d\n",
+							data_module_seq, j, i, linear_index, bits);
+						fclose(log);
+					}
+				}
+				data_module_seq++;
+				
 				module_count++;
 #if TEST_MODE
 				decoded_module_color_index[i*matrix->width + j] = bits;
@@ -1519,6 +1543,16 @@ void fillDataMap(jab_byte* data_map, jab_int32 width, jab_int32 height, jab_int3
 	jab_int32 side_ver_y_index = SIZE2VERSION(height) - 1;
     jab_int32 number_of_ap_x = jab_ap_num[side_ver_x_index];
     jab_int32 number_of_ap_y = jab_ap_num[side_ver_y_index];
+    
+    // Debug: Log fillDataMap parameters
+    static jab_int32 call_count = 0;
+    call_count++;
+    FILE* dbg = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+    if (dbg) {
+        fprintf(dbg, "[FILLMAP #%d] width=%d, height=%d, type=%d, ver_x=%d, ver_y=%d, ap_x=%d, ap_y=%d\n",
+            call_count, width, height, type, side_ver_x_index, side_ver_y_index, number_of_ap_x, number_of_ap_y);
+        fclose(dbg);
+    }
     for(jab_int32 i=0; i<number_of_ap_y; i++)
     {
 		for(jab_int32 j=0; j<number_of_ap_x; j++)
@@ -1650,6 +1684,18 @@ jab_int32 decodeSymbol(jab_bitmap* matrix, jab_decoded_symbol* symbol, jab_byte*
 
 	//fill data map
 	fillDataMap(data_map, matrix->width, matrix->height, type);
+	
+	// Debug: Count data modules (0 values in data_map)
+	jab_int32 data_module_count = 0;
+	for(jab_int32 i = 0; i < matrix->width * matrix->height; i++) {
+		if(data_map[i] == 0) data_module_count++;
+	}
+	FILE* dbg_log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+	if (dbg_log) {
+		fprintf(dbg_log, "[DECODER] Before readRawModuleData: matrix=%dx%d, data_modules=%d, expected_bits=%d\n",
+			matrix->width, matrix->height, data_module_count, data_module_count * (symbol->metadata.Nc + 1));
+		fclose(dbg_log);
+	}
 
 	//read raw data
 	jab_data* raw_module_data = readRawModuleData(matrix, symbol, data_map, norm_palette, pal_ths);
@@ -1688,6 +1734,14 @@ jab_int32 decodeSymbol(jab_bitmap* matrix, jab_decoded_symbol* symbol, jab_byte*
 	jab_int32 wr = symbol->metadata.ecl.y;
     jab_int32 Pg = (raw_data->length / wr) * wr;	//max_gross_payload = floor(capacity / wr) * wr
     jab_int32 Pn = Pg * (wr - wc) / wr;				//code_rate = 1 - wc/wr = (wr - wc)/wr, max_net_payload = max_gross_payload * code_rate
+
+	// Debug: Log LDPC parameters
+	FILE* log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+	if (log) {
+		fprintf(log, "[DECODER] LDPC params: raw_data->length=%d, wc=%d, wr=%d, Pg=%d, Pn=%d, Nc=%d\n",
+			raw_data->length, wc, wr, Pg, Pn, symbol->metadata.Nc);
+		fclose(log);
+	}
 
 	//deinterleave data
 	raw_data->length = Pg;	//drop the padding bits
@@ -1949,6 +2003,23 @@ jab_int32 decodeMaster(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 		fclose(log);
 	}
 
+	// Save data_map copy for potential retry (Option 2: Save Copy)
+	// At this point, metadata and palette positions are fully marked in data_map
+	jab_byte* saved_data_map = (jab_byte*)malloc(matrix->width * matrix->height * sizeof(jab_byte));
+	if (saved_data_map == NULL) {
+		reportError("Memory allocation for saved data map failed");
+		free(data_map);
+		return JAB_FAILURE;
+	}
+	memcpy(saved_data_map, data_map, matrix->width * matrix->height * sizeof(jab_byte));
+	
+	log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+	if (log) {
+		fprintf(log, "[DECODER] Saved data_map copy (%d bytes) for potential retry\n", 
+			matrix->width * matrix->height);
+		fclose(log);
+	}
+
 	// Phase 2: Arena-based adaptive palette
 	// First pass: decode with observation collection
 	// Observations collected during decodeSymbol() for Nc >= 5
@@ -1975,7 +2046,7 @@ jab_int32 decodeMaster(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 	}
 	
 	// If decode failed and we have observations, try applying corrections and re-decode
-	// Threshold lowered to 30 for investigation (was 50)
+	// Using Option 2 (Save Copy): reuse exact data_map from first attempt
 	if (result != JAB_SUCCESS && symbol->metadata.Nc >= 5 && g_obs_ctx.count >= 30) {
 		log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
 		if (log) {
@@ -1993,23 +2064,27 @@ jab_int32 decodeMaster(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 			// Re-normalize palette with corrections
 			normalizeColorPalette(symbol, norm_palette, color_number, num_palettes);
 			
-			// Allocate fresh data_map for retry (original was freed in first decode)
-			jab_byte* retry_data_map = (jab_byte*)calloc(1, matrix->width * matrix->height * sizeof(jab_byte));
-			if (retry_data_map == NULL) {
-				reportError("Memory allocation for retry data map failed");
-				result = FATAL_ERROR;
-			} else {
-				// Retry decode with corrected palette
-				jab_int32 retry_result = decodeSymbol(matrix, symbol, retry_data_map, norm_palette, pal_ths, 0);
-				
-				log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
-				if (log) {
-					fprintf(log, "[ADAPTIVE] Retry result: %s\n", 
-						retry_result == JAB_SUCCESS ? "SUCCESS" : "FAILED");
-					fclose(log);
-				}
-				result = retry_result;
+			// Use saved data_map copy (already has all metadata/palette positions marked)
+			// This avoids the bug where retry would read 139 extra modules
+			jab_byte* retry_data_map = saved_data_map;
+			saved_data_map = NULL; // Transfer ownership to retry
+			
+			log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+			if (log) {
+				fprintf(log, "[ADAPTIVE] Using saved data_map for retry (avoids re-marking issue)\n");
+				fclose(log);
 			}
+			
+			// Retry decode with corrected palette and exact data_map
+			jab_int32 retry_result = decodeSymbol(matrix, symbol, retry_data_map, norm_palette, pal_ths, 0);
+			
+			log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+			if (log) {
+				fprintf(log, "[ADAPTIVE] Retry result: %s\n", 
+					retry_result == JAB_SUCCESS ? "SUCCESS" : "FAILED");
+				fclose(log);
+			}
+			result = retry_result;
 		} else {
 			log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
 			if (log) {
@@ -2023,6 +2098,11 @@ jab_int32 decodeMaster(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 			fprintf(log, "[ADAPTIVE] Skip retry: insufficient observations (%d < 50)\n", g_obs_ctx.count);
 			fclose(log);
 		}
+	}
+	
+	// Cleanup saved_data_map if not used (success on first attempt or retry not triggered)
+	if (saved_data_map != NULL) {
+		free(saved_data_map);
 	}
 	
 	return result;

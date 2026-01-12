@@ -1568,6 +1568,7 @@ jab_boolean createMatrix(jab_encode* enc, jab_int32 index, jab_data* ecc_encoded
     //Data placement
     jab_int32 written_mess_part=0;
     jab_int32 padding=0;
+    jab_int32 data_module_seq = 0;
     for(jab_int32 start_i=0;start_i<enc->symbols[index].side_size.x;start_i++)
     {
         for(jab_int32 i=start_i;i<enc->symbols[index].side_size.x*enc->symbols[index].side_size.y;i=i+enc->symbols[index].side_size.x)
@@ -1590,6 +1591,20 @@ jab_boolean createMatrix(jab_encode* enc, jab_int32 index, jab_data* ecc_encoded
                     written_mess_part++;
                 }
                 enc->symbols[index].matrix[i]=(jab_char)color_index;//i % enc->color_number;
+                
+                // Debug: Log first 20 data module placements
+                if (index == 0 && data_module_seq < 20) {
+                    jab_int32 x_pos = i % enc->symbols[index].side_size.x;
+                    jab_int32 y_pos = i / enc->symbols[index].side_size.x;
+                    FILE* log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+                    if (log) {
+                        fprintf(log, "[ENCODER] Data module #%d: pos(%d,%d) index=%d, color=%d\n",
+                            data_module_seq, x_pos, y_pos, i, color_index);
+                        fclose(log);
+                    }
+                }
+                data_module_seq++;
+                
 #if TEST_MODE
 				fwrite(&enc->symbols[index].matrix[i], 1, 1, fp);
 #endif // TEST_MODE
@@ -2615,6 +2630,29 @@ jab_int32 generateJABCode(jab_encode* enc, jab_data* data)
 			fprintf(dbg, "[ENCODER] After masking, matrix[%d] (pos 9,5) = %d, data_map=%d\n",
 				check_idx, enc->symbols[0].matrix[check_idx], enc->symbols[0].data_map[check_idx]);
 			fclose(dbg);
+		}
+	}
+	
+	// Debug: Log first 20 data modules after masking
+	{
+		jab_int32 data_count = 0;
+		for(jab_int32 start_i=0; start_i<enc->symbols[0].side_size.x && data_count < 20; start_i++)
+		{
+			for(jab_int32 i=start_i; i<enc->symbols[0].side_size.x*enc->symbols[0].side_size.y && data_count < 20; i+=enc->symbols[0].side_size.x)
+			{
+				if (enc->symbols[0].data_map[i] != 0)
+				{
+					jab_int32 x_pos = i % enc->symbols[0].side_size.x;
+					jab_int32 y_pos = i / enc->symbols[0].side_size.x;
+					FILE* log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+					if (log) {
+						fprintf(log, "[ENCODER-MASKED] Data module #%d: pos(%d,%d) color=%d\n",
+							data_count, x_pos, y_pos, enc->symbols[0].matrix[i]);
+						fclose(log);
+					}
+					data_count++;
+				}
+			}
 		}
 	}
 
