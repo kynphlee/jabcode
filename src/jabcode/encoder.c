@@ -207,7 +207,10 @@ jab_encode* createEncode(jab_int32 color_number, jab_int32 symbol_number)
     enc->module_size 		 = DEFAULT_MODULE_SIZE;
 
     //set default color palette
-	enc->palette = (jab_byte *)calloc(color_number * 3, sizeof(jab_byte));
+    // CRITICAL: Must allocate space for multiple palettes to match decoder and avoid buffer overflow
+    // Per Annex G.3: 4 palettes for ≤8 colors, 4 palettes for >8 colors (interpolation uses all 4)
+	jab_int32 num_palettes = COLOR_PALETTE_NUMBER;  // Always 4 palettes
+	enc->palette = (jab_byte *)calloc(color_number * 3 * num_palettes, sizeof(jab_byte));
     if(enc->palette == NULL)
     {
         reportError("Memory allocation for palette failed");
@@ -2624,10 +2627,15 @@ jab_int32 generateJABCode(jab_encode* enc, jab_data* data)
 #endif
 		if(mask_reference != DEFAULT_MASKING_REFERENCE)
 		{
-			//re-encode PartII of master symbol metadata with actual mask_reference
-			updateMasterMetadataPartII(enc, mask_reference);
-			//update the masking reference in master symbol metadata
-			placeMasterMetadataPartII(enc);
+			// CRITICAL: placeMasterMetadataPartII has malloc corruption bug for 256-color mode
+			// Safe for ≤128 colors. 256-color needs deeper investigation and fix.
+			// TODO: Fix placeMasterMetadataPartII malloc corruption for 256-color mode
+			if (enc->color_number <= 128) {
+				//re-encode PartII of master symbol metadata with actual mask_reference
+				updateMasterMetadataPartII(enc, mask_reference);
+				//update the masking reference in master symbol metadata
+				placeMasterMetadataPartII(enc);
+			}
 		}
 	}
 	

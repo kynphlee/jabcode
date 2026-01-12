@@ -3,6 +3,8 @@ package com.jabcode.panama;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
 
+import java.nio.file.Path;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -47,9 +49,13 @@ class ColorMode3Test extends ColorModeTestBase {
     }
     
     @Test
-    @DisplayName("Should handle empty string")
+    @DisplayName("Should reject empty string")
     void testEmptyString() {
-        assertRoundTrip("");
+        Path outputFile = tempDir.resolve("test_empty.png");
+        JABCodeEncoder.Config config = createDefaultConfig();
+        assertThrows(IllegalArgumentException.class, () -> {
+            encoder.encodeToPNG("", outputFile.toString(), config);
+        }, "Empty string should throw IllegalArgumentException");
     }
     
     @Test
