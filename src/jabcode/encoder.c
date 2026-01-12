@@ -2574,6 +2574,21 @@ jab_int32 generateJABCode(jab_encode* enc, jab_data* data)
         }
         //interleave
         interleaveData(ecc_encoded_data);
+        
+        // Debug: Log first 50 bits after LDPC+interleave for symbol 0
+        if(i == 0) {
+            FILE* log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+            if(log) {
+                fprintf(log, "[ENCODER] Symbol 0 after LDPC+interleave: length=%d, first 50 bits: ",
+                    ecc_encoded_data->length);
+                for(jab_int32 b = 0; b < 50 && b < ecc_encoded_data->length; b++) {
+                    fprintf(log, "%d", ecc_encoded_data->data[b]);
+                }
+                fprintf(log, "\n");
+                fclose(log);
+            }
+        }
+        
         //create Matrix
         jab_boolean cm_flag = createMatrix(enc, i, ecc_encoded_data);
         free(ecc_encoded_data);
@@ -2609,16 +2624,10 @@ jab_int32 generateJABCode(jab_encode* enc, jab_data* data)
 #endif
 		if(mask_reference != DEFAULT_MASKING_REFERENCE)
 		{
-			// CRITICAL: For >8 color modes, initial Part II placement is correct.
-			// updateMasterMetadataPartII corrupts metadata bits with masking reference,
-			// causing placeMasterMetadataPartII to reconstruct wrong color indices.
-			// Skip for non-default color modes to preserve original Part II values.
-			if (enc->color_number <= 8) {
-				//re-encode PartII of master symbol metadata
-				updateMasterMetadataPartII(enc, mask_reference);
-				//update the masking reference in master symbol metadata
-				placeMasterMetadataPartII(enc);
-			}
+			//re-encode PartII of master symbol metadata with actual mask_reference
+			updateMasterMetadataPartII(enc, mask_reference);
+			//update the masking reference in master symbol metadata
+			placeMasterMetadataPartII(enc);
 		}
 	}
 	

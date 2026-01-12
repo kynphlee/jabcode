@@ -1424,6 +1424,7 @@ jab_data* readRawModuleData(jab_bitmap* matrix, jab_decoded_symbol* symbol, jab_
 #endif
 
 	jab_int32 data_module_seq = 0;
+	// Use column-major order (x outer, y inner) to match encoder's data placement order
 	for(jab_int32 j=0; j<matrix->width; j++)
 	{
 		for(jab_int32 i=0; i<matrix->height; i++)
@@ -1711,7 +1712,41 @@ jab_int32 decodeSymbol(jab_bitmap* matrix, jab_decoded_symbol* symbol, jab_byte*
 	fclose(fp);
 #endif // TEST_MODE
 
+	// Debug: Log first 10 raw module colors BEFORE demasking
+	FILE* rawlog = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+	if (rawlog) {
+		fprintf(rawlog, "[DECODER] First 10 raw colors (before demask): ");
+		for(jab_int32 m = 0; m < 10 && m < raw_module_data->length; m++) {
+			fprintf(rawlog, "%d ", raw_module_data->data[m]);
+		}
+		fprintf(rawlog, "\n");
+		fclose(rawlog);
+	}
+
+	// Debug: Log first 10 data module positions according to data_map
+	FILE* dmlog = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+	if (dmlog) {
+		fprintf(dmlog, "[DECODER] Data_map before demask, first 10 data positions: ");
+		jab_int32 found = 0;
+		for(jab_int32 x = 0; x < matrix->width && found < 10; x++) {
+			for(jab_int32 y = 0; y < matrix->height && found < 10; y++) {
+				if(data_map[y * matrix->width + x] == 0) {
+					fprintf(dmlog, "(%d,%d) ", x, y);
+					found++;
+				}
+			}
+		}
+		fprintf(dmlog, "\n");
+		fclose(dmlog);
+	}
+	
 	//demask
+	FILE* mlog = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+	if (mlog) {
+		fprintf(mlog, "[DECODER] Demasking with mask_type=%d, color_number=%d\n",
+			symbol->metadata.mask_type, (jab_int32)pow(2, symbol->metadata.Nc + 1));
+		fclose(mlog);
+	}
 	demaskSymbol(raw_module_data, data_map, symbol->side_size, symbol->metadata.mask_type, (jab_int32)pow(2, symbol->metadata.Nc + 1));
 	free(data_map);
 #if TEST_MODE
@@ -1719,6 +1754,17 @@ jab_int32 decodeSymbol(jab_bitmap* matrix, jab_decoded_symbol* symbol, jab_byte*
 	fwrite(raw_module_data->data, raw_module_data->length, 1, fp);
 	fclose(fp);
 #endif // TEST_MODE
+
+	// Debug: Log first 10 demasked module color indices
+	FILE* dbg = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+	if (dbg) {
+		fprintf(dbg, "[DECODER] First 10 demasked module colors: ");
+		for(jab_int32 m = 0; m < 10 && m < raw_module_data->length; m++) {
+			fprintf(dbg, "%d ", raw_module_data->data[m]);
+		}
+		fprintf(dbg, "\n");
+		fclose(dbg);
+	}
 
 	//change to one-bit-per-byte representation
 	jab_data* raw_data = rawModuleData2RawData(raw_module_data, symbol->metadata.Nc + 1);
@@ -1746,6 +1792,18 @@ jab_int32 decodeSymbol(jab_bitmap* matrix, jab_decoded_symbol* symbol, jab_byte*
 	//deinterleave data
 	raw_data->length = Pg;	//drop the padding bits
     deinterleaveData(raw_data);
+
+	// Debug: Log first 50 bits before LDPC decode (after deinterleaving)
+	log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+	if (log) {
+		fprintf(log, "[DECODER] Before LDPC decode: length=%d, first 50 bits: ",
+			raw_data->length);
+		for(jab_int32 b = 0; b < 50 && b < raw_data->length; b++) {
+			fprintf(log, "%d", raw_data->data[b]);
+		}
+		fprintf(log, "\n");
+		fclose(log);
+	}
 
 #if TEST_MODE
 	JAB_REPORT_INFO(("wc:%d, wr:%d, Pg:%d, Pn: %d", wc, wr, Pg, Pn))

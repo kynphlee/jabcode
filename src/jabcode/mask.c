@@ -392,6 +392,11 @@ jab_int32 maskCode(jab_encode* enc, jab_code* cp)
 	}
 
 	//mask all symbols with the selected mask pattern
+	FILE* mlog = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+	if (mlog) {
+		fprintf(mlog, "[ENCODER] Selected mask_type=%d (min_penalty=%d)\n", mask_type, min_penalty_score);
+		fclose(mlog);
+	}
 	maskSymbols(enc, mask_type, 0, 0);
 
     //clean memory
@@ -412,6 +417,8 @@ void demaskSymbol(jab_data* data, jab_byte* data_map, jab_vector2d symbol_size, 
 	jab_int32 symbol_width = symbol_size.x;
 	jab_int32 symbol_height= symbol_size.y;
     jab_int32 count = 0;
+	// Use column-major order (x outer, y inner) to match readRawModuleData's read order
+	// This ensures data array index aligns with spatial position for correct unmasking
 	for(jab_int32 x=0; x<symbol_width; x++)
 	{
 		for(jab_int32 y=0; y<symbol_height; y++)
