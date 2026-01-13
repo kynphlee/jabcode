@@ -1,8 +1,8 @@
 # JABCode Sample Images
 
-This directory contains sample JABCode images demonstrating all supported color modes. Each sample encodes its own configuration details for easy reference.
+This directory contains sample JABCode images demonstrating all supported color modes with both single-symbol and cascaded multi-symbol encoding. Each sample encodes its own configuration details for easy reference.
 
-## Generated Samples
+## Single-Symbol Samples
 
 | File | Color Mode | Size | Symbols | Description |
 |------|------------|------|---------|-------------|
@@ -12,6 +12,17 @@ This directory contains sample JABCode images demonstrating all supported color 
 | `sample_32_color_simple.png` | 32-color (Nc=4) | 14K | 1 | Extended color range |
 | `sample_64_color_simple.png` | 64-color (Nc=5) | 11K | 1 | High-density adaptive palette |
 | `sample_128_color_simple.png` | 128-color (Nc=6) | 11K | 1 | Very high-density with interpolation |
+
+## Cascaded Multi-Symbol Samples
+
+| File | Color Mode | Size | Symbols | Description |
+|------|------------|------|---------|-------------|
+| `sample_4_color_cascaded.png` | 4-color (Nc=1) | 140K | 2 | Cascaded encoding with primary + secondary |
+| `sample_8_color_cascaded.png` | 8-color (Nc=2) | 161K | 2 | Cascaded encoding with extended message |
+| `sample_16_color_cascaded.png` | 16-color (Nc=3) | 131K | 2 | Cascaded encoding with enhanced palette |
+| `sample_32_color_cascaded.png` | 32-color (Nc=4) | 115K | 2 | Cascaded encoding with extended range |
+| `sample_64_color_cascaded.png` | 64-color (Nc=5) | 113K | 2 | Cascaded high-density encoding |
+| `sample_128_color_cascaded.png` | 128-color (Nc=6) | 113K | 2 | Cascaded very high-density encoding |
 
 ## Sample Content
 
@@ -31,18 +42,40 @@ This demonstrates JABCode's 2D color barcode technology with advanced error corr
 
 ## Configuration
 
+**Single-Symbol Samples:**
 - **ECC Level:** 5 (Medium error correction)
 - **Module Size:** 12 pixels (optimized for visibility)
 - **Encoding:** UTF-8
 - **Symbol Number:** 1 (single symbol)
 
+**Cascaded Samples:**
+- **ECC Level:** 5 (Medium error correction)
+- **Module Size:** 12 pixels (optimized for visibility)
+- **Encoding:** UTF-8
+- **Symbol Number:** 2 (1 primary + 1 secondary)
+- **Symbol Versions:** 12×12 for both symbols (same size required per JABCode spec)
+- **Extended message:** Longer content demonstrating multi-symbol data distribution
+
 ## Cascaded Multi-Symbol Encoding
 
-**Status:** Not yet supported in current API
+**Status:** ✅ Fully Supported (as of Q1 2026)
 
-Cascaded JABCode (multiple symbols: 1 primary + N secondary) requires explicit symbol version configuration which is not currently exposed in the `Config.Builder` API. The C encoder supports this through the `symbol_versions` array, but the Java Panama wrapper needs to be extended to provide this functionality.
+Cascaded JABCode encoding is now fully supported through the `SymbolVersion` API. The `Config.Builder` now provides `symbolVersions(List<SymbolVersion>)` to configure explicit symbol dimensions for multi-symbol encoding.
 
-**Future Enhancement:** Add `symbolVersions(List<Version>)` method to `Config.Builder` to enable multi-symbol cascaded encoding.
+**Important Constraint:** All symbols in a cascade must have identical dimensions (e.g., all 12×12). This is a JABCode specification requirement, not an API limitation.
+
+**Example Usage:**
+```java
+var config = Config.builder()
+    .colorNumber(64)
+    .symbolNumber(2)
+    .symbolVersions(List.of(
+        new SymbolVersion(12, 12),  // Primary symbol
+        new SymbolVersion(12, 12)   // Secondary symbol (must match)
+    ))
+    .eccLevel(5)
+    .build();
+```
 
 ## Testing
 
@@ -58,18 +91,17 @@ These samples are used for:
 To regenerate these samples, run:
 ```bash
 cd panama-wrapper
-LD_LIBRARY_PATH=../lib:$LD_LIBRARY_PATH \
-  java -cp "target/classes:target/test-classes:$(mvn -q dependency:build-classpath -DincludeScope=test | tail -1)" \
+mvn test-compile -q
+cd /mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper
+LD_LIBRARY_PATH=../lib java --enable-native-access=ALL-UNNAMED \
+  -cp target/classes:target/test-classes \
   com.jabcode.panama.GenerateSamples
 ```
 
-Or use Maven:
-```bash
-cd panama-wrapper
-mvn test-compile -q
-LD_LIBRARY_PATH=../lib:$LD_LIBRARY_PATH \
-  mvn exec:java -Dexec.mainClass="com.jabcode.panama.GenerateSamples" -Dexec.classpathScope=test -q
-```
+This will generate:
+- 6 single-symbol samples (`*_simple.png`)
+- 6 cascaded 2-symbol samples (`*_cascaded.png`)
+- Total: 12 sample images
 
 ## Notes
 
@@ -78,10 +110,17 @@ LD_LIBRARY_PATH=../lib:$LD_LIBRARY_PATH \
 - Samples use the fixed mask metadata synchronization (encoder-decoder alignment)
 - File sizes vary based on color mode complexity and encoded message length
 - Larger file sizes for lower color modes due to more modules needed for same data capacity
+- Cascaded samples are significantly larger due to containing 2 symbols with extended message content
 
 ## Status
 
 ✅ All 6 color modes working correctly (4, 8, 16, 32, 64, 128 colors)  
 ✅ Single-symbol encoding fully functional  
-⚠️ Multi-symbol cascading requires API enhancement  
+✅ Multi-symbol cascading fully supported (Q1 2026)  
+✅ SymbolVersion API for explicit cascade configuration  
 ❌ 256-color mode excluded (known malloc issue)
+
+---
+
+**Last Updated:** January 2026  
+**Total Samples:** 12 (6 single-symbol + 6 cascaded)

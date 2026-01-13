@@ -2,6 +2,7 @@ package com.jabcode.panama;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 
 /**
  * Generates sample JABCode images for each supported color mode
@@ -29,23 +30,19 @@ public class GenerateSamples {
         // Generate cascaded samples (2 symbols: 1 primary + 1 secondary)
         // Use longer messages to force multi-symbol encoding
         System.out.println("\n🔗 Cascaded JABCodes (2 symbols):");
-        System.out.println("   Note: Using extended messages to demonstrate symbol cascading\n");
+        System.out.println("   Note: Using extended messages with explicit symbol versions\n");
         int cascadedCount = 0;
         for (int colorNumber : colorModes) {
             String message = createLongMessage(colorNumber, 5, 12, 2);
-            if (generateSample(colorNumber, message, 2, 5, 12, outputDir)) {
+            if (generateCascadedSample(colorNumber, message, 2, 5, 12, outputDir)) {
                 cascadedCount++;
             }
         }
         
         System.out.println("\n✅ Sample generation complete!");
         System.out.println("📁 Location: " + outputDir.toAbsolutePath());
-        System.out.println("📈 Simple samples: " + simpleCount + "/" + colorModes.length);
+        System.out.println("📈 Single-symbol samples: " + simpleCount + "/" + colorModes.length);
         System.out.println("📈 Cascaded samples: " + cascadedCount + "/" + colorModes.length);
-        if (cascadedCount == 0) {
-            System.out.println("\n⚠️  Note: Cascaded encoding requires explicit symbol version configuration");
-            System.out.println("   which is not yet exposed in the Config API. Single-symbol encoding works perfectly.");
-        }
     }
     
     /**
@@ -90,12 +87,12 @@ public class GenerateSamples {
     }
     
     /**
-     * Generate a JABCode sample with specified configuration
+     * Generate a simple single-symbol JABCode sample
      * 
      * @param colorNumber Number of colors in palette (4, 8, 16, 32, 64, 128)
      * @param message Message to encode
-     * @param symbolNumber Number of symbols (1=simple, 2+=cascaded)
-     * @param eccLevel Error correction level (0-7)
+     * @param symbolNumber Number of symbols (should be 1)
+     * @param eccLevel Error correction level (0-10)
      * @param moduleSize Module size in pixels
      * @param outputDir Output directory
      * @return true if generation succeeded, false otherwise
@@ -112,30 +109,74 @@ public class GenerateSamples {
                 .symbolNumber(symbolNumber)
                 .build();
             
-            // Create filename: sample_64_color_simple.png or sample_64_color_cascaded.png
-            String symbolType = (symbolNumber == 1) ? "simple" : "cascaded";
-            String filename = String.format("sample_%d_color_%s.png", colorNumber, symbolType);
+            String filename = String.format("sample_%d_color_simple.png", colorNumber);
             Path outputPath = outputDir.resolve(filename);
             
             boolean success = encoder.encodeToPNG(message, outputPath.toString(), config);
             
             if (success) {
-                String symbolDesc = (symbolNumber == 1) ? "1 symbol" : symbolNumber + " symbols";
-                System.out.printf("  ✅ %3d-color %-9s: %s (%s)\n", 
-                    colorNumber, symbolType, filename, symbolDesc);
+                System.out.printf("  ✅ %3d-color simple   : %s (1 symbol)\n", 
+                    colorNumber, filename);
                 return true;
             } else {
-                // Don't print error for cascaded - expected to fail without symbol version config
-                if (symbolNumber == 1) {
-                    System.err.printf("  ❌ Failed to generate %d-color %s JABCode\n", colorNumber, symbolType);
-                }
+                System.err.printf("  ❌ Failed to generate %d-color simple JABCode\n", colorNumber);
                 return false;
             }
             
         } catch (Exception e) {
-            if (symbolNumber == 1) {  // Only report errors for simple encoding
-                System.err.printf("  ❌ Error generating %d-color JABCode: %s\n", colorNumber, e.getMessage());
+            System.err.printf("  ❌ Error generating %d-color JABCode: %s\n", colorNumber, e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Generate a cascaded multi-symbol JABCode sample
+     * 
+     * @param colorNumber Number of colors in palette (4, 8, 16, 32, 64, 128)
+     * @param message Message to encode
+     * @param symbolNumber Number of symbols (2 for cascaded)
+     * @param eccLevel Error correction level (0-10)
+     * @param moduleSize Module size in pixels
+     * @param outputDir Output directory
+     * @return true if generation succeeded, false otherwise
+     */
+    private static boolean generateCascadedSample(int colorNumber, String message, int symbolNumber,
+                                                   int eccLevel, int moduleSize, Path outputDir) {
+        try {
+            JABCodeEncoder encoder = new JABCodeEncoder();
+            
+            // Create symbol versions - all must be same size per JABCode spec
+            // Use version 12×12 for good data capacity
+            var symbolVersions = List.of(
+                new SymbolVersion(12, 12),  // Primary symbol
+                new SymbolVersion(12, 12)   // Secondary symbol (same size required)
+            );
+            
+            JABCodeEncoder.Config config = JABCodeEncoder.Config.builder()
+                .colorNumber(colorNumber)
+                .eccLevel(eccLevel)
+                .moduleSize(moduleSize)
+                .symbolNumber(symbolNumber)
+                .symbolVersions(symbolVersions)
+                .build();
+            
+            String filename = String.format("sample_%d_color_cascaded.png", colorNumber);
+            Path outputPath = outputDir.resolve(filename);
+            
+            boolean success = encoder.encodeToPNG(message, outputPath.toString(), config);
+            
+            if (success) {
+                System.out.printf("  ✅ %3d-color cascaded : %s (%d symbols)\n", 
+                    colorNumber, filename, symbolNumber);
+                return true;
+            } else {
+                System.err.printf("  ❌ Failed to generate %d-color cascaded JABCode\n", colorNumber);
+                return false;
             }
+            
+        } catch (Exception e) {
+            System.err.printf("  ❌ Error generating %d-color cascaded JABCode: %s\n", 
+                colorNumber, e.getMessage());
             return false;
         }
     }

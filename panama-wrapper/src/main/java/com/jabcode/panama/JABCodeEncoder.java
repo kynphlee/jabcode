@@ -4,6 +4,8 @@ import com.jabcode.panama.bindings.jabcode_h;
 
 import java.lang.foreign.*;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.Collections;
 
 /**
  * High-level Java API for encoding JABCode barcodes using Panama FFM.
@@ -29,6 +31,7 @@ public class JABCodeEncoder {
         private final int moduleSize;
         private final int masterSymbolWidth;
         private final int masterSymbolHeight;
+        private final List<SymbolVersion> symbolVersions;
         
         private Config(Builder builder) {
             this.colorNumber = builder.colorNumber;
@@ -37,6 +40,9 @@ public class JABCodeEncoder {
             this.moduleSize = builder.moduleSize;
             this.masterSymbolWidth = builder.masterSymbolWidth;
             this.masterSymbolHeight = builder.masterSymbolHeight;
+            this.symbolVersions = builder.symbolVersions != null 
+                ? Collections.unmodifiableList(builder.symbolVersions)
+                : null;
         }
         
         public int getColorNumber() { return colorNumber; }
@@ -45,6 +51,7 @@ public class JABCodeEncoder {
         public int getModuleSize() { return moduleSize; }
         public int getMasterSymbolWidth() { return masterSymbolWidth; }
         public int getMasterSymbolHeight() { return masterSymbolHeight; }
+        public List<SymbolVersion> getSymbolVersions() { return symbolVersions; }
         
         public static Builder builder() {
             return new Builder();
@@ -61,6 +68,7 @@ public class JABCodeEncoder {
             private int moduleSize = 12;           // 12 pixel modules
             private int masterSymbolWidth = 0;     // Auto width
             private int masterSymbolHeight = 0;    // Auto height
+            private List<SymbolVersion> symbolVersions; // Symbol versions for cascade
             
             public Builder colorNumber(int colorNumber) {
                 // Allowed per ISO/IEC 23634 Annex G: 4,8,16,32,64,128,256
@@ -106,7 +114,39 @@ public class JABCodeEncoder {
                 return this;
             }
             
+            /**
+             * Set explicit symbol versions for cascaded multi-symbol encoding.
+             * 
+             * <p>When encoding with multiple symbols (symbolNumber > 1), you can optionally
+             * specify the exact version of each symbol. This is required when the encoder
+             * cannot automatically determine optimal sizes.</p>
+             * 
+             * @param versions List of symbol versions, one per symbol
+             * @return This builder instance
+             * @throws IllegalArgumentException if version count doesn't match symbol count
+             */
+            public Builder symbolVersions(List<SymbolVersion> versions) {
+                if (versions != null && !versions.isEmpty()) {
+                    if (versions.size() != symbolNumber) {
+                        throw new IllegalArgumentException(
+                            "Symbol version count (" + versions.size() + 
+                            ") must match symbol count (" + symbolNumber + ")");
+                    }
+                    this.symbolVersions = List.copyOf(versions);
+                } else {
+                    this.symbolVersions = null;
+                }
+                return this;
+            }
+            
             public Config build() {
+                // Validate: if symbolNumber > 1, versions should be provided
+                if (symbolNumber > 1 && symbolVersions == null) {
+                    // Warning: Multi-symbol without explicit versions may fail
+                    // Native encoder requires version configuration for cascades
+                    System.err.println("[WARNING] Multi-symbol encoding without explicit " +
+                        "symbol versions may fail. Consider using symbolVersions().");
+                }
                 return new Config(this);
             }
         }
@@ -215,6 +255,11 @@ public class JABCodeEncoder {
             System.err.println("[ENCODER] After createEncode: color_number in struct = " + actualColorNumber);
             
             try {
+                // Set symbol versions if provided (for multi-symbol cascades)
+                if (config.getSymbolVersions() != null) {
+                    setSymbolVersions(enc, config.getSymbolVersions());
+                }
+                
                 // Set ECC level in encoder struct
                 // struct layout: color_number(0), symbol_number(4), module_size(8), 
                 //                master_width(12), master_height(16), padding(20),
@@ -311,5 +356,64 @@ public class JABCodeEncoder {
         }
         
         return MemorySegment.ofAddress(bitmapAddress);
+    }
+    
+    /**
+     * Set symbol versions in the native encoder structure.
+     * 
+     * Symbol versions are stored as an array of vector2d structs.
+     * Each vector2d is: { int32 x; int32 y; }
+     * 
+     * @param enc Native encoder memory segment
+     * @param versions List of symbol versions to configure
+     */
+    private void setSymbolVersions(MemorySegment enc, List<SymbolVersion> versions) {
+        // symbol_versions is at offset 32 (vector2d* pointer)
+        long versionsOffset = 32;
+        long versionsAddress = enc.get(ValueLayout.ADDRESS, versionsOffset).address();
+        
+        if (versionsAddress == 0) {
+            System.err.println("[ENCODER] WARNING: symbol_versions pointer is NULL!");
+            return;
+        }
+        
+        // Each vector2d is 8 bytes (2 int32s)
+        long structSize = 8;
+        MemorySegment versionsArray = MemorySegment.ofAddress(versionsAddress)
+            .reinterpret(structSize * versions.size());
+        
+        // Write each version
+        for (int i = 0; i < versions.size(); i++) {
+            SymbolVersion version = versions.get(i);
+            long offset = i * structSize;
+            
+            // Write x (width version)
+            versionsArray.set(ValueLayout.JAVA_INT, offset, version.getX());
+            // Write y (height version)
+            versionsArray.set(ValueLayout.JAVA_INT, offset + 4, version.getY());
+            
+            System.err.println("[ENCODER] Set symbol " + i + " version: " + 
+                version.getX() + "×" + version.getY());
+        }
+        
+        // Also initialize symbol_positions array (offset 48)
+        // This is required to avoid "Duplicate symbol position" error
+        long positionsOffset = 48;
+        long positionsAddress = enc.get(ValueLayout.ADDRESS, positionsOffset).address();
+        
+        if (positionsAddress == 0) {
+            System.err.println("[ENCODER] WARNING: symbol_positions pointer is NULL!");
+            return;
+        }
+        
+        // symbol_positions is int32 array
+        MemorySegment positionsArray = MemorySegment.ofAddress(positionsAddress)
+            .reinterpret(4 * versions.size());
+        
+        // Set sequential positions: 0, 1, 2, ...
+        for (int i = 0; i < versions.size(); i++) {
+            positionsArray.set(ValueLayout.JAVA_INT, i * 4, i);
+            System.err.println("[ENCODER] Set symbol " + i + " position: " + i);
+        }
     }
 }
