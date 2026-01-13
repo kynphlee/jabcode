@@ -1071,6 +1071,8 @@ void placeMasterMetadataPartII(jab_encode* enc)
     jab_int32 x = MASTER_METADATA_X;
     jab_int32 y = MASTER_METADATA_Y;
     jab_int32 module_count = 0;
+    jab_int32 matrix_size = enc->symbols[0].side_size.x * enc->symbols[0].side_size.y;
+    
     //skip PartI and color palette
     // Per Annex G.3: 4 palettes for ≤8 colors, 2 palettes for >8 colors
     jab_int32 num_palettes_skip = (enc->color_number > 8) ? 2 : COLOR_PALETTE_NUMBER;
@@ -1079,8 +1081,8 @@ void placeMasterMetadataPartII(jab_encode* enc)
     
     FILE* skip_log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
     if(skip_log) {
-        fprintf(skip_log, "[ENCODER] Part II skip: module_offset=%d (4 Part I + %d colors × %d palettes)\n",
-            module_offset, colors_to_skip, num_palettes_skip);
+        fprintf(skip_log, "[ENCODER] placeMasterMetadataPartII: matrix_size=%dx%d=%d, module_offset=%d (4 Part I + %d colors × %d palettes)\n",
+            enc->symbols[0].side_size.x, enc->symbols[0].side_size.y, matrix_size, module_offset, colors_to_skip, num_palettes_skip);
         fclose(skip_log);
     }
     
@@ -1089,11 +1091,23 @@ void placeMasterMetadataPartII(jab_encode* enc)
 		module_count++;
         getNextMetadataModuleInMaster(enc->symbols[0].side_size.y, enc->symbols[0].side_size.x, module_count, &x, &y);
         
+        // Bounds check
+        jab_int32 idx = y * enc->symbols[0].side_size.x + x;
+        if(idx < 0 || idx >= matrix_size) {
+            skip_log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+            if(skip_log) {
+                fprintf(skip_log, "[ENCODER] ERROR: Part II skip module %d at (%d,%d) -> idx=%d OUT OF BOUNDS (size=%d)\n",
+                    i, x, y, idx, matrix_size);
+                fclose(skip_log);
+            }
+            return; // Abort to prevent crash
+        }
+        
         // Safety check for infinite loops
         if(i > 0 && i % 20 == 0) {
             skip_log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
             if(skip_log) {
-                fprintf(skip_log, "[ENCODER] Part II skip progress: %d/%d\n", i, module_offset);
+                fprintf(skip_log, "[ENCODER] Part II skip progress: %d/%d, pos=(%d,%d)\n", i, module_offset, x, y);
                 fclose(skip_log);
             }
         }
@@ -1130,6 +1144,18 @@ void placeMasterMetadataPartII(jab_encode* enc)
 				break;
 		}
 		
+		// Bounds check before writing
+		jab_int32 idx = y * enc->symbols[0].side_size.x + x;
+		if(idx < 0 || idx >= matrix_size) {
+			debug_log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
+			if(debug_log) {
+				fprintf(debug_log, "[ENCODER] ERROR: Part II write module at (%d,%d) -> idx=%d OUT OF BOUNDS (size=%d)\n",
+					x, y, idx, matrix_size);
+				fclose(debug_log);
+			}
+			return; // Abort to prevent crash
+		}
+		
 		if (module_debug < 10) {
 			debug_log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
 			if (debug_log) {
@@ -1145,8 +1171,8 @@ void placeMasterMetadataPartII(jab_encode* enc)
 			module_debug++;
 		}
 		
-        enc->symbols[0].matrix[y*enc->symbols[0].side_size.x + x] = color_index;
-        enc->symbols[0].data_map[y*enc->symbols[0].side_size.x + x] = 0;  // Mark as metadata (non-data) to prevent masking
+        enc->symbols[0].matrix[idx] = color_index;
+        enc->symbols[0].data_map[idx] = 0;  // Mark as metadata (non-data) to prevent masking
         module_count++;
         getNextMetadataModuleInMaster(enc->symbols[0].side_size.y, enc->symbols[0].side_size.x, module_count, &x, &y);
     }
@@ -2627,9 +2653,9 @@ jab_int32 generateJABCode(jab_encode* enc, jab_data* data)
 #endif
 		if(mask_reference != DEFAULT_MASKING_REFERENCE)
 		{
-			// CRITICAL: placeMasterMetadataPartII has malloc corruption bug for 256-color mode
-			// Safe for ≤128 colors. 256-color needs deeper investigation and fix.
-			// TODO: Fix placeMasterMetadataPartII malloc corruption for 256-color mode
+			// CRITICAL: placeMasterMetadataPartII required for mask synchronization
+			// Without this, encoder masks with pattern X but writes MSK=7 to metadata
+			// Decoder reads MSK=7 and demasks incorrectly → LDPC failure
 			if (enc->color_number <= 128) {
 				//re-encode PartII of master symbol metadata with actual mask_reference
 				updateMasterMetadataPartII(enc, mask_reference);

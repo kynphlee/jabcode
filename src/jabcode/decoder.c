@@ -60,10 +60,11 @@ void copyAndInterpolateSubblockFrom16To32(jab_byte* palette, jab_int32 dst_offse
  * @brief Interpolate 64-color palette into 128-/256-color palette
  * @param palette the color palette
  * @param color_number the number of colors
+ * @param num_palettes the number of palettes (2 for >8 colors, 4 for <=8 colors)
 */
-void interpolatePalette(jab_byte* palette, jab_int32 color_number)
+void interpolatePalette(jab_byte* palette, jab_int32 color_number, jab_int32 num_palettes)
 {
-	for(jab_int32 i=0; i<COLOR_PALETTE_NUMBER; i++)
+	for(jab_int32 i=0; i<num_palettes; i++)
 	{
 		jab_int32 offset = color_number * 3 * i;
 		if(color_number == 128)											//each block includes 16 colors
@@ -451,7 +452,7 @@ jab_int32 readColorPaletteInMaster(jab_bitmap* matrix, jab_decoded_symbol* symbo
 	//interpolate the palette if there are more than 64 colors
 	if(color_number > 64)
 	{
-		interpolatePalette(symbol->palette, color_number);
+		interpolatePalette(symbol->palette, color_number, num_palettes);
 	}
 	return JAB_SUCCESS;
 }
@@ -467,8 +468,10 @@ jab_int32 readColorPaletteInSlave(jab_bitmap* matrix, jab_decoded_symbol* symbol
 {
 	//allocate buffer for palette
 	jab_int32 color_number = (jab_int32)pow(2, symbol->metadata.Nc + 1);
+	// Per Annex G.3: 4 palettes for ≤8 colors, 2 palettes for >8 colors
+	jab_int32 num_palettes = (color_number > 8) ? 2 : COLOR_PALETTE_NUMBER;
 	free(symbol->palette);
-	symbol->palette = (jab_byte*)malloc(color_number * sizeof(jab_byte) * 3 * COLOR_PALETTE_NUMBER);
+	symbol->palette = (jab_byte*)malloc(color_number * sizeof(jab_byte) * 3 * num_palettes);
     if(symbol->palette == NULL)
     {
 		reportError("Memory allocation for slave palette failed");
@@ -534,7 +537,7 @@ jab_int32 readColorPaletteInSlave(jab_bitmap* matrix, jab_decoded_symbol* symbol
 	//interpolate the palette if there are more than 64 colors
 	if(color_number > 64)
 	{
-		interpolatePalette(symbol->palette, color_number);
+		interpolatePalette(symbol->palette, color_number, num_palettes);
 	}
 	return JAB_SUCCESS;
 }
