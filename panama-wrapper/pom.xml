@@ -36,6 +36,9 @@
         <!-- Panama bindings package -->
         <panama.package>com.jabcode.panama.bindings</panama.package>
         
+        <!-- Benchmarking -->
+        <jmh.version>1.37</jmh.version>
+        
         <!-- Skip tests by default (require native lib setup) -->
         <skipTests>false</skipTests>
     </properties>
@@ -58,6 +61,19 @@
             <scope>test</scope>
         </dependency>
         
+        <!-- JMH for benchmarking -->
+        <dependency>
+            <groupId>org.openjdk.jmh</groupId>
+            <artifactId>jmh-core</artifactId>
+            <version>${jmh.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.openjdk.jmh</groupId>
+            <artifactId>jmh-generator-annprocess</artifactId>
+            <version>${jmh.version}</version>
+            <scope>test</scope>
+        </dependency>
         
     </dependencies>
 
@@ -292,6 +308,46 @@
                 <maven.compiler.source>25</maven.compiler.source>
                 <maven.compiler.target>25</maven.compiler.target>
             </properties>
+        </profile>
+        
+        <!-- Profile for running benchmarks -->
+        <profile>
+            <id>benchmarks</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <version>3.1.1</version>
+                        <executions>
+                            <execution>
+                                <id>run-benchmarks</id>
+                                <phase>integration-test</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <executable>java</executable>
+                                    <arguments>
+                                        <argument>-classpath</argument>
+                                        <classpath/>
+                                        <argument>--enable-native-access=ALL-UNNAMED</argument>
+                                        <argument>-Djava.library.path=${jabcode.lib.path}</argument>
+                                        <argument>org.openjdk.jmh.Main</argument>
+                                        <argument>-rf</argument>
+                                        <argument>json</argument>
+                                        <argument>-rff</argument>
+                                        <argument>benchmark-results.json</argument>
+                                    </arguments>
+                                    <environmentVariables>
+                                        <LD_LIBRARY_PATH>${jabcode.lib.path}</LD_LIBRARY_PATH>
+                                    </environmentVariables>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
         </profile>
     </profiles>
 </project>
