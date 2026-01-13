@@ -30,7 +30,9 @@ public final class BenchmarkConfig {
     
     // JMH configuration
     public static final int WARMUP_ITERATIONS = 5;
+    public static final int WARMUP_TIME_SECONDS = 2;
     public static final int MEASUREMENT_ITERATIONS = 10;
+    public static final int MEASUREMENT_TIME_SECONDS = 2;
     public static final int FORK_COUNT = 3;
     
     // Acceptable performance variance (coefficient of variation)
