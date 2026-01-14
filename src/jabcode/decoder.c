@@ -22,6 +22,8 @@
 #include "encoder.h"
 #include "lab_color.h"
 #include "adaptive_palette.h"
+#include "timing.h"
+#include "kdtree_color.h"
 
 /**
  * @brief Copy 16-color sub-blocks of 64-color palette into 32-color blocks of 256-color palette and interpolate into 32 colors
@@ -708,9 +710,11 @@ static jab_int32 applyAdaptiveCorrections(jab_decoded_symbol* symbol, jab_int32 
  * @param pal_ths the palette RGB value thresholds
  * @param x the x coordinate of the module
  * @param y the y coordinate of the module
+ * @param kdtrees Array of k-d trees for fast lookup (can be NULL for fallback)
+ * @param palette_lab Pre-computed LAB values for palette colors (can be NULL for fallback)
  * @return the decoded value
 */
-jab_byte decodeModuleHD(jab_bitmap* matrix, jab_byte* palette, jab_int32 color_number, jab_float* norm_palette, jab_float* pal_ths, jab_int32 x, jab_int32 y, jab_int32 num_palettes)
+jab_byte decodeModuleHD(jab_bitmap* matrix, jab_byte* palette, jab_int32 color_number, jab_float* norm_palette, jab_float* pal_ths, jab_int32 x, jab_int32 y, jab_int32 num_palettes, kdtree_color** kdtrees, jab_lab_color* palette_lab)
 {
 	//get the nearest palette
 	jab_int32 p_index = getNearestPalette(matrix, x, y, num_palettes);
@@ -739,43 +743,53 @@ jab_byte decodeModuleHD(jab_bitmap* matrix, jab_byte* palette, jab_int32 color_n
 		index1 = 0;
 		return index1;
 	}
+	jab_float min1 = 10000.0f, min2 = 10000.0f;
+	
 	if(palette)
 	{
-	    //normalize the RGB values with improved stability
-        jab_float rgb_max = MAX(rgb[0], MAX(rgb[1], rgb[2]));
-        //Add small epsilon to prevent division by zero and reduce noise amplification in dark colors
-        jab_float normalizer = MAX(rgb_max, 1.0f);  //Use at least 1.0 to avoid extreme amplification
-        jab_float r = (jab_float)rgb[0] / normalizer;
-        jab_float g = (jab_float)rgb[1] / normalizer;
-        jab_float b = (jab_float)rgb[2] / normalizer;
-        //jab_float l = ((rgb[0] + rgb[1] + rgb[2]) / 3.0f) / 255.0f;
-
-		jab_float min1 = 10000.0f, min2 = 10000.0f;
-		for(jab_int32 i=0; i<color_number; i++)
-		{
-			// Phase 2: Use LAB perceptual distance (ΔE) instead of RGB Euclidean
-			jab_byte pal_r = palette[color_number*3*p_index + i*3 + 0];
-			jab_byte pal_g = palette[color_number*3*p_index + i*3 + 1];
-			jab_byte pal_b = palette[color_number*3*p_index + i*3 + 2];
+		// Use k-d tree for fast nearest-neighbor lookup if available
+		if (kdtrees && kdtrees[p_index]) {
+			// O(log n) k-d tree lookup
+			index1 = kdtree_nearest(kdtrees[p_index], observed_lab);
+			
+			// Calculate actual distance for observation system
+			jab_byte pal_r = palette[color_number*3*p_index + index1*3 + 0];
+			jab_byte pal_g = palette[color_number*3*p_index + index1*3 + 1];
+			jab_byte pal_b = palette[color_number*3*p_index + index1*3 + 2];
 			jab_rgb_color palette_rgb = {pal_r, pal_g, pal_b};
 			jab_lab_color palette_lab = rgb_to_lab(palette_rgb);
-
-			// Calculate perceptual color difference (ΔE76)
-			jab_float diff = delta_e_76(observed_lab, palette_lab);
-
-			if(diff < min1)
+			min1 = delta_e_76(observed_lab, palette_lab);
+			min2 = 10000.0f; // K-d tree doesn't track 2nd best
+		} else {
+			// Brute-force O(n) search with pre-computed LAB values
+			min1 = 10000.0f;
+			for(jab_int32 i=0; i<color_number; i++)
 			{
-				//copy min1 to min2
-				min2 = min1;
-				index2 = index1;
-				//update min1
-				min1 = diff;
-				index1 = (jab_byte)i;
-			}
-			else if(diff < min2)
-			{
-				min2 = diff;
-				index2 = (jab_byte)i;
+				jab_lab_color pal_lab;
+				if (palette_lab) {
+					// Use pre-computed LAB (fast path)
+					pal_lab = palette_lab[p_index * color_number + i];
+				} else {
+					// Compute LAB on-the-fly (fallback)
+					jab_byte pal_r = palette[color_number*3*p_index + i*3 + 0];
+					jab_byte pal_g = palette[color_number*3*p_index + i*3 + 1];
+					jab_byte pal_b = palette[color_number*3*p_index + i*3 + 2];
+					jab_rgb_color palette_rgb = {pal_r, pal_g, pal_b};
+					pal_lab = rgb_to_lab(palette_rgb);
+				}
+				
+				jab_float diff = delta_e_76(observed_lab, pal_lab);
+				
+				if(diff < min1)
+				{
+					min2 = min1;
+					min1 = diff;
+					index1 = (jab_byte)i;
+				}
+				else if(diff < min2)
+				{
+					min2 = diff;
+				}
 			}
 		}
 
@@ -1255,7 +1269,7 @@ jab_int32 decodeMasterMetadataPartII(jab_bitmap* matrix, jab_decoded_symbol* sym
 		// at each position, even if spiral revisits. Decoder reads sequentially from bitmap.
 		
 		//decode bits out of the module at (x,y)
-		jab_byte bits = decodeModuleHD(matrix, symbol->palette, color_number, norm_palette, pal_ths, *x, *y, num_palettes);
+		jab_byte bits = decodeModuleHD(matrix, symbol->palette, color_number, norm_palette, pal_ths, *x, *y, num_palettes, NULL, NULL);
 		
 		// Debug: Log first few module decodes
 		if (debug_module_count < 10) {
@@ -1426,7 +1440,27 @@ jab_data* readRawModuleData(jab_bitmap* matrix, jab_decoded_symbol* symbol, jab_
 	jab_byte decoded_module_color_index[matrix->height * matrix->width];
 #endif
 
+	// K-d trees disabled - brute-force with LAB caching is faster for typical cases
+	kdtree_color** kdtrees = NULL;
+
+	// Pre-compute palette LAB values (avoids 64,000+ rgb_to_lab() calls for 64-color)
+	jab_lab_color* palette_lab = (jab_lab_color*)malloc(num_palettes * color_number * sizeof(jab_lab_color));
+	if (palette_lab) {
+		for (jab_int32 p = 0; p < num_palettes; p++) {
+			for (jab_int32 c = 0; c < color_number; c++) {
+				jab_int32 offset = color_number * 3 * p + c * 3;
+				jab_rgb_color rgb_color = {
+					symbol->palette[offset + 0],
+					symbol->palette[offset + 1],
+					symbol->palette[offset + 2]
+				};
+				palette_lab[p * color_number + c] = rgb_to_lab(rgb_color);
+			}
+		}
+	}
+
 	jab_int32 data_module_seq = 0;
+	TIMING_START();
 	// Use column-major order (x outer, y inner) to match encoder's data placement order
 	for(jab_int32 j=0; j<matrix->width; j++)
 	{
@@ -1435,7 +1469,7 @@ jab_data* readRawModuleData(jab_bitmap* matrix, jab_decoded_symbol* symbol, jab_
 			if(data_map[i*matrix->width + j] == 0)  // fillDataMap marks reserved as 1, read data from 0
 			{
 				//decode bits out of the module at (x,y)
-				jab_byte bits = decodeModuleHD(matrix, symbol->palette, color_number, norm_palette, pal_ths, j, i, num_palettes);
+				jab_byte bits = decodeModuleHD(matrix, symbol->palette, color_number, norm_palette, pal_ths, j, i, num_palettes, kdtrees, palette_lab);
 				//write the bits into data
 				data->data[module_count] = (jab_char)bits;
 				
@@ -1464,6 +1498,7 @@ jab_data* readRawModuleData(jab_bitmap* matrix, jab_decoded_symbol* symbol, jab_
 			}
 		}
 	}
+	TIMING_END("  Color Quantization (all modules)");
 	data->length = module_count;
 
 #if TEST_MODE
@@ -1504,6 +1539,19 @@ jab_data* readRawModuleData(jab_bitmap* matrix, jab_decoded_symbol* symbol, jab_
 	fclose(fp1);
 	fclose(fp2);
 #endif // TEST_MODE
+
+	// Clean up k-d trees
+	if (kdtrees) {
+		for (jab_int32 p = 0; p < num_palettes; p++) {
+			kdtree_free(kdtrees[p]);
+		}
+		free(kdtrees);
+	}
+	
+	// Clean up palette LAB cache
+	if (palette_lab) {
+		free(palette_lab);
+	}
 
 	return data;
 }
@@ -1816,12 +1864,14 @@ jab_int32 decodeSymbol(jab_bitmap* matrix, jab_decoded_symbol* symbol, jab_byte*
 #endif // TEST_MODE
 
 	//decode ldpc
+	TIMING_START();
     if(decodeLDPChd((jab_byte*)raw_data->data, Pg, symbol->metadata.ecl.x, symbol->metadata.ecl.y) != Pn)
     {
 		JAB_REPORT_ERROR(("LDPC decoding for data in symbol %d failed", symbol->index))
 		free(raw_data);
 		return JAB_FAILURE;
 	}
+	TIMING_END("  LDPC Decode");
 
 	//find the start flag of metadata
 	jab_int32 metadata_offset = Pn - 1;

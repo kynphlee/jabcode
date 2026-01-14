@@ -19,6 +19,7 @@
 #include "detector.h"
 #include "decoder.h"
 #include "encoder.h"
+#include "timing.h"
 
 /**
  * @brief Check the proportion of layer sizes in finder pattern
@@ -3551,6 +3552,8 @@ jab_boolean decodeDockedSlaves(jab_bitmap* bitmap, jab_bitmap* ch[], jab_decoded
 */
 jab_data* decodeJABCodeEx(jab_bitmap* bitmap, jab_int32 mode, jab_int32* status, jab_decoded_symbol* symbols, jab_int32 max_symbol_number)
 {
+	TIMING_START();
+	
 	if(status) *status = 0;
 	if(!symbols)
 	{
@@ -3565,6 +3568,7 @@ jab_data* decodeJABCodeEx(jab_bitmap* bitmap, jab_int32 mode, jab_int32* status,
 	{
 		return NULL;
 	}
+	TIMING_CHECKPOINT("Binarization");
 #if TEST_MODE
     saveImage(bitmap, "jab_balanced.png");
 #endif // TEST_MODE
@@ -3592,6 +3596,7 @@ jab_data* decodeJABCodeEx(jab_bitmap* bitmap, jab_int32 mode, jab_int32* status,
 	{
 		total++;
 	}
+	TIMING_CHECKPOINT("Symbol Detection + Master Decode");
     //detect and decode docked slave symbols recursively
     if(total>0)
     {
@@ -3649,6 +3654,7 @@ jab_data* decodeJABCodeEx(jab_bitmap* bitmap, jab_int32 mode, jab_int32* status,
     decoded_bits->length = total_data_length;
     //decode data
     jab_data* decoded_data = decodeData(decoded_bits);
+    TIMING_CHECKPOINT("Data Decode (bit unpacking)");
     if(decoded_data == NULL)
 	{
 		reportError("Decoding data failed");
@@ -3667,6 +3673,7 @@ jab_data* decodeJABCodeEx(jab_bitmap* bitmap, jab_int32 mode, jab_int32* status,
 #if TEST_MODE
 	free(test_mode_bitmap);
 #endif // TEST_MODE
+	TIMING_END("TOTAL DECODE");
 	if(res == 0) return NULL;
 	if(status)
 	{

@@ -17,6 +17,7 @@
 #include "jabcode.h"
 #include "png.h"
 #include "tiffio.h"
+#include "timing.h"
 
 /**
  * @brief Save code bitmap in RGB as png image
@@ -186,6 +187,14 @@ jab_boolean saveImageCMYK(jab_bitmap* bitmap, jab_boolean isCMYK, jab_char* file
 */
 jab_bitmap* readImage(jab_char* filename)
 {
+	// Test write to verify timing infrastructure
+	FILE* test_log = fopen("/tmp/jabcode-timing.log", "a");
+	if (test_log) {
+		fprintf(test_log, "[DEBUG] readImage called: %s\n", filename);
+		fclose(test_log);
+	}
+	
+	TIMING_START();
 	png_image image;
     memset(&image, 0, sizeof(image));
     image.version = PNG_IMAGE_VERSION;
@@ -227,5 +236,6 @@ jab_bitmap* readImage(jab_char* filename)
 		reportError("Opening png image failed");
 		return NULL;
 	}
+	TIMING_END("PNG Load + Decompress");
 	return bitmap;
 }

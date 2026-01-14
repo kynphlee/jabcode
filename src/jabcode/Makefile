@@ -3,7 +3,7 @@ CC 	= $(PREFIX)gcc
 AR 	= $(PREFIX)ar
 RANLIB	= $(PREFIX)ranlib
 # Production build with debug symbols
-CFLAGS	= -g -O2 -std=c11 -fPIC
+CFLAGS	= -g -O2 -std=c11 -fPIC -D_POSIX_C_SOURCE=199309L
 # AddressSanitizer for memory debugging
 ASAN_CFLAGS = -g -O0 -std=c11 -fPIC -fsanitize=address -fno-omit-frame-pointer
 
