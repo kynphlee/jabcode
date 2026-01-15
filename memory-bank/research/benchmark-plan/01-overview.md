@@ -2,21 +2,83 @@
 
 ## Executive Summary
 
-The JABCode Panama FFM implementation is **functionally complete** (85-90% of spec checklist) but lacks **quantified performance characteristics**. This plan establishes formal benchmarks to measure, track, and optimize performance across all color modes and encoding scenarios.
+The JABCode Panama FFM implementation is **functionally complete** (85-90% of spec checklist) and now has **native C performance baselines** established through Phase 0 profiling. This plan completes the benchmarking effort by adding Java-side JMH benchmarks to measure FFM overhead and end-to-end performance.
 
 **Current State:**
 - ✅ 205 functional tests passing
 - ✅ 7 color modes working (4-128 colors)
 - ✅ Cascaded encoding support
-- ❌ No performance baselines
-- ❌ No regression detection
-- ❌ No optimization guidance
+- ✅ **Phase 0 Complete:** Native decoder optimized (33% speedup)
+- ✅ **Native baseline:** 27.3ms decode time documented
+- ❌ Java FFM overhead not quantified
+- ❌ JMH benchmarks not implemented
+- ❌ No regression detection in CI
 
 **Target State:**
+- ✅ Native performance optimized (DONE)
+- ✅ Java FFM overhead quantified
 - ✅ Quantified performance per color mode
 - ✅ Automated regression detection in CI
 - ✅ Clear optimization targets identified
 - ✅ User guidance on mode trade-offs
+
+---
+
+## Phase 0: Foundation First
+
+### Why Native Profiling Before JMH?
+
+**Phase 0 (COMPLETED)** established native C library performance baseline **before** Java-side JMH benchmarking. This sequencing is critical:
+
+**Problem Without Phase 0:**
+```
+JMH Benchmark: Decode takes 45ms
+├─ FFM overhead: ???ms (unknown)
+└─ Native C time: ???ms (unknown)
+
+Cannot determine if slowness is:
+- Java FFM marshalling
+- Native C implementation
+- Both
+```
+
+**Solution With Phase 0:**
+```
+Native baseline: 27.3ms (optimized, measured directly in C)
+JMH Benchmark: 45ms total
+├─ FFM overhead: 17.7ms (45 - 27.3 = 39% overhead)
+└─ Native C time: 27.3ms (known, from Phase 0)
+
+Clear optimization target: FFM overhead is measurable
+```
+
+### Phase 0 Achievements (2026-01-14)
+
+✅ **C-side profiling infrastructure** - Microsecond-precision timing  
+✅ **Bottleneck identification** - LDPC 75% of decode time  
+✅ **Critical discovery** - Clean data requires 0 LDPC iterations  
+✅ **LDPC matrix caching** - 53% LDPC reduction, 33% total speedup  
+✅ **Baseline documented** - 27.3ms decode time (540×540, 900 bytes)  
+
+**See:** [01a-phase0-native-profiling.md](01a-phase0-native-profiling.md) for complete details
+
+### Impact on JMH Phases
+
+**Phase 1 (JMH Setup):**
+- Can measure against optimized native baseline
+- FFM overhead becomes actionable metric
+
+**Phase 2 (Encoding Benchmarks):**
+- Decoder time is known (27.3ms)
+- Encoding time = Total - 27.3ms (isolatable)
+
+**Phase 3 (Advanced Metrics):**
+- Native component breakdown already documented
+- JMH adds: FFM overhead, memory patterns, throughput
+
+**Phase 4 (CI Integration):**
+- Regression thresholds based on Phase 0 baseline
+- Alert if decode > 30ms (accounting for variance)
 
 ---
 

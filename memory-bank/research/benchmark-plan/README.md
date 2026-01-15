@@ -27,13 +27,36 @@ benchmark-plan/
 ├── 00-index.md              # Navigation hub
 ├── README.md                # This file (quick start)
 ├── 01-overview.md           # Strategic context & goals
+├── 01a-phase0-native-profiling.md  # ✅ Native optimization (8-12h) COMPLETE
 ├── 02-phase1-jmh-setup.md   # JMH infrastructure (4-6h)
 ├── 03-phase2-core-benchmarks.md    # Core encoding (6-8h)
 ├── 04-phase3-advanced-metrics.md   # Advanced metrics (8-10h)
 └── 05-phase4-ci-integration.md     # CI/CD integration (4-6h)
 ```
 
-**Total Effort:** 22-30 hours (3-4 working days)
+**Total Effort:** 30-42 hours (4-6 working days)  
+**Completed:** 10 hours (Phase 0) ✅  
+**Remaining:** 20-32 hours (Phases 1-4)
+
+---
+
+## Phase 0: Native Optimization ✅ COMPLETE
+
+**Completed:** 2026-01-14 (10 hours)
+
+Before implementing JMH benchmarks, we optimized the native C library to establish a clean baseline:
+
+**Key Achievements:**
+- 🎯 **33% decoder speedup** (41ms → 27.3ms)
+- 🔍 **Identified LDPC as 75% bottleneck** through C-side profiling
+- ⚡ **Matrix caching implemented** - 53% LDPC reduction
+- 📊 **Native baseline documented** - 27.3ms decode time
+- 💡 **Critical discovery** - Clean data requires 0 LDPC iterations
+
+**Why This Matters:**
+Phase 0 optimization means JMH benchmarks in subsequent phases can accurately measure **Java FFM overhead** separately from native performance. Without this baseline, we couldn't distinguish between slow FFM marshalling and slow C code.
+
+**Full Details:** See [01a-phase0-native-profiling.md](01a-phase0-native-profiling.md)
 
 ---
 

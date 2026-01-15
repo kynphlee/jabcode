@@ -775,6 +775,48 @@ Phase 2 will build on this foundation to:
 
 ---
 
-**Phase 1 Status:** Ready for implementation  
-**Estimated Completion:** 4-6 hours  
-**Next:** Run `/test-coverage-update` after implementing Phase 1
+## Phase 1 Results (2026-01-15)
+
+### Status: ✅ COMPLETE
+
+**Actual Time:** 3 hours (infrastructure existed, ran benchmarks & analysis)
+
+### Achievements
+
+1. **JMH Infrastructure** - Already implemented ✅
+   - Dependencies configured in pom.xml
+   - Benchmark base classes created
+   - Maven profiles ready
+
+2. **Baseline Benchmarks Run** ✅
+   - DecodingBenchmark: 61.6ms ± 21.1ms (8-color, 1000 bytes)
+   - FFMOverheadBenchmark: Component analysis complete
+
+3. **Critical Discovery: FFM Overhead** 🔍
+   - Native C baseline: 27.2ms (Phase 0)
+   - Java FFM decode: 63.1ms total
+   - **FFM downcall overhead: 32.4ms (119% of native execution)**
+
+### Component Breakdown
+
+| Component | Time (ms) | % of Total |
+|-----------|-----------|------------|
+| Native execution | 27.2 | 43% |
+| FFM downcall overhead | 32.4 | 51% |
+| PNG I/O | 2.9 | 5% |
+| Result extraction | 0.6 | 1% |
+
+### Key Findings
+
+**FFM overhead is architectural, not fixable:**
+- Downcall boundary crossing: 32.4ms
+- Memory operations: negligible (~0.0001ms)
+- String marshalling: negligible (~0.0001ms)
+- Arena allocation: negligible (~0.0001ms)
+
+**See:** `@/memory-bank/diagnostics/ffm-overhead-analysis.md` for complete analysis
+
+---
+
+**Phase 1 Status:** ✅ COMPLETE  
+**Next:** Phase 2 - Encoding Benchmarks (establish full coverage)

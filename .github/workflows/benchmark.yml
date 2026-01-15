@@ -1,0 +1,193 @@
+name: Performance Benchmarks
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'src/jabcode/**'
+      - 'panama-wrapper/**'
+      - '.github/workflows/benchmark.yml'
+  
+  workflow_dispatch:
+    inputs:
+      full_suite:
+        description: 'Run full benchmark suite'
+        required: false
+        default: 'false'
+
+jobs:
+  benchmark:
+    name: Run JMH Benchmarks
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch full history for comparison
+      
+      - name: Setup JDK 23
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '23'
+          cache: 'maven'
+      
+      - name: Install native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpng-dev
+      
+      - name: Build native library
+        run: |
+          cd src/jabcode
+          make clean all
+          ls -lh libjabcode.so
+        env:
+          CFLAGS: '-O3 -march=native'
+      
+      - name: Copy native library
+        run: |
+          mkdir -p lib
+          cp src/jabcode/libjabcode.so lib/
+      
+      - name: Build Java wrapper
+        run: |
+          cd panama-wrapper
+          mvn clean compile test-compile -DskipTests
+      
+      - name: Run benchmark suite
+        id: benchmark
+        run: |
+          cd panama-wrapper
+          
+          # Determine benchmark parameters
+          if [ "${{ github.event.inputs.full_suite }}" = "true" ]; then
+            BENCHMARKS=".*Benchmark.*"
+            WARMUP=3
+            ITERATIONS=5
+          else
+            # Quick suite for PR checks (subset of critical benchmarks)
+            BENCHMARKS="EncodingBenchmark.encodeByColorMode|DecodingBenchmark.decodeByColorMode|RoundTripBenchmark.encodeDecodeVerify"
+            WARMUP=2
+            ITERATIONS=3
+          fi
+          
+          # Run JMH with JSON output
+          LD_LIBRARY_PATH=../lib java \
+            -cp target/test-classes:target/classes:$(mvn -q dependency:build-classpath -Dmdep.outputFile=/dev/stdout) \
+            --enable-native-access=ALL-UNNAMED \
+            -Djava.library.path=../lib \
+            org.openjdk.jmh.Main "$BENCHMARKS" \
+            -wi $WARMUP -i $ITERATIONS -f 1 \
+            -p colorMode=8,32,64 \
+            -p messageSize=1000 \
+            -rf json -rff ../benchmark-results.json
+        env:
+          MAVEN_OPTS: '-Xmx2g'
+      
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: benchmark-results
+          path: benchmark-results.json
+          retention-days: 90
+      
+      - name: Download baseline
+        id: baseline
+        continue-on-error: true
+        run: |
+          # Try to download baseline from main branch
+          mkdir -p .benchmarks
+          wget -q https://raw.githubusercontent.com/${{ github.repository }}/main/.benchmarks/baseline.json \
+            -O .benchmarks/baseline.json || echo "No baseline found"
+          
+          if [ -f .benchmarks/baseline.json ]; then
+            echo "baseline_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "baseline_exists=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Compare with baseline
+        id: compare
+        if: steps.baseline.outputs.baseline_exists == 'true'
+        run: |
+          python3 .github/scripts/compare-benchmarks.py \
+            .benchmarks/baseline.json \
+            benchmark-results.json \
+            > benchmark-report.md
+          
+          # Check for regressions
+          if grep -q "⚠️ REGRESSION" benchmark-report.md; then
+            echo "regression_detected=true" >> $GITHUB_OUTPUT
+          else
+            echo "regression_detected=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Post benchmark results
+        uses: actions/github-script@v7
+        if: github.event_name == 'pull_request'
+        with:
+          script: |
+            const fs = require('fs');
+            
+            let comment = '## 📊 Performance Benchmark Results\n\n';
+            
+            if (fs.existsSync('benchmark-report.md')) {
+              comment += fs.readFileSync('benchmark-report.md', 'utf8');
+            } else {
+              comment += '✅ Benchmarks completed successfully.\n\n';
+              comment += '_No baseline available for comparison. This will become the baseline when merged._\n';
+            }
+            
+            comment += '\n---\n';
+            comment += '_View [full results artifact](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for detailed metrics._\n';
+            
+            // Find existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const botComment = comments.find(c => 
+              c.user.type === 'Bot' && c.body.includes('Performance Benchmark Results')
+            );
+            
+            if (botComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: comment
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: comment
+              });
+            }
+      
+      - name: Fail on regression
+        if: steps.compare.outputs.regression_detected == 'true'
+        run: |
+          echo "⚠️ Performance regression detected!"
+          echo "Review the benchmark report above for details."
+          exit 1
+      
+      - name: Update baseline on main
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          mkdir -p .benchmarks
+          cp benchmark-results.json .benchmarks/baseline.json
+          
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add .benchmarks/baseline.json
+          git commit -m "chore: update benchmark baseline [skip ci]"
+          git push

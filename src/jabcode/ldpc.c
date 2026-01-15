@@ -63,23 +63,12 @@ static jab_int32* lookupMatrixCache(jab_int32 wc, jab_int32 wr, jab_int32 capaci
             if (matrix_copy) {
                 memcpy(matrix_copy, matrix_cache[i].matrix, matrix_size * sizeof(jab_int32));
                 *matrix_rank = matrix_cache[i].matrix_rank;
-                
-                FILE* log = fopen("/tmp/jabcode-timing.log", "a");
-                if (log) {
-                    fprintf(log, "[MATRIX CACHE HIT] wc=%d, wr=%d, cap=%d\n", wc, wr, capacity);
-                    fclose(log);
-                }
             }
             return matrix_copy;
         }
     }
     
     cache_misses++;
-    FILE* log = fopen("/tmp/jabcode-timing.log", "a");
-    if (log) {
-        fprintf(log, "[MATRIX CACHE MISS] wc=%d, wr=%d, cap=%d\n", wc, wr, capacity);
-        fclose(log);
-    }
     return NULL;
 }
 
@@ -123,12 +112,6 @@ static void insertMatrixCache(jab_int32 wc, jab_int32 wr, jab_int32 capacity, ja
         matrix_cache[slot].capacity = capacity;
         matrix_cache[slot].matrix_rank = matrix_rank;
         matrix_cache[slot].valid = 1;
-        
-        FILE* log = fopen("/tmp/jabcode-timing.log", "a");
-        if (log) {
-            fprintf(log, "[MATRIX CACHE INSERT] slot=%d, wc=%d, wr=%d, cap=%d\n", slot, wc, wr, capacity);
-            fclose(log);
-        }
     }
 }
 
@@ -644,11 +627,6 @@ jab_data *encodeLDPC(jab_data* data, jab_int32* coderate_params)
  * @param start_pos indicating the position to start reading in data array
  * @return 1: error correction succeeded | 0: fatal error (out of memory)
 */
-// Global iteration statistics
-static int ldpc_total_iterations = 0;
-static int ldpc_total_blocks = 0;
-static int ldpc_converged_count = 0;
-
 jab_int32 decodeMessage(jab_byte* data, jab_int32* matrix, jab_int32 length, jab_int32 height, jab_int32 max_iter, jab_boolean *is_correct, jab_int32 start_pos)
 {
     jab_int32* max_val=(jab_int32 *)calloc(length, sizeof(jab_int32));
@@ -748,21 +726,7 @@ jab_int32 decodeMessage(jab_byte* data, jab_int32* matrix, jab_int32 length, jab
         if(*is_correct == 0 && kl+1 < max_iter)
             *is_correct=(jab_boolean)1;
         else
-        {
-            // Collect iteration statistics
-            ldpc_total_blocks++;
-            ldpc_total_iterations += (kl+1);
-            if (*is_correct) ldpc_converged_count++;
-            
-            // Log to timing file
-            FILE* timing_log = fopen("/tmp/jabcode-timing.log", "a");
-            if (timing_log) {
-                fprintf(timing_log, "[LDPC BLOCK] iterations: %d/%d, converged: %s, len: %d\n", 
-                        kl+1, max_iter, *is_correct ? "yes" : "no", length);
-                fclose(timing_log);
-            }
             break;
-        }
     }
 #if TEST_MODE
     JAB_REPORT_INFO(("start position:%d, stop position:%d, correct:%d", start_pos, start_pos+length,(jab_int32)*is_correct))
@@ -965,14 +929,6 @@ jab_int32 decodeLDPChd(jab_byte* data, jab_int32 length, jab_int32 wc, jab_int32
                 }
             }
 
-            // Log syndrome check result
-            FILE* timing_log = fopen("/tmp/jabcode-timing.log", "a");
-            if (timing_log) {
-                fprintf(timing_log, "[LDPC SYNDROME] block %d: %s (len=%d)\n", 
-                        iter, is_correct ? "CLEAN" : "ERRORS_DETECTED", Pg_sub_block);
-                fclose(timing_log);
-            }
-            
             if(is_correct==0)
             {
                 jab_int32 start_pos=iter*old_Pg_sub;
