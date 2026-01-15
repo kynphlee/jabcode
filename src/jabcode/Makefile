@@ -13,8 +13,10 @@ SHARED_LIB := $(CORE_DIR)/libjabcode.so
 ASAN_SHARED_LIB := $(CORE_DIR)/libjabcode_asan.so
 
 SOURCES := $(wildcard *.c)
-OBJECTS := $(SOURCES:.c=.o)
-ASAN_OBJECTS := $(SOURCES:.c=_asan.o)
+# Exclude test programs with main() from library
+LIB_SOURCES := $(filter-out test-png-timing.c create-test-image.c, $(SOURCES))
+OBJECTS := $(LIB_SOURCES:.c=.o)
+ASAN_OBJECTS := $(LIB_SOURCES:.c=_asan.o)
 
 .PHONY: all clean asan
 

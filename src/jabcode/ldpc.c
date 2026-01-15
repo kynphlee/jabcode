@@ -20,6 +20,118 @@
 #include "detector.h"
 #include "pseudo_random.h"
 
+// Matrix cache for LDPC optimization
+#define MAX_MATRIX_CACHE_ENTRIES 16
+
+typedef struct {
+    jab_int32 wc;
+    jab_int32 wr;
+    jab_int32 capacity;
+    jab_int32* matrix;
+    jab_int32 matrix_rank;
+    jab_boolean valid;
+} ldpc_matrix_cache_entry;
+
+static ldpc_matrix_cache_entry matrix_cache[MAX_MATRIX_CACHE_ENTRIES] = {0};
+static int cache_hits = 0;
+static int cache_misses = 0;
+
+/**
+ * @brief Look up matrix in cache
+ * @param wc the number of '1's in a column
+ * @param wr the number of '1's in a row
+ * @param capacity the number of columns of the matrix
+ * @param matrix_rank output parameter for matrix rank
+ * @return cached matrix copy | NULL if not found
+*/
+static jab_int32* lookupMatrixCache(jab_int32 wc, jab_int32 wr, jab_int32 capacity, jab_int32* matrix_rank)
+{
+    for (int i = 0; i < MAX_MATRIX_CACHE_ENTRIES; i++) {
+        if (matrix_cache[i].valid && 
+            matrix_cache[i].wc == wc &&
+            matrix_cache[i].wr == wr &&
+            matrix_cache[i].capacity == capacity) {
+            
+            cache_hits++;
+            
+            // Return a copy of the cached matrix
+            jab_int32 nb_pcb = (wr < 4) ? (capacity / 2) : (capacity / wr * wc);
+            jab_int32 offset = ceil(capacity / (jab_float)32);
+            jab_int32 matrix_size = offset * nb_pcb;
+            
+            jab_int32* matrix_copy = (jab_int32*)calloc(matrix_size, sizeof(jab_int32));
+            if (matrix_copy) {
+                memcpy(matrix_copy, matrix_cache[i].matrix, matrix_size * sizeof(jab_int32));
+                *matrix_rank = matrix_cache[i].matrix_rank;
+                
+                FILE* log = fopen("/tmp/jabcode-timing.log", "a");
+                if (log) {
+                    fprintf(log, "[MATRIX CACHE HIT] wc=%d, wr=%d, cap=%d\n", wc, wr, capacity);
+                    fclose(log);
+                }
+            }
+            return matrix_copy;
+        }
+    }
+    
+    cache_misses++;
+    FILE* log = fopen("/tmp/jabcode-timing.log", "a");
+    if (log) {
+        fprintf(log, "[MATRIX CACHE MISS] wc=%d, wr=%d, cap=%d\n", wc, wr, capacity);
+        fclose(log);
+    }
+    return NULL;
+}
+
+/**
+ * @brief Insert matrix into cache (LRU replacement)
+ * @param wc the number of '1's in a column
+ * @param wr the number of '1's in a row
+ * @param capacity the number of columns of the matrix
+ * @param matrix the matrix to cache
+ * @param matrix_rank the matrix rank
+*/
+static void insertMatrixCache(jab_int32 wc, jab_int32 wr, jab_int32 capacity, jab_int32* matrix, jab_int32 matrix_rank)
+{
+    // Find empty slot or oldest entry (simple LRU: use first slot)
+    int slot = -1;
+    for (int i = 0; i < MAX_MATRIX_CACHE_ENTRIES; i++) {
+        if (!matrix_cache[i].valid) {
+            slot = i;
+            break;
+        }
+    }
+    
+    if (slot == -1) {
+        // Cache full, evict slot 0 (simple FIFO)
+        slot = 0;
+        if (matrix_cache[slot].matrix) {
+            free(matrix_cache[slot].matrix);
+        }
+    }
+    
+    // Calculate matrix size and make a copy
+    jab_int32 nb_pcb = (wr < 4) ? (capacity / 2) : (capacity / wr * wc);
+    jab_int32 offset = ceil(capacity / (jab_float)32);
+    jab_int32 matrix_size = offset * nb_pcb;
+    
+    matrix_cache[slot].matrix = (jab_int32*)calloc(matrix_size, sizeof(jab_int32));
+    if (matrix_cache[slot].matrix) {
+        memcpy(matrix_cache[slot].matrix, matrix, matrix_size * sizeof(jab_int32));
+        matrix_cache[slot].wc = wc;
+        matrix_cache[slot].wr = wr;
+        matrix_cache[slot].capacity = capacity;
+        matrix_cache[slot].matrix_rank = matrix_rank;
+        matrix_cache[slot].valid = 1;
+        
+        FILE* log = fopen("/tmp/jabcode-timing.log", "a");
+        if (log) {
+            fprintf(log, "[MATRIX CACHE INSERT] slot=%d, wc=%d, wr=%d, cap=%d\n", slot, wc, wr, capacity);
+            fclose(log);
+        }
+    }
+}
+
 /**
  * @brief Create matrix A for message data
  * @param wc the number of '1's in a column
@@ -532,6 +644,11 @@ jab_data *encodeLDPC(jab_data* data, jab_int32* coderate_params)
  * @param start_pos indicating the position to start reading in data array
  * @return 1: error correction succeeded | 0: fatal error (out of memory)
 */
+// Global iteration statistics
+static int ldpc_total_iterations = 0;
+static int ldpc_total_blocks = 0;
+static int ldpc_converged_count = 0;
+
 jab_int32 decodeMessage(jab_byte* data, jab_int32* matrix, jab_int32 length, jab_int32 height, jab_int32 max_iter, jab_boolean *is_correct, jab_int32 start_pos)
 {
     jab_int32* max_val=(jab_int32 *)calloc(length, sizeof(jab_int32));
@@ -631,7 +748,21 @@ jab_int32 decodeMessage(jab_byte* data, jab_int32* matrix, jab_int32 length, jab
         if(*is_correct == 0 && kl+1 < max_iter)
             *is_correct=(jab_boolean)1;
         else
+        {
+            // Collect iteration statistics
+            ldpc_total_blocks++;
+            ldpc_total_iterations += (kl+1);
+            if (*is_correct) ldpc_converged_count++;
+            
+            // Log to timing file
+            FILE* timing_log = fopen("/tmp/jabcode-timing.log", "a");
+            if (timing_log) {
+                fprintf(timing_log, "[LDPC BLOCK] iterations: %d/%d, converged: %s, len: %d\n", 
+                        kl+1, max_iter, *is_correct ? "yes" : "no", length);
+                fclose(timing_log);
+            }
             break;
+        }
     }
 #if TEST_MODE
     JAB_REPORT_INFO(("start position:%d, stop position:%d, correct:%d", start_pos, start_pos+length,(jab_int32)*is_correct))
@@ -696,23 +827,44 @@ jab_int32 decodeLDPChd(jab_byte* data, jab_int32 length, jab_int32 wc, jab_int32
     if(Pn_sub_block * nb_sub_blocks < Pn)
         decoding_iterations--;
 
-    //parity check matrix
-    jab_int32* matrixA;
-    if(wr > 0)
-        matrixA = createMatrixA(wc, wr,Pg_sub_block);
-    else
+    //parity check matrix - try cache first
+    jab_int32* matrixA = NULL;
+    jab_boolean from_cache = 0;
+    
+    if(wr > 0) {
+        // Try cache lookup
+        matrixA = lookupMatrixCache(wc, wr, Pg_sub_block, &matrix_rank);
+        if (matrixA) {
+            from_cache = 1;
+        } else {
+            // Cache miss - create and process matrix
+            matrixA = createMatrixA(wc, wr, Pg_sub_block);
+            if(matrixA == NULL) {
+                reportError("LDPC matrix could not be created in decoder.");
+                return 0;
+            }
+            jab_boolean encode=0;
+            if(GaussJordan(matrixA, wc, wr, Pg_sub_block, &matrix_rank, encode)) {
+                reportError("Gauss Jordan Elimination in LDPC encoder failed.");
+                free(matrixA);
+                return 0;
+            }
+            // Insert into cache for future use
+            insertMatrixCache(wc, wr, Pg_sub_block, matrixA, matrix_rank);
+        }
+    } else {
+        // Metadata matrix - no caching for now
         matrixA = createMetadataMatrixA(wc, Pg_sub_block);
-    if(matrixA == NULL)
-    {
-        reportError("LDPC matrix could not be created in decoder.");
-        return 0;
-    }
-    jab_boolean encode=0;
-    if(GaussJordan(matrixA, wc, wr, Pg_sub_block, &matrix_rank,encode))
-    {
-        reportError("Gauss Jordan Elimination in LDPC encoder failed.");
-        free(matrixA);
-        return 0;
+        if(matrixA == NULL) {
+            reportError("LDPC matrix could not be created in decoder.");
+            return 0;
+        }
+        jab_boolean encode=0;
+        if(GaussJordan(matrixA, wc, wr, Pg_sub_block, &matrix_rank, encode)) {
+            reportError("Gauss Jordan Elimination in LDPC encoder failed.");
+            free(matrixA);
+            return 0;
+        }
     }
 
     jab_int32 old_Pg_sub=Pg_sub_block;
@@ -724,18 +876,26 @@ jab_int32 decodeLDPChd(jab_byte* data, jab_int32 length, jab_int32 wc, jab_int32
             matrix_rank=0;
             Pg_sub_block=Pg - decoding_iterations * Pg_sub_block;
             Pn_sub_block=Pg_sub_block * (wr-wc) / wr;
-            jab_int32* matrixA1 = createMatrixA(wc, wr, Pg_sub_block);
-            if(matrixA1 == NULL)
-            {
-                reportError("LDPC matrix could not be created in decoder.");
-                return 0;
-            }
-            jab_boolean encode=0;
-            if(GaussJordan(matrixA1, wc, wr, Pg_sub_block, &matrix_rank,encode))
-            {
-                reportError("Gauss Jordan Elimination in LDPC encoder failed.");
-                free(matrixA1);
-                return 0;
+            
+            // Try cache lookup for matrixA1
+            jab_int32* matrixA1 = lookupMatrixCache(wc, wr, Pg_sub_block, &matrix_rank);
+            if (!matrixA1) {
+                // Cache miss - create and process
+                matrixA1 = createMatrixA(wc, wr, Pg_sub_block);
+                if(matrixA1 == NULL)
+                {
+                    reportError("LDPC matrix could not be created in decoder.");
+                    return 0;
+                }
+                jab_boolean encode=0;
+                if(GaussJordan(matrixA1, wc, wr, Pg_sub_block, &matrix_rank,encode))
+                {
+                    reportError("Gauss Jordan Elimination in LDPC encoder failed.");
+                    free(matrixA1);
+                    return 0;
+                }
+                // Insert into cache
+                insertMatrixCache(wc, wr, Pg_sub_block, matrixA1, matrix_rank);
             }
             //ldpc decoding
             //first check syndrom
@@ -805,6 +965,14 @@ jab_int32 decodeLDPChd(jab_byte* data, jab_int32 length, jab_int32 wc, jab_int32
                 }
             }
 
+            // Log syndrome check result
+            FILE* timing_log = fopen("/tmp/jabcode-timing.log", "a");
+            if (timing_log) {
+                fprintf(timing_log, "[LDPC SYNDROME] block %d: %s (len=%d)\n", 
+                        iter, is_correct ? "CLEAN" : "ERRORS_DETECTED", Pg_sub_block);
+                fclose(timing_log);
+            }
+            
             if(is_correct==0)
             {
                 jab_int32 start_pos=iter*old_Pg_sub;
@@ -1246,18 +1414,26 @@ jab_int32 decodeLDPC(jab_float* enc, jab_int32 length, jab_int32 wc, jab_int32 w
             matrix_rank=0;
             Pg_sub_block=Pg - decoding_iterations * Pg_sub_block;
             Pn_sub_block=Pg_sub_block * (wr-wc) / wr;
-            jab_int32* matrixA1 = createMatrixA(wc, wr, Pg_sub_block);
-            if(matrixA1 == NULL)
-            {
-                reportError("LDPC matrix could not be created in decoder.");
-                return 0;
-            }
-            jab_boolean encode=0;
-            if(GaussJordan(matrixA1, wc, wr, Pg_sub_block, &matrix_rank,encode))
-            {
-                reportError("Gauss Jordan Elimination in LDPC encoder failed.");
-                free(matrixA1);
-                return 0;
+            
+            // Try cache lookup for matrixA1 (second function)
+            jab_int32* matrixA1 = lookupMatrixCache(wc, wr, Pg_sub_block, &matrix_rank);
+            if (!matrixA1) {
+                // Cache miss - create and process
+                matrixA1 = createMatrixA(wc, wr, Pg_sub_block);
+                if(matrixA1 == NULL)
+                {
+                    reportError("LDPC matrix could not be created in decoder.");
+                    return 0;
+                }
+                jab_boolean encode=0;
+                if(GaussJordan(matrixA1, wc, wr, Pg_sub_block, &matrix_rank,encode))
+                {
+                    reportError("Gauss Jordan Elimination in LDPC encoder failed.");
+                    free(matrixA1);
+                    return 0;
+                }
+                // Insert into cache
+                insertMatrixCache(wc, wr, Pg_sub_block, matrixA1, matrix_rank);
             }
             //ldpc decoding
             //first check syndrom
