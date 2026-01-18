@@ -101,6 +101,16 @@ target_link_libraries(test_encode_roundtrip
 
 add_test(NAME test_encode_roundtrip COMMAND test_encode_roundtrip)
 
+# Bitmap debug test
+add_executable(test_bitmap_debug
+    test/c/test_bitmap_debug.c
+)
+
+target_link_libraries(test_bitmap_debug
+    jabcode-mobile
+    m
+)
+
 # Print summary
 message(STATUS "JABCode Mobile Build Configuration:")
 message(STATUS "  Build type: ${CMAKE_BUILD_TYPE}")
