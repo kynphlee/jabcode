@@ -1,0 +1,240 @@
+/**
+ * JABCode Mobile Bridge - Implementation
+ * 
+ * Platform-agnostic C implementation for mobile platforms.
+ * No dependencies on libpng, libtiff, or desktop-specific libraries.
+ */
+
+#include "mobile_bridge.h"
+#include "encoder.h"
+#include "decoder.h"
+#include <string.h>
+#include <stdlib.h>
+
+#define MOBILE_BRIDGE_VERSION "1.0.0"
+#define MAX_ERROR_LENGTH 256
+
+// Thread-local error storage
+static __thread char last_error[MAX_ERROR_LENGTH] = {0};
+
+/**
+ * @brief Set error message (thread-local)
+ */
+static void setError(const char* msg) {
+    if (msg) {
+        strncpy(last_error, msg, MAX_ERROR_LENGTH - 1);
+        last_error[MAX_ERROR_LENGTH - 1] = '\0';
+    } else {
+        last_error[0] = '\0';
+    }
+}
+
+const char* jabMobileGetLastError(void) {
+    return last_error[0] ? last_error : NULL;
+}
+
+void jabMobileClearError(void) {
+    last_error[0] = '\0';
+}
+
+const char* jabMobileGetVersion(void) {
+    return MOBILE_BRIDGE_VERSION;
+}
+
+jab_mobile_encode_result* jabMobileEncode(
+    jab_char* data,
+    jab_int32 data_length,
+    jab_mobile_encode_params* params
+) {
+    // Clear previous error
+    jabMobileClearError();
+    
+    // Validate parameters
+    if (!data || data_length <= 0) {
+        setError("Invalid input data");
+        return NULL;
+    }
+    
+    if (!params) {
+        setError("Invalid parameters");
+        return NULL;
+    }
+    
+    // Validate color mode (exclude 256-color mode - known broken)
+    if (params->color_number == 256) {
+        setError("256-color mode not supported (known issue - use 4, 8, 16, 32, 64, or 128)");
+        return NULL;
+    }
+    
+    if (params->color_number != 4 && params->color_number != 8 && 
+        params->color_number != 16 && params->color_number != 32 && 
+        params->color_number != 64 && params->color_number != 128) {
+        setError("Invalid color mode (must be 4, 8, 16, 32, 64, or 128)");
+        return NULL;
+    }
+    
+    // Validate symbol number (mobile limit: 4 symbols max)
+    if (params->symbol_number < 1 || params->symbol_number > 4) {
+        setError("Symbol number must be 1-4 (mobile limit)");
+        return NULL;
+    }
+    
+    // Validate ECC level
+    if (params->ecc_level < 0 || params->ecc_level > 7) {
+        setError("ECC level must be 0-7");
+        return NULL;
+    }
+    
+    // Create encoder (only takes color_number and symbol_number)
+    jab_encode* enc = createEncode(
+        params->color_number,
+        params->symbol_number
+    );
+    
+    if (!enc) {
+        setError("Failed to create encoder");
+        return NULL;
+    }
+    
+    // Set ECC level and module size (these are set after creation)
+    enc->module_size = params->module_size;
+    for (jab_int32 i = 0; i < enc->symbol_number; i++) {
+        enc->symbol_ecc_levels[i] = params->ecc_level;
+    }
+    
+    // Create jab_data structure from input
+    jab_data* data_struct = (jab_data*)malloc(sizeof(jab_data) + data_length);
+    if (!data_struct) {
+        destroyEncode(enc);
+        setError("Memory allocation failed for input data");
+        return NULL;
+    }
+    data_struct->length = data_length;
+    memcpy(data_struct->data, data, data_length);
+    
+    // Encode data using full pipeline (now available in library)
+    jab_int32 encode_result = generateJABCode(enc, data_struct);
+    free(data_struct);
+    
+    if (encode_result != 0) {
+        destroyEncode(enc);
+        setError("Encoding failed");
+        return NULL;
+    }
+    
+    // Extract bitmap
+    if (!enc->bitmap) {
+        destroyEncode(enc);
+        setError("No bitmap generated");
+        return NULL;
+    }
+    
+    jab_bitmap* bitmap = enc->bitmap;
+    jab_int32 width = bitmap->width;
+    jab_int32 height = bitmap->height;
+    jab_int32 pixel_count = width * height * 4; // RGBA
+    
+    // Allocate result structure
+    jab_mobile_encode_result* result = (jab_mobile_encode_result*)malloc(
+        sizeof(jab_mobile_encode_result)
+    );
+    if (!result) {
+        destroyEncode(enc);
+        setError("Memory allocation failed");
+        return NULL;
+    }
+    
+    // Allocate output buffer
+    result->rgba_buffer = (jab_byte*)malloc(pixel_count);
+    if (!result->rgba_buffer) {
+        free(result);
+        destroyEncode(enc);
+        setError("Memory allocation failed for output buffer");
+        return NULL;
+    }
+    
+    // Copy bitmap data to output buffer
+    memcpy(result->rgba_buffer, bitmap->pixel, pixel_count);
+    result->width = width;
+    result->height = height;
+    
+    // Cleanup encoder
+    destroyEncode(enc);
+    
+    return result;
+}
+
+void jabMobileEncodeResultFree(jab_mobile_encode_result* result) {
+    if (result) {
+        if (result->rgba_buffer) {
+            free(result->rgba_buffer);
+        }
+        free(result);
+    }
+}
+
+jab_data* jabMobileDecode(
+    jab_byte* rgba_buffer,
+    jab_int32 width,
+    jab_int32 height
+) {
+    // Clear previous error
+    jabMobileClearError();
+    
+    // Validate parameters
+    if (!rgba_buffer) {
+        setError("Invalid input buffer");
+        return NULL;
+    }
+    
+    if (width <= 0 || height <= 0) {
+        setError("Invalid image dimensions");
+        return NULL;
+    }
+    
+    // Create bitmap structure from RGBA buffer
+    jab_int32 pixel_count = width * height * 4;
+    jab_bitmap* bitmap = (jab_bitmap*)malloc(
+        sizeof(jab_bitmap) + pixel_count
+    );
+    if (!bitmap) {
+        setError("Memory allocation failed");
+        return NULL;
+    }
+    
+    bitmap->width = width;
+    bitmap->height = height;
+    bitmap->bits_per_pixel = 32;
+    bitmap->bits_per_channel = 8;
+    bitmap->channel_count = 4;
+    memcpy(bitmap->pixel, rgba_buffer, pixel_count);
+    
+    // Decode (returns jab_data* directly)
+    jab_int32 decode_status;
+    jab_data* result = decodeJABCode(
+        bitmap, 
+        NORMAL_DECODE, 
+        &decode_status
+    );
+    
+    free(bitmap);
+    
+    if (!result) {
+        if (decode_status == 0) {
+            setError("Decoding failed - no symbols found");
+        } else if (decode_status == 1) {
+            setError("Decoding failed - symbol not decodable");
+        } else {
+            setError("Decoding failed");
+        }
+        return NULL;
+    }
+    
+    return result;
+}
+
+void jabMobileDataFree(jab_data* data) {
+    if (data) {
+        free(data);
+    }
+}
