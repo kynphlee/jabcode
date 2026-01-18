@@ -1679,6 +1679,16 @@ jab_boolean createBitmap(jab_encode* enc, jab_code* cp)
     enc->bitmap->bits_per_pixel = BITMAP_BITS_PER_PIXEL;
     enc->bitmap->bits_per_channel = BITMAP_BITS_PER_CHANNEL;
     enc->bitmap->channel_count = BITMAP_CHANNEL_COUNT;
+    
+    // Initialize bitmap to white background (required for quiet zone)
+    jab_int32 total_pixels = width * height;
+    for(jab_int32 i = 0; i < total_pixels; i++)
+    {
+        enc->bitmap->pixel[i * bytes_per_pixel + 0] = 255; // R
+        enc->bitmap->pixel[i * bytes_per_pixel + 1] = 255; // G
+        enc->bitmap->pixel[i * bytes_per_pixel + 2] = 255; // B
+        enc->bitmap->pixel[i * bytes_per_pixel + 3] = 255; // A
+    }
 
     //place symbols in bitmap
     for(jab_int32 k=0; k<enc->symbol_number; k++)
