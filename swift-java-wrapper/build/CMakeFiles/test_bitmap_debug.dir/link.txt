@@ -1,0 +1,1 @@
+/usr/bin/cc -g -O0 -fsanitize=address -fno-omit-frame-pointer -fsanitize=address CMakeFiles/test_bitmap_debug.dir/test/c/test_bitmap_debug.c.o -o test_bitmap_debug  lib/libjabcode-mobile.a -lm 

@@ -35,6 +35,7 @@ set(JABCODE_SOURCES
     ../src/jabcode/decoder.c
     ../src/jabcode/ldpc.c
     ../src/jabcode/detector.c
+    ../src/jabcode/detector_synthetic.c
     ../src/jabcode/binarizer.c
     ../src/jabcode/mask.c
     ../src/jabcode/sample.c
@@ -108,6 +109,40 @@ add_executable(test_bitmap_debug
 
 target_link_libraries(test_bitmap_debug
     jabcode-mobile
+    m
+)
+
+# Palette debug test
+add_executable(test_palette_debug
+    test/c/test_palette_debug.c
+)
+
+target_link_libraries(test_palette_debug
+    jabcode-mobile
+    m
+)
+
+# Synthetic decode diagnostic test
+add_executable(test_synthetic_decode
+    test/c/test_synthetic_decode.c
+)
+
+target_link_libraries(test_synthetic_decode
+    jabcode-mobile
+    m
+)
+
+# Desktop decoder test on synthetic bitmap
+add_executable(test_desktop_decode
+    test/c/test_desktop_decode.c
+    ${JABCODE_SOURCES}
+)
+
+target_include_directories(test_desktop_decode PRIVATE
+    ${JABCODE_INCLUDE_DIR}
+)
+
+target_link_libraries(test_desktop_decode
     m
 )
 
