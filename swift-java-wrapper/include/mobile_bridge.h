@@ -29,12 +29,17 @@ typedef struct {
 } jab_mobile_encode_params;
 
 /**
- * @brief Mobile encode result
+ * @brief Mobile encode result with spatial metadata for synthetic roundtrip decode
  */
 typedef struct {
     jab_byte* rgba_buffer;       ///< Output RGBA pixel data (width × height × 4)
     jab_int32 width;             ///< Image width in pixels
     jab_int32 height;            ///< Image height in pixels
+    // Spatial metadata for decoder bypass (avoids camera-tuned pattern detection)
+    jab_int32 module_size;       ///< Pixels per module
+    jab_int32 symbol_width;      ///< Symbol width in modules
+    jab_int32 symbol_height;     ///< Symbol height in modules
+    jab_int32 mask_type;         ///< Mask pattern type used by encoder
 } jab_mobile_encode_result;
 
 /**
@@ -61,19 +66,21 @@ jab_mobile_encode_result* jabMobileEncode(
 void jabMobileEncodeResultFree(jab_mobile_encode_result* result);
 
 /**
- * @brief Decode JABCode from raw RGBA buffer
+ * @brief Decode JABCode from encode result (optimal for mobile roundtrip)
  * 
- * @param rgba_buffer Raw pixel data (width × height × 4 bytes, RGBA format)
- * @param width Image width in pixels
- * @param height Image height in pixels
+ * @param encode_result The encode result containing bitmap and spatial metadata
+ * @param color_number Color count used during encoding (4, 8, 16, 32, 64, 128)
+ * @param ecc_level Error correction level used during encoding
  * @return Decoded data or NULL on failure (check jabMobileGetLastError)
  * 
+ * @note This function uses spatial metadata from encoding to bypass camera-specific
+ *       pattern detection, which fails on perfect synthetic bitmaps.
  * @note Caller must free result with jabMobileDataFree()
  */
 jab_data* jabMobileDecode(
-    jab_byte* rgba_buffer,
-    jab_int32 width,
-    jab_int32 height
+    jab_mobile_encode_result* encode_result,
+    jab_int32 color_number,
+    jab_int32 ecc_level
 );
 
 /**

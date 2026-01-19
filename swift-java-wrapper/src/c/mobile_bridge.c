@@ -158,6 +158,12 @@ jab_mobile_encode_result* jabMobileEncode(
     result->width = width;
     result->height = height;
     
+    // Capture spatial metadata for synthetic decoder bypass
+    result->module_size = enc->module_size;
+    result->symbol_width = enc->symbols[0].side_size.x;
+    result->symbol_height = enc->symbols[0].side_size.y;
+    result->mask_type = enc->mask_type;
+    
     // Cleanup encoder
     destroyEncode(enc);
     
@@ -174,26 +180,42 @@ void jabMobileEncodeResultFree(jab_mobile_encode_result* result) {
 }
 
 jab_data* jabMobileDecode(
-    jab_byte* rgba_buffer,
-    jab_int32 width,
-    jab_int32 height
+    jab_mobile_encode_result* encode_result,
+    jab_int32 color_number,
+    jab_int32 ecc_level
 ) {
     // Clear previous error
     jabMobileClearError();
     
     // Validate parameters
-    if (!rgba_buffer) {
-        setError("Invalid input buffer");
+    if (!encode_result || !encode_result->rgba_buffer) {
+        setError("Invalid encode result");
         return NULL;
     }
     
-    if (width <= 0 || height <= 0) {
+    if (encode_result->width <= 0 || encode_result->height <= 0) {
         setError("Invalid image dimensions");
         return NULL;
     }
     
+    // Validate color_number (must be power of 2 from 4 to 128)
+    if (color_number != 4 && color_number != 8 && color_number != 16 && 
+        color_number != 32 && color_number != 64 && color_number != 128) {
+        setError("Invalid color_number - must be 4, 8, 16, 32, 64, or 128");
+        return NULL;
+    }
+    
+    // Validate spatial metadata
+    if (encode_result->module_size <= 0 || 
+        encode_result->symbol_width <= 0 || 
+        encode_result->symbol_height <= 0 ||
+        encode_result->mask_type < 0 || encode_result->mask_type > 7) {
+        setError("Invalid spatial metadata in encode result");
+        return NULL;
+    }
+    
     // Create bitmap structure from RGBA buffer
-    jab_int32 pixel_count = width * height * 4;
+    jab_int32 pixel_count = encode_result->width * encode_result->height * 4;
     jab_bitmap* bitmap = (jab_bitmap*)malloc(
         sizeof(jab_bitmap) + pixel_count
     );
@@ -202,17 +224,24 @@ jab_data* jabMobileDecode(
         return NULL;
     }
     
-    bitmap->width = width;
-    bitmap->height = height;
+    bitmap->width = encode_result->width;
+    bitmap->height = encode_result->height;
     bitmap->bits_per_pixel = 32;
     bitmap->bits_per_channel = 8;
     bitmap->channel_count = 4;
-    memcpy(bitmap->pixel, rgba_buffer, pixel_count);
+    memcpy(bitmap->pixel, encode_result->rgba_buffer, pixel_count);
     
-    // Decode (returns jab_data* directly)
+    // Decode using synthetic bitmap decoder with known encoding parameters AND spatial metadata
+    // This completely bypasses camera-specific pattern detection
     jab_int32 decode_status;
-    jab_data* result = decodeJABCode(
-        bitmap, 
+    jab_data* result = decodeJABCodeSynthetic(
+        bitmap,
+        color_number,
+        ecc_level,
+        encode_result->module_size,
+        encode_result->symbol_width,
+        encode_result->symbol_height,
+        encode_result->mask_type,
         NORMAL_DECODE, 
         &decode_status
     );

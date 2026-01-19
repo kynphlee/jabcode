@@ -1041,7 +1041,10 @@ void placeMasterMetadataPartII(jab_encode* enc)
 		{
 			if(metadata_index <= partII_bit_end)
 			{
-				jab_byte bit = enc->symbols[0].metadata->data[metadata_index];
+				// Convert bit index to byte index and bit offset
+				jab_int32 byte_index = metadata_index / 8;
+				jab_int32 bit_offset = metadata_index % 8;
+				jab_byte bit = (enc->symbols[0].metadata->data[byte_index] >> (7 - bit_offset)) & 1;
 				if(bit == 0)
 					color_index &= ~(1UL << (nb_of_bits_per_mod-1-j));
 				else
@@ -1663,9 +1666,14 @@ jab_code* getCodePara(jab_encode* enc)
 */
 jab_boolean createBitmap(jab_encode* enc, jab_code* cp)
 {
-    //create bitmap
-    jab_int32 width = cp->dimension * cp->code_size.x;
-    jab_int32 height= cp->dimension * cp->code_size.y;
+    //create bitmap with quiet zone for direct decode compatibility
+    //Note: JABCode spec says "no quiet zone required" for printing, but
+    //direct bitmap decode needs border space for pattern detection
+    jab_int32 quiet_zone = cp->dimension * 4; // 4 modules worth of white border
+    jab_int32 symbol_width = cp->dimension * cp->code_size.x;
+    jab_int32 symbol_height = cp->dimension * cp->code_size.y;
+    jab_int32 width = symbol_width + 2 * quiet_zone;
+    jab_int32 height = symbol_height + 2 * quiet_zone;
     jab_int32 bytes_per_pixel = BITMAP_BITS_PER_PIXEL / 8;
     jab_int32 bytes_per_row = width * bytes_per_pixel;
     enc->bitmap = (jab_bitmap *)calloc(1, sizeof(jab_bitmap) + width*height*bytes_per_pixel*sizeof(jab_byte));
@@ -1690,7 +1698,7 @@ jab_boolean createBitmap(jab_encode* enc, jab_code* cp)
         enc->bitmap->pixel[i * bytes_per_pixel + 3] = 255; // A
     }
 
-    //place symbols in bitmap
+    //place symbols in bitmap (offset by quiet_zone)
     for(jab_int32 k=0; k<enc->symbol_number; k++)
     {
         //calculate the starting coordinates of the symbol matrix
@@ -1715,10 +1723,13 @@ jab_boolean createBitmap(jab_encode* enc, jab_code* cp)
                 {
                     for(jab_int32 j=x*cp->dimension; j<(x*cp->dimension+cp->dimension); j++)
                     {
-                        enc->bitmap->pixel[i*bytes_per_row + j*bytes_per_pixel]     = enc->palette[p_index * 3];	//R
-                        enc->bitmap->pixel[i*bytes_per_row + j*bytes_per_pixel + 1] = enc->palette[p_index * 3 + 1];//B
-                        enc->bitmap->pixel[i*bytes_per_row + j*bytes_per_pixel + 2] = enc->palette[p_index * 3 + 2];//G
-                        enc->bitmap->pixel[i*bytes_per_row + j*bytes_per_pixel + 3] = 255; 							//A
+                        // Offset by quiet_zone to center symbol in white border
+                        // i and j are already in pixel coordinates, so add quiet_zone pixels
+                        jab_int32 pixel_offset = (i + quiet_zone) * bytes_per_row + (j + quiet_zone) * bytes_per_pixel;
+                        enc->bitmap->pixel[pixel_offset]     = enc->palette[p_index * 3];	//R
+                        enc->bitmap->pixel[pixel_offset + 1] = enc->palette[p_index * 3 + 1];//G
+                        enc->bitmap->pixel[pixel_offset + 2] = enc->palette[p_index * 3 + 2];//B
+                        enc->bitmap->pixel[pixel_offset + 3] = 255; 							//A
                     }
                 }
             }
@@ -2287,6 +2298,7 @@ jab_int32 generateJABCode(jab_encode* enc, jab_data* data)
     }
     if(isDefaultMode(enc))	//default mode
 	{
+		enc->mask_type = DEFAULT_MASKING_REFERENCE;
 		maskSymbols(enc, DEFAULT_MASKING_REFERENCE, 0, 0);
 	}
 	else
@@ -2299,6 +2311,7 @@ jab_int32 generateJABCode(jab_encode* enc, jab_data* data)
 			free(cp);
 			return 1;
 		}
+		enc->mask_type = mask_reference;  // Store mask type for external access
 #if TEST_MODE
 		JAB_REPORT_INFO(("mask reference: %d", mask_reference))
 #endif
