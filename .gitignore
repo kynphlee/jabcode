@@ -14,11 +14,35 @@ jmh-result.json
 *.swo
 
 # Build artifacts
+build/
 *.o
 *.so
 *.a
+*.dylib
+*.dll
 lib/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# Test executables (but keep source)
+test_encode_roundtrip
+test_synthetic_decode
+test_desktop_encoder
+test_camera_decode
+test_png_roundtrip
+test_bitmap_debug
+test_palette_debug
+!test_*.c
+!test_*.h
+
+# Java/JVM compiled
+*.class
+target/
 
 # Test outputs
 /tmp/
 *.log
+test-output/
+phase*.txt
