@@ -1915,134 +1915,20 @@ jab_boolean createBitmap(jab_encode* enc, jab_code* cp)
         //place symbol in the code
         jab_int32 symbol_width = enc->symbols[k].side_size.x;
         jab_int32 symbol_height= enc->symbols[k].side_size.y;
-        
-        // Build metadata Part I position map for master symbol with >8 colors
-        jab_byte metadata_partI_map[symbol_width * symbol_height];
-        memset(metadata_partI_map, 0, sizeof(metadata_partI_map));
-        
-        FILE* dbg_start = fopen("/tmp/jabcode_adaptive_debug.log", "a");
-        if (dbg_start) {
-            fprintf(dbg_start, "[ENCODER] Bitmap rendering: startx=%d, starty=%d, symbol_width=%d, symbol_height=%d\n",
-                startx, starty, symbol_width, symbol_height);
-            fclose(dbg_start);
-        }
-        
-        if (k == 0 && enc->color_number > 8 && !isDefaultMode(enc))
-        {
-            // Mark metadata Part I module positions using same traversal as createMatrix
-            jab_int32 meta_x = MASTER_METADATA_X;
-            jab_int32 meta_y = MASTER_METADATA_Y;
-            
-            FILE* log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
-            if (log) {
-                fprintf(log, "[ENCODER] Marking %d Part I modules for 8-color RGB rendering:\n", 
-                    MASTER_METADATA_PART1_MODULE_NUMBER);
-                fclose(log);
-            }
-            
-            for(jab_int32 meta_count = 0; meta_count < MASTER_METADATA_PART1_MODULE_NUMBER; meta_count++)
-            {
-                metadata_partI_map[meta_y * symbol_width + meta_x] = 1;
-                
-                if (meta_count < 6) {
-                    log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
-                    if (log) {
-                        fprintf(log, "[ENCODER]   Module %d at (%d,%d)\n", meta_count, meta_x, meta_y);
-                        fclose(log);
-                    }
-                }
-                
-                getNextMetadataModuleInMaster(symbol_height, symbol_width, meta_count + 1, &meta_x, &meta_y);
-            }
-            
-            // Log first Part II module position for comparison
-            log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
-            if (log) {
-                fprintf(log, "[ENCODER] First Part II module at (%d,%d) - should use 64-color RGB\n", 
-                    meta_x, meta_y);
-                
-                // Count how many positions are marked
-                jab_int32 marked_count = 0;
-                for(jab_int32 i = 0; i < symbol_width * symbol_height; i++) {
-                    if (metadata_partI_map[i]) marked_count++;
-                }
-                fprintf(log, "[ENCODER] Total modules marked for 8-color: %d (should be 4)\n", marked_count);
-                fclose(log);
-            }
-        }
-        
-        // Debug: Verify matrix values at palette positions before rendering
-        {
-            FILE* dbg = fopen("/tmp/jabcode_adaptive_debug.log", "a");
-            if (dbg) {
-                jab_int32 idx_9_5 = 5 * symbol_width + 9;
-                jab_int32 idx_15_5 = 5 * symbol_width + 15;
-                fprintf(dbg, "[ENCODER] Before rendering - matrix[%d] pos(9,5)=%d, matrix[%d] pos(15,5)=%d\n",
-                    idx_9_5, enc->symbols[k].matrix[idx_9_5],
-                    idx_15_5, enc->symbols[k].matrix[idx_15_5]);
-                fclose(dbg);
-            }
-        }
-        
-        jab_int32 render_64color_count = 0;
-        // CRITICAL: Iterate in row-major order (y outer, x inner) to match matrix indexing
         for(jab_int32 y=starty; y<(starty+symbol_height); y++)
         {
             for(jab_int32 x=startx; x<(startx+symbol_width); x++)
             {
                 //place one module in the bitmap
-                jab_int32 matrix_idx = (y-starty)*symbol_width + (x-startx);
-                jab_int32 p_index = enc->symbols[k].matrix[matrix_idx];
-                
-                // CRITICAL FIX: Use 8-color RGB for metadata Part I modules
-                jab_byte r, g, b;
-                jab_boolean using_8color = metadata_partI_map[matrix_idx];
-                
-                if (using_8color)
-                {
-                    // This is a metadata Part I module - use 8-color RGB values
-                    r = jab_default_palette[p_index * 3];
-                    g = jab_default_palette[p_index * 3 + 1];
-                    b = jab_default_palette[p_index * 3 + 2];
-                    
-                    // Debug: Log first few 8-color renderings
-                    static int render_8color_count = 0;
-                    if (render_8color_count < 6) {
-                        FILE* log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
-                        if (log) {
-                            fprintf(log, "[ENCODER] Rendering module at (%d,%d) with 8-color RGB (idx=%d)\n",
-                                x-startx, y-starty, p_index);
-                            fclose(log);
-                        }
-                        render_8color_count++;
-                    }
-                }
-                else
-                {
-                    // Regular module - use full palette
-                    r = enc->palette[p_index * 3];
-                    g = enc->palette[p_index * 3 + 1];
-                    b = enc->palette[p_index * 3 + 2];
-                    
-                    // Debug: Log positions (9,5) and (9,6) to verify Part II rendering
-                    if (((x-startx) == 9 && (y-starty) == 5) || ((x-startx) == 9 && (y-starty) == 6)) {
-                        FILE* log = fopen("/tmp/jabcode_adaptive_debug.log", "a");
-                        if (log) {
-                            fprintf(log, "[ENCODER] Rendering pos (%d,%d): p_index=%d, using_8color=%d, RGB=(%d,%d,%d)\n",
-                                x-startx, y-starty, p_index, using_8color, r, g, b);
-                            fclose(log);
-                        }
-                    }
-                }
-                
+                jab_int32 p_index = enc->symbols[k].matrix[(y-starty)*symbol_width + (x-startx)];
                 for(jab_int32 i=y*cp->dimension; i<(y*cp->dimension+cp->dimension); i++)
                 {
                     for(jab_int32 j=x*cp->dimension; j<(x*cp->dimension+cp->dimension); j++)
                     {
-                        enc->bitmap->pixel[i*bytes_per_row + j*bytes_per_pixel]     = r;  //R
-                        enc->bitmap->pixel[i*bytes_per_row + j*bytes_per_pixel + 1] = g;  //G
-                        enc->bitmap->pixel[i*bytes_per_row + j*bytes_per_pixel + 2] = b;  //B
-                        enc->bitmap->pixel[i*bytes_per_row + j*bytes_per_pixel + 3] = 255; //A
+                        enc->bitmap->pixel[i*bytes_per_row + j*bytes_per_pixel]     = enc->palette[p_index*3];	//R
+                        enc->bitmap->pixel[i*bytes_per_row + j*bytes_per_pixel + 1] = enc->palette[p_index*3 + 1];//G
+                        enc->bitmap->pixel[i*bytes_per_row + j*bytes_per_pixel + 2] = enc->palette[p_index*3 + 2];//B
+                        enc->bitmap->pixel[i*bytes_per_row + j*bytes_per_pixel + 3] = 255; 							//A
                     }
                 }
             }
