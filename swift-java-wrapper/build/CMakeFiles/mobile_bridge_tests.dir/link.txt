@@ -1,1 +1,1 @@
-/usr/bin/cc -g -O0 -fsanitize=address -fno-omit-frame-pointer -fsanitize=address CMakeFiles/mobile_bridge_tests.dir/test/c/test_mobile_bridge.c.o -o mobile_bridge_tests  lib/libjabcode-mobile.a libunity.a -lm 
+/usr/bin/cc CMakeFiles/mobile_bridge_tests.dir/test/c/test_mobile_bridge.c.o -o mobile_bridge_tests  lib/libjabcode-mobile.a libunity.a -lm 

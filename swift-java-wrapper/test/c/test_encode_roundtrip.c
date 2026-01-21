@@ -54,9 +54,9 @@ void test_encode_decode_roundtrip(void) {
     
     // Decode
     jab_data* decoded = jabMobileDecode(
-        encode_result->rgba_buffer, 
-        encode_result->width, 
-        encode_result->height
+        encode_result,
+        params.color_number,
+        params.ecc_level
     );
     
     TEST_ASSERT_NOT_NULL(decoded);

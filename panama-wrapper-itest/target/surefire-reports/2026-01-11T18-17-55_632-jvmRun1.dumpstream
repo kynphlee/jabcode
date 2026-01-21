@@ -1,0 +1,9 @@
+# Created at 2026-01-11T18:17:56.365
+Corrupted channel by directly writing to native stream in forked JVM 1. Stream 'JABCode Error: Too many errors in message. LDPC decoding failed.'.
+
+# Created at 2026-01-11T18:17:56.365
+Corrupted channel by directly writing to native stream in forked JVM 1. Stream 'JABCode Error: LDPC decoding for data in symbol 0 failed'.
+
+# Created at 2026-01-11T18:17:56.372
+Corrupted channel by directly writing to native stream in forked JVM 1. Stream 'JABCode Error: No alignment pattern is available'.
+

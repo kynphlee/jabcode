@@ -1,1 +1,1 @@
-/usr/bin/cc -g -O0 -fsanitize=address -fno-omit-frame-pointer -fsanitize=address CMakeFiles/test_palette_debug.dir/test/c/test_palette_debug.c.o -o test_palette_debug  lib/libjabcode-mobile.a -lm 
+/usr/bin/cc CMakeFiles/test_palette_debug.dir/test/c/test_palette_debug.c.o -o test_palette_debug  lib/libjabcode-mobile.a -lm 

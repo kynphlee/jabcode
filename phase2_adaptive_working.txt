@@ -1,0 +1,157 @@
+[[1;34mINFO[m] Scanning for projects...
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m------------------< [0;36mcom.jabcode:jabcode-panama-itest[0;1m >------------------[m
+[[1;34mINFO[m] [1mBuilding JABCode Panama Integration Tests 1.0.0-SNAPSHOT[m
+[[1;34mINFO[m] [1m--------------------------------[ jar ]---------------------------------[m
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m--- [0;32mmaven-resources-plugin:2.6:resources[m [1m(default-resources)[m @ [36mjabcode-panama-itest[0;1m ---[m
+[[1;34mINFO[m] Using 'UTF-8' encoding to copy filtered resources.
+[[1;34mINFO[m] skip non existing resourceDirectory /mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest/src/main/resources
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m--- [0;32mmaven-compiler-plugin:3.12.1:compile[m [1m(default-compile)[m @ [36mjabcode-panama-itest[0;1m ---[m
+[[1;34mINFO[m] Nothing to compile - all classes are up to date.
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m--- [0;32mmaven-resources-plugin:2.6:testResources[m [1m(default-testResources)[m @ [36mjabcode-panama-itest[0;1m ---[m
+[[1;34mINFO[m] Using 'UTF-8' encoding to copy filtered resources.
+[[1;34mINFO[m] skip non existing resourceDirectory /mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest/src/test/resources
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m--- [0;32mmaven-compiler-plugin:3.12.1:testCompile[m [1m(default-testCompile)[m @ [36mjabcode-panama-itest[0;1m ---[m
+[[1;34mINFO[m] Nothing to compile - all classes are up to date.
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m--- [0;32mmaven-surefire-plugin:3.2.3:test[m [1m(default-test)[m @ [36mjabcode-panama-itest[0;1m ---[m
+[[1;34mINFO[m] Using auto detected provider org.apache.maven.surefire.junitplatform.JUnitPlatformProvider
+[[1;34mINFO[m] 
+[[1;34mINFO[m] -------------------------------------------------------
+[[1;34mINFO[m]  T E S T S
+[[1;34mINFO[m] -------------------------------------------------------
+[[1;34mINFO[m] Running com.jabcode.panama.[1mColorMode5Test[m
+double free or corruption (out)
+Aborted (core dumped)
+[[1;34mINFO[m] Running com.jabcode.panama.[1mColorMode7Test[m
+[[1;31mERROR[m] JABCode Error: Too many errors in message. LDPC decoding failed.
+[[1;31mERROR[m] JABCode Error: LDPC decoding for data in symbol 0 failed
+[[1;31mERROR[m] JABCode Error: No alignment pattern is available
+[[1;31mERROR[m] JABCode Error: Too many errors in message. LDPC decoding failed.
+[[1;31mERROR[m] JABCode Error: LDPC decoding for data in symbol 0 failed
+Aborted (core dumped)
+[[1;34mINFO[m] Running com.jabcode.panama.[1mColorMode3Test[m
+[[1;31mERROR[m] [1;31mTests [0;1mrun: [0;1m14[m, Failures: 0, [1;31mErrors: [0;1;31m1[m, Skipped: 0, Time elapsed: 0.579 s[1;31m <<< FAILURE![m -- in com.jabcode.panama.[1mColorMode3Test[m
+[[1;31mERROR[m] com.jabcode.panama.ColorMode3Test.testEmptyString -- Time elapsed: 0.003 s <<< ERROR!
+java.lang.IllegalArgumentException: Data cannot be null or empty
+	at com.jabcode.panama.JABCodeEncoder.encodeToPNG(JABCodeEncoder.java:196)
+	at com.jabcode.panama.ColorModeTestBase.assertRoundTrip(ColorModeTestBase.java:112)
+	at com.jabcode.panama.ColorModeTestBase.assertRoundTrip(ColorModeTestBase.java:134)
+	at com.jabcode.panama.ColorMode3Test.testEmptyString(ColorMode3Test.java:52)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
+
+[[1;34mINFO[m] Running com.jabcode.panama.[1mColorMode4Test[m
+[[1;34mINFO[m] [1;32mTests run: [0;1;32m10[m, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.520 s -- in com.jabcode.panama.[1mColorMode4Test[m
+[[1;34mINFO[m] Running com.jabcode.panama.[1mColorMode6Test[m
+double free or corruption (out)
+Aborted (core dumped)
+[[1;34mINFO[m] 
+[[1;34mINFO[m] Results:
+[[1;34mINFO[m] 
+[[1;31mERROR[m] [1;31mErrors: [m
+[[1;31mERROR[m] [1;31m  ColorMode3Test.testEmptyString:52->ColorModeTestBase.assertRoundTrip:134->ColorModeTestBase.assertRoundTrip:112 » IllegalArgument Data cannot be null or empty[m
+[[1;34mINFO[m] 
+[[1;31mERROR[m] [1;31mTests run: 24, Failures: 0, Errors: 1, Skipped: 0[m
+[[1;34mINFO[m] 
+[[1;33mWARNING[m] Corrupted channel by directly writing to native stream in forked JVM 1. See FAQ web page and the dump file /mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest/target/surefire-reports/2026-01-10T07-42-39_021-jvmRun1.dumpstream
+[[1;34mINFO[m] [1m------------------------------------------------------------------------[m
+[[1;34mINFO[m] [1;31mBUILD FAILURE[m
+[[1;34mINFO[m] [1m------------------------------------------------------------------------[m
+[[1;34mINFO[m] Total time:  6.603 s
+[[1;34mINFO[m] Finished at: 2026-01-10T07:42:45-05:00
+[[1;34mINFO[m] [1m------------------------------------------------------------------------[m
+[[1;31mERROR[m] Failed to execute goal [32morg.apache.maven.plugins:maven-surefire-plugin:3.2.3:test[m [1m(default-test)[m on project [36mjabcode-panama-itest[m: [1;31m[m
+[[1;31mERROR[m] [1;31m[m
+[[1;31mERROR[m] [1;31mPlease refer to /mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest/target/surefire-reports for the individual test results.[m
+[[1;31mERROR[m] [1;31mPlease refer to dump files (if any exist) [date].dump, [date]-jvmRun[N].dump and [date].dumpstream.[m
+[[1;31mERROR[m] [1;31mExecutionException The forked VM terminated without properly saying goodbye. VM crash or System.exit called?[m
+[[1;31mERROR[m] [1;31mCommand was /bin/sh -c cd '/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest' && '/home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java' '--enable-native-access=ALL-UNNAMED' '-Djava.library.path=../src/jabcode/build' '-jar' '/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest/target/surefire/surefirebooter-20260110074239199_3.jar' '/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest/target/surefire' '2026-01-10T07-42-39_021-jvmRun1' 'surefire-20260110074239199_1tmp' 'surefire_0-20260110074239199_2tmp'[m
+[[1;31mERROR[m] [1;31mError occurred in starting fork, check output in log[m
+[[1;31mERROR[m] [1;31mProcess Exit Code: 134[m
+[[1;31mERROR[m] [1;31mCrashed tests:[m
+[[1;31mERROR[m] [1;31mcom.jabcode.panama.ColorMode5Test[m
+[[1;31mERROR[m] [1;31mExecutionException The forked VM terminated without properly saying goodbye. VM crash or System.exit called?[m
+[[1;31mERROR[m] [1;31mCommand was /bin/sh -c cd '/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest' && '/home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java' '--enable-native-access=ALL-UNNAMED' '-Djava.library.path=../src/jabcode/build' '-jar' '/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest/target/surefire/surefirebooter-20260110074239199_6.jar' '/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest/target/surefire' '2026-01-10T07-42-39_021-jvmRun1' 'surefire-20260110074239199_4tmp' 'surefire_1-20260110074239199_5tmp'[m
+[[1;31mERROR[m] [1;31mError occurred in starting fork, check output in log[m
+[[1;31mERROR[m] [1;31mProcess Exit Code: 134[m
+[[1;31mERROR[m] [1;31mCrashed tests:[m
+[[1;31mERROR[m] [1;31mcom.jabcode.panama.ColorMode7Test[m
+[[1;31mERROR[m] [1;31mExecutionException The forked VM terminated without properly saying goodbye. VM crash or System.exit called?[m
+[[1;31mERROR[m] [1;31mCommand was /bin/sh -c cd '/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest' && '/home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java' '--enable-native-access=ALL-UNNAMED' '-Djava.library.path=../src/jabcode/build' '-jar' '/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest/target/surefire/surefirebooter-20260110074239199_15.jar' '/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest/target/surefire' '2026-01-10T07-42-39_021-jvmRun1' 'surefire-20260110074239199_13tmp' 'surefire_4-20260110074239199_14tmp'[m
+[[1;31mERROR[m] [1;31mError occurred in starting fork, check output in log[m
+[[1;31mERROR[m] [1;31mProcess Exit Code: 134[m
+[[1;31mERROR[m] [1;31mCrashed tests:[m
+[[1;31mERROR[m] [1;31mcom.jabcode.panama.ColorMode6Test[m
+[[1;31mERROR[m] [1;31morg.apache.maven.surefire.booter.SurefireBooterForkException: ExecutionException The forked VM terminated without properly saying goodbye. VM crash or System.exit called?[m
+[[1;31mERROR[m] [1;31mCommand was /bin/sh -c cd '/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest' && '/home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java' '--enable-native-access=ALL-UNNAMED' '-Djava.library.path=../src/jabcode/build' '-jar' '/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest/target/surefire/surefirebooter-20260110074239199_3.jar' '/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest/target/surefire' '2026-01-10T07-42-39_021-jvmRun1' 'surefire-20260110074239199_1tmp' 'surefire_0-20260110074239199_2tmp'[m
+[[1;31mERROR[m] [1;31mError occurred in starting fork, check output in log[m
+[[1;31mERROR[m] [1;31mProcess Exit Code: 134[m
+[[1;31mERROR[m] [1;31mCrashed tests:[m
+[[1;31mERROR[m] [1;31mcom.jabcode.panama.ColorMode5Test[m
+[[1;31mERROR[m] [1;31mExecutionException The forked VM terminated without properly saying goodbye. VM crash or System.exit called?[m
+[[1;31mERROR[m] [1;31mCommand was /bin/sh -c cd '/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest' && '/home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java' '--enable-native-access=ALL-UNNAMED' '-Djava.library.path=../src/jabcode/build' '-jar' '/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest/target/surefire/surefirebooter-20260110074239199_6.jar' '/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest/target/surefire' '2026-01-10T07-42-39_021-jvmRun1' 'surefire-20260110074239199_4tmp' 'surefire_1-20260110074239199_5tmp'[m
+[[1;31mERROR[m] [1;31mError occurred in starting fork, check output in log[m
+[[1;31mERROR[m] [1;31mProcess Exit Code: 134[m
+[[1;31mERROR[m] [1;31mCrashed tests:[m
+[[1;31mERROR[m] [1;31mcom.jabcode.panama.ColorMode7Test[m
+[[1;31mERROR[m] [1;31mExecutionException The forked VM terminated without properly saying goodbye. VM crash or System.exit called?[m
+[[1;31mERROR[m] [1;31mCommand was /bin/sh -c cd '/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest' && '/home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java' '--enable-native-access=ALL-UNNAMED' '-Djava.library.path=../src/jabcode/build' '-jar' '/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest/target/surefire/surefirebooter-20260110074239199_15.jar' '/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest/target/surefire' '2026-01-10T07-42-39_021-jvmRun1' 'surefire-20260110074239199_13tmp' 'surefire_4-20260110074239199_14tmp'[m
+[[1;31mERROR[m] [1;31mError occurred in starting fork, check output in log[m
+[[1;31mERROR[m] [1;31mProcess Exit Code: 134[m
+[[1;31mERROR[m] [1;31mCrashed tests:[m
+[[1;31mERROR[m] [1;31mcom.jabcode.panama.ColorMode6Test[m
+[[1;31mERROR[m] [1;31m	at org.apache.maven.plugin.surefire.booterclient.ForkStarter.awaitResultsDone(ForkStarter.java:456)[m
+[[1;31mERROR[m] [1;31m	at org.apache.maven.plugin.surefire.booterclient.ForkStarter.runSuitesForkPerTestSet(ForkStarter.java:418)[m
+[[1;31mERROR[m] [1;31m	at org.apache.maven.plugin.surefire.booterclient.ForkStarter.run(ForkStarter.java:297)[m
+[[1;31mERROR[m] [1;31m	at org.apache.maven.plugin.surefire.booterclient.ForkStarter.run(ForkStarter.java:250)[m
+[[1;31mERROR[m] [1;31m	at org.apache.maven.plugin.surefire.AbstractSurefireMojo.executeProvider(AbstractSurefireMojo.java:1240)[m
+[[1;31mERROR[m] [1;31m	at org.apache.maven.plugin.surefire.AbstractSurefireMojo.executeAfterPreconditionsChecked(AbstractSurefireMojo.java:1089)[m
+[[1;31mERROR[m] [1;31m	at org.apache.maven.plugin.surefire.AbstractSurefireMojo.execute(AbstractSurefireMojo.java:905)[m
+[[1;31mERROR[m] [1;31m	at org.apache.maven.plugin.DefaultBuildPluginManager.executeMojo(DefaultBuildPluginManager.java:137)[m
+[[1;31mERROR[m] [1;31m	at org.apache.maven.lifecycle.internal.MojoExecutor.doExecute2(MojoExecutor.java:370)[m
+[[1;31mERROR[m] [1;31m	at org.apache.maven.lifecycle.internal.MojoExecutor.doExecute(MojoExecutor.java:351)[m
+[[1;31mERROR[m] [1;31m	at org.apache.maven.lifecycle.internal.MojoExecutor.execute(MojoExecutor.java:215)[m
+[[1;31mERROR[m] [1;31m	at org.apache.maven.lifecycle.internal.MojoExecutor.execute(MojoExecutor.java:171)[m
+[[1;31mERROR[m] [1;31m	at org.apache.maven.lifecycle.internal.MojoExecutor.execute(MojoExecutor.java:163)[m
+[[1;31mERROR[m] [1;31m	at org.apache.maven.lifecycle.internal.LifecycleModuleBuilder.buildProject(LifecycleModuleBuilder.java:117)[m
+[[1;31mERROR[m] [1;31m	at org.apache.maven.lifecycle.internal.LifecycleModuleBuilder.buildProject(LifecycleModuleBuilder.java:81)[m
+[[1;31mERROR[m] [1;31m	at org.apache.maven.lifecycle.internal.builder.singlethreaded.SingleThreadedBuilder.build(SingleThreadedBuilder.java:56)[m
+[[1;31mERROR[m] [1;31m	at org.apache.maven.lifecycle.internal.LifecycleStarter.execute(LifecycleStarter.java:128)[m
+[[1;31mERROR[m] [1;31m	at org.apache.maven.DefaultMaven.doExecute(DefaultMaven.java:298)[m
+[[1;31mERROR[m] [1;31m	at org.apache.maven.DefaultMaven.doExecute(DefaultMaven.java:192)[m
+[[1;31mERROR[m] [1;31m	at org.apache.maven.DefaultMaven.execute(DefaultMaven.java:105)[m
+[[1;31mERROR[m] [1;31m	at org.apache.maven.cli.MavenCli.execute(MavenCli.java:960)[m
+[[1;31mERROR[m] [1;31m	at org.apache.maven.cli.MavenCli.doMain(MavenCli.java:293)[m
+[[1;31mERROR[m] [1;31m	at org.apache.maven.cli.MavenCli.main(MavenCli.java:196)[m
+[[1;31mERROR[m] [1;31m	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)[m
+[[1;31mERROR[m] [1;31m	at java.base/java.lang.reflect.Method.invoke(Method.java:580)[m
+[[1;31mERROR[m] [1;31m	at org.codehaus.plexus.classworlds.launcher.Launcher.launchEnhanced(Launcher.java:283)[m
+[[1;31mERROR[m] [1;31m	at org.codehaus.plexus.classworlds.launcher.Launcher.launch(Launcher.java:226)[m
+[[1;31mERROR[m] [1;31m	at org.codehaus.plexus.classworlds.launcher.Launcher.mainWithExitCode(Launcher.java:407)[m
+[[1;31mERROR[m] [1;31m	at org.codehaus.plexus.classworlds.launcher.Launcher.main(Launcher.java:348)[m
+[[1;31mERROR[m] [1;31mCaused by: org.apache.maven.surefire.booter.SurefireBooterForkException: The forked VM terminated without properly saying goodbye. VM crash or System.exit called?[m
+[[1;31mERROR[m] [1;31mCommand was /bin/sh -c cd '/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest' && '/home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java' '--enable-native-access=ALL-UNNAMED' '-Djava.library.path=../src/jabcode/build' '-jar' '/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest/target/surefire/surefirebooter-20260110074239199_15.jar' '/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest/target/surefire' '2026-01-10T07-42-39_021-jvmRun1' 'surefire-20260110074239199_13tmp' 'surefire_4-20260110074239199_14tmp'[m
+[[1;31mERROR[m] [1;31mError occurred in starting fork, check output in log[m
+[[1;31mERROR[m] [1;31mProcess Exit Code: 134[m
+[[1;31mERROR[m] [1;31mCrashed tests:[m
+[[1;31mERROR[m] [1;31mcom.jabcode.panama.ColorMode6Test[m
+[[1;31mERROR[m] [1;31m	at org.apache.maven.plugin.surefire.booterclient.ForkStarter.fork(ForkStarter.java:643)[m
+[[1;31mERROR[m] [1;31m	at org.apache.maven.plugin.surefire.booterclient.ForkStarter.lambda$null$7(ForkStarter.java:401)[m
+[[1;31mERROR[m] [1;31m	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)[m
+[[1;31mERROR[m] [1;31m	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)[m
+[[1;31mERROR[m] [1;31m	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)[m
+[[1;31mERROR[m] [1;31m	at java.base/java.lang.Thread.run(Thread.java:1575)[m
+[[1;31mERROR[m] [1;31m[m
+[[1;31mERROR[m] -> [1m[Help 1][m
+[[1;31mERROR[m] 
+[[1;31mERROR[m] To see the full stack trace of the errors, re-run Maven with the [1m-e[m switch.
+[[1;31mERROR[m] Re-run Maven using the [1m-X[m switch to enable full debug logging.
+[[1;31mERROR[m] 
+[[1;31mERROR[m] For more information about the errors and possible solutions, please read the following articles:
+[[1;31mERROR[m] [1m[Help 1][m http://cwiki.apache.org/confluence/display/MAVEN/MojoExecutionException

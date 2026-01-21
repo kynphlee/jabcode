@@ -1,0 +1,24 @@
+# Benchmark artifacts
+benchmark-results.json
+benchmark-report.md
+*.jfr
+
+# Temporary benchmark files
+benchmark-*.json
+jmh-result.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build artifacts
+*.o
+*.so
+*.a
+lib/
+
+# Test outputs
+/tmp/
+*.log

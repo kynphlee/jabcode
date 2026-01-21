@@ -6,5 +6,5 @@ C_DEFINES = -DMOBILE_BUILD
 
 C_INCLUDES = -I/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/swift-java-wrapper/include -I/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/swift-java-wrapper/../src/jabcode/include -I/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/swift-java-wrapper/../src/jabcode
 
-C_FLAGS = -g -O0 -fsanitize=address -fno-omit-frame-pointer -std=gnu11 -O3 -ffast-math -Wall -Wextra
+C_FLAGS = -std=gnu11 -O3 -ffast-math -Wall -Wextra
 
