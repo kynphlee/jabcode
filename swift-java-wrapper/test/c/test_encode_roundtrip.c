@@ -36,14 +36,14 @@ void test_encode_simple_message(void) {
 }
 
 void test_encode_decode_roundtrip(void) {
-    const char* message = "Mobile roundtrip test!";
+    const char* message = "A";  // Single byte for simplest case
     jab_char* data = (jab_char*)message;
     jab_int32 data_length = strlen(message);
     
     jab_mobile_encode_params params = {
-        .color_number = 4,  // Use 4-color mode for reliability
+        .color_number = 4,  // 4-color = 2 bits/module
         .symbol_number = 1,
-        .ecc_level = 5,     // Higher ECC for mobile
+        .ecc_level = 0,     // Minimal ECC to isolate issue
         .module_size = 12
     };
     

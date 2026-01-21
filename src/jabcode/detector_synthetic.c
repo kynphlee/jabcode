@@ -158,6 +158,7 @@ jab_data* decodeJABCodeSynthetic(jab_bitmap* bitmap, jab_int32 color_number, jab
     symbols[0].module_size = (jab_float)module_size;
     symbols[0].side_size.x = symbol_width;
     symbols[0].side_size.y = symbol_height;
+    symbols[0].data = NULL;  // Initialize to NULL (will be allocated by decodeSymbol)
     
     // Set known metadata
     symbols[0].metadata.Nc = Nc;
