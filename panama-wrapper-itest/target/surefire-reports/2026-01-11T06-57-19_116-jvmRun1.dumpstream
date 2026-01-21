@@ -1,0 +1,63 @@
+# Created at 2026-01-11T06:57:29.410
+Corrupted channel by directly writing to native stream in forked JVM 1. Stream '#'.
+
+# Created at 2026-01-11T06:57:29.411
+Corrupted channel by directly writing to native stream in forked JVM 1. Stream '# A fatal error has been detected by the Java Runtime Environment:'.
+
+# Created at 2026-01-11T06:57:29.411
+Corrupted channel by directly writing to native stream in forked JVM 1. Stream '#'.
+
+# Created at 2026-01-11T06:57:29.411
+Corrupted channel by directly writing to native stream in forked JVM 1. Stream '#  SIGSEGV (0xb) at pc=0x00007f826800d3f6, pid=1170784, tid=1170786'.
+
+# Created at 2026-01-11T06:57:29.412
+Corrupted channel by directly writing to native stream in forked JVM 1. Stream '#'.
+
+# Created at 2026-01-11T06:57:29.412
+Corrupted channel by directly writing to native stream in forked JVM 1. Stream '# JRE version: OpenJDK Runtime Environment (23.0.1+11) (build 23.0.1+11-39)'.
+
+# Created at 2026-01-11T06:57:29.412
+Corrupted channel by directly writing to native stream in forked JVM 1. Stream '# Java VM: OpenJDK 64-Bit Server VM (23.0.1+11-39, mixed mode, sharing, tiered, compressed oops, compressed class ptrs, g1 gc, linux-amd64)'.
+
+# Created at 2026-01-11T06:57:29.412
+Corrupted channel by directly writing to native stream in forked JVM 1. Stream '# Problematic frame:'.
+
+# Created at 2026-01-11T06:57:29.413
+Corrupted channel by directly writing to native stream in forked JVM 1. Stream '# C  [libjabcode.so+0x93f6]  simulateEncoderPalettePositions+0x116'.
+
+# Created at 2026-01-11T06:57:29.413
+Corrupted channel by directly writing to native stream in forked JVM 1. Stream '#'.
+
+# Created at 2026-01-11T06:57:29.414
+Corrupted channel by directly writing to native stream in forked JVM 1. Stream '# Core dump will be written. Default location: Core dumps may be processed with "/usr/share/apport/apport -p%p -s%s -c%c -d%d -P%P -u%u -g%g -F%F -- %E" (or dumping to /mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest/core.1170784)'.
+
+# Created at 2026-01-11T06:57:29.414
+Corrupted channel by directly writing to native stream in forked JVM 1. Stream '#'.
+
+# Created at 2026-01-11T06:57:29.414
+Corrupted channel by directly writing to native stream in forked JVM 1. Stream '# An error report file with more information is saved as:'.
+
+# Created at 2026-01-11T06:57:29.414
+Corrupted channel by directly writing to native stream in forked JVM 1. Stream '# /mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest/hs_err_pid1170784.log'.
+
+# Created at 2026-01-11T06:57:29.420
+Corrupted channel by directly writing to native stream in forked JVM 1. Stream '[10.039s][warning][os] Loading hsdis library failed'.
+
+# Created at 2026-01-11T06:57:29.420
+Corrupted channel by directly writing to native stream in forked JVM 1. Stream '#'.
+
+# Created at 2026-01-11T06:57:29.421
+Corrupted channel by directly writing to native stream in forked JVM 1. Stream '# If you would like to submit a bug report, please visit:'.
+
+# Created at 2026-01-11T06:57:29.421
+Corrupted channel by directly writing to native stream in forked JVM 1. Stream '#   https://bugreport.java.com/bugreport/crash.jsp'.
+
+# Created at 2026-01-11T06:57:29.421
+Corrupted channel by directly writing to native stream in forked JVM 1. Stream '# The crash happened outside the Java Virtual Machine in native code.'.
+
+# Created at 2026-01-11T06:57:30.513
+Corrupted channel by directly writing to native stream in forked JVM 1. Stream '# See problematic frame for where to report the bug.'.
+
+# Created at 2026-01-11T06:57:30.514
+Corrupted channel by directly writing to native stream in forked JVM 1. Stream '#'.
+

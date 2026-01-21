@@ -1666,14 +1666,9 @@ jab_code* getCodePara(jab_encode* enc)
 */
 jab_boolean createBitmap(jab_encode* enc, jab_code* cp)
 {
-    //create bitmap with quiet zone for direct decode compatibility
-    //Note: JABCode spec says "no quiet zone required" for printing, but
-    //direct bitmap decode needs border space for pattern detection
-    jab_int32 quiet_zone = cp->dimension * 4; // 4 modules worth of white border
-    jab_int32 symbol_width = cp->dimension * cp->code_size.x;
-    jab_int32 symbol_height = cp->dimension * cp->code_size.y;
-    jab_int32 width = symbol_width + 2 * quiet_zone;
-    jab_int32 height = symbol_height + 2 * quiet_zone;
+    //create bitmap
+    jab_int32 width = cp->dimension * cp->code_size.x;
+    jab_int32 height= cp->dimension * cp->code_size.y;
     jab_int32 bytes_per_pixel = BITMAP_BITS_PER_PIXEL / 8;
     jab_int32 bytes_per_row = width * bytes_per_pixel;
     enc->bitmap = (jab_bitmap *)calloc(1, sizeof(jab_bitmap) + width*height*bytes_per_pixel*sizeof(jab_byte));
@@ -1687,18 +1682,8 @@ jab_boolean createBitmap(jab_encode* enc, jab_code* cp)
     enc->bitmap->bits_per_pixel = BITMAP_BITS_PER_PIXEL;
     enc->bitmap->bits_per_channel = BITMAP_BITS_PER_CHANNEL;
     enc->bitmap->channel_count = BITMAP_CHANNEL_COUNT;
-    
-    // Initialize bitmap to white background (required for quiet zone)
-    jab_int32 total_pixels = width * height;
-    for(jab_int32 i = 0; i < total_pixels; i++)
-    {
-        enc->bitmap->pixel[i * bytes_per_pixel + 0] = 255; // R
-        enc->bitmap->pixel[i * bytes_per_pixel + 1] = 255; // G
-        enc->bitmap->pixel[i * bytes_per_pixel + 2] = 255; // B
-        enc->bitmap->pixel[i * bytes_per_pixel + 3] = 255; // A
-    }
 
-    //place symbols in bitmap (offset by quiet_zone)
+    //place symbols in bitmap
     for(jab_int32 k=0; k<enc->symbol_number; k++)
     {
         //calculate the starting coordinates of the symbol matrix
@@ -1723,13 +1708,10 @@ jab_boolean createBitmap(jab_encode* enc, jab_code* cp)
                 {
                     for(jab_int32 j=x*cp->dimension; j<(x*cp->dimension+cp->dimension); j++)
                     {
-                        // Offset by quiet_zone to center symbol in white border
-                        // i and j are already in pixel coordinates, so add quiet_zone pixels
-                        jab_int32 pixel_offset = (i + quiet_zone) * bytes_per_row + (j + quiet_zone) * bytes_per_pixel;
-                        enc->bitmap->pixel[pixel_offset]     = enc->palette[p_index * 3];	//R
-                        enc->bitmap->pixel[pixel_offset + 1] = enc->palette[p_index * 3 + 1];//G
-                        enc->bitmap->pixel[pixel_offset + 2] = enc->palette[p_index * 3 + 2];//B
-                        enc->bitmap->pixel[pixel_offset + 3] = 255; 							//A
+                        enc->bitmap->pixel[i*bytes_per_row + j*bytes_per_pixel]     = enc->palette[p_index*3];	//R
+                        enc->bitmap->pixel[i*bytes_per_row + j*bytes_per_pixel + 1] = enc->palette[p_index*3 + 1];//G
+                        enc->bitmap->pixel[i*bytes_per_row + j*bytes_per_pixel + 2] = enc->palette[p_index*3 + 2];//B
+                        enc->bitmap->pixel[i*bytes_per_row + j*bytes_per_pixel + 3] = 255; 							//A
                     }
                 }
             }
