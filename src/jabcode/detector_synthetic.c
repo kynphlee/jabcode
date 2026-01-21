@@ -172,8 +172,8 @@ jab_data* decodeJABCodeSynthetic(jab_bitmap* bitmap, jab_int32 color_number, jab
     symbols[0].metadata.default_mode = 1;  // Using default parameters
     
     // Calculate finder pattern positions from spatial metadata
-    // Assuming encoder added 4-module quiet zone on all sides
-    jab_int32 quiet_zone = 4;
+    // Encoder produces bitmap with NO quiet zone (removed for mobile compatibility)
+    jab_int32 quiet_zone = 0;
     jab_float pattern_offset = quiet_zone * module_size + 3.5f * module_size;  // 3.5 = half of 7x7 finder pattern
     jab_float symbol_pixel_width = symbol_width * module_size;
     jab_float symbol_pixel_height = symbol_height * module_size;
@@ -205,9 +205,9 @@ jab_data* decodeJABCodeSynthetic(jab_bitmap* bitmap, jab_int32 color_number, jab
     setDefaultPalette(color_number, symbols[0].palette);
     
     // For perfect synthetic images, sample modules directly without perspective transform
-    // Start position: quiet_zone offset + half module for center sampling
-    jab_float start_x = quiet_zone * module_size + 0.5f * module_size;
-    jab_float start_y = quiet_zone * module_size + 0.5f * module_size;
+    // Start position: half module for center sampling (no quiet zone)
+    jab_float start_x = 0.5f * module_size;
+    jab_float start_y = 0.5f * module_size;
     
     // Allocate module matrix - MUST be 3-channel RGB for decodeModuleHD
     // decodeModuleHD reads rgb[0], rgb[1], rgb[2] from matrix->pixel[offset+0/1/2]

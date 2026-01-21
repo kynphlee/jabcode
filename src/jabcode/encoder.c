@@ -1698,13 +1698,13 @@ jab_boolean createBitmap(jab_encode* enc, jab_code* cp)
         //place symbol in the code
         jab_int32 symbol_width = enc->symbols[k].side_size.x;
         jab_int32 symbol_height= enc->symbols[k].side_size.y;
-        for(jab_int32 x=startx; x<(startx+symbol_width); x++)
+        for(jab_int32 y=starty; y<(starty+symbol_height); y++)
         {
-            for(jab_int32 y=starty; y<(starty+symbol_height); y++)
+            for(jab_int32 x=startx; x<(startx+symbol_width); x++)
             {
                 //place one module in the bitmap
                 jab_int32 p_index = enc->symbols[k].matrix[(y-starty)*symbol_width + (x-startx)];
-                 for(jab_int32 i=y*cp->dimension; i<(y*cp->dimension+cp->dimension); i++)
+                for(jab_int32 i=y*cp->dimension; i<(y*cp->dimension+cp->dimension); i++)
                 {
                     for(jab_int32 j=x*cp->dimension; j<(x*cp->dimension+cp->dimension); j++)
                     {
