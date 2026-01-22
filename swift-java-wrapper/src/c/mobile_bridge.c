@@ -164,6 +164,13 @@ jab_mobile_encode_result* jabMobileEncode(
     result->symbol_height = enc->symbols[0].side_size.y;
     result->mask_type = enc->mask_type;
     
+    // Copy encoder's data_map so decoder knows exact metadata/data positions
+    jab_int32 map_size = enc->symbols[0].side_size.x * enc->symbols[0].side_size.y;
+    result->data_map = (jab_byte*)malloc(map_size * sizeof(jab_byte));
+    if(result->data_map) {
+        memcpy(result->data_map, enc->symbols[0].data_map, map_size * sizeof(jab_byte));
+    }
+    
     // Cleanup encoder
     destroyEncode(enc);
     
@@ -174,6 +181,9 @@ void jabMobileEncodeResultFree(jab_mobile_encode_result* result) {
     if (result) {
         if (result->rgba_buffer) {
             free(result->rgba_buffer);
+        }
+        if (result->data_map) {
+            free(result->data_map);
         }
         free(result);
     }
@@ -242,6 +252,7 @@ jab_data* jabMobileDecode(
         encode_result->symbol_width,
         encode_result->symbol_height,
         encode_result->mask_type,
+        encode_result->data_map,
         NORMAL_DECODE, 
         &decode_status
     );

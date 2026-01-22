@@ -36,14 +36,14 @@ void test_encode_simple_message(void) {
 }
 
 void test_encode_decode_roundtrip(void) {
-    const char* message = "A";  // Single byte for simplest case
+    const char* message = "A";  // Back to A to confirm it still works
     jab_char* data = (jab_char*)message;
     jab_int32 data_length = strlen(message);
     
     jab_mobile_encode_params params = {
         .color_number = 4,  // 4-color = 2 bits/module
         .symbol_number = 1,
-        .ecc_level = 0,     // Minimal ECC to isolate issue
+        .ecc_level = 3,     // Back to 3
         .module_size = 12
     };
     
@@ -56,7 +56,7 @@ void test_encode_decode_roundtrip(void) {
     jab_data* decoded = jabMobileDecode(
         encode_result,
         params.color_number,
-        params.ecc_level
+        3  // Match encoder ECC level
     );
     
     TEST_ASSERT_NOT_NULL(decoded);

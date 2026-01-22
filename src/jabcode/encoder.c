@@ -194,13 +194,24 @@ jab_encode* createEncode(jab_int32 color_number, jab_int32 symbol_number)
     enc->module_size 		 = DEFAULT_MODULE_SIZE;
 
     //set default color palette
-	enc->palette = (jab_byte *)calloc(color_number * 3, sizeof(jab_byte));
+    // CRITICAL: Must allocate space for 4 palettes to match decoder and avoid buffer overflow
+    // Panama-poc fix: decoder expects COLOR_PALETTE_NUMBER (4) palettes
+	jab_int32 num_palettes = COLOR_PALETTE_NUMBER;  // Always 4 palettes
+	enc->palette = (jab_byte *)calloc(color_number * 3 * num_palettes, sizeof(jab_byte));
     if(enc->palette == NULL)
     {
         reportError("Memory allocation for palette failed");
         return NULL;
     }
     setDefaultPalette(enc->color_number, enc->palette);
+    
+    // CRITICAL: Replicate palette to all 4 slots for decoder spatial adaptation
+    // setDefaultPalette only fills first slot, we need to copy to slots 1-3
+    jab_int32 palette_size = color_number * 3;
+    for(jab_int32 i = 1; i < num_palettes; i++) {
+        memcpy(enc->palette + i * palette_size, enc->palette, palette_size);
+    }
+    
     //allocate memory for symbol versions
     enc->symbol_versions = (jab_vector2d *)calloc(symbol_number, sizeof(jab_vector2d));
     if(enc->symbol_versions == NULL)
@@ -569,11 +580,18 @@ jab_int32* analyzeInputData(jab_data* input, jab_int32* encoded_length)
 */
 jab_boolean isDefaultMode(jab_encode* enc)
 {
+	jab_boolean result;
 	if(enc->color_number == 8 && (enc->symbol_ecc_levels[0] == 0 || enc->symbol_ecc_levels[0] == DEFAULT_ECC_LEVEL))
 	{
-		return JAB_SUCCESS;
+		result = JAB_SUCCESS;
 	}
-	return JAB_FAILURE;
+	else
+	{
+		result = JAB_FAILURE;
+	}
+	printf("[ENCODER] isDefaultMode check: color=%d, ecc=%d -> %s\n", 
+		enc->color_number, enc->symbol_ecc_levels[0], result ? "TRUE" : "FALSE");
+	return result;
 }
 
 /**
@@ -1698,12 +1716,14 @@ jab_boolean createBitmap(jab_encode* enc, jab_code* cp)
         //place symbol in the code
         jab_int32 symbol_width = enc->symbols[k].side_size.x;
         jab_int32 symbol_height= enc->symbols[k].side_size.y;
+        jab_int32 module_counter = 0;
         for(jab_int32 y=starty; y<(starty+symbol_height); y++)
         {
             for(jab_int32 x=startx; x<(startx+symbol_width); x++)
             {
                 //place one module in the bitmap
                 jab_int32 p_index = enc->symbols[k].matrix[(y-starty)*symbol_width + (x-startx)];
+                jab_int32 current_module = module_counter++;
                 for(jab_int32 i=y*cp->dimension; i<(y*cp->dimension+cp->dimension); i++)
                 {
                     for(jab_int32 j=x*cp->dimension; j<(x*cp->dimension+cp->dimension); j++)
@@ -2260,8 +2280,28 @@ jab_int32 generateJABCode(jab_encode* enc, jab_data* data)
             JAB_REPORT_ERROR(("LDPC encoding for the data in symbol %d failed", i))
             return 1;
         }
+        
+        // DEBUG: Log encoder bit data before interleaving
+        if(i == 0) {
+            printf("[ENCODER] Symbol 0 DATA: ecc_encoded_data length=%d, first 40 bits BEFORE interleave: ", 
+                ecc_encoded_data->length);
+            for(jab_int32 j=0; j<40 && j<ecc_encoded_data->length; j++) {
+                printf("%d", ecc_encoded_data->data[j]);
+            }
+            printf("\n");
+        }
+        
         //interleave
         interleaveData(ecc_encoded_data);
+        
+        // DEBUG: After interleaving
+        if(i == 0) {
+            printf("[ENCODER] Symbol 0 DATA: first 40 bits AFTER interleave: ");
+            for(jab_int32 j=0; j<40 && j<ecc_encoded_data->length; j++) {
+                printf("%d", ecc_encoded_data->data[j]);
+            }
+            printf("\n");
+        }
         //create Matrix
         jab_boolean cm_flag = createMatrix(enc, i, ecc_encoded_data);
         free(ecc_encoded_data);
@@ -2278,8 +2318,32 @@ jab_int32 generateJABCode(jab_encode* enc, jab_data* data)
     {
 		return 1;
     }
+    
+    // DEBUG: Count encoder data modules
+    jab_int32 enc_data_count = 0, enc_pattern_count = 0;
+    for(jab_int32 i = 0; i < enc->symbols[0].side_size.x * enc->symbols[0].side_size.y; i++) {
+        if(enc->symbols[0].data_map[i] != 0) enc_data_count++;
+        else enc_pattern_count++;
+    }
+    printf("[ENCODER] After createMatrix: %d data modules (!=0), %d pattern modules (==0), total=%d\n",
+        enc_data_count, enc_pattern_count, enc->symbols[0].side_size.x * enc->symbols[0].side_size.y);
+    
+    // DEBUG: Log first 20 DATA values BEFORE masking
+    printf("[ENCODER] First 20 DATA values BEFORE masking: ");
+    jab_int32 pre_count = 0;
+    for(jab_int32 start_i=0; start_i<enc->symbols[0].side_size.x && pre_count<20; start_i++) {
+        for(jab_int32 i=start_i; i<enc->symbols[0].side_size.x*enc->symbols[0].side_size.y && pre_count<20; i+=enc->symbols[0].side_size.x) {
+            if(enc->symbols[0].data_map[i]!=0) {
+                printf("%d ", enc->symbols[0].matrix[i]);
+                pre_count++;
+            }
+        }
+    }
+    printf("\n");
+    
     if(isDefaultMode(enc))	//default mode
 	{
+		printf("[ENCODER] Using default mode, mask_type=DEFAULT=%d\n", DEFAULT_MASKING_REFERENCE);
 		enc->mask_type = DEFAULT_MASKING_REFERENCE;
 		maskSymbols(enc, DEFAULT_MASKING_REFERENCE, 0, 0);
 	}
@@ -2294,9 +2358,23 @@ jab_int32 generateJABCode(jab_encode* enc, jab_data* data)
 			return 1;
 		}
 		enc->mask_type = mask_reference;  // Store mask type for external access
+		printf("[ENCODER] Selected mask_type=%d for symbol\n", mask_reference);
 #if TEST_MODE
 		JAB_REPORT_INFO(("mask reference: %d", mask_reference))
 #endif
+		// DEBUG: Log first 20 DATA module values at their positions
+		printf("[ENCODER] First 20 masked DATA values: ");
+		jab_int32 count = 0;
+		for(jab_int32 start_i=0; start_i<enc->symbols[0].side_size.x && count<20; start_i++) {
+			for(jab_int32 i=start_i; i<enc->symbols[0].side_size.x*enc->symbols[0].side_size.y && count<20; i+=enc->symbols[0].side_size.x) {
+				if(enc->symbols[0].data_map[i]!=0) {
+					printf("%d ", enc->symbols[0].matrix[i]);
+					count++;
+				}
+			}
+		}
+		printf("\n");
+		
 		if(mask_reference != DEFAULT_MASKING_REFERENCE)
 		{
 			//re-encode PartII of master symbol metadata
@@ -2304,6 +2382,23 @@ jab_int32 generateJABCode(jab_encode* enc, jab_data* data)
 			//update the masking reference in master symbol metadata
 			placeMasterMetadataPartII(enc);
 		}
+		
+		// DEBUG: Log first 20 after PartII placement
+		printf("[ENCODER] First 20 masked modules (AFTER PartII): ");
+		for(jab_int32 i = 0; i < 20 && i < enc->symbols[0].side_size.x * enc->symbols[0].side_size.y; i++) {
+			printf("%d ", enc->symbols[0].matrix[i]);
+		}
+		printf("\n");
+	}
+	
+	// DEBUG: Log RGB values for first 6 modules
+	for(jab_int32 i = 0; i < 6 && i < enc->symbols[0].side_size.x * enc->symbols[0].side_size.y; i++) {
+		jab_int32 palette_idx = enc->symbols[0].matrix[i];
+		printf("[ENCODER] Module %d: palette_idx=%d -> RGB(%d,%d,%d)\n",
+			i, palette_idx,
+			enc->palette[palette_idx * 3],
+			enc->palette[palette_idx * 3 + 1],
+			enc->palette[palette_idx * 3 + 2]);
 	}
 
     //create the code bitmap
