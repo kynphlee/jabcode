@@ -118,19 +118,11 @@ jab_boolean extractRGBChannelsSynthetic(jab_bitmap* bitmap, jab_bitmap* rgb[3])
  * pattern detection) by using known encoding parameters and spatial metadata.
  * This solves the "too perfect" problem where camera-tuned detectors fail on synthetic images.
  */
-jab_data* decodeJABCodeSynthetic(jab_bitmap* bitmap, jab_int32 color_number, jab_int32 ecc_level, jab_int32 module_size, jab_int32 symbol_width, jab_int32 symbol_height, jab_int32 mask_type, jab_int32 mode, jab_int32* status)
+jab_data* decodeJABCodeSynthetic(jab_bitmap* bitmap, jab_int32 color_number, jab_int32 ecc_level, jab_int32 module_size, jab_int32 symbol_width, jab_int32 symbol_height, jab_int32 mask_type, jab_byte* encoder_data_map, jab_int32 mode, jab_int32* status)
 {
     jab_decoded_symbol symbols[MAX_SYMBOL_NUMBER];
     
     if(status) *status = 0;
-    
-    // Extract RGB channels directly (no binarization for synthetic images)
-    jab_bitmap* ch[3];
-    if(!extractRGBChannelsSynthetic(bitmap, ch))
-    {
-        reportError("Failed to extract RGB channels from synthetic bitmap");
-        return NULL;
-    }
 
     // Initialize symbols buffer
     memset(symbols, 0, MAX_SYMBOL_NUMBER * sizeof(jab_decoded_symbol));
@@ -148,7 +140,6 @@ jab_data* decodeJABCodeSynthetic(jab_bitmap* bitmap, jab_int32 color_number, jab
         case 128: Nc = 6; break;  // log2(128) - 1 = 7 - 1 = 6
         default:
             reportError("Invalid color_number for synthetic decode");
-            for(jab_int32 i=0; i<3; free(ch[i++]));
             return NULL;
     }
     
@@ -165,12 +156,14 @@ jab_data* decodeJABCodeSynthetic(jab_bitmap* bitmap, jab_int32 color_number, jab
     // Convert ECC level to wc/wr using lookup table (decoder reads from metadata.ecl)
     symbols[0].metadata.ecl.x = ecclevel2wcwr[ecc_level][0];  // wc
     symbols[0].metadata.ecl.y = ecclevel2wcwr[ecc_level][1];  // wr
+    printf("[SYNTHETIC] ECC params: ecc_level=%d -> wc=%d, wr=%d\n", 
+        ecc_level, symbols[0].metadata.ecl.x, symbols[0].metadata.ecl.y);
     // side_version is VERSION not SIZE: VERSION = (SIZE - 17) / 4
     symbols[0].metadata.side_version.x = SIZE2VERSION(symbol_width);
     symbols[0].metadata.side_version.y = SIZE2VERSION(symbol_height);
     symbols[0].metadata.mask_type = mask_type;  // Use encoder's mask_type
     symbols[0].metadata.docked_position = 0;  // Not docked
-    symbols[0].metadata.default_mode = 1;  // Using default parameters
+    symbols[0].metadata.default_mode = 0;  // NOT in default mode (4-color, not 8-color)
     
     // Calculate finder pattern positions from spatial metadata
     // Encoder produces bitmap with NO quiet zone (removed for mobile compatibility)
@@ -199,11 +192,19 @@ jab_data* decodeJABCodeSynthetic(jab_bitmap* bitmap, jab_int32 color_number, jab
     symbols[0].palette = (jab_byte*)calloc(color_number * 3, sizeof(jab_byte));
     if(!symbols[0].palette) {
         reportError("Failed to allocate palette for synthetic decode");
-        for(jab_int32 i=0; i<3; free(ch[i++]));
         return NULL;
     }
     // Set default palette colors
     setDefaultPalette(color_number, symbols[0].palette);
+    
+    // DEBUG: Log palette to compare with encoder
+    printf("[DECODER] Palette after setDefaultPalette:\n");
+    for(jab_int32 i = 0; i < color_number; i++) {
+        printf("  [%d] RGB(%d,%d,%d)\n", i,
+            symbols[0].palette[i*3 + 0],
+            symbols[0].palette[i*3 + 1],
+            symbols[0].palette[i*3 + 2]);
+    }
     
     // For perfect synthetic images, sample modules directly without perspective transform
     // Start position: half module for center sampling (no quiet zone)
@@ -219,7 +220,6 @@ jab_data* decodeJABCodeSynthetic(jab_bitmap* bitmap, jab_int32 color_number, jab
     if(!matrix) {
         reportError("Failed to allocate module matrix");
         free(symbols[0].palette);
-        for(jab_int32 i=0; i<3; free(ch[i++]));
         if(status) *status = 1;
         return NULL;
     }
@@ -230,20 +230,34 @@ jab_data* decodeJABCodeSynthetic(jab_bitmap* bitmap, jab_int32 color_number, jab
     matrix->bits_per_channel = 8;
     matrix->bits_per_pixel = 24;
     
-    // Sample each module by reading center pixel and reconstructing RGB from separate channels
+    // Sample each module by reading center pixel RGB directly from RGBA bitmap
+    jab_int32 bitmap_bytes_per_pixel = bitmap->bits_per_pixel / 8;  // 4 for RGBA
+    jab_int32 bitmap_bytes_per_row = bitmap->width * bitmap_bytes_per_pixel;
+    
     for(jab_int32 y = 0; y < symbol_height; y++) {
         for(jab_int32 x = 0; x < symbol_width; x++) {
+            jab_int32 module_idx = y * symbol_width + x;
+            
             // Calculate pixel position for this module's center
             jab_int32 pixel_x = (jab_int32)(start_x + x * module_size);
             jab_int32 pixel_y = (jab_int32)(start_y + y * module_size);
             
-            // Read from each separate channel and interleave into RGB
-            jab_int32 ch_offset = pixel_y * ch[0]->width + pixel_x;
+            // Read RGB directly from RGBA bitmap (preserves exact palette colors)
+            jab_int32 src_offset = pixel_y * bitmap_bytes_per_row + pixel_x * bitmap_bytes_per_pixel;
             jab_int32 mtx_offset = y * mtx_bytes_per_row + x * mtx_bytes_per_pixel;
             
-            matrix->pixel[mtx_offset + 0] = ch[0]->pixel[ch_offset];  // R
-            matrix->pixel[mtx_offset + 1] = ch[1]->pixel[ch_offset];  // G
-            matrix->pixel[mtx_offset + 2] = ch[2]->pixel[ch_offset];  // B
+            matrix->pixel[mtx_offset + 0] = bitmap->pixel[src_offset + 0];  // R
+            matrix->pixel[mtx_offset + 1] = bitmap->pixel[src_offset + 1];  // G
+            matrix->pixel[mtx_offset + 2] = bitmap->pixel[src_offset + 2];  // B
+            
+            // DEBUG: Log first 6 modules
+            if(module_idx < 6) {
+                printf("[DECODER SAMPLING] Module %d at pixel(%d,%d): RGB(%d,%d,%d)\n",
+                    module_idx, pixel_x, pixel_y,
+                    bitmap->pixel[src_offset + 0],
+                    bitmap->pixel[src_offset + 1],
+                    bitmap->pixel[src_offset + 2]);
+            }
         }
     }
     
@@ -257,13 +271,25 @@ jab_data* decodeJABCodeSynthetic(jab_bitmap* bitmap, jab_int32 color_number, jab
         reportError("Failed to allocate data map");
         free(matrix);
         free(symbols[0].palette);
-        for(jab_int32 i=0; i<3; free(ch[i++]));
         if(status) *status = 1;
         return NULL;
     }
     
-    // Mark finder and alignment patterns in data map (type=0 for master symbol)
-    fillDataMap(data_map, matrix->width, matrix->height, 0);
+    // Use encoder's exact data_map for perfect position matching
+    // CRITICAL: Encoder convention is INVERTED from decoder convention
+    // Encoder: data_map[i]==0 means metadata/palette, data_map[i]!=0 means DATA
+    // Decoder: data_map[i]==0 means DATA, data_map[i]==1 means pattern/metadata
+    // So we invert: decoder_map[i] = !encoder_map[i]
+    if(encoder_data_map) {
+        for(jab_int32 i = 0; i < matrix->width * matrix->height; i++) {
+            data_map[i] = (encoder_data_map[i] == 0) ? 1 : 0; // Invert convention
+        }
+        printf("[SYNTHETIC] Using encoder's exact data_map (inverted for decoder convention)\n");
+    } else {
+        // Fallback to fillDataMap if no encoder data_map provided
+        fillDataMap(data_map, matrix->width, matrix->height, 0);
+        printf("[SYNTHETIC] Warning: No encoder data_map, using fillDataMap fallback\n");
+    }
     
     // Normalize palette for all 4 palette slots (decodeModuleHD expects COLOR_PALETTE_NUMBER palettes)
     jab_float norm_palette[color_number * 4 * COLOR_PALETTE_NUMBER];
@@ -304,7 +330,6 @@ jab_data* decodeJABCodeSynthetic(jab_bitmap* bitmap, jab_int32 color_number, jab
         // Note: data_map already freed by decodeSymbol() even on error
         free(matrix);
         free(symbols[0].palette);
-        for(jab_int32 i=0; i<3; free(ch[i++]));
         if(status) *status = 1;
         return NULL;
     }
@@ -318,7 +343,6 @@ jab_data* decodeJABCodeSynthetic(jab_bitmap* bitmap, jab_int32 color_number, jab
             *status = 1;
         
         // Clean memory
-        for(jab_int32 i=0; i<3; free(ch[i++]));
         for(jab_int32 i=0; i<=MIN(total, MAX_SYMBOL_NUMBER-1); i++)
         {
             free(symbols[i].palette);
@@ -341,7 +365,6 @@ jab_data* decodeJABCodeSynthetic(jab_bitmap* bitmap, jab_int32 color_number, jab
         {
             reportError("Symbol data is NULL after decode");
             // Note: data_map already freed by decodeSymbol()
-            for(jab_int32 j=0; j<3; free(ch[j++]));
             for(jab_int32 j=0; j<=i; j++)
             {
                 free(symbols[j].palette);
@@ -360,7 +383,6 @@ jab_data* decodeJABCodeSynthetic(jab_bitmap* bitmap, jab_int32 color_number, jab
         if(status) *status = 1;
         
         // Clean memory
-        for(jab_int32 i=0; i<3; free(ch[i++]));
         for(jab_int32 i=0; i<total; i++)
         {
             free(symbols[i].palette);
@@ -385,7 +407,6 @@ jab_data* decodeJABCodeSynthetic(jab_bitmap* bitmap, jab_int32 color_number, jab
     
     // Clean memory
     free(decoded_bits);
-    for(jab_int32 i=0; i<3; free(ch[i++]));
     for(jab_int32 i=0; i<total; i++)
     {
         free(symbols[i].palette);

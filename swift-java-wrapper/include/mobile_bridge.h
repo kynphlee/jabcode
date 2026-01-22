@@ -40,6 +40,7 @@ typedef struct {
     jab_int32 symbol_width;      ///< Symbol width in modules
     jab_int32 symbol_height;     ///< Symbol height in modules
     jab_int32 mask_type;         ///< Mask pattern type used by encoder
+    jab_byte* data_map;          ///< Encoder's data_map (0=metadata/pattern, 1=data module)
 } jab_mobile_encode_result;
 
 /**

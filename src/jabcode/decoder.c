@@ -392,6 +392,14 @@ jab_int32 getNearestPalette(jab_bitmap* matrix, jab_int32 x, jab_int32 y)
 			p_index = i;
 		}
 	}
+	
+	// DEBUG: Log for first few calls
+	static int call_count = 0;
+	if(call_count++ < 6) {
+		printf("[getNearestPalette] pos(%d,%d) in %dx%d matrix -> p_index=%d\n", 
+			x, y, matrix->width, matrix->height, p_index);
+	}
+	
 	return p_index;
 }
 
@@ -410,6 +418,9 @@ jab_byte decodeModuleHD(jab_bitmap* matrix, jab_byte* palette, jab_int32 color_n
 {
 	//get the nearest palette
 	jab_int32 p_index = getNearestPalette(matrix, x, y);
+	
+	// DEBUG: Check if this module is in data_map (should only decode data modules, not finder patterns)
+	// This logging will show if fillDataMap is working correctly
 
 	//read the RGB values
 	jab_byte rgb[3];
@@ -437,6 +448,14 @@ jab_byte decodeModuleHD(jab_bitmap* matrix, jab_byte* palette, jab_int32 color_n
         jab_float b = (jab_float)rgb[2] / rgb_max;
         //jab_float l = ((rgb[0] + rgb[1] + rgb[2]) / 3.0f) / 255.0f;
 
+		// DEBUG: Log first few modules
+		static int decode_count = 0;
+		jab_boolean should_log = (decode_count++ < 3);
+		if(should_log) {
+			printf("[decodeModuleHD] pos(%d,%d) RGB(%d,%d,%d) p_index=%d norm=(%.3f,%.3f,%.3f)\n",
+				x, y, rgb[0], rgb[1], rgb[2], p_index, r, g, b);
+		}
+
 		jab_float min1 = 255*255*3, min2 = 255*255*3;
 		for(jab_int32 i=0; i<color_number; i++)
 		{
@@ -448,6 +467,10 @@ jab_byte decodeModuleHD(jab_bitmap* matrix, jab_byte* palette, jab_int32 color_n
 
 			//compare the normalized module color with palette
 			jab_float diff = (pr - r) * (pr - r) + (pg - g) * (pg - g) + (pb - b) * (pb - b);// + (pl - l) * (pl - l);
+
+			if(should_log) {
+				printf("  palette[%d] norm=(%.3f,%.3f,%.3f) diff=%.6f\n", i, pr, pg, pb, diff);
+			}
 
 			if(diff < min1)
 			{
@@ -463,6 +486,10 @@ jab_byte decodeModuleHD(jab_bitmap* matrix, jab_byte* palette, jab_int32 color_n
 				min2 = diff;
 				index2 = (jab_byte)i;
 			}
+		}
+		
+		if(should_log) {
+			printf("  -> Selected index=%d (min1=%.6f)\n", index1, min1);
 		}
 
 		if(index1 == 0 || index1 == 7)
@@ -1181,6 +1208,15 @@ jab_int32 decodeSymbol(jab_bitmap* matrix, jab_decoded_symbol* symbol, jab_byte*
 
 	//fill data map
 	fillDataMap(data_map, matrix->width, matrix->height, type);
+	
+	// DEBUG: Count data modules (0) vs pattern modules (1)
+	jab_int32 data_count = 0, pattern_count = 0;
+	for(jab_int32 i = 0; i < matrix->width * matrix->height; i++) {
+		if(data_map[i] == 0) data_count++;
+		else pattern_count++;
+	}
+	printf("[DECODER] After fillDataMap: %d data modules (0), %d pattern modules (1), total=%d\n",
+		data_count, pattern_count, matrix->width * matrix->height);
 
 	//read raw data
 	jab_data* raw_module_data = readRawModuleData(matrix, symbol, data_map, norm_palette, pal_ths);
@@ -1196,8 +1232,39 @@ jab_int32 decodeSymbol(jab_bitmap* matrix, jab_decoded_symbol* symbol, jab_byte*
 	fclose(fp);
 #endif // TEST_MODE
 
+	// DEBUG: Log first 20 BEFORE demasking (sampled from bitmap)
+	printf("[DECODER] First 20 BEFORE demask (sampled): ");
+	for(jab_int32 i = 0; i < 20 && i < raw_module_data->length; i++) {
+		printf("%d ", raw_module_data->data[i]);
+	}
+	printf("\n");
+	
+	// DEBUG: Show which linear indices decoder reads
+	printf("[DECODER] First 20 data module linear indices: ");
+	jab_int32 idx_count = 0;
+	for(jab_int32 j=0; j<matrix->width && idx_count<20; j++) {
+		for(jab_int32 i=0; i<matrix->height && idx_count<20; i++) {
+			jab_int32 linear_idx = i * matrix->width + j;
+			if(data_map[linear_idx] == 0) {
+				printf("%d ", linear_idx);
+				idx_count++;
+			}
+		}
+	}
+	printf("\n");
+	
 	//demask
+	printf("[DECODER] Demasking with mask_type=%d, color_number=%d\n", 
+		symbol->metadata.mask_type, (jab_int32)pow(2, symbol->metadata.Nc + 1));
 	demaskSymbol(raw_module_data, data_map, symbol->side_size, symbol->metadata.mask_type, (jab_int32)pow(2, symbol->metadata.Nc + 1));
+	
+	// DEBUG: Log first 20 demasked module values for comparison
+	printf("[DECODER] First 20 demasked modules: ");
+	for(jab_int32 i = 0; i < 20 && i < raw_module_data->length; i++) {
+		printf("%d ", raw_module_data->data[i]);
+	}
+	printf("\n");
+	
 	free(data_map);
 #if TEST_MODE
 	fp = fopen("jab_demasked_module_data.bin", "wb");
@@ -1220,9 +1287,25 @@ jab_int32 decodeSymbol(jab_bitmap* matrix, jab_decoded_symbol* symbol, jab_byte*
     jab_int32 Pg = (raw_data->length / wr) * wr;	//max_gross_payload = floor(capacity / wr) * wr
     jab_int32 Pn = Pg * (wr - wc) / wr;				//code_rate = 1 - wc/wr = (wr - wc)/wr, max_net_payload = max_gross_payload * code_rate
 
+	// DEBUG: Log LDPC parameters
+	printf("[LDPC] raw_data->length=%d, wc=%d, wr=%d, Pg=%d, Pn=%d\n", 
+		raw_data->length, wc, wr, Pg, Pn);
+	printf("[LDPC] First 40 bits of raw_data: ");
+	for(jab_int32 i = 0; i < 40 && i < raw_data->length; i++) {
+		printf("%d", raw_data->data[i]);
+	}
+	printf("\n");
+
 	//deinterleave data
 	raw_data->length = Pg;	//drop the padding bits
     deinterleaveData(raw_data);
+    
+    // DEBUG: After deinterleave
+	printf("[LDPC] After deinterleave, first 40 bits: ");
+	for(jab_int32 i = 0; i < 40 && i < raw_data->length; i++) {
+		printf("%d", raw_data->data[i]);
+	}
+	printf("\n");
 
 #if TEST_MODE
 	JAB_REPORT_INFO(("wc:%d, wr:%d, Pg:%d, Pn: %d", wc, wr, Pg, Pn))
