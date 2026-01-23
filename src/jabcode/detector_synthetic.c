@@ -26,18 +26,19 @@ extern void getPaletteThreshold(jab_byte* palette, jab_int32 color_number, jab_f
 extern void fillDataMap(jab_byte* data_map, jab_int32 width, jab_int32 height, jab_int32 type);
 extern jab_int32 decodeSymbol(jab_bitmap* matrix, jab_decoded_symbol* symbol, jab_byte* data_map, jab_float* norm_palette, jab_float* pal_ths, jab_int32 type);
 
-// ECC level to wc/wr mapping (from decoder.c)
-static const jab_int32 ecclevel2wcwr[10][2] = {
-    {3, 5},   // Level 0
-    {7, 9},   // Level 1
-    {3, 4},   // Level 2
-    {5, 6},   // Level 3
-    {7, 8},   // Level 4
-    {4, 5},   // Level 5
-    {5, 7},   // Level 6
-    {6, 7},   // Level 7
-    {8, 9},   // Level 8
-    {9, 10}   // Level 9
+// ECC level to wc/wr mapping (MUST match encoder.h exactly!)
+static const jab_int32 ecclevel2wcwr[11][2] = {
+    {4, 9},   // Level 0
+    {3, 8},   // Level 1
+    {3, 7},   // Level 2
+    {4, 9},   // Level 3
+    {3, 6},   // Level 4
+    {4, 7},   // Level 5
+    {4, 6},   // Level 6
+    {3, 4},   // Level 7
+    {4, 5},   // Level 8
+    {5, 6},   // Level 9
+    {6, 7}    // Level 10
 };
 
 /**
@@ -118,7 +119,7 @@ jab_boolean extractRGBChannelsSynthetic(jab_bitmap* bitmap, jab_bitmap* rgb[3])
  * pattern detection) by using known encoding parameters and spatial metadata.
  * This solves the "too perfect" problem where camera-tuned detectors fail on synthetic images.
  */
-jab_data* decodeJABCodeSynthetic(jab_bitmap* bitmap, jab_int32 color_number, jab_int32 ecc_level, jab_int32 module_size, jab_int32 symbol_width, jab_int32 symbol_height, jab_int32 mask_type, jab_byte* encoder_data_map, jab_int32 mode, jab_int32* status)
+jab_data* decodeJABCodeSynthetic(jab_bitmap* bitmap, jab_int32 color_number, jab_int32 ecc_level, jab_int32 module_size, jab_int32 symbol_width, jab_int32 symbol_height, jab_int32 mask_type, jab_byte* encoder_data_map, jab_int32* encoder_wcwr, jab_int32 encoder_Pg, jab_int32 mode, jab_int32* status)
 {
     jab_decoded_symbol symbols[MAX_SYMBOL_NUMBER];
     
@@ -153,17 +154,21 @@ jab_data* decodeJABCodeSynthetic(jab_bitmap* bitmap, jab_int32 color_number, jab
     
     // Set known metadata
     symbols[0].metadata.Nc = Nc;
-    // Convert ECC level to wc/wr using lookup table (decoder reads from metadata.ecl)
-    symbols[0].metadata.ecl.x = ecclevel2wcwr[ecc_level][0];  // wc
-    symbols[0].metadata.ecl.y = ecclevel2wcwr[ecc_level][1];  // wr
-    printf("[SYNTHETIC] ECC params: ecc_level=%d -> wc=%d, wr=%d\n", 
-        ecc_level, symbols[0].metadata.ecl.x, symbols[0].metadata.ecl.y);
+    // Use encoder's actual wcwr values (NOT ecclevel2wcwr lookup, as encoder may use getOptimalECC)
+    if(encoder_wcwr) {
+        symbols[0].metadata.ecl.x = encoder_wcwr[0];  // wc
+        symbols[0].metadata.ecl.y = encoder_wcwr[1];  // wr
+    } else {
+        symbols[0].metadata.ecl.x = ecclevel2wcwr[ecc_level][0];  // wc
+        symbols[0].metadata.ecl.y = ecclevel2wcwr[ecc_level][1];  // wr
+    }
     // side_version is VERSION not SIZE: VERSION = (SIZE - 17) / 4
     symbols[0].metadata.side_version.x = SIZE2VERSION(symbol_width);
     symbols[0].metadata.side_version.y = SIZE2VERSION(symbol_height);
     symbols[0].metadata.mask_type = mask_type;  // Use encoder's mask_type
     symbols[0].metadata.docked_position = 0;  // Not docked
     symbols[0].metadata.default_mode = 0;  // NOT in default mode (4-color, not 8-color)
+    symbols[0].metadata.Pg = encoder_Pg;  // Use encoder's exact Pg value
     
     // Calculate finder pattern positions from spatial metadata
     // Encoder produces bitmap with NO quiet zone (removed for mobile compatibility)
@@ -188,22 +193,19 @@ jab_data* decodeJABCodeSynthetic(jab_bitmap* bitmap, jab_int32 color_number, jab
     symbols[0].pattern_positions[3].x = pattern_offset + symbol_pixel_width - 7.0f * module_size;
     symbols[0].pattern_positions[3].y = pattern_offset + symbol_pixel_height - 7.0f * module_size;
     
-    // Allocate single palette - decoder will only use first palette for master symbol
-    symbols[0].palette = (jab_byte*)calloc(color_number * 3, sizeof(jab_byte));
+    // Allocate palette for all 4 palette slots (COLOR_PALETTE_NUMBER) as expected by decodeModuleHD
+    symbols[0].palette = (jab_byte*)calloc(color_number * 3 * COLOR_PALETTE_NUMBER, sizeof(jab_byte));
     if(!symbols[0].palette) {
         reportError("Failed to allocate palette for synthetic decode");
         return NULL;
     }
-    // Set default palette colors
+    // Set default palette colors in first slot
     setDefaultPalette(color_number, symbols[0].palette);
-    
-    // DEBUG: Log palette to compare with encoder
-    printf("[DECODER] Palette after setDefaultPalette:\n");
-    for(jab_int32 i = 0; i < color_number; i++) {
-        printf("  [%d] RGB(%d,%d,%d)\n", i,
-            symbols[0].palette[i*3 + 0],
-            symbols[0].palette[i*3 + 1],
-            symbols[0].palette[i*3 + 2]);
+    // Replicate palette to all 4 slots for spatial adaptation
+    for(jab_int32 p = 1; p < COLOR_PALETTE_NUMBER; p++) {
+        memcpy(symbols[0].palette + p * color_number * 3, 
+               symbols[0].palette, 
+               color_number * 3);
     }
     
     // For perfect synthetic images, sample modules directly without perspective transform
@@ -249,15 +251,6 @@ jab_data* decodeJABCodeSynthetic(jab_bitmap* bitmap, jab_int32 color_number, jab
             matrix->pixel[mtx_offset + 0] = bitmap->pixel[src_offset + 0];  // R
             matrix->pixel[mtx_offset + 1] = bitmap->pixel[src_offset + 1];  // G
             matrix->pixel[mtx_offset + 2] = bitmap->pixel[src_offset + 2];  // B
-            
-            // DEBUG: Log first 6 modules
-            if(module_idx < 6) {
-                printf("[DECODER SAMPLING] Module %d at pixel(%d,%d): RGB(%d,%d,%d)\n",
-                    module_idx, pixel_x, pixel_y,
-                    bitmap->pixel[src_offset + 0],
-                    bitmap->pixel[src_offset + 1],
-                    bitmap->pixel[src_offset + 2]);
-            }
         }
     }
     
@@ -284,11 +277,9 @@ jab_data* decodeJABCodeSynthetic(jab_bitmap* bitmap, jab_int32 color_number, jab
         for(jab_int32 i = 0; i < matrix->width * matrix->height; i++) {
             data_map[i] = (encoder_data_map[i] == 0) ? 1 : 0; // Invert convention
         }
-        printf("[SYNTHETIC] Using encoder's exact data_map (inverted for decoder convention)\n");
     } else {
         // Fallback to fillDataMap if no encoder data_map provided
         fillDataMap(data_map, matrix->width, matrix->height, 0);
-        printf("[SYNTHETIC] Warning: No encoder data_map, using fillDataMap fallback\n");
     }
     
     // Normalize palette for all 4 palette slots (decodeModuleHD expects COLOR_PALETTE_NUMBER palettes)

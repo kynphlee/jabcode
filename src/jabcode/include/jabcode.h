@@ -115,6 +115,7 @@ typedef struct {
 	jab_int32		host;
 	jab_int32		slaves[4];
 	jab_int32 		wcwr[2];
+	jab_int32		Pg;					///< Gross payload length (ecc_encoded_data->length)
 	jab_data*		data;
 	jab_byte*		data_map;
 	jab_data*		metadata;
@@ -149,6 +150,7 @@ typedef struct {
 	jab_byte docked_position;
 	jab_vector2d side_version;
 	jab_vector2d ecl;
+	jab_int32 Pg;				///< Gross payload length (for synthetic decoder)
 }jab_metadata;
 
 /**
@@ -173,7 +175,7 @@ extern void destroyEncode(jab_encode* enc);
 extern jab_int32 generateJABCode(jab_encode* enc, jab_data* data);
 extern jab_data* decodeJABCode(jab_bitmap* bitmap, jab_int32 mode, jab_int32* status);
 extern jab_data* decodeJABCodeEx(jab_bitmap* bitmap, jab_int32 mode, jab_int32* status, jab_decoded_symbol* symbols, jab_int32 max_symbol_number);
-extern jab_data* decodeJABCodeSynthetic(jab_bitmap* bitmap, jab_int32 color_number, jab_int32 ecc_level, jab_int32 module_size, jab_int32 symbol_width, jab_int32 symbol_height, jab_int32 mask_type, jab_byte* encoder_data_map, jab_int32 mode, jab_int32* status);
+extern jab_data* decodeJABCodeSynthetic(jab_bitmap* bitmap, jab_int32 color_number, jab_int32 ecc_level, jab_int32 module_size, jab_int32 symbol_width, jab_int32 symbol_height, jab_int32 mask_type, jab_byte* encoder_data_map, jab_int32* encoder_wcwr, jab_int32 encoder_Pg, jab_int32 mode, jab_int32* status);
 extern jab_boolean saveImage(jab_bitmap* bitmap, jab_char* filename);
 extern jab_boolean saveImageCMYK(jab_bitmap* bitmap, jab_boolean isCMYK, jab_char* filename);
 extern jab_bitmap* readImage(jab_char* filename);
