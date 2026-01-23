@@ -780,10 +780,6 @@ jab_int32 decodeLDPChd(jab_byte* data, jab_int32 length, jab_int32 wc, jab_int32
                 }
                 if(is_correct==0)
                 {
-                    #ifdef TEST_MODE
-                    printf("[LDPC] Syndrome check FAILED (max_iter=%d)\n", max_iter);
-                    printf("[LDPC] Block iter=%d, Pn_sub=%d, Pg_sub=%d\n", iter, Pn_sub_block, Pg_sub_block);
-                    #endif
                     reportError("Too many errors in message. LDPC decoding failed.");
                     free(matrixA1);
                     return 0;
@@ -833,10 +829,6 @@ jab_int32 decodeLDPChd(jab_byte* data, jab_int32 length, jab_int32 wc, jab_int32
                 }
                 if(is_correct==0)
                 {
-                    #ifdef TEST_MODE
-                    printf("[LDPC] Main syndrome check FAILED (max_iter=%d)\n", max_iter);
-                    printf("[LDPC] Block iter=%d, Pn_sub=%d, Pg_sub=%d\n", iter, Pn_sub_block, Pg_sub_block);
-                    #endif
                     reportError("Too many errors in message. LDPC decoding failed.");
                     free(matrixA);
                     return 0;

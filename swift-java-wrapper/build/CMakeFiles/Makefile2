@@ -144,8 +144,8 @@ CMakeFiles/unity.dir/clean:
 # Target rules for target CMakeFiles/mobile_bridge_tests.dir
 
 # All Build rule for target.
-CMakeFiles/mobile_bridge_tests.dir/all: CMakeFiles/jabcode-mobile.dir/all
 CMakeFiles/mobile_bridge_tests.dir/all: CMakeFiles/unity.dir/all
+CMakeFiles/mobile_bridge_tests.dir/all: CMakeFiles/jabcode-mobile.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/mobile_bridge_tests.dir/build.make CMakeFiles/mobile_bridge_tests.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/mobile_bridge_tests.dir/build.make CMakeFiles/mobile_bridge_tests.dir/build
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/swift-java-wrapper/build/CMakeFiles --progress-num=15,16 "Built target mobile_bridge_tests"
@@ -171,8 +171,8 @@ CMakeFiles/mobile_bridge_tests.dir/clean:
 # Target rules for target CMakeFiles/test_encode_roundtrip.dir
 
 # All Build rule for target.
-CMakeFiles/test_encode_roundtrip.dir/all: CMakeFiles/jabcode-mobile.dir/all
 CMakeFiles/test_encode_roundtrip.dir/all: CMakeFiles/unity.dir/all
+CMakeFiles/test_encode_roundtrip.dir/all: CMakeFiles/jabcode-mobile.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_encode_roundtrip.dir/build.make CMakeFiles/test_encode_roundtrip.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_encode_roundtrip.dir/build.make CMakeFiles/test_encode_roundtrip.dir/build
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/swift-java-wrapper/build/CMakeFiles --progress-num=32,33 "Built target test_encode_roundtrip"

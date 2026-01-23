@@ -1,1 +1,1 @@
-/usr/bin/cc -g -fsanitize=address -fno-omit-frame-pointer -g -fsanitize=address CMakeFiles/test_synthetic_decode.dir/test/c/test_synthetic_decode.c.o -o test_synthetic_decode  lib/libjabcode-mobile.a -lm 
+/usr/bin/cc -O3 -DNDEBUG CMakeFiles/test_synthetic_decode.dir/test/c/test_synthetic_decode.c.o -o test_synthetic_decode  lib/libjabcode-mobile.a -lm 

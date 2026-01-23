@@ -100,6 +100,19 @@ jab_mobile_encode_result* jabMobileEncode(
     enc->module_size = params->module_size;
     for (jab_int32 i = 0; i < enc->symbol_number; i++) {
         enc->symbol_ecc_levels[i] = params->ecc_level;
+        // Initialize symbol positions (default: sequential grid layout)
+        enc->symbol_positions[i] = i;
+    }
+    
+    // For multi-symbol: set reasonable default versions (encoder requires 1-32 range)
+    // For single-symbol: version will be auto-calculated by setMasterSymbolVersion
+    if (enc->symbol_number > 1) {
+        for (jab_int32 i = 0; i < enc->symbol_number; i++) {
+            // Use medium size as default (version 10 = ~57x57 modules)
+            // Encoder will optimize these in fitDataIntoSymbols if needed
+            enc->symbol_versions[i].x = 10;
+            enc->symbol_versions[i].y = 10;
+        }
     }
     
     // Create jab_data structure from input
@@ -163,6 +176,11 @@ jab_mobile_encode_result* jabMobileEncode(
     result->symbol_width = enc->symbols[0].side_size.x;
     result->symbol_height = enc->symbols[0].side_size.y;
     result->mask_type = enc->mask_type;
+    
+    // Copy encoder's actual LDPC parameters
+    result->wcwr[0] = enc->symbols[0].wcwr[0];
+    result->wcwr[1] = enc->symbols[0].wcwr[1];
+    result->Pg = enc->symbols[0].Pg;
     
     // Copy encoder's data_map so decoder knows exact metadata/data positions
     jab_int32 map_size = enc->symbols[0].side_size.x * enc->symbols[0].side_size.y;
@@ -253,6 +271,8 @@ jab_data* jabMobileDecode(
         encode_result->symbol_height,
         encode_result->mask_type,
         encode_result->data_map,
+        encode_result->wcwr,
+        encode_result->Pg,
         NORMAL_DECODE, 
         &decode_status
     );

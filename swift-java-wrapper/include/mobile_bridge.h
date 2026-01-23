@@ -41,6 +41,8 @@ typedef struct {
     jab_int32 symbol_height;     ///< Symbol height in modules
     jab_int32 mask_type;         ///< Mask pattern type used by encoder
     jab_byte* data_map;          ///< Encoder's data_map (0=metadata/pattern, 1=data module)
+    jab_int32 wcwr[2];           ///< Actual LDPC parameters [wc, wr]
+    jab_int32 Pg;                ///< Gross payload length (ecc_encoded_data->length)
 } jab_mobile_encode_result;
 
 /**
