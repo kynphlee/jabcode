@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <!-- Welcome Screen -->
+    <LinearLayout
+        android:id="@+id/welcome_layout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:visibility="gone">
+        
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Color Calibration"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="16dp"/>
+        
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Improve scanning of 16+ color JABCodes by calibrating for your printer."
+            android:textAlignment="center"
+            android:layout_marginBottom="32dp"/>
+        
+        <Button
+            android:id="@+id/btn_start_calibration"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Start Calibration"
+            android:layout_marginBottom="16dp"/>
+        
+        <Button
+            android:id="@+id/btn_manage_profiles"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Manage Profiles"/>
+    </LinearLayout>
+
+    <!-- Generate Pattern Screen -->
+    <LinearLayout
+        android:id="@+id/generate_layout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:visibility="gone">
+        
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Step 1: Generate Test Pattern"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="16dp"/>
+        
+        <TextView
+            android:id="@+id/status_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Ready to generate calibration pattern"
+            android:layout_marginBottom="16dp"/>
+        
+        <ProgressBar
+            android:id="@+id/progress_bar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            android:layout_marginBottom="16dp"/>
+        
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="This will generate a test pattern with 4,096 colors. Print this pattern at highest quality settings."
+            android:layout_marginBottom="16dp"/>
+        
+        <Button
+            android:id="@+id/action_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Generate Pattern"
+            android:layout_gravity="center"/>
+    </LinearLayout>
+
+    <!-- Print Pattern Screen -->
+    <ScrollView
+        android:id="@+id/print_layout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone">
+        
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+            
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Step 2: Print Pattern"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="16dp"/>
+            
+            <ImageView
+                android:id="@+id/pattern_preview"
+                android:layout_width="match_parent"
+                android:layout_height="300dp"
+                android:scaleType="fitCenter"
+                android:layout_marginBottom="16dp"/>
+            
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Print Instructions:"
+                android:textStyle="bold"
+                android:layout_marginBottom="8dp"/>
+            
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="1. Pattern saved to Pictures/JABCode_Calibration\n2. Print at highest quality setting\n3. Use plain white paper\n4. Avoid scaling or cropping\n5. Let ink dry completely"
+                android:layout_marginBottom="16dp"/>
+            
+            <Button
+                android:id="@+id/btn_print_continue"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="I've Printed It"
+                android:layout_gravity="center"/>
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- Capture Pattern Screen -->
+    <LinearLayout
+        android:id="@+id/capture_layout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:visibility="gone">
+        
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Step 3: Capture Printed Pattern"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="16dp"/>
+        
+        <TextView
+            android:id="@+id/capture_status_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Position camera directly above printed pattern"
+            android:layout_marginBottom="16dp"/>
+        
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Capture Tips:"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp"/>
+        
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="• Use good lighting (natural light is best)\n• Hold camera parallel to paper\n• Fill frame with pattern\n• Avoid shadows and glare\n• Keep camera steady"
+            android:layout_marginBottom="16dp"/>
+        
+        <Button
+            android:id="@+id/btn_capture"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Capture Photo"
+            android:layout_gravity="center"/>
+    </LinearLayout>
+
+    <!-- Analyze Screen -->
+    <LinearLayout
+        android:id="@+id/analyze_layout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:visibility="gone">
+        
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Analyzing Colors..."
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textAlignment="center"
+            android:layout_marginBottom="16dp"/>
+        
+        <ProgressBar
+            android:id="@+id/analyze_progress"
+            style="?android:attr/progressBarStyleLarge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"/>
+        
+        <TextView
+            android:id="@+id/analyze_status_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Extracting color samples..."
+            android:textAlignment="center"/>
+    </LinearLayout>
+
+    <!-- Results Screen -->
+    <ScrollView
+        android:id="@+id/results_layout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone">
+        
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+            
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Calibration Complete"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="16dp"/>
+            
+            <TextView
+                android:id="@+id/results_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:layout_marginBottom="16dp"/>
+            
+            <Button
+                android:id="@+id/btn_save_profile"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Save Profile"
+                android:layout_gravity="center"
+                android:layout_marginBottom="8dp"/>
+            
+            <Button
+                android:id="@+id/btn_recapture"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Retake Photo"
+                android:layout_gravity="center"/>
+        </LinearLayout>
+    </ScrollView>
+
+</LinearLayout>

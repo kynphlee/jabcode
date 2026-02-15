@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">JABCode Scanner</string>
+    <string name="toggle_torch">Toggle torch</string>
+    <string name="open_gallery">Open gallery</string>
+    <string name="open_settings">Open settings</string>
+    <string name="scanning">Scanning…</string>
+    <string name="ready_to_scan">Ready to scan</string>
+</resources>
