@@ -42,6 +42,7 @@ set(JABCODE_SOURCES
     ../src/jabcode/transform.c
     ../src/jabcode/interleave.c
     ../src/jabcode/pseudo_random.c
+    ../src/jabcode/color_calibration.c
 )
 
 # Mobile bridge source
@@ -50,14 +51,37 @@ set(MOBILE_BRIDGE_SOURCES
     src/c/mobile_utils.c
 )
 
-# Create static library
-add_library(jabcode-mobile STATIC 
-    ${JABCODE_SOURCES}
-    ${MOBILE_BRIDGE_SOURCES}
-)
+# Option for shared library (needed for Android)
+option(BUILD_SHARED_LIBS "Build shared library instead of static" OFF)
+
+# JNI sources (for Android)
+if(ANDROID)
+    set(JNI_SOURCES
+        android/jni/jabcode_jni.c
+    )
+endif()
+
+# Create library (static by default, shared for Android)
+if(BUILD_SHARED_LIBS)
+    add_library(jabcode-mobile SHARED 
+        ${JABCODE_SOURCES}
+        ${MOBILE_BRIDGE_SOURCES}
+        ${JNI_SOURCES}
+    )
+else()
+    add_library(jabcode-mobile STATIC 
+        ${JABCODE_SOURCES}
+        ${MOBILE_BRIDGE_SOURCES}
+    )
+endif()
 
 # Link against math library only (NO png/tiff)
 target_link_libraries(jabcode-mobile m)
+
+# For Android, also link log library
+if(ANDROID)
+    target_link_libraries(jabcode-mobile log)
+endif()
 
 # Set output directory
 set_target_properties(jabcode-mobile PROPERTIES
@@ -121,6 +145,31 @@ target_link_libraries(test_palette_debug
     jabcode-mobile
     m
 )
+
+# Color modes roundtrip test
+add_executable(test_color_modes
+    test/c/test_color_modes.c
+)
+
+target_link_libraries(test_color_modes
+    jabcode-mobile
+    m
+)
+
+add_test(NAME test_color_modes COMMAND test_color_modes)
+
+# Comprehensive mobile bridge tests
+add_executable(test_mobile_bridge_comprehensive
+    test/c/test_mobile_bridge_comprehensive.c
+)
+
+target_link_libraries(test_mobile_bridge_comprehensive
+    jabcode-mobile
+    unity
+    m
+)
+
+add_test(NAME test_mobile_bridge_comprehensive COMMAND test_mobile_bridge_comprehensive)
 
 # Synthetic decode diagnostic test
 add_executable(test_synthetic_decode

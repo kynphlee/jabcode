@@ -87,6 +87,24 @@ jab_data* jabMobileDecode(
 );
 
 /**
+ * @brief Decode JABCode from camera bitmap (uses full detection pipeline)
+ * 
+ * @param rgba_buffer RGBA pixel data from camera
+ * @param width Image width in pixels
+ * @param height Image height in pixels
+ * @return Decoded data or NULL on failure (check jabMobileGetLastError)
+ * 
+ * @note This function uses the full JABCode camera detection pipeline.
+ *       Slower than jabMobileDecode but works with real camera images.
+ * @note Caller must free result with jabMobileDataFree()
+ */
+jab_data* jabMobileDecodeCamera(
+    jab_byte* rgba_buffer,
+    jab_int32 width,
+    jab_int32 height
+);
+
+/**
  * @brief Free decoded data
  * 
  * @param data Data to free
@@ -113,6 +131,29 @@ void jabMobileClearError(void);
  * @return Version string (e.g., "1.0.0")
  */
 const char* jabMobileGetVersion(void);
+
+/**
+ * @brief Load calibration profile from JSON
+ * 
+ * @param json_string Calibration profile in JSON format
+ * @return 1 on success, 0 on failure
+ * 
+ * @note Calibration applies to subsequent encode operations (≤8 color modes only)
+ * @note Remaps standard colors to printer-specific calibrated colors
+ */
+jab_int32 jabMobileLoadCalibration(const char* json_string);
+
+/**
+ * @brief Clear active calibration profile
+ */
+void jabMobileClearCalibration(void);
+
+/**
+ * @brief Check if calibration is active
+ * 
+ * @return TRUE if calibration loaded, FALSE otherwise
+ */
+jab_boolean jabMobileHasCalibration(void);
 
 #ifdef __cplusplus
 }

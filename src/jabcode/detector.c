@@ -3558,13 +3558,18 @@ jab_data* decodeJABCodeEx(jab_bitmap* bitmap, jab_int32 mode, jab_int32* status,
 		return NULL;
 	}
 
-	//binarize r, g, b channels
+	//binarize using luminance-based thresholds but preserve RGB colors
 	jab_bitmap* ch[3];
 	balanceRGB(bitmap);
-    if(!binarizerRGB(bitmap, ch, 0))
+	
+	// Use luminance-based binarization for finder pattern detection
+	// More robust against intermediate color values in 16+ color modes
+	// Uses luminance for threshold but preserves RGB color information
+	if(!binarizerLuminanceRGB(bitmap, ch))
 	{
 		return NULL;
 	}
+	
 #if TEST_MODE
     saveImage(bitmap, "jab_balanced.png");
 #endif // TEST_MODE

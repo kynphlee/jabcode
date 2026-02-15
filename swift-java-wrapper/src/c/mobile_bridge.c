@@ -8,6 +8,7 @@
 #include "mobile_bridge.h"
 #include "encoder.h"
 #include "decoder.h"
+#include "color_calibration.h"
 #include <string.h>
 #include <stdlib.h>
 
@@ -102,6 +103,11 @@ jab_mobile_encode_result* jabMobileEncode(
         enc->symbol_ecc_levels[i] = params->ecc_level;
         // Initialize symbol positions (default: sequential grid layout)
         enc->symbol_positions[i] = i;
+    }
+    
+    // Apply color calibration if active (before encoding)
+    if (jabHasCalibration()) {
+        jabApplyCalibration(enc);
     }
     
     // For multi-symbol: set reasonable default versions (encoder requires 1-32 range)
@@ -293,8 +299,88 @@ jab_data* jabMobileDecode(
     return result;
 }
 
+jab_data* jabMobileDecodeCamera(
+    jab_byte* rgba_buffer,
+    jab_int32 width,
+    jab_int32 height
+) {
+    // Clear previous error
+    jabMobileClearError();
+    
+    // Validate parameters
+    if (!rgba_buffer) {
+        setError("Invalid RGBA buffer");
+        return NULL;
+    }
+    
+    if (width <= 0 || height <= 0) {
+        setError("Invalid image dimensions");
+        return NULL;
+    }
+    
+    // Create bitmap structure from RGBA buffer
+    jab_int32 pixel_count = width * height * 4;
+    jab_bitmap* bitmap = (jab_bitmap*)malloc(
+        sizeof(jab_bitmap) + pixel_count
+    );
+    if (!bitmap) {
+        setError("Memory allocation failed");
+        return NULL;
+    }
+    
+    bitmap->width = width;
+    bitmap->height = height;
+    bitmap->bits_per_pixel = 32;
+    bitmap->bits_per_channel = 8;
+    bitmap->channel_count = 4;
+    memcpy(bitmap->pixel, rgba_buffer, pixel_count);
+    
+    // Decode using full camera detection pipeline
+    jab_int32 decode_status;
+    jab_data* result = decodeJABCode(bitmap, NORMAL_DECODE, &decode_status);
+    
+    free(bitmap);
+    
+    if (!result) {
+        if (decode_status == 0) {
+            setError("No JABCode found in image");
+        } else if (decode_status == 1) {
+            setError("JABCode found but not decodable");
+        } else {
+            setError("Decoding failed");
+        }
+        return NULL;
+    }
+    
+    return result;
+}
+
 void jabMobileDataFree(jab_data* data) {
     if (data) {
         free(data);
     }
+}
+
+jab_int32 jabMobileLoadCalibration(const char* json_string) {
+    jabMobileClearError();
+    
+    if (!json_string) {
+        setError("Invalid JSON string");
+        return 0;
+    }
+    
+    jab_int32 result = jabLoadCalibrationFromJSON(json_string);
+    if (!result) {
+        setError("Failed to parse calibration profile");
+    }
+    
+    return result;
+}
+
+void jabMobileClearCalibration(void) {
+    jabClearCalibration();
+}
+
+jab_boolean jabMobileHasCalibration(void) {
+    return jabHasCalibration();
 }
