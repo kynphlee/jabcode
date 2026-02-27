@@ -1,0 +1,114 @@
+{
+  "buildFiles": [
+    "/mnt/23154586-ac12-480c-ad1c-d5fc7d0f167e/migration/jabcode/swift-java-wrapper/CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "/home/kynphlee/Android/Sdk/cmake/3.22.1/bin/ninja",
+      "-C",
+      "/mnt/23154586-ac12-480c-ad1c-d5fc7d0f167e/migration/jabcode/swift-java-wrapper/android/library/.cxx/Debug/5w4j1h49/arm64-v8a",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "/home/kynphlee/Android/Sdk/cmake/3.22.1/bin/ninja",
+    "-C",
+    "/mnt/23154586-ac12-480c-ad1c-d5fc7d0f167e/migration/jabcode/swift-java-wrapper/android/library/.cxx/Debug/5w4j1h49/arm64-v8a",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {
+    "jabcode-mobile::@6890427a1f51a3e7e1df": {
+      "toolchain": "toolchain",
+      "abi": "arm64-v8a",
+      "artifactName": "jabcode-mobile",
+      "output": "/mnt/23154586-ac12-480c-ad1c-d5fc7d0f167e/migration/jabcode/swift-java-wrapper/android/library/build/intermediates/cxx/Debug/5w4j1h49/obj/arm64-v8a/libjabcode-mobile.so",
+      "runtimeFiles": []
+    },
+    "mobile_bridge_tests::@6890427a1f51a3e7e1df": {
+      "toolchain": "toolchain",
+      "abi": "arm64-v8a",
+      "artifactName": "mobile_bridge_tests",
+      "output": "/mnt/23154586-ac12-480c-ad1c-d5fc7d0f167e/migration/jabcode/swift-java-wrapper/android/library/build/intermediates/cxx/Debug/5w4j1h49/obj/arm64-v8a/mobile_bridge_tests",
+      "runtimeFiles": [
+        "/mnt/23154586-ac12-480c-ad1c-d5fc7d0f167e/migration/jabcode/swift-java-wrapper/android/library/build/intermediates/cxx/Debug/5w4j1h49/obj/arm64-v8a/libjabcode-mobile.so"
+      ]
+    },
+    "test_bitmap_debug::@6890427a1f51a3e7e1df": {
+      "toolchain": "toolchain",
+      "abi": "arm64-v8a",
+      "artifactName": "test_bitmap_debug",
+      "output": "/mnt/23154586-ac12-480c-ad1c-d5fc7d0f167e/migration/jabcode/swift-java-wrapper/android/library/build/intermediates/cxx/Debug/5w4j1h49/obj/arm64-v8a/test_bitmap_debug",
+      "runtimeFiles": [
+        "/mnt/23154586-ac12-480c-ad1c-d5fc7d0f167e/migration/jabcode/swift-java-wrapper/android/library/build/intermediates/cxx/Debug/5w4j1h49/obj/arm64-v8a/libjabcode-mobile.so"
+      ]
+    },
+    "test_color_modes::@6890427a1f51a3e7e1df": {
+      "toolchain": "toolchain",
+      "abi": "arm64-v8a",
+      "artifactName": "test_color_modes",
+      "output": "/mnt/23154586-ac12-480c-ad1c-d5fc7d0f167e/migration/jabcode/swift-java-wrapper/android/library/build/intermediates/cxx/Debug/5w4j1h49/obj/arm64-v8a/test_color_modes",
+      "runtimeFiles": [
+        "/mnt/23154586-ac12-480c-ad1c-d5fc7d0f167e/migration/jabcode/swift-java-wrapper/android/library/build/intermediates/cxx/Debug/5w4j1h49/obj/arm64-v8a/libjabcode-mobile.so"
+      ]
+    },
+    "test_desktop_decode::@6890427a1f51a3e7e1df": {
+      "toolchain": "toolchain",
+      "abi": "arm64-v8a",
+      "artifactName": "test_desktop_decode",
+      "output": "/mnt/23154586-ac12-480c-ad1c-d5fc7d0f167e/migration/jabcode/swift-java-wrapper/android/library/build/intermediates/cxx/Debug/5w4j1h49/obj/arm64-v8a/test_desktop_decode",
+      "runtimeFiles": []
+    },
+    "test_encode_roundtrip::@6890427a1f51a3e7e1df": {
+      "toolchain": "toolchain",
+      "abi": "arm64-v8a",
+      "artifactName": "test_encode_roundtrip",
+      "output": "/mnt/23154586-ac12-480c-ad1c-d5fc7d0f167e/migration/jabcode/swift-java-wrapper/android/library/build/intermediates/cxx/Debug/5w4j1h49/obj/arm64-v8a/test_encode_roundtrip",
+      "runtimeFiles": [
+        "/mnt/23154586-ac12-480c-ad1c-d5fc7d0f167e/migration/jabcode/swift-java-wrapper/android/library/build/intermediates/cxx/Debug/5w4j1h49/obj/arm64-v8a/libjabcode-mobile.so"
+      ]
+    },
+    "test_mobile_bridge_comprehensive::@6890427a1f51a3e7e1df": {
+      "toolchain": "toolchain",
+      "abi": "arm64-v8a",
+      "artifactName": "test_mobile_bridge_comprehensive",
+      "output": "/mnt/23154586-ac12-480c-ad1c-d5fc7d0f167e/migration/jabcode/swift-java-wrapper/android/library/build/intermediates/cxx/Debug/5w4j1h49/obj/arm64-v8a/test_mobile_bridge_comprehensive",
+      "runtimeFiles": [
+        "/mnt/23154586-ac12-480c-ad1c-d5fc7d0f167e/migration/jabcode/swift-java-wrapper/android/library/build/intermediates/cxx/Debug/5w4j1h49/obj/arm64-v8a/libjabcode-mobile.so"
+      ]
+    },
+    "test_palette_debug::@6890427a1f51a3e7e1df": {
+      "toolchain": "toolchain",
+      "abi": "arm64-v8a",
+      "artifactName": "test_palette_debug",
+      "output": "/mnt/23154586-ac12-480c-ad1c-d5fc7d0f167e/migration/jabcode/swift-java-wrapper/android/library/build/intermediates/cxx/Debug/5w4j1h49/obj/arm64-v8a/test_palette_debug",
+      "runtimeFiles": [
+        "/mnt/23154586-ac12-480c-ad1c-d5fc7d0f167e/migration/jabcode/swift-java-wrapper/android/library/build/intermediates/cxx/Debug/5w4j1h49/obj/arm64-v8a/libjabcode-mobile.so"
+      ]
+    },
+    "test_synthetic_decode::@6890427a1f51a3e7e1df": {
+      "toolchain": "toolchain",
+      "abi": "arm64-v8a",
+      "artifactName": "test_synthetic_decode",
+      "output": "/mnt/23154586-ac12-480c-ad1c-d5fc7d0f167e/migration/jabcode/swift-java-wrapper/android/library/build/intermediates/cxx/Debug/5w4j1h49/obj/arm64-v8a/test_synthetic_decode",
+      "runtimeFiles": [
+        "/mnt/23154586-ac12-480c-ad1c-d5fc7d0f167e/migration/jabcode/swift-java-wrapper/android/library/build/intermediates/cxx/Debug/5w4j1h49/obj/arm64-v8a/libjabcode-mobile.so"
+      ]
+    },
+    "unity::@6890427a1f51a3e7e1df": {
+      "toolchain": "toolchain",
+      "abi": "arm64-v8a",
+      "artifactName": "unity",
+      "output": "/mnt/23154586-ac12-480c-ad1c-d5fc7d0f167e/migration/jabcode/swift-java-wrapper/android/library/.cxx/Debug/5w4j1h49/arm64-v8a/libunity.a"
+    }
+  },
+  "toolchains": {
+    "toolchain": {
+      "cCompilerExecutable": "/home/kynphlee/Android/Sdk/ndk/27.0.12077973/toolchains/llvm/prebuilt/linux-x86_64/bin/clang.lld",
+      "cppCompilerExecutable": "/home/kynphlee/Android/Sdk/ndk/27.0.12077973/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++.lld"
+    }
+  },
+  "cFileExtensions": [
+    "c"
+  ],
+  "cppFileExtensions": []
+}
