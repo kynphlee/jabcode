@@ -43,6 +43,9 @@ set(JABCODE_SOURCES
     ../src/jabcode/interleave.c
     ../src/jabcode/pseudo_random.c
     ../src/jabcode/color_calibration.c
+    ../src/jabcode/adaptive_palette.c
+    ../src/jabcode/lab_color.c
+    ../src/jabcode/kdtree_color.c
 )
 
 # Mobile bridge source

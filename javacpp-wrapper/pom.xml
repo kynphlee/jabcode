@@ -439,8 +439,8 @@
                     <forkCount>0</forkCount>
                     <reuseForks>false</reuseForks>
                     
-                    <!-- Enhanced library path configuration -->
-                    <argLine>-Xcheck:jni -Djava.library.path=${project.build.directory}/classes/com/jabcode/${javacpp.platform}:${project.build.directory}/test-classes/com/jabcode/${javacpp.platform}:${project.build.directory}/classes/com/jabcode/${javacpp.platform}:${project.build.directory}/test-classes/com/jabcode/${javacpp.platform}:${project.basedir}/libs:${project.basedir}/lib:${project.basedir}/libs:${project.basedir}/lib:${project.basedir}/../lib:${project.basedir}/libs/linux-x86_64</argLine>
+                    <!-- Enhanced library path configuration with JaCoCo agent -->
+                    <argLine>@{argLine} -Xcheck:jni -Djava.library.path=${project.build.directory}/classes/com/jabcode/${javacpp.platform}:${project.build.directory}/test-classes/com/jabcode/${javacpp.platform}:${project.build.directory}/classes/com/jabcode/${javacpp.platform}:${project.build.directory}/test-classes/com/jabcode/${javacpp.platform}:${project.basedir}/libs:${project.basedir}/lib:${project.basedir}/libs:${project.basedir}/lib:${project.basedir}/../lib:${project.basedir}/libs/linux-x86_64</argLine>
                     
                     <!-- Explicitly set environment variables for Linux -->
                     <environmentVariables>
@@ -470,6 +470,28 @@
                         <additionalClasspathElement>${project.basedir}/libs/linux-x86_64</additionalClasspathElement>
                     </additionalClasspathElements>
                 </configuration>
+            </plugin>
+            
+            <!-- JaCoCo for test coverage -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.11</version>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
             
             <!-- Shade plugin disabled: JavaCPP cannot be relocated due to hardcoded JNI references -->

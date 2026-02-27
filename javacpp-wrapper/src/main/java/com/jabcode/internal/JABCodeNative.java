@@ -199,6 +199,8 @@ public static class jab_symbol extends Pointer {
 	@MemberGetter public native @Cast("jab_int32*") IntPointer slaves();
 	public native @Cast("jab_int32") int wcwr(int i); public native jab_symbol wcwr(int i, int setter);
 	@MemberGetter public native @Cast("jab_int32*") IntPointer wcwr();
+	/** Gross payload length (ecc_encoded_data->length) */
+	public native @Cast("jab_int32") int Pg(); public native jab_symbol Pg(int setter);
 	public native jab_data data(); public native jab_symbol data(jab_data setter);
 	public native @Cast("jab_byte*") BytePointer data_map(); public native jab_symbol data_map(BytePointer setter);
 	public native jab_data metadata(); public native jab_symbol metadata(jab_data setter);
@@ -238,6 +240,8 @@ public static class jab_encode extends Pointer {
 	/** Pointer to internal representation of JAB Code symbols */
 	public native jab_symbol symbols(); public native jab_encode symbols(jab_symbol setter);
 	public native jab_bitmap bitmap(); public native jab_encode bitmap(jab_bitmap setter);
+	/** Mask pattern type used (0-7) */
+	public native @Cast("jab_int32") int mask_type(); public native jab_encode mask_type(int setter);
 }
 
 /**
@@ -266,6 +270,8 @@ public static class jab_metadata extends Pointer {
 	public native @Cast("jab_byte") byte docked_position(); public native jab_metadata docked_position(byte setter);
 	public native @ByRef jab_vector2d side_version(); public native jab_metadata side_version(jab_vector2d setter);
 	public native @ByRef jab_vector2d ecl(); public native jab_metadata ecl(jab_vector2d setter);
+	/** Gross payload length (for synthetic decoder) */
+	public native @Cast("jab_int32") int Pg(); public native jab_metadata Pg(int setter);
 }
 
 /**
@@ -312,6 +318,9 @@ public static native jab_data decodeJABCode(jab_bitmap bitmap, @Cast("jab_int32"
 public static native jab_data decodeJABCodeEx(jab_bitmap bitmap, @Cast("jab_int32") int mode, @Cast("jab_int32*") IntPointer status, jab_decoded_symbol symbols, @Cast("jab_int32") int max_symbol_number);
 public static native jab_data decodeJABCodeEx(jab_bitmap bitmap, @Cast("jab_int32") int mode, @Cast("jab_int32*") IntBuffer status, jab_decoded_symbol symbols, @Cast("jab_int32") int max_symbol_number);
 public static native jab_data decodeJABCodeEx(jab_bitmap bitmap, @Cast("jab_int32") int mode, @Cast("jab_int32*") int[] status, jab_decoded_symbol symbols, @Cast("jab_int32") int max_symbol_number);
+public static native jab_data decodeJABCodeSynthetic(jab_bitmap bitmap, @Cast("jab_int32") int color_number, @Cast("jab_int32") int ecc_level, @Cast("jab_int32") int module_size, @Cast("jab_int32") int symbol_width, @Cast("jab_int32") int symbol_height, @Cast("jab_int32") int mask_type, @Cast("jab_byte*") BytePointer encoder_data_map, @Cast("jab_int32*") IntPointer encoder_wcwr, @Cast("jab_int32") int encoder_Pg, @Cast("jab_int32") int mode, @Cast("jab_int32*") IntPointer status);
+public static native jab_data decodeJABCodeSynthetic(jab_bitmap bitmap, @Cast("jab_int32") int color_number, @Cast("jab_int32") int ecc_level, @Cast("jab_int32") int module_size, @Cast("jab_int32") int symbol_width, @Cast("jab_int32") int symbol_height, @Cast("jab_int32") int mask_type, @Cast("jab_byte*") ByteBuffer encoder_data_map, @Cast("jab_int32*") IntBuffer encoder_wcwr, @Cast("jab_int32") int encoder_Pg, @Cast("jab_int32") int mode, @Cast("jab_int32*") IntBuffer status);
+public static native jab_data decodeJABCodeSynthetic(jab_bitmap bitmap, @Cast("jab_int32") int color_number, @Cast("jab_int32") int ecc_level, @Cast("jab_int32") int module_size, @Cast("jab_int32") int symbol_width, @Cast("jab_int32") int symbol_height, @Cast("jab_int32") int mask_type, @Cast("jab_byte*") byte[] encoder_data_map, @Cast("jab_int32*") int[] encoder_wcwr, @Cast("jab_int32") int encoder_Pg, @Cast("jab_int32") int mode, @Cast("jab_int32*") int[] status);
 public static native @Cast("jab_boolean") byte saveImage(jab_bitmap bitmap, @Cast("jab_char*") BytePointer filename);
 public static native @Cast("jab_boolean") byte saveImage(jab_bitmap bitmap, @Cast("jab_char*") ByteBuffer filename);
 public static native @Cast("jab_boolean") byte saveImage(jab_bitmap bitmap, @Cast("jab_char*") byte[] filename);

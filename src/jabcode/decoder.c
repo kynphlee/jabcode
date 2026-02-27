@@ -20,6 +20,11 @@
 #include "decoder.h"
 #include "ldpc.h"
 #include "encoder.h"
+#include "adaptive_palette.h"
+
+// Global adaptive palette for high-color mode decoding
+static jab_adaptive_palette g_adaptive_palette;
+static jab_boolean g_adaptive_palette_initialized = 0;
 
 /**
  * @brief Copy 16-color sub-blocks of 64-color palette into 32-color blocks of 256-color palette and interpolate into 32 colors
@@ -397,6 +402,60 @@ jab_int32 getNearestPalette(jab_bitmap* matrix, jab_int32 x, jab_int32 y)
 }
 
 /**
+ * @brief Initialize adaptive palette for high-color mode decoding
+ * @param color_number the number of colors
+ * @param palette the raw palette data from finder patterns
+ */
+void initAdaptivePalette(jab_int32 color_number, jab_byte* palette)
+{
+	if (color_number <= 8) return;  // Not needed for 4/8 color modes
+	
+	// Initialize adaptive palette
+	if (g_adaptive_palette_initialized) {
+		adaptive_palette_free(&g_adaptive_palette);
+	}
+	
+	if (adaptive_palette_init(&g_adaptive_palette, color_number) == JAB_SUCCESS) {
+		g_adaptive_palette_initialized = 1;
+		
+		// Add reference samples from palette (finder pattern colors)
+		// Use corner colors that are typically well-separated
+		jab_rgb_color expected, observed;
+		
+		// Sample from palette - indices 0 (black), color_number/4, color_number/2, color_number-1 (white)
+		int ref_indices[] = {0, color_number/4, color_number/2, color_number-1};
+		for (int i = 0; i < 4; i++) {
+			int idx = ref_indices[i];
+			if (idx < color_number) {
+				expected.r = g_adaptive_palette.expected_palette[idx].r;
+				expected.g = g_adaptive_palette.expected_palette[idx].g;
+				expected.b = g_adaptive_palette.expected_palette[idx].b;
+				// Use captured palette as observed (from finder pattern sampling)
+				observed.r = palette[idx*3 + 0];
+				observed.g = palette[idx*3 + 1];
+				observed.b = palette[idx*3 + 2];
+				adaptive_palette_add_sample(&g_adaptive_palette, expected, observed, 1.0f);
+			}
+		}
+		
+		// Learn per-channel transform and apply
+		adaptive_palette_learn_transform(&g_adaptive_palette);
+		adaptive_palette_apply_transform(&g_adaptive_palette);
+	}
+}
+
+/**
+ * @brief Cleanup adaptive palette resources
+ */
+void cleanupAdaptivePalette(void)
+{
+	if (g_adaptive_palette_initialized) {
+		adaptive_palette_free(&g_adaptive_palette);
+		g_adaptive_palette_initialized = 0;
+	}
+}
+
+/**
  * @brief Decode a module using hard decision
  * @param matrix the symbol matrix
  * @param palette the color palettes
@@ -411,9 +470,6 @@ jab_byte decodeModuleHD(jab_bitmap* matrix, jab_byte* palette, jab_int32 color_n
 {
 	//get the nearest palette
 	jab_int32 p_index = getNearestPalette(matrix, x, y);
-	
-	// DEBUG: Check if this module is in data_map (should only decode data modules, not finder patterns)
-	// This logging will show if fillDataMap is working correctly
 
 	//read the RGB values
 	jab_byte rgb[3];
@@ -432,9 +488,16 @@ jab_byte decodeModuleHD(jab_bitmap* matrix, jab_byte* palette, jab_int32 color_n
 		index1 = 0;
 		return index1;
 	}
+	
+	// For 16+ color modes, use adaptive palette with per-channel calibration
+	if (color_number > 8 && g_adaptive_palette_initialized && g_adaptive_palette.lookup_tree) {
+		jab_rgb_color observed = {rgb[0], rgb[1], rgb[2]};
+		return adaptive_palette_match(&g_adaptive_palette, observed);
+	}
+	
 	if(palette)
 	{
-		// For 16+ color modes, use direct RGB comparison (normalized comparison fails for same-hue colors)
+		// For 16+ color modes without adaptive palette, use direct RGB comparison
 		// For 4/8 color modes, normalized comparison works fine
 		jab_boolean use_direct_rgb = (color_number > 8);
 		
@@ -1382,6 +1445,9 @@ jab_int32 decodeMaster(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 	jab_int32 color_number = (jab_int32)pow(2, symbol->metadata.Nc + 1);
 	jab_float norm_palette[color_number * 4 * COLOR_PALETTE_NUMBER];	//each color contains 4 normalized values, i.e. R, G, B and Luminance
 	normalizeColorPalette(symbol, norm_palette, color_number);
+	
+	// Initialize adaptive palette with per-channel calibration for 16+ color modes
+	initAdaptivePalette(color_number, symbol->palette);
 
 	//get the palette RGB thresholds
 	jab_float pal_ths[3 * COLOR_PALETTE_NUMBER];
@@ -1395,12 +1461,15 @@ jab_int32 decodeMaster(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 	{
 		if(decodeMasterMetadataPartII(matrix, symbol, data_map, norm_palette, pal_ths, &module_count, &x, &y) <= 0)
 		{
+			cleanupAdaptivePalette();
 			return JAB_FAILURE;
 		}
 	}
 
 	//decode master symbol
-	return decodeSymbol(matrix, symbol, data_map, norm_palette, pal_ths, 0);
+	jab_int32 result = decodeSymbol(matrix, symbol, data_map, norm_palette, pal_ths, 0);
+	cleanupAdaptivePalette();
+	return result;
 }
 
 /**
@@ -1437,6 +1506,9 @@ jab_int32 decodeSlave(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 	jab_int32 color_number = (jab_int32)pow(2, symbol->metadata.Nc + 1);
 	jab_float norm_palette[color_number * 4 * COLOR_PALETTE_NUMBER];	//each color contains 4 normalized values, i.e. R, G, B and Luminance
 	normalizeColorPalette(symbol, norm_palette, color_number);
+	
+	// Initialize adaptive palette with per-channel calibration for 16+ color modes
+	initAdaptivePalette(color_number, symbol->palette);
 
 	//get the palette RGB thresholds
 	jab_float pal_ths[3 * COLOR_PALETTE_NUMBER];
@@ -1446,7 +1518,9 @@ jab_int32 decodeSlave(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 	}
 
 	//decode slave symbol
-	return decodeSymbol(matrix, symbol, data_map, norm_palette, pal_ths, 1);
+	jab_int32 result = decodeSymbol(matrix, symbol, data_map, norm_palette, pal_ths, 1);
+	cleanupAdaptivePalette();
+	return result;
 }
 
 /**
