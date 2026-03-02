@@ -595,6 +595,117 @@ void getMinMax(jab_byte* rgb, jab_byte* min, jab_byte* mid, jab_byte* max, jab_i
 }
 
 /**
+ * @brief Binarize RGB channels using luminance-based thresholds
+ * @param bitmap the input bitmap
+ * @param rgb the binarized RGB channels (output)
+ * @return JAB_SUCCESS | JAB_FAILURE
+ * 
+ * Uses ITU-R BT.601 luminance for thresholds but preserves RGB colors.
+ * More robust for finder pattern detection in high color modes (16+)
+ * where intermediate RGB values contaminate per-channel block averages.
+*/
+jab_boolean binarizerLuminanceRGB(jab_bitmap* bitmap, jab_bitmap* rgb[3])
+{
+	// Allocate output channels
+	for(jab_int32 i=0; i<3; i++)
+	{
+		rgb[i] = (jab_bitmap*)calloc(1, sizeof(jab_bitmap) + bitmap->width*bitmap->height*sizeof(jab_byte));
+		if(rgb[i] == NULL)
+		{
+			JAB_REPORT_ERROR(("Memory allocation for binary bitmap %d failed", i))
+			for(jab_int32 j=0; j<i; j++) free(rgb[j]);
+			return JAB_FAILURE;
+		}
+		rgb[i]->width = bitmap->width;
+		rgb[i]->height = bitmap->height;
+		rgb[i]->bits_per_channel = 8;
+		rgb[i]->bits_per_pixel = 8;
+		rgb[i]->channel_count = 1;
+	}
+
+	jab_int32 bytes_per_pixel = bitmap->bits_per_pixel / 8;
+	jab_int32 bytes_per_row = bitmap->width * bytes_per_pixel;
+
+	// Calculate block-wise average luminance
+	jab_int32 max_block_size = MAX(bitmap->width, bitmap->height) / 2;
+	jab_int32 block_num_x = (bitmap->width % max_block_size) != 0 ? (bitmap->width / max_block_size) + 1 : (bitmap->width / max_block_size);
+	jab_int32 block_num_y = (bitmap->height % max_block_size) != 0 ? (bitmap->height / max_block_size) + 1 : (bitmap->height / max_block_size);
+	jab_int32 block_size_x = bitmap->width / block_num_x;
+	jab_int32 block_size_y = bitmap->height / block_num_y;
+	jab_float luma_ave[block_num_x * block_num_y];
+	memset(luma_ave, 0, sizeof(jab_float) * block_num_x * block_num_y);
+
+	// Calculate average luminance per block
+	for(jab_int32 i=0; i<block_num_y; i++)
+	{
+		for(jab_int32 j=0; j<block_num_x; j++)
+		{
+			jab_int32 block_index = i*block_num_x + j;
+			jab_int32 sx = j * block_size_x;
+			jab_int32 ex = (j == block_num_x-1) ? bitmap->width : (sx + block_size_x);
+			jab_int32 sy = i * block_size_y;
+			jab_int32 ey = (i == block_num_y-1) ? bitmap->height : (sy + block_size_y);
+			jab_int32 counter = 0;
+			
+			for(jab_int32 y=sy; y<ey; y++)
+			{
+				for(jab_int32 x=sx; x<ex; x++)
+				{
+					jab_int32 offset = y * bytes_per_row + x * bytes_per_pixel;
+					jab_byte r = bitmap->pixel[offset + 0];
+					jab_byte g = bitmap->pixel[offset + 1];
+					jab_byte b = bitmap->pixel[offset + 2];
+					// ITU-R BT.601 luminance coefficients
+					jab_float y_val = 0.299f * r + 0.587f * g + 0.114f * b;
+					luma_ave[block_index] += y_val;
+					counter++;
+				}
+			}
+			luma_ave[block_index] /= (jab_float)counter;
+		}
+	}
+
+	// Binarize each RGB channel based on luminance threshold
+	// This preserves color information while using robust luminance-based thresholding
+	for(jab_int32 i=0; i<bitmap->height; i++)
+	{
+		for(jab_int32 j=0; j<bitmap->width; j++)
+		{
+			jab_int32 offset = i * bytes_per_row + j * bytes_per_pixel;
+			jab_byte r = bitmap->pixel[offset + 0];
+			jab_byte g = bitmap->pixel[offset + 1];
+			jab_byte b = bitmap->pixel[offset + 2];
+			
+			// Calculate pixel luminance
+			jab_float y_val = 0.299f * r + 0.587f * g + 0.114f * b;
+			
+			// Get block threshold
+			jab_int32 block_index = MIN(i/block_size_y, block_num_y-1) * block_num_x + MIN(j/block_size_x, block_num_x-1);
+			jab_float threshold = luma_ave[block_index];
+			
+			// Binarize based on luminance but preserve RGB color info
+			// Dark pixels (Y < threshold) -> set all channels to 0
+			// Bright pixels (Y >= threshold) -> keep original RGB, but binarize to 0 or 255 per channel
+			if(y_val < threshold)
+			{
+				rgb[0]->pixel[i*bitmap->width + j] = 0;
+				rgb[1]->pixel[i*bitmap->width + j] = 0;
+				rgb[2]->pixel[i*bitmap->width + j] = 0;
+			}
+			else
+			{
+				// For bright pixels, binarize each channel independently to 0 or 255
+				rgb[0]->pixel[i*bitmap->width + j] = (r >= 128) ? 255 : 0;
+				rgb[1]->pixel[i*bitmap->width + j] = (g >= 128) ? 255 : 0;
+				rgb[2]->pixel[i*bitmap->width + j] = (b >= 128) ? 255 : 0;
+			}
+		}
+	}
+
+	return JAB_SUCCESS;
+}
+
+/**
  * @brief Binarize a color channel of a bitmap using local binarization algorithm
  * @param bitmap the input bitmap
  * @param rgb the binarized RGB channels

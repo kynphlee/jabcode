@@ -205,6 +205,32 @@ test_palette_debug/fast:
 .PHONY : test_palette_debug/fast
 
 #=============================================================================
+# Target rules for targets named test_color_modes
+
+# Build rule for target.
+test_color_modes: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_color_modes
+.PHONY : test_color_modes
+
+# fast build rule for target.
+test_color_modes/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_color_modes.dir/build.make CMakeFiles/test_color_modes.dir/build
+.PHONY : test_color_modes/fast
+
+#=============================================================================
+# Target rules for targets named test_mobile_bridge_comprehensive
+
+# Build rule for target.
+test_mobile_bridge_comprehensive: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_mobile_bridge_comprehensive
+.PHONY : test_mobile_bridge_comprehensive
+
+# fast build rule for target.
+test_mobile_bridge_comprehensive/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_mobile_bridge_comprehensive.dir/build.make CMakeFiles/test_mobile_bridge_comprehensive.dir/build
+.PHONY : test_mobile_bridge_comprehensive/fast
+
+#=============================================================================
 # Target rules for targets named test_synthetic_decode
 
 # Build rule for target.
@@ -599,6 +625,30 @@ test/c/test_bitmap_debug.c.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_bitmap_debug.dir/build.make CMakeFiles/test_bitmap_debug.dir/test/c/test_bitmap_debug.c.s
 .PHONY : test/c/test_bitmap_debug.c.s
 
+test/c/test_color_modes.o: test/c/test_color_modes.c.o
+.PHONY : test/c/test_color_modes.o
+
+# target to build an object file
+test/c/test_color_modes.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_color_modes.dir/build.make CMakeFiles/test_color_modes.dir/test/c/test_color_modes.c.o
+.PHONY : test/c/test_color_modes.c.o
+
+test/c/test_color_modes.i: test/c/test_color_modes.c.i
+.PHONY : test/c/test_color_modes.i
+
+# target to preprocess a source file
+test/c/test_color_modes.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_color_modes.dir/build.make CMakeFiles/test_color_modes.dir/test/c/test_color_modes.c.i
+.PHONY : test/c/test_color_modes.c.i
+
+test/c/test_color_modes.s: test/c/test_color_modes.c.s
+.PHONY : test/c/test_color_modes.s
+
+# target to generate assembly for a file
+test/c/test_color_modes.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_color_modes.dir/build.make CMakeFiles/test_color_modes.dir/test/c/test_color_modes.c.s
+.PHONY : test/c/test_color_modes.c.s
+
 test/c/test_desktop_decode.o: test/c/test_desktop_decode.c.o
 .PHONY : test/c/test_desktop_decode.o
 
@@ -670,6 +720,30 @@ test/c/test_mobile_bridge.s: test/c/test_mobile_bridge.c.s
 test/c/test_mobile_bridge.c.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/mobile_bridge_tests.dir/build.make CMakeFiles/mobile_bridge_tests.dir/test/c/test_mobile_bridge.c.s
 .PHONY : test/c/test_mobile_bridge.c.s
+
+test/c/test_mobile_bridge_comprehensive.o: test/c/test_mobile_bridge_comprehensive.c.o
+.PHONY : test/c/test_mobile_bridge_comprehensive.o
+
+# target to build an object file
+test/c/test_mobile_bridge_comprehensive.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_mobile_bridge_comprehensive.dir/build.make CMakeFiles/test_mobile_bridge_comprehensive.dir/test/c/test_mobile_bridge_comprehensive.c.o
+.PHONY : test/c/test_mobile_bridge_comprehensive.c.o
+
+test/c/test_mobile_bridge_comprehensive.i: test/c/test_mobile_bridge_comprehensive.c.i
+.PHONY : test/c/test_mobile_bridge_comprehensive.i
+
+# target to preprocess a source file
+test/c/test_mobile_bridge_comprehensive.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_mobile_bridge_comprehensive.dir/build.make CMakeFiles/test_mobile_bridge_comprehensive.dir/test/c/test_mobile_bridge_comprehensive.c.i
+.PHONY : test/c/test_mobile_bridge_comprehensive.c.i
+
+test/c/test_mobile_bridge_comprehensive.s: test/c/test_mobile_bridge_comprehensive.c.s
+.PHONY : test/c/test_mobile_bridge_comprehensive.s
+
+# target to generate assembly for a file
+test/c/test_mobile_bridge_comprehensive.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_mobile_bridge_comprehensive.dir/build.make CMakeFiles/test_mobile_bridge_comprehensive.dir/test/c/test_mobile_bridge_comprehensive.c.s
+.PHONY : test/c/test_mobile_bridge_comprehensive.c.s
 
 test/c/test_palette_debug.o: test/c/test_palette_debug.c.o
 .PHONY : test/c/test_palette_debug.o
@@ -755,8 +829,10 @@ help:
 	@echo "... jabcode-mobile"
 	@echo "... mobile_bridge_tests"
 	@echo "... test_bitmap_debug"
+	@echo "... test_color_modes"
 	@echo "... test_desktop_decode"
 	@echo "... test_encode_roundtrip"
+	@echo "... test_mobile_bridge_comprehensive"
 	@echo "... test_palette_debug"
 	@echo "... test_synthetic_decode"
 	@echo "... unity"
@@ -802,6 +878,9 @@ help:
 	@echo "... test/c/test_bitmap_debug.o"
 	@echo "... test/c/test_bitmap_debug.i"
 	@echo "... test/c/test_bitmap_debug.s"
+	@echo "... test/c/test_color_modes.o"
+	@echo "... test/c/test_color_modes.i"
+	@echo "... test/c/test_color_modes.s"
 	@echo "... test/c/test_desktop_decode.o"
 	@echo "... test/c/test_desktop_decode.i"
 	@echo "... test/c/test_desktop_decode.s"
@@ -811,6 +890,9 @@ help:
 	@echo "... test/c/test_mobile_bridge.o"
 	@echo "... test/c/test_mobile_bridge.i"
 	@echo "... test/c/test_mobile_bridge.s"
+	@echo "... test/c/test_mobile_bridge_comprehensive.o"
+	@echo "... test/c/test_mobile_bridge_comprehensive.i"
+	@echo "... test/c/test_mobile_bridge_comprehensive.s"
 	@echo "... test/c/test_palette_debug.o"
 	@echo "... test/c/test_palette_debug.i"
 	@echo "... test/c/test_palette_debug.s"
