@@ -1,0 +1,1 @@
+/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/swift-java-wrapper/android/library/build/intermediates/cxx/Debug/3s1xm6bk/obj/armeabi-v7a

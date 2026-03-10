@@ -1,0 +1,141 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"jsonFile" : "directory-.-Debug-f5ebdc15457944623624.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.6.0"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6,
+						7,
+						8,
+						9
+					]
+				}
+			],
+			"name" : "Debug",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0
+					],
+					"name" : "jabcode-mobile",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6,
+						7,
+						8,
+						9
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "jabcode-mobile::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-jabcode-mobile-Debug-126d87c1171557d6b6fb.json",
+					"name" : "jabcode-mobile",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "mobile_bridge_tests::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-mobile_bridge_tests-Debug-298d7d51e07ea4b483b0.json",
+					"name" : "mobile_bridge_tests",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "test_bitmap_debug::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-test_bitmap_debug-Debug-f7eb9e3b41a04d103420.json",
+					"name" : "test_bitmap_debug",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "test_color_modes::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-test_color_modes-Debug-0a6516c353ea429a8ef9.json",
+					"name" : "test_color_modes",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "test_desktop_decode::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-test_desktop_decode-Debug-bb0d8dd36cc71e6362b6.json",
+					"name" : "test_desktop_decode",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "test_encode_roundtrip::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-test_encode_roundtrip-Debug-ec128d6e43b6d3467d0d.json",
+					"name" : "test_encode_roundtrip",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "test_mobile_bridge_comprehensive::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-test_mobile_bridge_comprehensive-Debug-47a64566b0bcfdd30483.json",
+					"name" : "test_mobile_bridge_comprehensive",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "test_palette_debug::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-test_palette_debug-Debug-954f24bc091ae5ae1b76.json",
+					"name" : "test_palette_debug",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "test_synthetic_decode::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-test_synthetic_decode-Debug-4858ef09997c7deb656e.json",
+					"name" : "test_synthetic_decode",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "unity::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-unity-Debug-5a01ef879f34543a430a.json",
+					"name" : "unity",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "/mnt/23154586-ac12-480c-ad1c-d5fc7d0f167e/migration/jabcode/swift-java-wrapper/android/library/.cxx/Debug/5w4j1h49/arm64-v8a",
+		"source" : "/mnt/23154586-ac12-480c-ad1c-d5fc7d0f167e/migration/jabcode/swift-java-wrapper"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 3
+	}
+}
