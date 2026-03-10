@@ -1,0 +1,4 @@
+module JABCodeCore {
+    header "mobile_bridge.h"
+    export *
+}
