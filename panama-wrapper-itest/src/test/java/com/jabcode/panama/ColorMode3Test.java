@@ -47,9 +47,13 @@ class ColorMode3Test extends ColorModeTestBase {
     }
     
     @Test
-    @DisplayName("Should handle empty string")
+    @DisplayName("Should reject empty string with exception")
     void testEmptyString() {
-        assertRoundTrip("");
+        // Empty strings are invalid - there's nothing to encode
+        // Verify proper validation
+        assertThrows(IllegalArgumentException.class, () -> {
+            assertRoundTrip("");
+        }, "Empty string should be rejected");
     }
     
     @Test

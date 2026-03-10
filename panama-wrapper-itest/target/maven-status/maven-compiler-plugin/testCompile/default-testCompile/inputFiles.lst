@@ -6,6 +6,8 @@
 /mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest/src/test/java/com/jabcode/panama/ColorMode7Test.java
 /mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest/src/test/java/com/jabcode/panama/ColorModeTestBase.java
 /mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest/src/test/java/com/jabcode/panama/ColorPaletteInterpolatorTest.java
+/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest/src/test/java/com/jabcode/panama/GenerateSampleBarcodes.java
 /mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest/src/test/java/com/jabcode/panama/HigherColorModeTest.java
 /mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest/src/test/java/com/jabcode/panama/JABCodeDecoderIntegrationTest.java
 /mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest/src/test/java/com/jabcode/panama/JABCodeEncoderIntegrationTest.java
+/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/panama-wrapper-itest/src/test/java/com/jabcode/panama/demo/JABCodeGenerator.java
