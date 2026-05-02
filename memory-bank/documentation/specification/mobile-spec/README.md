@@ -30,6 +30,7 @@ This folder contains **actionable specifications** for compiling, optimizing, an
 | **[03-tdd-benchmarks.md](03-tdd-benchmarks.md)** | Testing methodology | QA/Test engineers |
 | **[04-swift-java-interop.md](04-swift-java-interop.md)** | Bridge architecture | Platform developers |
 | **[05-implementation-roadmap.md](05-implementation-roadmap.md)** | Phased delivery plan | Project managers |
+| **[06-mobile-framework-architecture.md](06-mobile-framework-architecture.md)** | 7-module framework specification | Framework architects |
 
 ### Reference Materials
 
@@ -44,14 +45,16 @@ This folder contains **actionable specifications** for compiling, optimizing, an
 ```
 Are you new to this project?
 ├─ YES → Read 00-index.md first
+│         Then: 06-mobile-framework-architecture.md (NEW - Framework overview)
 │         Then: 05-implementation-roadmap.md
 │
 └─ NO  → What's your role?
-          ├─ Native C developer → 01-native-compilation.md + 02-mobile-optimizations.md
-          ├─ Android developer  → 04-swift-java-interop.md + 01-native-compilation.md (NDK section)
-          ├─ iOS developer      → 04-swift-java-interop.md + 01-native-compilation.md (Xcode section)
-          ├─ QA/Test engineer   → 03-tdd-benchmarks.md
-          └─ Project manager    → 05-implementation-roadmap.md
+          ├─ Framework architect → 06-mobile-framework-architecture.md (7-module design)
+          ├─ Native C developer  → 01-native-compilation.md + 02-mobile-optimizations.md
+          ├─ Android developer   → 06-mobile-framework-architecture.md + 04-swift-java-interop.md
+          ├─ iOS developer       → 04-swift-java-interop.md + 01-native-compilation.md (Xcode section)
+          ├─ QA/Test engineer    → 03-tdd-benchmarks.md + 06-mobile-framework-architecture.md (Module 4)
+          └─ Project manager     → 06-mobile-framework-architecture.md + 05-implementation-roadmap.md
 ```
 
 ---

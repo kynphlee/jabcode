@@ -8,7 +8,17 @@
 ## At a Glance
 
 ```
-JABCode Mobile Stack:
+JABAuth Mobile Framework (v2.0):
+┌─────────────────────────────────────────────────┐
+│ Applications (:diagnostic-app, :custom-apps)    │
+├─────────────────────────────────────────────────┤
+│ Framework Modules (7):                          │
+│  :core → :jabcode-sdk → :auth-client            │
+│  :diagnostic-engine → :ui-components            │
+│  :android-integration → :storage-adapters       │
+└─────────────────────────────────────────────────┘
+
+Legacy Native Stack (still supported):
 ┌─────────────────────────────────────────┐
 │ Platform Layer (Kotlin/Swift)          │  ← Camera, UI, File I/O
 ├─────────────────────────────────────────┤
@@ -16,6 +26,8 @@ JABCode Mobile Stack:
 ├─────────────────────────────────────────┤
 │ JABCode Native C (NO image.c)          │  ← Core algorithms
 └─────────────────────────────────────────┘
+
+⚠️ NEW: See 06-mobile-framework-architecture.md for full 7-module design
 ```
 
 ---
@@ -222,6 +234,8 @@ val decoded: String = encoder.decode(imageData)
 
 ### Documentation
 - **This folder:** `@/memory-bank/documentation/specification/mobile-spec/`
+- **Framework Architecture (NEW):** `06-mobile-framework-architecture.md`
+- **JABAuth Server Framework:** `@/projects/business-plans/JABCodeCOA-crypto/FRAMEWORK-GENERALIZATION.md`
 - **Research (exploratory):** `@/memory-bank/research/swift-java-poc/`
 - **Diagnostics:** `@/memory-bank/diagnostics/`
 
@@ -237,6 +251,12 @@ val decoded: String = encoder.decode(imageData)
 
 ## Next Actions by Role
 
+### Framework Architect (NEW)
+1. Read `06-mobile-framework-architecture.md`
+2. Design module boundaries and public APIs
+3. Create Gradle multi-module project structure
+4. Define dependency injection strategy
+
 ### Native C Developer
 1. Read `01-native-compilation.md`
 2. Create `mobile_bridge.c` with API specified above
@@ -244,10 +264,10 @@ val decoded: String = encoder.decode(imageData)
 4. Enable `MOBILE_BUILD` flag, remove `image.c` from build
 
 ### Android Developer
-1. Read `04-swift-java-interop.md`
-2. Set up NDK environment (CMakeLists.txt)
-3. Implement JNI wrapper or use swift-java bridge
-4. Integrate CameraX for live scanning
+1. Read `06-mobile-framework-architecture.md` (modules overview)
+2. Read `04-swift-java-interop.md` (bridge details)
+3. Set up NDK environment (CMakeLists.txt)
+4. Implement modules per framework specification
 
 ### iOS Developer
 1. Read `04-swift-java-interop.md`
@@ -257,15 +277,15 @@ val decoded: String = encoder.decode(imageData)
 
 ### QA/Test Engineer
 1. Read `03-tdd-benchmarks.md`
-2. Create test fixture library (RGBA buffers)
-3. Set up benchmark harness (JMH/XCTest.measure)
-4. Define acceptance criteria for each release
+2. Read `06-mobile-framework-architecture.md` (Module 4: diagnostic-engine)
+3. Set up live benchmarking with androidx.benchmark
+4. Create diagnostic test suites
 
 ### Project Manager
-1. Read `05-implementation-roadmap.md`
-2. Allocate 5-7 weeks for initial implementation
-3. Plan for iterative releases (Phase 1 → Phase 5)
-4. Set up CI/CD pipeline (GitHub Actions / Bitrise)
+1. Read `06-mobile-framework-architecture.md` (success criteria)
+2. Read `05-implementation-roadmap.md`
+3. Allocate 7-11 weeks for framework implementation
+4. Plan diagnostic app + 2 sample custom apps
 
 ---
 
