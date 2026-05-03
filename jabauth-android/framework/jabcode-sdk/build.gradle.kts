@@ -1,0 +1,126 @@
+plugins {
+    id("com.android.library")
+    id("org.jetbrains.kotlin.android")
+    id("kotlin-kapt")
+    id("jacoco")
+}
+
+android {
+    namespace = "com.jabauth.jabcode"
+    compileSdk = rootProject.property("COMPILE_SDK").toString().toInt()
+    
+    defaultConfig {
+        minSdk = rootProject.property("MIN_SDK").toString().toInt()
+        
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        consumerProguardFiles("consumer-rules.pro")
+        
+        // NDK configuration
+        ndk {
+            abiFilters.addAll(listOf("arm64-v8a", "armeabi-v7a", "x86_64"))
+        }
+        
+        externalNativeBuild {
+            cmake {
+                cppFlags += listOf("-std=c11", "-O3", "-fPIC")
+                arguments += listOf(
+                    "-DMOBILE_BUILD=ON",
+                    "-DBUILD_SHARED_LIBS=ON"
+                )
+            }
+        }
+    }
+    
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+    }
+    
+    externalNativeBuild {
+        cmake {
+            path = file("../../../swift-java-wrapper/CMakeLists.txt")
+            version = "3.22.1"
+        }
+    }
+    
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+    
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+            isReturnDefaultValues = true
+        }
+    }
+}
+
+dependencies {
+    // Framework dependencies
+    implementation(project(":framework:core"))
+    
+    // Kotlin
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:${rootProject.property("KOTLIN_VERSION")}")
+    
+    // Android Core
+    implementation("androidx.core:core-ktx:1.12.0")
+    
+    // Testing
+    testImplementation("junit:junit:${rootProject.property("JUNIT_VERSION")}")
+    testImplementation("org.mockito:mockito-core:${rootProject.property("MOCKITO_VERSION")}")
+    testImplementation("org.mockito.kotlin:mockito-kotlin:5.1.0")
+    testImplementation("org.robolectric:robolectric:${rootProject.property("ROBOLECTRIC_VERSION")}")
+    testImplementation("androidx.test:core:${rootProject.property("ANDROIDX_TEST_VERSION")}")
+    testImplementation("com.google.truth:truth:1.1.5")
+    
+    androidTestImplementation("androidx.test.ext:junit:${rootProject.property("ANDROIDX_TEST_VERSION")}")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+}
+
+// JaCoCo configuration
+tasks.withType<Test> {
+    configure<JacocoTaskExtension> {
+        isIncludeNoLocationClasses = true
+        excludes = listOf("jdk.internal.*")
+    }
+}
+
+tasks.register<JacocoReport>("jacocoTestReport") {
+    dependsOn("testDebugUnitTest")
+    
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+    }
+    
+    val fileFilter = listOf(
+        "**/R.class",
+        "**/R$*.class",
+        "**/BuildConfig.*",
+        "**/Manifest*.*",
+        "**/*Test*.*",
+        "android/**/*.*"
+    )
+    
+    val debugTree = fileTree("${project.layout.buildDirectory.get().asFile}/tmp/kotlin-classes/debug") {
+        exclude(fileFilter)
+    }
+    
+    val mainSrc = "${project.projectDir}/src/main/java"
+    
+    sourceDirectories.setFrom(files(mainSrc))
+    classDirectories.setFrom(files(debugTree))
+    executionData.setFrom(fileTree(project.layout.buildDirectory.get().asFile) {
+        include("outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec")
+    })
+}
