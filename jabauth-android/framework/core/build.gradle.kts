@@ -69,6 +69,8 @@ dependencies {
     testImplementation("androidx.test:core:${rootProject.property("ANDROIDX_TEST_VERSION")}")
     testImplementation("androidx.test.ext:junit:${rootProject.property("ANDROIDX_TEST_VERSION")}")
     testImplementation("com.google.truth:truth:1.1.5")
+    testImplementation("org.bouncycastle:bcprov-jdk15on:1.70")
+    testImplementation("org.bouncycastle:bcpkix-jdk15on:1.70")
     
     androidTestImplementation("androidx.test.ext:junit:${rootProject.property("ANDROIDX_TEST_VERSION")}")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
