@@ -1,1 +1,0 @@
-/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode/swift-java-wrapper/android/library/build/intermediates/cxx/Debug/206tn6tv/obj/x86_64
