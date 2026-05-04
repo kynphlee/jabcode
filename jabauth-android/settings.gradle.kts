@@ -20,8 +20,8 @@ include(":framework:jabauth-client")
 include(":framework:diagnostic-engine")
 include(":framework:ui-components")
 
-// Application modules (temporarily disabled during framework development)
-// include(":apps:diagnostic-app")
+// Application modules
+include(":diagnostic-app")
 
 // Dependency resolution management
 dependencyResolutionManagement {

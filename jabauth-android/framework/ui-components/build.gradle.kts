@@ -1,13 +1,16 @@
 plugins {
     id("com.android.library")
     id("org.jetbrains.kotlin.android")
-    id("kotlin-kapt")
     id("jacoco")
 }
 
 android {
     namespace = "com.jabauth.ui"
     compileSdk = rootProject.property("COMPILE_SDK").toString().toInt()
+    
+    configurations.all {
+        exclude(group = "com.google.guava", module = "listenablefuture")
+    }
     
     defaultConfig {
         minSdk = rootProject.property("MIN_SDK").toString().toInt()
@@ -19,7 +22,7 @@ android {
     }
     
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.3"
+        kotlinCompilerExtensionVersion = "1.5.8"
     }
     
     buildTypes {
@@ -60,7 +63,15 @@ dependencies {
     
     // Testing
     testImplementation("junit:junit:${rootProject.property("JUNIT_VERSION")}")
+    testImplementation("org.robolectric:robolectric:${rootProject.property("ROBOLECTRIC_VERSION")}")
     testImplementation("androidx.compose.ui:ui-test-junit4:${rootProject.property("COMPOSE_VERSION")}")
+    testImplementation("com.google.truth:truth:1.1.5")
     debugImplementation("androidx.compose.ui:ui-tooling:${rootProject.property("COMPOSE_VERSION")}")
     debugImplementation("androidx.compose.ui:ui-test-manifest:${rootProject.property("COMPOSE_VERSION")}")
+    
+    // Instrumented Testing
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4:${rootProject.property("COMPOSE_VERSION")}")
+    androidTestImplementation("com.google.truth:truth:1.1.5")
 }

@@ -1,7 +1,6 @@
 plugins {
     id("com.android.library")
     id("org.jetbrains.kotlin.android")
-    id("kotlin-kapt")
     id("jacoco")
 }
 
@@ -46,6 +45,7 @@ dependencies {
     // Testing
     testImplementation("junit:junit:${rootProject.property("JUNIT_VERSION")}")
     testImplementation("org.mockito:mockito-core:${rootProject.property("MOCKITO_VERSION")}")
+    testImplementation("org.robolectric:robolectric:${rootProject.property("ROBOLECTRIC_VERSION")}")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
     testImplementation("com.google.truth:truth:1.1.5")
 }
