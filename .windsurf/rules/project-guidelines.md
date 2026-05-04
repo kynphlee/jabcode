@@ -13,4 +13,5 @@ globs:
 - All documentation must be timestamped and organized
 
 ## Implementation
+- Do not always rely on assumptions. If in doubt, ask questions and  perform SWOT and TOWS analysis for clarity.
 - To minimize the effects of over-engineering, perform SWOT and TOWS analysis on key decision points during the planning, implementation and testing phases of tasks.

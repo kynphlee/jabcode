@@ -61,6 +61,14 @@ fun DashboardScreen(
             Spacer(modifier = Modifier.height(16.dp))
             
             Text(
+                text = "Framework Status",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Text(
                 text = "All 5 framework modules integrated:\n• :core\n• :jabcode-sdk\n• :jabauth-client\n• :diagnostic-engine\n• :ui-components",
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center,
