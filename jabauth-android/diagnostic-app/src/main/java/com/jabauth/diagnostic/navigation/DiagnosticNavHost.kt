@@ -1,5 +1,7 @@
 package com.jabauth.diagnostic.navigation
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
@@ -70,7 +72,13 @@ fun DiagnosticNavHost(
             startDestination = DiagnosticDestination.Dashboard.route,
             modifier = Modifier.padding(paddingValues)
         ) {
-            composable(DiagnosticDestination.Dashboard.route) {
+            composable(
+                route = DiagnosticDestination.Dashboard.route,
+                enterTransition = { EnterTransition.None },
+                exitTransition = { ExitTransition.None },
+                popEnterTransition = { EnterTransition.None },
+                popExitTransition = { ExitTransition.None }
+            ) {
                 DashboardScreen(
                     onNavigateToScanner = {
                         navController.navigate(DiagnosticDestination.Scanner.route)
@@ -81,7 +89,13 @@ fun DiagnosticNavHost(
                 )
             }
             
-            composable(DiagnosticDestination.Scanner.route) {
+            composable(
+                route = DiagnosticDestination.Scanner.route,
+                enterTransition = { EnterTransition.None },
+                exitTransition = { ExitTransition.None },
+                popEnterTransition = { EnterTransition.None },
+                popExitTransition = { ExitTransition.None }
+            ) {
                 ScannerScreen(
                     onNavigateBack = {
                         navController.popBackStack()
@@ -92,7 +106,13 @@ fun DiagnosticNavHost(
                 )
             }
             
-            composable(DiagnosticDestination.Settings.route) {
+            composable(
+                route = DiagnosticDestination.Settings.route,
+                enterTransition = { EnterTransition.None },
+                exitTransition = { ExitTransition.None },
+                popEnterTransition = { EnterTransition.None },
+                popExitTransition = { ExitTransition.None }
+            ) {
                 SettingsScreen(
                     onNavigateBack = {
                         navController.popBackStack()

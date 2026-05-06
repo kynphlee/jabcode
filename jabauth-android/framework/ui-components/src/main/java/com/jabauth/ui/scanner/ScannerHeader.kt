@@ -1,26 +1,32 @@
 package com.jabauth.ui.scanner
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.unit.dp
 
 /**
  * Scanner screen header with title and actions
+ * 
+ * Material Design 3 compliant TopAppBar with:
+ * - Back arrow navigation
+ * - Optional settings action
+ * - Consistent color scheme
+ * - Proper accessibility labels
  * 
  * @param title Header title
  * @param onBackClick Back button click handler
  * @param onSettingsClick Settings button click handler (optional)
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScannerHeader(
     title: String,
@@ -28,44 +34,32 @@ fun ScannerHeader(
     onSettingsClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    Row(
+    TopAppBar(
+        title = { Text(title) },
+        navigationIcon = {
+            IconButton(onClick = onBackClick) {
+                Icon(
+                    imageVector = Icons.Default.ArrowBack,
+                    contentDescription = "Navigate back"
+                )
+            }
+        },
+        actions = {
+            if (onSettingsClick != null) {
+                IconButton(onClick = onSettingsClick) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Settings"
+                    )
+                }
+            }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
+            navigationIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            actionIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+        ),
         modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        IconButton(onClick = onBackClick) {
-            Icon(
-                painter = painterResource(android.R.drawable.ic_menu_close_clear_cancel),
-                contentDescription = "Back",
-                tint = MaterialTheme.colorScheme.onSurface
-            )
-        }
-        
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        
-        if (onSettingsClick != null) {
-            IconButton(onClick = onSettingsClick) {
-                Icon(
-                    painter = painterResource(android.R.drawable.ic_menu_preferences),
-                    contentDescription = "Settings",
-                    tint = MaterialTheme.colorScheme.onSurface
-                )
-            }
-        } else {
-            // Spacer for symmetry
-            IconButton(onClick = {}, enabled = false) {
-                Icon(
-                    painter = painterResource(android.R.drawable.ic_menu_preferences),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.surface
-                )
-            }
-        }
-    }
+    )
 }
