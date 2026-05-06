@@ -8,7 +8,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import com.jabauth.diagnostic.navigation.DiagnosticNavHost
-import com.jabauth.ui.theme.JABAuthTheme
+import com.jabauth.diagnostic.ui.theme.AppContext
+import com.jabauth.diagnostic.ui.theme.JABAuthTheme
 
 /**
  * Main activity for JABAuth Diagnostic Application
@@ -23,7 +24,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         
         setContent {
-            JABAuthTheme {
+            JABAuthTheme(
+                context = AppContext.Healthcare,
+                darkTheme = true  // Diagnostic UI optimized for dark theme
+            ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
