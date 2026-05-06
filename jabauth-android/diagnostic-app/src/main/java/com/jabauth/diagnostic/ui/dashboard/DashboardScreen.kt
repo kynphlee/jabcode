@@ -7,6 +7,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.jabauth.diagnostic.ui.dashboard.components.AlertSection
@@ -29,22 +30,33 @@ import com.jabauth.diagnostic.ui.dashboard.components.PerformanceChart
 fun DashboardScreen(
     onNavigateToScanner: () -> Unit,
     onNavigateToSettings: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    viewModel: DashboardViewModel = remember { DashboardViewModel() }
 ) {
-    var selectedColorMode by remember { mutableIntStateOf(8) }
+    val dashboardState by viewModel.dashboardState.collectAsState()
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
     
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("JABAuth Diagnostic") },
                 actions = {
-                    IconButton(onClick = { /* TODO: Implement refresh diagnostics */ }) {
+                    IconButton(
+                        onClick = { viewModel.refreshMetrics() },
+                        enabled = !isRefreshing
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
                             contentDescription = "Refresh diagnostics"
                         )
                     }
-                    IconButton(onClick = { /* TODO: Implement share report */ }) {
+                    IconButton(
+                        onClick = {
+                            val report = viewModel.generateReport()
+                            // TODO: Share report via Android share sheet
+                            println(report)
+                        }
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Share,
                             contentDescription = "Share diagnostic report"
@@ -68,11 +80,11 @@ fun DashboardScreen(
             // Live Metrics Bar
             item {
                 MetricsBar(
-                    avgEncodeMs = 67.8,
-                    avgDecodeMs = 89.5,
-                    successRate = 0.94,
-                    activeTests = 6,
-                    deviceName = "SM-S938U"
+                    avgEncodeMs = dashboardState.avgEncodeMs,
+                    avgDecodeMs = dashboardState.avgDecodeMs,
+                    successRate = dashboardState.successRate / 100.0,
+                    activeTests = dashboardState.activeTests,
+                    deviceName = dashboardState.deviceName
                 )
             }
             
@@ -83,8 +95,8 @@ fun DashboardScreen(
             // Color Mode Comparison
             item {
                 ColorModeGrid(
-                    selectedMode = selectedColorMode,
-                    onModeSelected = { selectedColorMode = it }
+                    selectedMode = dashboardState.selectedColorMode,
+                    onModeSelected = { viewModel.selectColorMode(it) }
                 )
             }
             

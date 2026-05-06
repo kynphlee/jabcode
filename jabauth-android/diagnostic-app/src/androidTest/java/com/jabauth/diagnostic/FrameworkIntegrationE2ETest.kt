@@ -40,8 +40,11 @@ class FrameworkIntegrationE2ETest {
         composeTestRule.onNodeWithText("JABAuth Diagnostic")
             .assertExists()
         
-        // Verify placeholder content is visible
-        composeTestRule.onNodeWithText("Framework Status")
+        // Verify current dashboard metrics are visible
+        composeTestRule.onNodeWithText("ENCODE TIME")
+            .assertExists()
+        
+        composeTestRule.onNodeWithText("Color Mode Comparison")
             .assertExists()
     }
 
