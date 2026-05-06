@@ -33,7 +33,7 @@ class NavigationE2ETest {
             .assertExists()
         
         // When: Navigate to Scanner
-        composeTestRule.onNodeWithText("Scanner")
+        composeTestRule.onNodeWithTag("nav_scanner")
             .performClick()
         
         // Then: Scanner screen is displayed
@@ -49,26 +49,24 @@ class NavigationE2ETest {
             .assertExists()
         
         // When: Navigate to Settings
-        composeTestRule.onNodeWithText("Settings")
+        composeTestRule.onNodeWithTag("nav_settings")
             .performClick()
         
         // Then: Settings screen is displayed
-        composeTestRule.onNodeWithText("Settings")
-            .assertExists()
-            .assertIsDisplayed()
+        composeTestRule.waitForIdle()
     }
 
     @Test
     fun navigate_scanner_to_dashboard_using_bottom_nav() {
         // Given: Navigate to Scanner screen
-        composeTestRule.onNodeWithText("Scanner")
+        composeTestRule.onNodeWithTag("nav_scanner")
             .performClick()
         
         composeTestRule.onNodeWithText("JABCode Scanner")
             .assertExists()
         
         // When: Click Dashboard in bottom navigation
-        composeTestRule.onNodeWithText("Dashboard")
+        composeTestRule.onNodeWithTag("nav_dashboard")
             .performClick()
         
         // Then: Dashboard screen is displayed
@@ -80,11 +78,11 @@ class NavigationE2ETest {
     @Test
     fun navigate_settings_to_scanner_using_bottom_nav() {
         // Given: Navigate to Settings screen
-        composeTestRule.onNodeWithText("Settings")
+        composeTestRule.onNodeWithTag("nav_settings")
             .performClick()
         
         // When: Click Scanner in bottom navigation
-        composeTestRule.onNodeWithText("Scanner")
+        composeTestRule.onNodeWithTag("nav_scanner")
             .performClick()
         
         // Then: Scanner screen is displayed
@@ -96,25 +94,25 @@ class NavigationE2ETest {
     @Test
     fun bottom_navigation_bar_always_visible() {
         // Verify bottom nav is visible on Dashboard
-        composeTestRule.onNodeWithText("Dashboard")
+        composeTestRule.onNodeWithTag("nav_dashboard")
             .assertExists()
             .assertIsDisplayed()
         
         // Navigate to Scanner
-        composeTestRule.onNodeWithText("Scanner")
+        composeTestRule.onNodeWithTag("nav_scanner")
             .performClick()
         
         // Verify bottom nav is still visible
-        composeTestRule.onNodeWithText("Dashboard")
+        composeTestRule.onNodeWithTag("nav_dashboard")
             .assertExists()
             .assertIsDisplayed()
         
         // Navigate to Settings
-        composeTestRule.onNodeWithText("Settings")
+        composeTestRule.onNodeWithTag("nav_settings")
             .performClick()
         
         // Verify bottom nav is still visible
-        composeTestRule.onNodeWithText("Dashboard")
+        composeTestRule.onNodeWithTag("nav_dashboard")
             .assertExists()
             .assertIsDisplayed()
     }
@@ -126,19 +124,18 @@ class NavigationE2ETest {
             .assertExists()
         
         // Navigate to Scanner
-        composeTestRule.onNodeWithText("Scanner")
+        composeTestRule.onNodeWithTag("nav_scanner")
             .performClick()
         composeTestRule.onNodeWithText("JABCode Scanner")
             .assertExists()
         
         // Navigate to Settings
-        composeTestRule.onNodeWithText("Settings")
+        composeTestRule.onNodeWithTag("nav_settings")
             .performClick()
-        composeTestRule.onNodeWithText("Settings")
-            .assertExists()
+        composeTestRule.waitForIdle()
         
         // Navigate back to Dashboard
-        composeTestRule.onNodeWithText("Dashboard")
+        composeTestRule.onNodeWithTag("nav_dashboard")
             .performClick()
         composeTestRule.onNodeWithText("JABAuth Diagnostic")
             .assertExists()

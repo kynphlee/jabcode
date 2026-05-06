@@ -1,8 +1,8 @@
 // Top-level build file for JABAuth Android
 
 plugins {
-    id("com.android.application") version "8.3.0" apply false
-    id("com.android.library") version "8.3.0" apply false
+    id("com.android.application") version "8.7.2" apply false
+    id("com.android.library") version "8.7.2" apply false
     id("org.jetbrains.kotlin.android") version "1.9.22" apply false
     id("com.google.dagger.hilt.android") version "2.50" apply false
     id("org.jetbrains.kotlin.kapt") version "1.9.22" apply false
@@ -81,20 +81,18 @@ tasks.register<JacocoReport>("jacocoRootReport") {
         xml.outputLocation.set(layout.buildDirectory.file("reports/jacoco/jacocoRootReport/jacocoRootReport.xml"))
     }
     
-    // Collect source and class files from all subprojects
-    sourceDirectories.setFrom(
-        files(subprojects.mapNotNull { project ->
-            project.extensions.findByType<SourceSetContainer>()
-                ?.getByName("main")?.allSource?.srcDirs
-        })
-    )
+    // Collect source and class files from Android library modules
+    val sourceDirs = subprojects.flatMap { project ->
+        project.file("src/main/java").takeIf { it.exists() }?.let { listOf(it) } ?: emptyList()
+    }
     
-    classDirectories.setFrom(
-        files(subprojects.mapNotNull { project ->
-            project.extensions.findByType<SourceSetContainer>()
-                ?.getByName("main")?.output
-        })
-    )
+    val classDirs = subprojects.flatMap { project ->
+        val debugClasses = project.file("build/tmp/kotlin-classes/debug")
+        debugClasses.takeIf { it.exists() }?.let { listOf(it) } ?: emptyList()
+    }
+    
+    sourceDirectories.setFrom(files(sourceDirs))
+    classDirectories.setFrom(files(classDirs))
     
     executionData.setFrom(
         files(subprojects.map { project ->
