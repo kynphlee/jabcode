@@ -78,9 +78,9 @@ endif()
 # Link against math library only (NO png/tiff)
 target_link_libraries(jabcode-mobile m)
 
-# For Android, also link log library
+# For Android, also link log and jnigraphics libraries
 if(ANDROID)
-    target_link_libraries(jabcode-mobile log)
+    target_link_libraries(jabcode-mobile log jnigraphics)
 endif()
 
 # Set output directory

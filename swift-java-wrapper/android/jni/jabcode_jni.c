@@ -7,6 +7,7 @@
 #include <jni.h>
 #include <string.h>
 #include <android/log.h>
+#include <android/bitmap.h>
 #include "mobile_bridge.h"
 
 #define LOG_TAG "JABCodeJNI"
@@ -147,27 +148,42 @@ Java_com_jabcode_JABCodeMobile_nativeDecode(
 /**
  * Decode from bitmap implementation
  * 
- * Java signature: private static native byte[] nativeDecodeFromBitmap(byte[] rgbaBuffer, int width, int height);
+ * Java signature: external fun nativeDecodeFromBitmap(bitmap: Bitmap, timeout: Long): ByteArray?
  */
 JNIEXPORT jbyteArray JNICALL
 Java_com_jabcode_JABCodeMobile_nativeDecodeFromBitmap(
     JNIEnv *env,
-    jclass clazz,
-    jbyteArray rgbaBuffer,
-    jint width,
-    jint height)
+    jobject thiz,
+    jobject bitmap,
+    jlong timeout)
 {
-    // Get RGBA buffer
-    jbyte *rgbaBytes = (*env)->GetByteArrayElements(env, rgbaBuffer, NULL);
-    if (rgbaBytes == NULL) {
-        LOGE("Failed to get RGBA bytes");
+    AndroidBitmapInfo info;
+    void* pixels;
+    int ret;
+    
+    // Get bitmap info
+    if ((ret = AndroidBitmap_getInfo(env, bitmap, &info)) < 0) {
+        LOGE("AndroidBitmap_getInfo failed, error=%d", ret);
+        return NULL;
+    }
+    
+    // Verify format is RGBA_8888
+    if (info.format != ANDROID_BITMAP_FORMAT_RGBA_8888) {
+        LOGE("Bitmap format is not RGBA_8888, format=%d", info.format);
+        return NULL;
+    }
+    
+    // Lock pixels for reading
+    if ((ret = AndroidBitmap_lockPixels(env, bitmap, &pixels)) < 0) {
+        LOGE("AndroidBitmap_lockPixels failed, error=%d", ret);
         return NULL;
     }
     
     // Decode using camera pipeline (full detection)
-    jab_data *decoded = jabMobileDecodeCamera((jab_byte *)rgbaBytes, width, height);
+    jab_data *decoded = jabMobileDecodeCamera((jab_byte *)pixels, info.width, info.height);
     
-    (*env)->ReleaseByteArrayElements(env, rgbaBuffer, rgbaBytes, JNI_ABORT);
+    // Unlock pixels
+    AndroidBitmap_unlockPixels(env, bitmap);
     
     if (decoded == NULL) {
         const char *error = jabMobileGetLastError();
@@ -175,7 +191,7 @@ Java_com_jabcode_JABCodeMobile_nativeDecodeFromBitmap(
         return NULL;
     }
     
-    LOGI("Decoded %d bytes from camera", decoded->length);
+    LOGI("Decoded %d bytes from %dx%d bitmap", decoded->length, info.width, info.height);
     
     // Create result byte array
     jbyteArray resultArray = (*env)->NewByteArray(env, decoded->length);
