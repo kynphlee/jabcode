@@ -1,10 +1,13 @@
 package com.jabauth.diagnostic
 
+import android.Manifest
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.rule.GrantPermissionRule
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.RuleChain
 import org.junit.runner.RunWith
 
 /**
@@ -15,8 +18,13 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class NavigationE2ETest {
 
+    private val permissionRule = GrantPermissionRule.grant(Manifest.permission.CAMERA)
+    private val composeTestRule = createAndroidComposeRule<MainActivity>()
+
     @get:Rule
-    val composeTestRule = createAndroidComposeRule<MainActivity>()
+    val ruleChain: RuleChain = RuleChain
+        .outerRule(permissionRule)
+        .around(composeTestRule)
 
     @Test
     fun app_launches_and_shows_dashboard() {

@@ -6,23 +6,35 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.isGranted
+import com.google.accompanist.permissions.rememberPermissionState
+import com.google.accompanist.permissions.shouldShowRationale
 import com.jabauth.ui.scanner.QualityIndicator
 import com.jabauth.ui.scanner.ScanStatus
 import com.jabauth.ui.scanner.ScanStatusOverlay
+import com.jabauth.ui.scanner.ScanTargetOverlay
 import com.jabauth.ui.scanner.ScannerHeader
 
 /**
- * Scanner Screen - Framework validation
+ * Scanner Screen - JABCode scanner with CameraX
  * 
- * Demonstrates UI components module integration.
- * Full camera integration implemented in Diagnostic App Plan.
+ * Phase 3 Day 1: Camera Integration
+ * - CameraX live preview
+ * - Runtime permissions (accompanist)
+ * - Quality indicators
+ * - Scan status overlay
+ * 
+ * Testing: Camera permission auto-granted via GrantPermissionRule in tests
  */
+@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun ScannerScreen(
     onNavigateBack: () -> Unit,
     onNavigateToDashboard: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val cameraPermissionState = rememberPermissionState(android.Manifest.permission.CAMERA)
     var scanStatus by remember { mutableStateOf(ScanStatus.SCANNING) }
     
     Column(
@@ -41,32 +53,40 @@ fun ScannerScreen(
                 .weight(1f),
             contentAlignment = Alignment.Center
         ) {
-            // Camera preview would go here in full implementation
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(4f/3f),
-                color = MaterialTheme.colorScheme.surfaceVariant
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Text(
-                        text = "Camera Preview Placeholder",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+            when {
+                cameraPermissionState.status.isGranted -> {
+                    // Camera permission granted - show live preview with scan target
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(4f/3f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        // Camera preview layer
+                        CameraPreview(
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        
+                        // Scan target overlay
+                        ScanTargetOverlay(
+                            size = 280.dp,
+                            isScanning = scanStatus == ScanStatus.SCANNING,
+                            isDetected = scanStatus == ScanStatus.SUCCESS,
+                            primaryColor = MaterialTheme.colorScheme.primary,
+                            successColor = MaterialTheme.colorScheme.tertiary
+                        )
+                    }
+                }
+                cameraPermissionState.status.shouldShowRationale -> {
+                    // Show rationale
+                    CameraPermissionRationale(
+                        onRequestPermission = { cameraPermissionState.launchPermissionRequest() }
                     )
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    Text(
-                        text = "Full CameraX integration in Diagnostic App Plan",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                }
+                else -> {
+                    // Permission not yet requested - show initial state
+                    CameraPermissionDenied(
+                        onRequestPermission = { cameraPermissionState.launchPermissionRequest() }
                     )
                 }
             }

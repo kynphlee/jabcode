@@ -1,16 +1,19 @@
 package com.jabauth.diagnostic.navigation
 
+import android.Manifest
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.navigation.compose.ComposeNavigator
 import androidx.navigation.testing.TestNavHostController
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.rule.GrantPermissionRule
 import com.jabauth.diagnostic.ui.theme.AppContext
 import com.jabauth.diagnostic.ui.theme.JABAuthTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.RuleChain
 import org.junit.runner.RunWith
 
 /**
@@ -25,8 +28,13 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class NavigationTest {
     
+    private val permissionRule = GrantPermissionRule.grant(Manifest.permission.CAMERA)
+    private val composeTestRule = createComposeRule()
+    
     @get:Rule
-    val composeTestRule = createComposeRule()
+    val ruleChain: RuleChain = RuleChain
+        .outerRule(permissionRule)
+        .around(composeTestRule)
     
     /**
      * Test: Navigate from Dashboard to Scanner using bottom nav
@@ -50,8 +58,8 @@ class NavigationTest {
         // Click Scanner bottom nav
         composeTestRule.onNodeWithTag("nav_scanner").performClick()
         
-        // Verify Scanner screen is displayed
-        composeTestRule.onNodeWithText("Camera Preview Placeholder").assertIsDisplayed()
+        // Verify Scanner screen is displayed (camera permission granted via GrantPermissionRule)
+        composeTestRule.onNodeWithText("JABCode Scanner").assertIsDisplayed()
         composeTestRule.onNodeWithText("Quality Metrics").assertIsDisplayed()
     }
     
@@ -90,7 +98,7 @@ class NavigationTest {
         
         // Navigate to Scanner
         composeTestRule.onNodeWithTag("nav_scanner").performClick()
-        composeTestRule.onNodeWithText("Camera Preview Placeholder").assertIsDisplayed()
+        composeTestRule.onNodeWithText("JABCode Scanner").assertIsDisplayed()
         
         // Click back button in top app bar
         composeTestRule.onNodeWithContentDescription("Navigate back").performClick()
@@ -137,7 +145,7 @@ class NavigationTest {
         
         // Navigate to Scanner
         composeTestRule.onNodeWithTag("nav_scanner").performClick()
-        composeTestRule.onNodeWithText("Camera Preview Placeholder").assertIsDisplayed()
+        composeTestRule.onNodeWithText("JABCode Scanner").assertIsDisplayed()
         
         // Navigate to Settings
         composeTestRule.onNodeWithTag("nav_settings").performClick()
@@ -149,7 +157,7 @@ class NavigationTest {
         
         // Navigate to Scanner again
         composeTestRule.onNodeWithTag("nav_scanner").performClick()
-        composeTestRule.onNodeWithText("Camera Preview Placeholder").assertIsDisplayed()
+        composeTestRule.onNodeWithText("JABCode Scanner").assertIsDisplayed()
         
         // Navigate back to Dashboard again
         composeTestRule.onNodeWithTag("nav_dashboard").performClick()
@@ -193,7 +201,7 @@ class NavigationTest {
         composeTestRule.onNodeWithTag("nav_scanner").performClick()
         
         // Content should appear immediately (no fade/animation delays)
-        composeTestRule.onNodeWithText("Camera Preview Placeholder")
+        composeTestRule.onNodeWithText("JABCode Scanner")
             .assertIsDisplayed()
         
         // Navigate to Settings
