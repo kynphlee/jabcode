@@ -412,8 +412,10 @@ jab_byte decodeModuleHD(jab_bitmap* matrix, jab_byte* palette, jab_int32 color_n
 	//get the nearest palette
 	jab_int32 p_index = getNearestPalette(matrix, x, y);
 	
-	// DEBUG: Check if this module is in data_map (should only decode data modules, not finder patterns)
-	// This logging will show if fillDataMap is working correctly
+	// DEBUG: Log first few modules for 16+ color modes
+	static jab_int32 debug_count = 0;
+	jab_boolean log_this = (color_number >= 16 && debug_count < 10);
+	if(log_this) debug_count++;
 
 	//read the RGB values
 	jab_byte rgb[3];
@@ -450,9 +452,10 @@ jab_byte decodeModuleHD(jab_bitmap* matrix, jab_byte* palette, jab_int32 color_n
 			jab_float pr, pg, pb;
 			if(use_direct_rgb) {
 				// Use actual palette RGB values for direct comparison
-				pr = (jab_float)palette[i*3 + 0];
-				pg = (jab_float)palette[i*3 + 1];
-				pb = (jab_float)palette[i*3 + 2];
+				// CRITICAL FIX: Must include palette slot offset (p_index) for multi-palette support
+				pr = (jab_float)palette[color_number*3*p_index + i*3 + 0];
+				pg = (jab_float)palette[color_number*3*p_index + i*3 + 1];
+				pb = (jab_float)palette[color_number*3*p_index + i*3 + 2];
 			} else {
 				// Use normalized palette values
 				pr = norm_palette[color_number*4*p_index + i*4 + 0];
@@ -495,6 +498,12 @@ jab_byte decodeModuleHD(jab_bitmap* matrix, jab_byte* palette, jab_int32 color_n
 			{
 				index1 = (jab_byte)white_index;
 			}
+		}
+		
+		// DEBUG logging for high color modes
+		if(log_this) {
+			printf("[DEBUG decodeModuleHD] pos(%d,%d) color_num=%d p_idx=%d rgb=(%d,%d,%d) → index=%d min1=%.1f min2=%.1f\n",
+				x, y, color_number, p_index, rgb[0], rgb[1], rgb[2], index1, min1, min2);
 		}
 		//if the minimum is close to the second minimum, do further match
 /*		if(min1 * 1.5 > min2)

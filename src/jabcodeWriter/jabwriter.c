@@ -144,9 +144,10 @@ jab_boolean parseCommandLineParameters(jab_int32 para_number, jab_char* para[])
 				printf("Invalid or missing values for option '%s'.\n", option);
 				return 0;
 			}
-            if(color_number != 4  && color_number != 8)
+            if(color_number != 4  && color_number != 8  && color_number != 16 &&
+               color_number != 32 && color_number != 64 && color_number != 128)
             {
-				reportError("Invalid color number. Supported color number includes 4 and 8.");
+				reportError("Invalid color number. Supported color numbers are 4, 8, 16, 32, 64, 128.");
 				return 0;
             }
         }
