@@ -66,10 +66,10 @@ class FrameworkIntegrationE2ETest {
         composeTestRule.onNodeWithText("JABCode Scanner")
             .assertExists()
         
-        // Verify scanner quality metrics section (camera permission granted via GrantPermissionRule)
-        composeTestRule.onNodeWithText("Quality Metrics")
+        // Verify scanner action buttons (camera permission granted via GrantPermissionRule)
+        composeTestRule.onNodeWithText("Torch On")
             .assertExists()
-            .assertIsDisplayed()
+        // Note: "Dashboard" appears twice (bottom nav + action button), so we don't assert on it
     }
 
     @Test

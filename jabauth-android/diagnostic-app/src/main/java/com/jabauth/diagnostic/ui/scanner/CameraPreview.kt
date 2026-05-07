@@ -1,14 +1,22 @@
 package com.jabauth.diagnostic.ui.scanner
 
 import android.view.ViewGroup
+import androidx.camera.core.CameraControl
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import java.util.concurrent.Executors
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -20,14 +28,31 @@ import androidx.compose.ui.viewinterop.AndroidView
  * CameraPreview - Live camera feed using CameraX
  * 
  * Displays a real-time camera preview for JABCode scanning.
+ * 
+ * @param imageAnalyzer Optional analyzer for processing camera frames
+ * @param isTorchOn Whether torch (flashlight) should be enabled
+ * @param onCameraReady Callback when camera is bound (provides CameraControl)
+ * @param modifier Modifier for the preview
  */
 @Composable
 fun CameraPreview(
+    imageAnalyzer: ImageAnalysis.Analyzer? = null,
+    isTorchOn: Boolean = false,
+    onCameraReady: (CameraControl) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
+    val executor = remember { Executors.newSingleThreadExecutor() }
+    
+    // Store camera control for torch updates without rebinding
+    var cameraControl by remember { mutableStateOf<CameraControl?>(null) }
+    
+    // Update torch when state changes (without rebinding camera)
+    LaunchedEffect(isTorchOn) {
+        cameraControl?.enableTorch(isTorchOn)
+    }
     
     AndroidView(
         factory = { ctx ->
@@ -42,24 +67,63 @@ fun CameraPreview(
         },
         modifier = modifier,
         update = { previewView ->
-            val cameraProvider = cameraProviderFuture.get()
-            val preview = Preview.Builder().build()
-            val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
-            
-            preview.setSurfaceProvider(previewView.surfaceProvider)
-            
+            // Only bind camera once when preview view is ready
+            if (cameraControl == null) {
+                val cameraProvider = cameraProviderFuture.get()
+                val preview = Preview.Builder().build()
+                val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+                
+                preview.setSurfaceProvider(previewView.surfaceProvider)
+                
+                try {
+                    cameraProvider.unbindAll()
+                    
+                    // Build use cases
+                    val useCases = mutableListOf<androidx.camera.core.UseCase>(preview)
+                    
+                    // Add image analysis if provided
+                    if (imageAnalyzer != null) {
+                        val imageAnalysis = ImageAnalysis.Builder()
+                            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                            .build()
+                            .also { it.setAnalyzer(executor, imageAnalyzer) }
+                        useCases.add(imageAnalysis)
+                    }
+                    
+                    // Bind all use cases
+                    val camera = cameraProvider.bindToLifecycle(
+                        lifecycleOwner,
+                        cameraSelector,
+                        *useCases.toTypedArray()
+                    )
+                    
+                    // Store camera control for future torch updates
+                    cameraControl = camera.cameraControl
+                    
+                    // Set initial torch state
+                    camera.cameraControl.enableTorch(isTorchOn)
+                    
+                    // Notify caller of camera ready
+                    onCameraReady(camera.cameraControl)
+                    
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
+    )
+    
+    // Cleanup when composable leaves composition
+    DisposableEffect(Unit) {
+        onDispose {
             try {
-                cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(
-                    lifecycleOwner,
-                    cameraSelector,
-                    preview
-                )
+                cameraProviderFuture.get().unbindAll()
+                executor.shutdown()
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
-    )
+    }
 }
 
 /**

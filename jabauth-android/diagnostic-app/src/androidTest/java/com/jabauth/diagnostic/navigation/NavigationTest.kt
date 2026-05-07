@@ -60,7 +60,7 @@ class NavigationTest {
         
         // Verify Scanner screen is displayed (camera permission granted via GrantPermissionRule)
         composeTestRule.onNodeWithText("JABCode Scanner").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Quality Metrics").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Torch On").assertIsDisplayed()
     }
     
     /**

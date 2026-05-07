@@ -10,7 +10,10 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.google.accompanist.permissions.shouldShowRationale
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.jabauth.diagnostic.camera.CameraAnalyzer
 import com.jabauth.ui.scanner.QualityIndicator
+import com.jabauth.ui.scanner.QualityIndicators
 import com.jabauth.ui.scanner.ScanStatus
 import com.jabauth.ui.scanner.ScanStatusOverlay
 import com.jabauth.ui.scanner.ScanTargetOverlay
@@ -19,10 +22,11 @@ import com.jabauth.ui.scanner.ScannerHeader
 /**
  * Scanner Screen - JABCode scanner with CameraX
  * 
- * Phase 3 Day 1: Camera Integration
- * - CameraX live preview
+ * Phase 3 Day 1-3: Camera Integration + Quality Indicators
+ * - CameraX live preview with image analysis
  * - Runtime permissions (accompanist)
- * - Quality indicators
+ * - Real-time quality metrics (brightness, focus, contrast)
+ * - Scan target overlay with animations
  * - Scan status overlay
  * 
  * Testing: Camera permission auto-granted via GrantPermissionRule in tests
@@ -32,10 +36,20 @@ import com.jabauth.ui.scanner.ScannerHeader
 fun ScannerScreen(
     onNavigateBack: () -> Unit,
     onNavigateToDashboard: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    viewModel: ScannerViewModel = viewModel()
 ) {
     val cameraPermissionState = rememberPermissionState(android.Manifest.permission.CAMERA)
-    var scanStatus by remember { mutableStateOf(ScanStatus.SCANNING) }
+    val scanStatus by viewModel.scanStatus.collectAsState()
+    val isTorchOn by viewModel.isTorchOn.collectAsState()
+    val qualityMetrics by viewModel.qualityMetrics.collectAsState()
+    
+    // Create camera analyzer for quality metrics
+    val cameraAnalyzer = remember {
+        CameraAnalyzer { brightness, focus, contrast ->
+            viewModel.updateQualityMetrics(brightness, focus, contrast)
+        }
+    }
     
     Column(
         modifier = modifier.fillMaxSize()
@@ -62,8 +76,10 @@ fun ScannerScreen(
                             .aspectRatio(4f/3f),
                         contentAlignment = Alignment.Center
                     ) {
-                        // Camera preview layer
+                        // Camera preview layer with image analysis
                         CameraPreview(
+                            imageAnalyzer = cameraAnalyzer,
+                            isTorchOn = isTorchOn,
                             modifier = Modifier.fillMaxSize()
                         )
                         
@@ -74,6 +90,14 @@ fun ScannerScreen(
                             isDetected = scanStatus == ScanStatus.SUCCESS,
                             primaryColor = MaterialTheme.colorScheme.primary,
                             successColor = MaterialTheme.colorScheme.tertiary
+                        )
+                        
+                        // Quality indicators overlay at bottom
+                        QualityIndicators(
+                            metrics = qualityMetrics,
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(bottom = 20.dp)
                         )
                     }
                 }
@@ -103,47 +127,30 @@ fun ScannerScreen(
             )
         }
         
-        // Quality indicators from UI components
+        // Action buttons
         Surface(
             modifier = Modifier.fillMaxWidth(),
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 2.dp
         ) {
-            Column(
-                modifier = Modifier.padding(16.dp)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    text = "Quality Metrics",
-                    style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.padding(bottom = 12.dp)
-                )
-                
-                QualityIndicator(
-                    label = "Brightness",
-                    value = 0.75f
-                )
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                QualityIndicator(
-                    label = "Focus",
-                    value = 0.90f
-                )
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                QualityIndicator(
-                    label = "Contrast",
-                    value = 0.65f
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = { viewModel.toggleTorch() },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(if (isTorchOn) "Torch Off" else "Torch On")
+                }
                 
                 Button(
                     onClick = onNavigateToDashboard,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.weight(1f)
                 ) {
-                    Text("Return to Dashboard")
+                    Text("Dashboard")
                 }
             }
         }
