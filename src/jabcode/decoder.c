@@ -908,10 +908,9 @@ jab_int32 decodeMasterMetadataPartII(jab_bitmap* matrix, jab_decoded_symbol* sym
 		getNextMetadataModuleInMaster(matrix->height, matrix->width, (*module_count), x, y);
     }
 
-	//decode ldpc for part2 using actual total bits (not just 38)
-	DEBUG_LOG("[PartII] Running LDPC decode on %d bits (including %d padding bits) with wc=2...", 
-	          total_bits, total_bits - MASTER_METADATA_PART2_LENGTH);
-	if( !decodeLDPChd(part2, total_bits, 2, 0) )
+	//decode ldpc for part2 using EXACTLY 38 bits (encoder outputs 38, padding is only for module alignment)
+	DEBUG_LOG("[PartII] Running LDPC decode on %d bits with wc=2...", MASTER_METADATA_PART2_LENGTH);
+	if( !decodeLDPChd(part2, MASTER_METADATA_PART2_LENGTH, 2, 0) )
 	{
 		DEBUG_LOG("[PartII] FAILED: LDPC decoding failed");
 		free(part2);

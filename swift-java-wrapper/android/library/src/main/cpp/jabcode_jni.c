@@ -85,18 +85,48 @@ JNIEXPORT jbyteArray JNICALL
 Java_com_jabcode_JABCodeMobile_nativeDecodeFromBitmap(
     JNIEnv* env,
     jclass clazz,
-    jbyteArray rgbaBuffer,
-    jint width,
-    jint height
+    jobject bitmap,
+    jlong timeout
 ) {
-    jbyte* buffer = (*env)->GetByteArrayElements(env, rgbaBuffer, NULL);
-    if (!buffer) {
+    // Get Bitmap class and methods
+    jclass bitmapClass = (*env)->GetObjectClass(env, bitmap);
+    jmethodID getWidthMethod = (*env)->GetMethodID(env, bitmapClass, "getWidth", "()I");
+    jmethodID getHeightMethod = (*env)->GetMethodID(env, bitmapClass, "getHeight", "()I");
+    jmethodID getPixelsMethod = (*env)->GetMethodID(env, bitmapClass, "getPixels", "([IIIIIII)V");
+    
+    jint width = (*env)->CallIntMethod(env, bitmap, getWidthMethod);
+    jint height = (*env)->CallIntMethod(env, bitmap, getHeightMethod);
+    
+    // Get pixel data
+    jintArray pixelArray = (*env)->NewIntArray(env, width * height);
+    (*env)->CallVoidMethod(env, bitmap, getPixelsMethod, pixelArray, 0, width, 0, 0, width, height);
+    
+    jint* pixels = (*env)->GetIntArrayElements(env, pixelArray, NULL);
+    if (!pixels) {
         return NULL;
     }
     
-    jab_data* decoded = jabMobileDecodeFromBitmap((jab_byte*)buffer, width, height);
+    // Convert ARGB to RGBA
+    jab_byte* rgbaBuffer = (jab_byte*)malloc(width * height * 4);
+    if (!rgbaBuffer) {
+        (*env)->ReleaseIntArrayElements(env, pixelArray, pixels, JNI_ABORT);
+        return NULL;
+    }
     
-    (*env)->ReleaseByteArrayElements(env, rgbaBuffer, buffer, JNI_ABORT);
+    for (int i = 0; i < width * height; i++) {
+        jint pixel = pixels[i];
+        rgbaBuffer[i * 4 + 0] = (pixel >> 16) & 0xFF; // R
+        rgbaBuffer[i * 4 + 1] = (pixel >> 8) & 0xFF;  // G
+        rgbaBuffer[i * 4 + 2] = pixel & 0xFF;          // B
+        rgbaBuffer[i * 4 + 3] = (pixel >> 24) & 0xFF; // A
+    }
+    
+    (*env)->ReleaseIntArrayElements(env, pixelArray, pixels, JNI_ABORT);
+    
+    // Decode
+    jab_data* decoded = jabMobileDecodeFromBitmap(rgbaBuffer, width, height);
+    
+    free(rgbaBuffer);
     
     if (!decoded) {
         return NULL;

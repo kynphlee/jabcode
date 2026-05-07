@@ -983,6 +983,7 @@ jab_boolean encodeMasterMetadata(jab_encode* enc)
 */
 jab_boolean updateMasterMetadataPartII(jab_encode* enc, jab_int32 mask_ref)
 {
+	fprintf(stderr, "[ENCODER] updateMasterMetadataPartII called: mask_ref=%d, color_number=%d\n", mask_ref, enc->color_number);
 	jab_int32 partII_length	= MASTER_METADATA_PART2_LENGTH/2;	//partII net length
 	jab_data* partII = (jab_data *)malloc(sizeof(jab_data) + partII_length*sizeof(jab_char));
 	if(partII == NULL)
@@ -1028,6 +1029,7 @@ jab_boolean updateMasterMetadataPartII(jab_encode* enc, jab_int32 mask_ref)
 */
 void placeMasterMetadataPartII(jab_encode* enc)
 {
+	fprintf(stderr, "[ENCODER] placeMasterMetadataPartII called: color_number=%d\n", enc->color_number);
     //rewrite metadata in master with mask information
     jab_int32 nb_of_bits_per_mod = (jab_int32)round(log(enc->color_number)/log(2));
     jab_int32 x = MASTER_METADATA_X;
@@ -1045,17 +1047,17 @@ void placeMasterMetadataPartII(jab_encode* enc)
 	jab_int32 partII_bit_start = MASTER_METADATA_PART1_LENGTH;
 	jab_int32 partII_bit_end = MASTER_METADATA_PART1_LENGTH + MASTER_METADATA_PART2_LENGTH;
 	jab_int32 metadata_index = partII_bit_start;
+	// Match official implementation: use <= because LDPC outputs unpacked bits (38 bytes, not 5 bytes)
 	while(metadata_index <= partII_bit_end)
 	{
+		// Match official: read from matrix as base, then overwrite bits
     	jab_byte color_index = enc->symbols[0].matrix[y*enc->symbols[0].side_size.x + x];
 		for(jab_int32 j=0; j<nb_of_bits_per_mod; j++)
 		{
 			if(metadata_index <= partII_bit_end)
 			{
-				// Convert bit index to byte index and bit offset
-				jab_int32 byte_index = metadata_index / 8;
-				jab_int32 bit_offset = metadata_index % 8;
-				jab_byte bit = (enc->symbols[0].metadata->data[byte_index] >> (7 - bit_offset)) & 1;
+				// LDPC outputs unpacked bits: each byte is 0 or 1, not a packed bitstream
+				jab_byte bit = enc->symbols[0].metadata->data[metadata_index];
 				if(bit == 0)
 					color_index &= ~(1UL << (nb_of_bits_per_mod-1-j));
 				else
@@ -2316,13 +2318,12 @@ jab_int32 generateJABCode(jab_encode* enc, jab_data* data)
 #if TEST_MODE
 		JAB_REPORT_INFO(("mask reference: %d", mask_reference))
 #endif
-		if(mask_reference != DEFAULT_MASKING_REFERENCE)
-		{
-			//re-encode PartII of master symbol metadata
-			updateMasterMetadataPartII(enc, mask_reference);
-			//update the masking reference in master symbol metadata
-			placeMasterMetadataPartII(enc);
-		}
+		// CRITICAL FIX: Always update Part II metadata regardless of mask_reference value
+		// Skipping this for DEFAULT mask (7) causes LDPC decoding failure
+		//re-encode PartII of master symbol metadata
+		updateMasterMetadataPartII(enc, mask_reference);
+		//update the masking reference in master symbol metadata
+		placeMasterMetadataPartII(enc);
 	}
 
     //create the code bitmap

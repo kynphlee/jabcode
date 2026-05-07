@@ -30,7 +30,14 @@ class JABCodeDecoderImpl(
         try {
             // Use nativeDecodeFromBitmap for simplicity
             val decodedData = nativeBridge.nativeDecodeFromBitmap(image, options.timeout)
-                ?: return null
+            if (decodedData == null) {
+                val errorMsg = nativeBridge.nativeGetLastError() ?: "Unknown error"
+                logger?.error("Native decode failed: $errorMsg", null, mapOf(
+                    "imageSize" to "${image.width}x${image.height}"
+                ))
+                android.util.Log.e("JABCodeDecoder", "Native error: $errorMsg")
+                return null
+            }
             
             val decodeTime = System.currentTimeMillis() - startTime
             
