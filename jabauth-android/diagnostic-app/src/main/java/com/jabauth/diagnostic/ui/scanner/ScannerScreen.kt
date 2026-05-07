@@ -11,19 +11,20 @@ import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.google.accompanist.permissions.shouldShowRationale
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.jabauth.diagnostic.camera.CameraAnalyzer
 import com.jabauth.ui.scanner.*
 
 /**
  * Scanner Screen - JABCode scanner with CameraX
  * 
- * Phase 3 Day 1-4: Scanner UI Complete
- * - CameraX live preview with image analysis
+ * Phase 3 Day 1-5: Scanner UI + Integration Complete
+ * - CameraX live preview with JABCode decoding
  * - Runtime permissions (accompanist)
  * - Real-time quality metrics (brightness, focus, contrast)
  * - Scan target overlay with animations
  * - Scan status overlay
  * - Result Panel (bottom sheet) for scan results
+ * - JABCode SDK integration for real decoding
+ * - JABAuth Client integration for authentication
  * 
  * Testing: Camera permission auto-granted via GrantPermissionRule in tests
  */
@@ -41,11 +42,9 @@ fun ScannerScreen(
     val qualityMetrics by viewModel.qualityMetrics.collectAsState()
     val authenticationResult by viewModel.authenticationResult.collectAsState()
     
-    // Create camera analyzer for quality metrics
-    val cameraAnalyzer = remember {
-        CameraAnalyzer { brightness, focus, contrast ->
-            viewModel.updateQualityMetrics(brightness, focus, contrast)
-        }
+    // Create JABCode analyzer with full decode + auth pipeline
+    val jabCodeAnalyzer = remember {
+        viewModel.createAnalyzer()
     }
     
     Column(
@@ -73,9 +72,9 @@ fun ScannerScreen(
                             .aspectRatio(4f/3f),
                         contentAlignment = Alignment.Center
                     ) {
-                        // Camera preview layer with image analysis
+                        // Camera preview layer with JABCode decoding
                         CameraPreview(
-                            imageAnalyzer = cameraAnalyzer,
+                            imageAnalyzer = jabCodeAnalyzer,
                             isTorchOn = isTorchOn,
                             modifier = Modifier.fillMaxSize()
                         )

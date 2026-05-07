@@ -3,6 +3,7 @@ package com.jabauth.jabcode
 import android.graphics.Bitmap
 import android.graphics.Rect
 import com.jabauth.core.logging.Logger
+import com.jabcode.JABCodeMobile
 import java.nio.ByteBuffer
 
 /**
@@ -15,11 +16,7 @@ class JABCodeDecoderImpl(
     private val logger: Logger? = null
 ) : JABCodeDecoder {
 
-    companion object {
-        init {
-            System.loadLibrary("jabcode-mobile")
-        }
-    }
+    private val nativeBridge = JABCodeMobile()
 
     override fun decode(image: Bitmap, options: DecodeOptions): DecodeResult? {
         val startTime = System.currentTimeMillis()
@@ -31,22 +28,17 @@ class JABCodeDecoderImpl(
         ))
         
         try {
-            // Convert bitmap to RGBA buffer
-            val buffer = bitmapToRgbaBuffer(image, options.scanRegion)
-            val width = options.scanRegion?.width() ?: image.width
-            val height = options.scanRegion?.height() ?: image.height
-            
-            // Call native decode
-            val nativeResult = nativeDecode(buffer, width, height, options.timeout)
+            // Use nativeDecodeFromBitmap for simplicity
+            val decodedData = nativeBridge.nativeDecodeFromBitmap(image, options.timeout)
                 ?: return null
             
             val decodeTime = System.currentTimeMillis() - startTime
             
-            // Parse native result
+            // Create result (native library doesn't return metadata yet)
             val result = DecodeResult(
-                data = nativeResult.data,
-                colorMode = ColorMode.entries.first { it.value == nativeResult.colorMode },
-                position = nativeResult.position,
+                data = decodedData,
+                colorMode = ColorMode.COLOR_8, // Default - actual mode not returned by native
+                position = Rect(0, 0, image.width, image.height), // Full image
                 decodeTimeMs = decodeTime
             )
             
@@ -109,28 +101,4 @@ class JABCodeDecoderImpl(
         return buffer
     }
 
-    /**
-     * Native decode result
-     */
-    private data class NativeDecodeResult(
-        val data: ByteArray,
-        val colorMode: Int,
-        val position: Rect
-    )
-
-    /**
-     * Native decode method
-     *
-     * @param rgbaBuffer RGBA pixel buffer
-     * @param width Image width
-     * @param height Image height
-     * @param timeoutMs Decode timeout in milliseconds
-     * @return Native decode result or null if no JABCode found
-     */
-    private external fun nativeDecode(
-        rgbaBuffer: ByteArray,
-        width: Int,
-        height: Int,
-        timeoutMs: Long
-    ): NativeDecodeResult?
 }
