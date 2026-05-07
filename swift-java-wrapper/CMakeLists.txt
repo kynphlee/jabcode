@@ -181,19 +181,21 @@ target_link_libraries(test_synthetic_decode
     m
 )
 
-# Desktop decoder test on synthetic bitmap
-add_executable(test_desktop_decode
-    test/c/test_desktop_decode.c
-    ${JABCODE_SOURCES}
-)
+# Desktop decoder test on synthetic bitmap (skip for Android builds)
+if(NOT ANDROID)
+    add_executable(test_desktop_decode
+        test/c/test_desktop_decode.c
+        ${JABCODE_SOURCES}
+    )
 
-target_include_directories(test_desktop_decode PRIVATE
-    ${JABCODE_INCLUDE_DIR}
-)
+    target_include_directories(test_desktop_decode PRIVATE
+        ${JABCODE_INCLUDE_DIR}
+    )
 
-target_link_libraries(test_desktop_decode
-    m
-)
+    target_link_libraries(test_desktop_decode
+        m
+    )
+endif()
 
 # Print summary
 message(STATUS "JABCode Mobile Build Configuration:")
