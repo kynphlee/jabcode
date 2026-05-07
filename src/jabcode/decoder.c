@@ -242,7 +242,8 @@ jab_int32 readColorPaletteInMaster(jab_bitmap* matrix, jab_decoded_symbol* symbo
 	while(color_counter < MIN(color_number, 64))
 	{
 		//color palette 0
-		color_index = master_palette_placement_index[0][color_counter] % color_number; //for 4-color and 8-color symbols
+		// FIX: For 16+ colors, use sequential indexing instead of placement mapping
+		color_index = (color_number <= 8) ? (master_palette_placement_index[0][color_counter] % color_number) : color_counter;
 		writeColorPalette(matrix, symbol, 0, color_index, *x, *y);
 		//set data map
 		data_map[(*y) * matrix->width + (*x)] = 1;
@@ -251,7 +252,7 @@ jab_int32 readColorPaletteInMaster(jab_bitmap* matrix, jab_decoded_symbol* symbo
 		getNextMetadataModuleInMaster(matrix->height, matrix->width, (*module_count), x, y);
 
 		//color palette 1
-		color_index = master_palette_placement_index[1][color_counter] % color_number; //for 4-color and 8-color symbols
+		color_index = (color_number <= 8) ? (master_palette_placement_index[1][color_counter] % color_number) : color_counter;
 		writeColorPalette(matrix, symbol, 1, color_index, *x, *y);
 		//set data map
 		data_map[(*y) * matrix->width + (*x)] = 1;
@@ -260,7 +261,7 @@ jab_int32 readColorPaletteInMaster(jab_bitmap* matrix, jab_decoded_symbol* symbo
 		getNextMetadataModuleInMaster(matrix->height, matrix->width, (*module_count), x, y);
 
 		//color palette 2
-		color_index = master_palette_placement_index[2][color_counter] % color_number; //for 4-color and 8-color symbols
+		color_index = (color_number <= 8) ? (master_palette_placement_index[2][color_counter] % color_number) : color_counter;
 		writeColorPalette(matrix, symbol, 2, color_index, *x, *y);
 		//set data map
 		data_map[(*y) * matrix->width + (*x)] = 1;
@@ -269,7 +270,7 @@ jab_int32 readColorPaletteInMaster(jab_bitmap* matrix, jab_decoded_symbol* symbo
 		getNextMetadataModuleInMaster(matrix->height, matrix->width, (*module_count), x, y);
 
 		//color palette 3
-		color_index = master_palette_placement_index[3][color_counter] % color_number; //for 4-color and 8-color symbols
+		color_index = (color_number <= 8) ? (master_palette_placement_index[3][color_counter] % color_number) : color_counter;
 		writeColorPalette(matrix, symbol, 3, color_index, *x, *y);
 		//set data map
 		data_map[(*y) * matrix->width + (*x)] = 1;
@@ -286,6 +287,15 @@ jab_int32 readColorPaletteInMaster(jab_bitmap* matrix, jab_decoded_symbol* symbo
 	{
 		interpolatePalette(symbol->palette, color_number);
 	}
+	
+	// DEBUG: Dump palette for comparison with encoder
+	if(color_number == 16) {
+		DEBUG_LOG("[Decoder Palette] Index 7:  RGB(%d, %d, %d)", 
+		          symbol->palette[7*3], symbol->palette[7*3+1], symbol->palette[7*3+2]);
+		DEBUG_LOG("[Decoder Palette] Index 11: RGB(%d, %d, %d)", 
+		          symbol->palette[11*3], symbol->palette[11*3+1], symbol->palette[11*3+2]);
+	}
+	
 	return JAB_SUCCESS;
 }
 

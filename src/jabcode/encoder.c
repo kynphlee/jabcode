@@ -212,6 +212,14 @@ jab_encode* createEncode(jab_int32 color_number, jab_int32 symbol_number)
         memcpy(enc->palette + i * palette_size, enc->palette, palette_size);
     }
     
+    // DEBUG: Dump encoder palette for comparison
+    if(color_number == 16) {
+        fprintf(stderr, "[Encoder Palette] Index 7:  RGB(%d, %d, %d)\n", 
+                enc->palette[7*3], enc->palette[7*3+1], enc->palette[7*3+2]);
+        fprintf(stderr, "[Encoder Palette] Index 11: RGB(%d, %d, %d)\n", 
+                enc->palette[11*3], enc->palette[11*3+1], enc->palette[11*3+2]);
+    }
+    
     //allocate memory for symbol versions
     enc->symbol_versions = (jab_vector2d *)calloc(symbol_number, sizeof(jab_vector2d));
     if(enc->symbol_versions == NULL)
@@ -1047,6 +1055,16 @@ void placeMasterMetadataPartII(jab_encode* enc)
 	jab_int32 partII_bit_start = MASTER_METADATA_PART1_LENGTH;
 	jab_int32 partII_bit_end = MASTER_METADATA_PART1_LENGTH + MASTER_METADATA_PART2_LENGTH;
 	jab_int32 metadata_index = partII_bit_start;
+	
+	fprintf(stderr, "[ENCODER] Part II: writing %d bits (index %d to %d)\n", 
+	        MASTER_METADATA_PART2_LENGTH, partII_bit_start, partII_bit_end);
+	fprintf(stderr, "[ENCODER] First 10 metadata bits: ");
+	for(jab_int32 i=partII_bit_start; i<partII_bit_start+10 && i<=partII_bit_end; i++) {
+	    fprintf(stderr, "%d", enc->symbols[0].metadata->data[i]);
+	}
+	fprintf(stderr, "\n");
+	
+	jab_int32 part2_module_index = 0;
 	// Match official implementation: use <= because LDPC outputs unpacked bits (38 bytes, not 5 bytes)
 	while(metadata_index <= partII_bit_end)
 	{
@@ -1068,9 +1086,17 @@ void placeMasterMetadataPartII(jab_encode* enc)
 				break;
 		}
         enc->symbols[0].matrix[y*enc->symbols[0].side_size.x + x] = color_index;
+        
+        if(part2_module_index < 10) {
+            fprintf(stderr, "[ENCODER] Part II module #%d at (%d,%d) = %d\n", 
+                    part2_module_index, x, y, color_index);
+        }
+        
+        part2_module_index++;
         module_count++;
         getNextMetadataModuleInMaster(enc->symbols[0].side_size.y, enc->symbols[0].side_size.x, module_count, &x, &y);
     }
+    fprintf(stderr, "[ENCODER] Part II: %d modules written\n", part2_module_index);
 }
 
 /**
@@ -1350,22 +1376,27 @@ jab_boolean createMatrix(jab_encode* enc, jab_int32 index, jab_data* ecc_encoded
 		//color palette
 		for(jab_int32 i=2; i<MIN(enc->color_number, 64); i++)	//skip the first two colors in finder pattern
 		{
-			enc->symbols[index].matrix  [y*enc->symbols[index].side_size.x+x] = palette_index[master_palette_placement_index[0][i]%enc->color_number];
+			// FIX: For 16+ colors, use sequential indexing instead of placement mapping
+			jab_int32 pal_idx = (enc->color_number <= 8) ? (master_palette_placement_index[0][i]%enc->color_number) : i;
+			enc->symbols[index].matrix  [y*enc->symbols[index].side_size.x+x] = palette_index[pal_idx];
 			enc->symbols[index].data_map[y*enc->symbols[index].side_size.x+x] = 0;
 			module_count++;
 			getNextMetadataModuleInMaster(enc->symbols[index].side_size.y, enc->symbols[index].side_size.x, module_count, &x, &y);
 
-			enc->symbols[index].matrix  [y*enc->symbols[index].side_size.x+x] = palette_index[master_palette_placement_index[1][i]%enc->color_number];
+			pal_idx = (enc->color_number <= 8) ? (master_palette_placement_index[1][i]%enc->color_number) : i;
+			enc->symbols[index].matrix  [y*enc->symbols[index].side_size.x+x] = palette_index[pal_idx];
 			enc->symbols[index].data_map[y*enc->symbols[index].side_size.x+x] = 0;
 			module_count++;
 			getNextMetadataModuleInMaster(enc->symbols[index].side_size.y, enc->symbols[index].side_size.x, module_count, &x, &y);
 
-			enc->symbols[index].matrix  [y*enc->symbols[index].side_size.x+x] = palette_index[master_palette_placement_index[2][i]%enc->color_number];
+			pal_idx = (enc->color_number <= 8) ? (master_palette_placement_index[2][i]%enc->color_number) : i;
+			enc->symbols[index].matrix  [y*enc->symbols[index].side_size.x+x] = palette_index[pal_idx];
 			enc->symbols[index].data_map[y*enc->symbols[index].side_size.x+x] = 0;
 			module_count++;
 			getNextMetadataModuleInMaster(enc->symbols[index].side_size.y, enc->symbols[index].side_size.x, module_count, &x, &y);
 
-			enc->symbols[index].matrix  [y*enc->symbols[index].side_size.x+x] = palette_index[master_palette_placement_index[3][i]%enc->color_number];
+			pal_idx = (enc->color_number <= 8) ? (master_palette_placement_index[3][i]%enc->color_number) : i;
+			enc->symbols[index].matrix  [y*enc->symbols[index].side_size.x+x] = palette_index[pal_idx];
 			enc->symbols[index].data_map[y*enc->symbols[index].side_size.x+x] = 0;
 			module_count++;
 			getNextMetadataModuleInMaster(enc->symbols[index].side_size.y, enc->symbols[index].side_size.x, module_count, &x, &y);
