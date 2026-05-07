@@ -20,9 +20,13 @@ class JABCodeEncoderImpl(
         
         // Capacity estimates based on JABCode spec
         // Actual capacity depends on error correction level and module size
-        private const val BYTES_PER_MODULE_COLOR_2 = 0.125  // 1 bit
-        private const val BYTES_PER_MODULE_COLOR_4 = 0.1875 // 1.5 bits
-        private const val BYTES_PER_MODULE_COLOR_8 = 0.375  // 3 bits
+        private const val BYTES_PER_MODULE_COLOR_2 = 0.125   // 1 bit
+        private const val BYTES_PER_MODULE_COLOR_4 = 0.25    // 2 bits
+        private const val BYTES_PER_MODULE_COLOR_8 = 0.375   // 3 bits
+        private const val BYTES_PER_MODULE_COLOR_16 = 0.5    // 4 bits
+        private const val BYTES_PER_MODULE_COLOR_32 = 0.625  // 5 bits
+        private const val BYTES_PER_MODULE_COLOR_64 = 0.75   // 6 bits
+        private const val BYTES_PER_MODULE_COLOR_128 = 0.875 // 7 bits
         
         private const val TYPICAL_MODULES = 4096 // 64x64 symbol
     }
@@ -71,6 +75,10 @@ class JABCodeEncoderImpl(
             ColorMode.COLOR_2 -> BYTES_PER_MODULE_COLOR_2
             ColorMode.COLOR_4 -> BYTES_PER_MODULE_COLOR_4
             ColorMode.COLOR_8 -> BYTES_PER_MODULE_COLOR_8
+            ColorMode.COLOR_16 -> BYTES_PER_MODULE_COLOR_16
+            ColorMode.COLOR_32 -> BYTES_PER_MODULE_COLOR_32
+            ColorMode.COLOR_64 -> BYTES_PER_MODULE_COLOR_64
+            ColorMode.COLOR_128 -> BYTES_PER_MODULE_COLOR_128
         }
         
         // Account for error correction overhead

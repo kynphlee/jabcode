@@ -39,6 +39,28 @@ enum class ColorMode(val value: Int) {
     /** 4-color mode - good balance of density and readability */
     COLOR_4(4),
     
-    /** 8-color mode - highest density, requires good camera */
-    COLOR_8(8)
+    /** 8-color mode - default, good density and compatibility */
+    COLOR_8(8),
+    
+    /** 16-color mode - higher density, needs very good camera */
+    COLOR_16(16),
+    
+    /** 32-color mode - very high density, requires excellent camera */
+    COLOR_32(32),
+    
+    /** 64-color mode - extreme density, requires professional camera */
+    COLOR_64(64),
+    
+    /** 128-color mode - maximum density, requires specialized equipment */
+    COLOR_128(128);
+    
+    companion object {
+        /**
+         * Get ColorMode from integer value
+         * Returns COLOR_8 as default if value is not recognized
+         */
+        fun fromValue(value: Int): ColorMode {
+            return values().find { it.value == value } ?: COLOR_8
+        }
+    }
 }
