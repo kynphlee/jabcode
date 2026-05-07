@@ -12,22 +12,18 @@ import com.google.accompanist.permissions.rememberPermissionState
 import com.google.accompanist.permissions.shouldShowRationale
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jabauth.diagnostic.camera.CameraAnalyzer
-import com.jabauth.ui.scanner.QualityIndicator
-import com.jabauth.ui.scanner.QualityIndicators
-import com.jabauth.ui.scanner.ScanStatus
-import com.jabauth.ui.scanner.ScanStatusOverlay
-import com.jabauth.ui.scanner.ScanTargetOverlay
-import com.jabauth.ui.scanner.ScannerHeader
+import com.jabauth.ui.scanner.*
 
 /**
  * Scanner Screen - JABCode scanner with CameraX
  * 
- * Phase 3 Day 1-3: Camera Integration + Quality Indicators
+ * Phase 3 Day 1-4: Scanner UI Complete
  * - CameraX live preview with image analysis
  * - Runtime permissions (accompanist)
  * - Real-time quality metrics (brightness, focus, contrast)
  * - Scan target overlay with animations
  * - Scan status overlay
+ * - Result Panel (bottom sheet) for scan results
  * 
  * Testing: Camera permission auto-granted via GrantPermissionRule in tests
  */
@@ -43,6 +39,7 @@ fun ScannerScreen(
     val scanStatus by viewModel.scanStatus.collectAsState()
     val isTorchOn by viewModel.isTorchOn.collectAsState()
     val qualityMetrics by viewModel.qualityMetrics.collectAsState()
+    val authenticationResult by viewModel.authenticationResult.collectAsState()
     
     // Create camera analyzer for quality metrics
     val cameraAnalyzer = remember {
@@ -154,5 +151,48 @@ fun ScannerScreen(
                 }
             }
         }
+        
+        // Test buttons for Result Panel (Phase 3 Day 4 development)
+        // TODO: Remove in Phase 3 Day 5 when real scanning is integrated
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            tonalElevation = 1.dp
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = { viewModel.showMockSuccessResult() },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.tertiary
+                    )
+                ) {
+                    Text("Test Success", style = MaterialTheme.typography.labelSmall)
+                }
+                
+                Button(
+                    onClick = { viewModel.showMockFailureResult() },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Test Failure", style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
     }
+    
+    // Result Panel (bottom sheet)
+    ResultPanel(
+        result = authenticationResult,
+        onDismiss = { viewModel.dismissResult() },
+        onAccept = { viewModel.acceptResult() },
+        onScanAgain = { viewModel.dismissResult() }
+    )
 }

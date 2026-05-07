@@ -1,8 +1,7 @@
 package com.jabauth.diagnostic.ui.scanner
 
 import androidx.lifecycle.ViewModel
-import com.jabauth.ui.scanner.QualityMetric
-import com.jabauth.ui.scanner.ScanStatus
+import com.jabauth.ui.scanner.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -38,6 +37,9 @@ class ScannerViewModel : ViewModel() {
         )
     )
     val qualityMetrics: StateFlow<List<QualityMetric>> = _qualityMetrics.asStateFlow()
+    
+    private val _authenticationResult = MutableStateFlow<AuthenticationResult?>(null)
+    val authenticationResult: StateFlow<AuthenticationResult?> = _authenticationResult.asStateFlow()
     
     // ========================================
     // Actions
@@ -84,5 +86,92 @@ class ScannerViewModel : ViewModel() {
      */
     fun resetScanning() {
         _scanStatus.value = ScanStatus.SCANNING
+        _authenticationResult.value = null
+    }
+    
+    /**
+     * Show mock successful result (for testing UI)
+     */
+    fun showMockSuccessResult() {
+        _authenticationResult.value = AuthenticationResult(
+            status = ResultStatus.SUCCESS,
+            subject = "prescription#RX-8472",
+            certificateInfo = CertificateInfo(
+                subject = "CN=MedicalCenter, O=HealthCorp",
+                issuer = "CN=HealthCorp Root CA",
+                validUntil = "2027-05-15 23:59:59 UTC",
+                serial = "4F:A3:2E:1B:9C:7D"
+            ),
+            jwtInfo = JWTInfo(
+                subject = "prescription#RX-8472",
+                algorithm = "RS256",
+                issued = "2026-05-02 10:30:00 UTC",
+                expires = "2026-05-02 22:30:00 UTC"
+            ),
+            scanDetails = ScanDetails(
+                colorMode = "8 colors",
+                eccLevel = "3 (High)",
+                decodeTime = "67ms",
+                quality = "Excellent"
+            ),
+            validations = listOf(
+                ValidationCheck("Signature", true),
+                ValidationCheck("Expiry", true),
+                ValidationCheck("Certificate", true),
+                ValidationCheck("JWT Valid", true)
+            )
+        )
+        _scanStatus.value = ScanStatus.SUCCESS
+    }
+    
+    /**
+     * Show mock failed result (for testing UI)
+     */
+    fun showMockFailureResult() {
+        _authenticationResult.value = AuthenticationResult(
+            status = ResultStatus.FAILED,
+            subject = "unknown#INVALID",
+            certificateInfo = CertificateInfo(
+                subject = "CN=Unknown",
+                issuer = "CN=Unknown CA",
+                validUntil = "N/A",
+                serial = "N/A"
+            ),
+            jwtInfo = JWTInfo(
+                subject = "N/A",
+                algorithm = "N/A",
+                issued = "N/A",
+                expires = "N/A"
+            ),
+            scanDetails = ScanDetails(
+                colorMode = "8 colors",
+                eccLevel = "3 (High)",
+                decodeTime = "52ms",
+                quality = "Good"
+            ),
+            validations = listOf(
+                ValidationCheck("Signature", false),
+                ValidationCheck("Expiry", false),
+                ValidationCheck("Certificate", true),
+                ValidationCheck("JWT Valid", false)
+            )
+        )
+        _scanStatus.value = ScanStatus.ERROR
+    }
+    
+    /**
+     * Dismiss result panel
+     */
+    fun dismissResult() {
+        _authenticationResult.value = null
+        resetScanning()
+    }
+    
+    /**
+     * Accept result and navigate (placeholder)
+     */
+    fun acceptResult() {
+        // TODO: Phase 4 - Navigate to result confirmation screen
+        dismissResult()
     }
 }
