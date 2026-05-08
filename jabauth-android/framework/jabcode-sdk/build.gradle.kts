@@ -74,6 +74,9 @@ dependencies {
     // Android Core
     implementation("androidx.core:core-ktx:1.12.0")
     
+    // CameraX (for camera utilities)
+    implementation("androidx.camera:camera-core:1.3.0")
+    
     // Testing
     testImplementation("junit:junit:${rootProject.property("JUNIT_VERSION")}")
     testImplementation("org.mockito:mockito-core:${rootProject.property("MOCKITO_VERSION")}")
