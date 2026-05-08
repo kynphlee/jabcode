@@ -311,17 +311,22 @@
 - Desktop generation: `./scripts/test-synthetic-images.sh`
 - Message: "The quick brown fox jumps over the lazy dog 1234567890"
 
-### **Expected Results** (Updated 2026-05-07)
-| Color Mode | Status | Notes |
-|------------|--------|-------|
-| 4-color | ✅ PASS | Full roundtrip working |
-| 8-color | ✅ PASS | Warning about Part I colors (non-critical) |
-| 16-color | ❌ FAIL | Known issue: separate encoder bug (unrelated to metadata traversal) |
-| 32-color | ✅ PASS | Full roundtrip working |
-| 64-color | ✅ PASS | **FIXED** - Metadata traversal + Version 2 enforcement |
-| 128-color | ✅ PASS | **FIXED** - Metadata traversal + Version 2 enforcement |
+**Scope:** Tests all 6 implemented color modes (4, 8, 16, 32, 64, 128). 256-color mode is defined in ISO/IEC 23634 but not yet implemented in the codebase.
 
-**Test Score:** 5/6 (83.3%) - 16-color failure documented as known issue
+### **Expected Results** (Updated 2026-05-07 20:44 UTC-04:00)
+| Color Mode | Status | Decode Time | Notes |
+|------------|--------|-------------|-------|
+| 4-color | ✅ PASS | 16ms | Full roundtrip working |
+| 8-color | ✅ PASS | 24ms | Full roundtrip working |
+| 16-color | ✅ PASS | 166ms | **FIXED** - Same root cause as 64/128-color (Version 2 enforcement) |
+| 32-color | ✅ PASS | 170ms | Full roundtrip working |
+| 64-color | ✅ PASS | 89ms | **FIXED** - Metadata traversal + Version 2 enforcement |
+| 128-color | ✅ PASS | 171ms | **FIXED** - Metadata traversal + Version 2 enforcement |
+
+**Test Score:** 6/6 (100%) ✅ **PERFECT** - All color modes working
+
+**Device:** Samsung SM_S938U (Galaxy S23 Ultra)  
+**Test Date:** 2026-05-07 20:44 UTC-04:00
 
 ### **Fixes Applied** (2026-05-07)
 1. **Metadata traversal ranges extended** to module 524 for high-color modes
@@ -332,10 +337,11 @@
 - [x] Regenerate synthetic images with fixed encoder
 - [x] Rebuild C library (production-ready, debug logging removed)
 - [x] Rebuild Android AAR with updated native libraries
-- [ ] Push updated images to device: `adb push output/synthetic-tests /sdcard/Download/jabcode-synthetic-tests/`
-- [ ] Run diagnostic app synthetic test suite
-- [ ] Verify 5/6 pass rate (83.3%)
-- [ ] Document 16-color as known limitation
+- [x] Push updated images to device: `adb push output/synthetic-tests /sdcard/Download/jabcode-synthetic-tests/`
+- [x] Rebuild and install diagnostic app with updated AAR
+- [x] Run diagnostic app synthetic test suite
+- [x] Verify test results: **6/6 PASS (100%)** ✅ EXCEEDED TARGET
+- [x] All color modes working - zero known limitations
 
 ---
 
@@ -343,7 +349,7 @@
 
 ### **Functionality**
 - [ ] Dashboard displays real-time metrics
-- [ ] Synthetic test suite: 5/6 color modes pass (4, 8, 32, 64, 128)
+- [x] Synthetic test suite: 6/6 color modes pass (4, 8, 16, 32, 64, 128) ✅ PERFECT
 - [ ] PKI validation works (valid + invalid certs)
 - [ ] JWT validation works (valid + expired tokens)
 - [ ] Benchmark suite executes without errors

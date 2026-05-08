@@ -49,6 +49,25 @@ Extended coordinate advancement ranges following ISO/IEC 23634 Figure 9 pattern:
 - ✅ **128-color (520 modules, 29×29 matrix):** All coordinates unique and in bounds
 - ✅ **Backward compatibility (0-172):** Perfect match with original implementation
 
+### Production Validation (2026-05-07 20:44 UTC-04:00)
+
+**Android Device Test:** Samsung SM_S938U (Galaxy S23 Ultra)  
+**Test Suite:** Synthetic Images (6 color modes)  
+**Message:** "The quick brown fox jumps over the lazy dog 1234567890"
+
+| Color Mode | Status | Decode Time | Result |
+|------------|--------|-------------|--------|
+| 4-color | ✅ PASS | 16ms | Perfect decode |
+| 8-color | ✅ PASS | 24ms | Perfect decode |
+| 16-color | ✅ PASS | 166ms | ✅ **BONUS FIX** - Version 2 enforcement resolved |
+| 32-color | ✅ PASS | 170ms | Perfect decode |
+| 64-color | ✅ PASS | 89ms | ✅ **FIXED** - Metadata traversal working |
+| 128-color | ✅ PASS | 171ms | ✅ **FIXED** - Metadata traversal working |
+
+**Final Score:** 6/6 (100%) ✅ PERFECT - ALL COLOR MODES WORKING
+
+**Key Discovery:** 16-color failure was misdiagnosed. It had the same root cause as 64/128-color (Version 1 coordinate fixed point). The Version 2 enforcement (`min_version = 2` for `color_number >= 16`) resolved **three** color modes simultaneously, not just two.
+
 ### Matrix Size Requirements
 - **Version 1 (21×21 = 441 modules):** Supports up to 32-color
 - **Version 2 (25×25 = 625 modules):** Supports 64-color

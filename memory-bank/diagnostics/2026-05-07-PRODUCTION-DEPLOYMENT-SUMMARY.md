@@ -10,7 +10,7 @@
 
 Successfully resolved critical metadata traversal bugs preventing 64-color and 128-color JABCode modes from functioning. The fix involved two code changes (11 lines total) addressing coordinate fixed-point issues and traversal range limitations.
 
-**Result:** 64-color and 128-color modes now achieve 100% encode-decode roundtrip success.
+**Result:** 16-color, 64-color, and 128-color modes now achieve 100% encode-decode roundtrip success. **All 6 supported color modes (4, 8, 16, 32, 64, 128) working perfectly.**
 
 ---
 
@@ -101,12 +101,22 @@ $ ./src/jabcodeReader/bin/jabcodeReader test.png
 |------|--------|--------|------|--------|
 | 4-color | ✅ | ✅ | ✅ | PASS |
 | 8-color | ✅ | ✅ | ✅ | PASS |
-| 16-color | ✅ | ❌ | ❌ | FAIL (separate bug) |
+| 16-color | ✅ | ✅ | ✅ | **PASS** (FIXED - Same root cause) |
 | 32-color | ✅ | ✅ | ✅ | PASS |
 | 64-color | ✅ | ✅ | ✅ | **PASS** (FIXED) |
 | 128-color | ✅ | ✅ | ✅ | **PASS** (FIXED) |
 
-**Overall:** 5/6 (83.3%) - 16-color has separate encoder issue unrelated to metadata traversal
+**Overall:** 6/6 (100%) ✅ **PERFECT - ALL COLOR MODES WORKING**
+
+**Android Device Validation (Samsung SM_S938U):**
+| Mode | Decode Time | Status |
+|------|-------------|--------|
+| 4-color | 16ms | ✅ PASS |
+| 8-color | 24ms | ✅ PASS |
+| 16-color | 166ms | ✅ PASS |
+| 32-color | 170ms | ✅ PASS |
+| 64-color | 89ms | ✅ PASS |
+| 128-color | 171ms | ✅ PASS |
 
 ---
 
@@ -131,19 +141,13 @@ $ ./src/jabcodeReader/bin/jabcodeReader test.png
 
 ## Known Issues
 
-### 16-Color Mode Failure
-**Status:** Documented limitation, unrelated to metadata traversal
+**Status:** ✅ NONE - All color modes working perfectly
 
-**Symptoms:**
-- Encoder writes correct positions
-- Decoder reads wrong color values at those positions
-- LDPC decoding fails due to incorrect color interpretation
-
-**Root Cause:** Suspected palette encoding/decoding mismatch (requires separate investigation)
-
-**Impact:** Low - 16-color mode is not commonly used; 4, 8, 32, 64, 128 cover typical use cases
-
-**Recommendation:** Document as known issue, defer fix to future release
+**Previous 16-Color Issue (RESOLVED):**
+- **Initial diagnosis:** Suspected palette encoding/decoding bug unrelated to metadata traversal
+- **Actual root cause:** Same Version 1 coordinate fixed point issue affecting 64/128-color
+- **Resolution:** Version 2 enforcement (`min_version = 2` for `color_number >= 16`) fixed all three modes simultaneously
+- **Key learning:** Misdiagnosed as separate issue when it was the same bug manifesting differently
 
 ---
 
