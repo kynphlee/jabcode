@@ -565,15 +565,33 @@ jab_byte decodeModuleHD(jab_bitmap* matrix, jab_byte* palette, jab_int32 color_n
 */
 jab_byte decodeModuleNc(jab_byte* rgb)
 {
-	jab_int32 ths_black = 80;
-	jab_double ths_std = 0.08;
-	//check black pixel
-	if(rgb[0] < ths_black && rgb[1] < ths_black && rgb[2] < ths_black)
+	// FIX: For 16+ color modes, check for exact matches to base palette colors first
+	// Part I always uses black(0,0,0), cyan(0,255,255), yellow(255,255,0)
+	jab_int32 tolerance = 30; // Allow some tolerance for camera noise
+	
+	// Check for black (index 0)
+	if(rgb[0] < tolerance && rgb[1] < tolerance && rgb[2] < tolerance)
 	{
 		DEBUG_LOG("[decodeModuleNc] RGB(%d,%d,%d) → 0 (black)", rgb[0], rgb[1], rgb[2]);
-		return 0;//000
+		return 0;
 	}
-	//check color
+	
+	// Check for cyan (index 3): RGB(0,255,255)
+	if(rgb[0] < tolerance && rgb[1] > (255-tolerance) && rgb[2] > (255-tolerance))
+	{
+		DEBUG_LOG("[decodeModuleNc] RGB(%d,%d,%d) → 3 (cyan)", rgb[0], rgb[1], rgb[2]);
+		return 3;
+	}
+	
+	// Check for yellow (index 6): RGB(255,255,0)
+	if(rgb[0] > (255-tolerance) && rgb[1] > (255-tolerance) && rgb[2] < tolerance)
+	{
+		DEBUG_LOG("[decodeModuleNc] RGB(%d,%d,%d) → 6 (yellow)", rgb[0], rgb[1], rgb[2]);
+		return 6;
+	}
+	
+	// Fallback to original algorithm for 4/8-color modes or imperfect colors
+	jab_double ths_std = 0.08;
 	jab_double ave, var;
 	getAveVar(rgb, &ave, &var);
 	jab_double std = sqrt(var);	//standard deviation
@@ -586,12 +604,21 @@ jab_byte decodeModuleNc(jab_byte* rgb)
 	{
 		bits[index_max] = 1;
 		bits[index_min] = 0;
-		jab_double r1 = (jab_double)rgb[index_mid] / (jab_double)rgb[index_min];
-		jab_double r2 = (jab_double)rgb[index_max] / (jab_double)rgb[index_mid];
-		if(r1 > r2)
-			bits[index_mid] = 1;
+		// Handle pure color cases where min==mid (e.g., RGB(0,0,255))
+		if(rgb[index_mid] == 0 || rgb[index_min] == 0)
+		{
+			// Pure color: only one channel is non-zero
+			bits[index_mid] = (rgb[index_mid] > rgb[index_min]) ? 1 : 0;
+		}
 		else
-			bits[index_mid] = 0;
+		{
+			jab_double r1 = (jab_double)rgb[index_mid] / (jab_double)rgb[index_min];
+			jab_double r2 = (jab_double)rgb[index_max] / (jab_double)rgb[index_mid];
+			if(r1 > r2)
+				bits[index_mid] = 1;
+			else
+				bits[index_mid] = 0;
+		}
 	}
 	else
 	{
@@ -649,6 +676,7 @@ void getPaletteThreshold(jab_byte* palette, jab_int32 color_number, jab_float* p
 */
 void getNextMetadataModuleInMaster(jab_int32 matrix_height, jab_int32 matrix_width, jab_int32 next_module_count, jab_int32* x, jab_int32* y)
 {
+	// Flip coordinates based on modulo pattern
 	if(next_module_count % 4 == 0 || next_module_count % 4 == 2)
 	{
 		(*y) = matrix_height - 1 - (*y);
@@ -657,28 +685,61 @@ void getNextMetadataModuleInMaster(jab_int32 matrix_height, jab_int32 matrix_wid
 	{
 		(*x) = matrix_width -1 - (*x);
 	}
-	if(next_module_count % 4 == 0)
+	
+	// Advance coordinates
+	jab_int32 mod4 = next_module_count % 4;
+	
+	if(mod4 == 0)
 	{
+		// Y-increment ranges: lengths 21, 25, 29, 33, 37, 41, 45, 49 (+4 per cycle)
         if( next_module_count <= 20 ||
            (next_module_count >= 44  && next_module_count <= 68)  ||
            (next_module_count >= 96  && next_module_count <= 124) ||
            (next_module_count >= 156 && next_module_count <= 188) ||
-           (next_module_count >= 220 && next_module_count <= 256) ||
-           (next_module_count >= 292 && next_module_count <= 332))
+           (next_module_count >= 224 && next_module_count <= 260) ||
+           (next_module_count >= 300 && next_module_count <= 340) ||
+           (next_module_count >= 384 && next_module_count <= 428) ||
+           (next_module_count >= 476 && next_module_count <= 524))
 		{
 			(*y) += 1;
 		}
-        else if((next_module_count > 20  && next_module_count < 44) ||
-                (next_module_count > 68  && next_module_count < 96) ||
+		// X-decrement ranges: lengths 23, 27, 31, 35, 39, 43, 47 (+4 per cycle)
+        else if((next_module_count > 20  && next_module_count < 44)  ||
+                (next_module_count > 68  && next_module_count < 96)  ||
                 (next_module_count > 124 && next_module_count < 156) ||
-                (next_module_count > 188 && next_module_count < 220) ||
-                (next_module_count > 256 && next_module_count < 292))
+                (next_module_count > 188 && next_module_count < 224) ||
+                (next_module_count > 260 && next_module_count < 300) ||
+                (next_module_count > 340 && next_module_count < 384) ||
+                (next_module_count > 428 && next_module_count < 476))
 		{
 			(*x) -= 1;
 		}
 	}
-    if(next_module_count == 44 || next_module_count == 96 || next_module_count == 156 || 
-       next_module_count == 220 || next_module_count == 292)
+	else if(mod4 == 1 || mod4 == 2 || mod4 == 3)
+	{
+		// For very high module counts (>260, needed for 128-color), also advance on mod1/2/3
+		// Note: 64-color needs up to module 259, so we delay this until >260 to avoid cycles
+		if(next_module_count > 260)
+		{
+			if((next_module_count >= 300 && next_module_count <= 340) ||
+			   (next_module_count >= 384 && next_module_count <= 428) ||
+			   (next_module_count >= 476 && next_module_count <= 524))
+			{
+				(*y) += 1;
+			}
+			else if((next_module_count > 260 && next_module_count < 300) ||
+			        (next_module_count > 340 && next_module_count < 384) ||
+			        (next_module_count > 428 && next_module_count < 476))
+			{
+				(*x) -= 1;
+			}
+		}
+	}
+	
+	// Coordinate swap points: Occur at transition between cycles
+    if(next_module_count == 44  || next_module_count == 96  || next_module_count == 156 ||
+       next_module_count == 224 || next_module_count == 300 || next_module_count == 384 ||
+       next_module_count == 476)
     {
         jab_int32 tmp = (*x);
         (*x) = (*y);

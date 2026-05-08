@@ -212,14 +212,6 @@ jab_encode* createEncode(jab_int32 color_number, jab_int32 symbol_number)
         memcpy(enc->palette + i * palette_size, enc->palette, palette_size);
     }
     
-    // DEBUG: Dump encoder palette for comparison
-    if(color_number == 16) {
-        fprintf(stderr, "[Encoder Palette] Index 7:  RGB(%d, %d, %d)\n", 
-                enc->palette[7*3], enc->palette[7*3+1], enc->palette[7*3+2]);
-        fprintf(stderr, "[Encoder Palette] Index 11: RGB(%d, %d, %d)\n", 
-                enc->palette[11*3], enc->palette[11*3+1], enc->palette[11*3+2]);
-    }
-    
     //allocate memory for symbol versions
     enc->symbol_versions = (jab_vector2d *)calloc(symbol_number, sizeof(jab_vector2d));
     if(enc->symbol_versions == NULL)
@@ -991,7 +983,6 @@ jab_boolean encodeMasterMetadata(jab_encode* enc)
 */
 jab_boolean updateMasterMetadataPartII(jab_encode* enc, jab_int32 mask_ref)
 {
-	fprintf(stderr, "[ENCODER] updateMasterMetadataPartII called: mask_ref=%d, color_number=%d\n", mask_ref, enc->color_number);
 	jab_int32 partII_length	= MASTER_METADATA_PART2_LENGTH/2;	//partII net length
 	jab_data* partII = (jab_data *)malloc(sizeof(jab_data) + partII_length*sizeof(jab_char));
 	if(partII == NULL)
@@ -1037,7 +1028,6 @@ jab_boolean updateMasterMetadataPartII(jab_encode* enc, jab_int32 mask_ref)
 */
 void placeMasterMetadataPartII(jab_encode* enc)
 {
-	fprintf(stderr, "[ENCODER] placeMasterMetadataPartII called: color_number=%d\n", enc->color_number);
     //rewrite metadata in master with mask information
     jab_int32 nb_of_bits_per_mod = (jab_int32)round(log(enc->color_number)/log(2));
     jab_int32 x = MASTER_METADATA_X;
@@ -1051,18 +1041,11 @@ void placeMasterMetadataPartII(jab_encode* enc)
 		module_count++;
         getNextMetadataModuleInMaster(enc->symbols[0].side_size.y, enc->symbols[0].side_size.x, module_count, &x, &y);
 	}
+	// Skip Part I and color palette modules to start Part II placement
 	//update PartII
 	jab_int32 partII_bit_start = MASTER_METADATA_PART1_LENGTH;
 	jab_int32 partII_bit_end = MASTER_METADATA_PART1_LENGTH + MASTER_METADATA_PART2_LENGTH;
 	jab_int32 metadata_index = partII_bit_start;
-	
-	fprintf(stderr, "[ENCODER] Part II: writing %d bits (index %d to %d)\n", 
-	        MASTER_METADATA_PART2_LENGTH, partII_bit_start, partII_bit_end);
-	fprintf(stderr, "[ENCODER] First 10 metadata bits: ");
-	for(jab_int32 i=partII_bit_start; i<partII_bit_start+10 && i<=partII_bit_end; i++) {
-	    fprintf(stderr, "%d", enc->symbols[0].metadata->data[i]);
-	}
-	fprintf(stderr, "\n");
 	
 	jab_int32 part2_module_index = 0;
 	// Match official implementation: use <= because LDPC outputs unpacked bits (38 bytes, not 5 bytes)
@@ -1087,16 +1070,12 @@ void placeMasterMetadataPartII(jab_encode* enc)
 		}
         enc->symbols[0].matrix[y*enc->symbols[0].side_size.x + x] = color_index;
         
-        if(part2_module_index < 10) {
-            fprintf(stderr, "[ENCODER] Part II module #%d at (%d,%d) = %d\n", 
-                    part2_module_index, x, y, color_index);
-        }
+        // Metadata module placed at (x, y)
         
         part2_module_index++;
         module_count++;
         getNextMetadataModuleInMaster(enc->symbols[0].side_size.y, enc->symbols[0].side_size.x, module_count, &x, &y);
     }
-    fprintf(stderr, "[ENCODER] Part II: %d modules written\n", part2_module_index);
 }
 
 /**
@@ -1364,7 +1343,27 @@ jab_boolean createMatrix(jab_encode* enc, jab_int32 index, jab_data* ecc_encoded
 				//place two modules according to the value of every 3 bits
                 for(jab_int32 i=0; i<2; i++)
 				{
-					color_index = nc_color_encode_table[val][i] % enc->color_number;
+					// FIX: Part I must use base 8-color palette RGB values (black, cyan, yellow)
+					// For 4/8-color: indices {0,3,6} are correct
+					// For 16+ colors: must find indices matching RGB(0,0,0), RGB(0,255,255), RGB(255,255,0)
+					jab_int32 base_index = nc_color_encode_table[val][i];
+					if(enc->color_number <= 8) {
+						color_index = base_index % enc->color_number;
+					} else {
+						// Find palette index with matching RGB from jab_default_palette
+						jab_byte target_r = jab_default_palette[base_index * 3];
+						jab_byte target_g = jab_default_palette[base_index * 3 + 1];
+						jab_byte target_b = jab_default_palette[base_index * 3 + 2];
+						color_index = 0; // default to black
+						for(jab_int32 p = 0; p < enc->color_number; p++) {
+							if(enc->palette[p*3] == target_r && 
+							   enc->palette[p*3+1] == target_g && 
+							   enc->palette[p*3+2] == target_b) {
+								color_index = p;
+								break;
+							}
+						}
+					}
 					enc->symbols[index].matrix  [y*enc->symbols[index].side_size.x + x] = color_index;
 					enc->symbols[index].data_map[y*enc->symbols[index].side_size.x + x] = 0;
 					module_count++;
@@ -1820,7 +1819,10 @@ jab_boolean setMasterSymbolVersion(jab_encode *enc, jab_data* encoded_data)
 	//determine the minimum square symbol to fit data
 	jab_int32 capacity, net_capacity;
 	jab_boolean found_flag = JAB_FAILURE;
-	for (jab_int32 i=1; i<=32; i++)
+	// For high color modes (>=16 colors), start from version 2 to avoid coordinate fixed points
+	// Version 1 (21×21) creates fixed point at x=10 where flip(10)=21-1-10=10
+	jab_int32 min_version = (enc->color_number >= 16) ? 2 : 1;
+	for (jab_int32 i=min_version; i<=32; i++)
 	{
 		enc->symbol_versions[0].x = i;
 		enc->symbol_versions[0].y = i;
