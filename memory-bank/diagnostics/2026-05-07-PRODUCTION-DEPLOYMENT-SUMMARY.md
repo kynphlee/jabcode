@@ -97,6 +97,7 @@ $ ./src/jabcodeReader/bin/jabcodeReader test.png
 ```
 
 **Test Matrix:**
+
 | Mode | Encode | Decode | LDPC | Status |
 |------|--------|--------|------|--------|
 | 4-color | ✅ | ✅ | ✅ | PASS |
@@ -109,6 +110,7 @@ $ ./src/jabcodeReader/bin/jabcodeReader test.png
 **Overall:** 6/6 (100%) ✅ **PERFECT - ALL COLOR MODES WORKING**
 
 **Android Device Validation (Samsung SM_S938U):**
+
 | Mode | Decode Time | Status |
 |------|-------------|--------|
 | 4-color | 16ms | ✅ PASS |
