@@ -26,7 +26,7 @@ import androidx.core.content.ContextCompat
  * 
  * **Features:**
  * - Camera2 TextureView preview
- * - Auto-focus (continuous picture mode)
+ * - Configurable auto-focus (continuous picture mode or off)
  * - Auto-exposure
  * - Auto white balance
  * - ImageReader for frame analysis
@@ -38,20 +38,28 @@ import androidx.core.content.ContextCompat
  *     onFrameAvailable = { reader ->
  *         analyzer.analyze(reader)
  *     },
+ *     autoFocus = true,
  *     modifier = Modifier.aspectRatio(16f/9f)
  * )
  * ```
  * 
  * @param onFrameAvailable Callback when new camera frame available (receives ImageReader)
+ * @param autoFocus Enable continuous auto-focus (default: true)
  * @param modifier Compose modifier
  */
 @Composable
 fun Camera2Preview(
     onFrameAvailable: ((ImageReader) -> Unit)? = null,
+    autoFocus: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val camera2Controller = remember { Camera2Controller(context, onFrameAvailable) }
+    val camera2Controller = remember { Camera2Controller(context, onFrameAvailable, autoFocus) }
+    
+    // Update auto-focus when setting changes
+    LaunchedEffect(autoFocus) {
+        camera2Controller.updateAutoFocus(autoFocus)
+    }
     
     DisposableEffect(Unit) {
         onDispose {
@@ -115,7 +123,8 @@ private fun updateTransform(textureView: TextureView, viewWidth: Int, viewHeight
 
 private class Camera2Controller(
     private val context: Context,
-    private val onFrameAvailable: ((ImageReader) -> Unit)?
+    private val onFrameAvailable: ((ImageReader) -> Unit)?,
+    initialAutoFocus: Boolean
 ) {
     companion object {
         private const val TAG = "Camera2Controller"
@@ -126,9 +135,28 @@ private class Camera2Controller(
     private var cameraDevice: CameraDevice? = null
     private var captureSession: CameraCaptureSession? = null
     private var imageReader: ImageReader? = null
+    private var previewSurface: Surface? = null
+    
+    @Volatile
+    private var autoFocusEnabled: Boolean = initialAutoFocus
     
     private val backgroundThread = HandlerThread("Camera2Background").apply { start() }
     private val backgroundHandler = Handler(backgroundThread.looper)
+    
+    /**
+     * Update auto-focus setting and restart capture request if active
+     */
+    fun updateAutoFocus(enabled: Boolean) {
+        if (autoFocusEnabled != enabled) {
+            autoFocusEnabled = enabled
+            Log.d(TAG, "Auto-focus ${if (enabled) "enabled" else "disabled"}")
+            
+            // Restart capture request with new setting
+            previewSurface?.let { surface ->
+                startRepeatingRequest(surface)
+            }
+        }
+    }
     
     fun openCamera(textureView: TextureView) {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) 
@@ -186,14 +214,15 @@ private class Camera2Controller(
         try {
             val texture = textureView.surfaceTexture
             texture?.setDefaultBufferSize(IMAGE_WIDTH, IMAGE_HEIGHT)
-            val previewSurface = Surface(texture)
+            val surface = Surface(texture)
+            previewSurface = surface  // Store for auto-focus updates
             
             camera.createCaptureSession(
-                listOf(previewSurface, reader.surface),
+                listOf(surface, reader.surface),
                 object : CameraCaptureSession.StateCallback() {
                     override fun onConfigured(session: CameraCaptureSession) {
                         captureSession = session
-                        startRepeatingRequest(previewSurface)
+                        startRepeatingRequest(surface)
                     }
                     
                     override fun onConfigureFailed(session: CameraCaptureSession) {
@@ -208,21 +237,23 @@ private class Camera2Controller(
         }
     }
     
-    private fun startRepeatingRequest(previewSurface: Surface) {
+    private fun startRepeatingRequest(surface: Surface) {
         val camera = cameraDevice ?: return
         val session = captureSession ?: return
         val reader = imageReader ?: return
         
         try {
             val requestBuilder = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
-            requestBuilder.addTarget(previewSurface)
+            requestBuilder.addTarget(surface)
             requestBuilder.addTarget(reader.surface)
             
-            // Enable continuous auto-focus for barcode scanning
-            requestBuilder.set(
-                CaptureRequest.CONTROL_AF_MODE,
+            // Apply auto-focus setting
+            val afMode = if (autoFocusEnabled) {
                 CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE
-            )
+            } else {
+                CaptureRequest.CONTROL_AF_MODE_OFF
+            }
+            requestBuilder.set(CaptureRequest.CONTROL_AF_MODE, afMode)
             
             // Enable auto-exposure
             requestBuilder.set(
@@ -242,7 +273,7 @@ private class Camera2Controller(
                 backgroundHandler
             )
             
-            Log.d(TAG, "Camera2 preview started with AF/AE/AWB")
+            Log.d(TAG, "Camera2 preview started: AF=${if (autoFocusEnabled) "ON" else "OFF"}, AE=ON, AWB=AUTO")
             
         } catch (e: CameraAccessException) {
             Log.e(TAG, "Start repeating request failed", e)

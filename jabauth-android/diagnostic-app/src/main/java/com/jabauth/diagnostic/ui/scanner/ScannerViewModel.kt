@@ -31,6 +31,9 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
     private val _scanCount = MutableStateFlow(0)
     val scanCount: StateFlow<Int> = _scanCount.asStateFlow()
     
+    // Expose settings for UI consumption (auto-focus, color mode, etc.)
+    val settings = settingsRepository.settingsFlow
+    
     // Track debug logging state for synchronous logging
     private var isDebugEnabled = false
     

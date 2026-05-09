@@ -34,6 +34,9 @@ private fun ScannerScreenContent(
     val scanResult by viewModel.scanResult.collectAsState()
     val scanError by viewModel.scanError.collectAsState()
     val scanCount by viewModel.scanCount.collectAsState()
+    val settings by viewModel.settings.collectAsState(
+        initial = com.jabauth.diagnostic.data.SettingsRepository.Settings()
+    )
     
     Scaffold(
         topBar = {
@@ -58,11 +61,12 @@ private fun ScannerScreenContent(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // Camera preview
+            // Camera preview with auto-focus setting
             Camera2Preview(
                 onFrameAvailable = { reader ->
                     viewModel.analyzeFrame(reader)
                 },
+                autoFocus = settings.autoFocus,
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(0.4f)
