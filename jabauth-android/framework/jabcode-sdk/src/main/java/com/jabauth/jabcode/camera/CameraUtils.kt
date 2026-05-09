@@ -5,6 +5,7 @@ import android.graphics.BitmapFactory
 import android.graphics.ImageFormat
 import android.graphics.Rect
 import android.graphics.YuvImage
+import android.media.Image
 import androidx.camera.core.ImageProxy
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
@@ -12,27 +13,37 @@ import java.nio.ByteBuffer
 /**
  * Camera utility functions for JABCode integration
  * 
- * Provides conversion utilities for CameraX ImageProxy to Bitmap format
+ * Provides conversion utilities for Camera2 Image to Bitmap format
  * needed for JABCode decoding.
  * 
- * **Migrated from diagnostic app** (2026-05-07)
- * - Source: JABCodeAnalyzer.kt (correct YUV interleaving)
- * - Replaces: Incorrect implementation in CameraAnalyzer.kt
+ * Uses raw Android Camera2 API - no CameraX dependencies.
  */
 object CameraUtils {
     
     /**
-     * Convert CameraX ImageProxy to Bitmap
+     * Convert CameraX ImageProxy to Bitmap (COMPATIBILITY WRAPPER)
      * 
-     * Supports YUV_420_888 format (standard CameraX output).
+     * Apps using CameraX can use this wrapper. Internally uses Camera2 Image.
+     * 
+     * @param imageProxy ImageProxy from CameraX
+     * @return Bitmap or null if conversion fails
+     */
+    fun imageProxyToBitmap(imageProxy: ImageProxy): Bitmap? {
+        return imageToBitmap(imageProxy.image ?: return null)
+    }
+    
+    /**
+     * Convert Camera2 Image to Bitmap
+     * 
+     * Supports YUV_420_888 format (standard Camera2 output).
      * Handles proper UV plane interleaving for NV21 format.
      * 
-     * @param image ImageProxy from CameraX analyzer
+     * @param image Image from Camera2 ImageReader
      * @return Bitmap or null if conversion fails
      * 
      * @throws IllegalArgumentException if image format is not YUV_420_888
      */
-    fun imageProxyToBitmap(image: ImageProxy): Bitmap? {
+    fun imageToBitmap(image: Image): Bitmap? {
         return when (image.format) {
             ImageFormat.YUV_420_888 -> yuv420ToBitmap(image)
             else -> {
@@ -44,22 +55,22 @@ object CameraUtils {
     }
     
     /**
-     * Convert YUV_420_888 ImageProxy to Bitmap
+     * Convert YUV_420_888 Image to Bitmap
      * 
      * **CRITICAL:** Uses proper UV interleaving for NV21 format.
      * Incorrect interleaving causes color shifts in decoded images.
      * 
      * Process:
-     * 1. Extract Y, U, V planes from ImageProxy
+     * 1. Extract Y, U, V planes from Image
      * 2. Build NV21 byte array with interleaved UV
      * 3. Create YuvImage from NV21 data
      * 4. Compress to JPEG (quality 100)
      * 5. Decode JPEG to Bitmap
      * 
-     * @param image ImageProxy with YUV_420_888 format
+     * @param image Image with YUV_420_888 format
      * @return Bitmap or null if conversion fails
      */
-    private fun yuv420ToBitmap(image: ImageProxy): Bitmap? {
+    private fun yuv420ToBitmap(image: Image): Bitmap? {
         val yBuffer = image.planes[0].buffer
         val uBuffer = image.planes[1].buffer
         val vBuffer = image.planes[2].buffer
@@ -91,17 +102,17 @@ object CameraUtils {
     }
     
     /**
-     * Convert ImageProxy to RGBA byte buffer
+     * Convert Image to RGBA byte buffer
      * 
      * Useful for direct native library integration where Bitmap
      * overhead is not desired.
      * 
-     * @param image ImageProxy from CameraX
+     * @param image Image from Camera2
      * @param region Optional region to extract (null = full image)
      * @return RGBA byte array (4 bytes per pixel)
      */
-    fun imageProxyToRgbaBuffer(image: ImageProxy, region: Rect? = null): ByteArray? {
-        val bitmap = imageProxyToBitmap(image) ?: return null
+    fun imageToRgbaBuffer(image: Image, region: Rect? = null): ByteArray? {
+        val bitmap = imageToBitmap(image) ?: return null
         return try {
             bitmapToRgbaBuffer(bitmap, region)
         } finally {
