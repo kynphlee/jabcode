@@ -139,6 +139,28 @@ class CameraDeviceProfiler(private val context: Context) {
     }
 
     /**
+     * Get profiles for all available cameras
+     * 
+     * @return List of all camera device profiles
+     */
+    fun getAllCameraProfiles(): List<DeviceProfile> {
+        return try {
+            cameraManager.cameraIdList.mapNotNull { cameraId ->
+                try {
+                    val characteristics = cameraManager.getCameraCharacteristics(cameraId)
+                    buildProfile(cameraId, characteristics)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to get profile for camera $cameraId", e)
+                    null
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to enumerate cameras", e)
+            emptyList()
+        }
+    }
+    
+    /**
      * Get profile for back-facing camera
      */
     fun getBackCameraProfile(): DeviceProfile? {

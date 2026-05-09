@@ -7,6 +7,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import androidx.navigation.NavType
+import com.jabauth.diagnostic.ui.dashboard.DashboardScreen
+import com.jabauth.diagnostic.ui.camera.CameraDetailScreen
 
 /**
  * Main navigation graph for diagnostic app
@@ -30,7 +32,11 @@ fun NavigationGraph(
     ) {
         // Dashboard - Device overview and camera enumeration
         composable(Routes.Dashboard) {
-            DashboardScreenPlaceholder()
+            DashboardScreen(
+                onCameraClick = { cameraId ->
+                    navController.navigate(Routes.cameraDetail(cameraId))
+                }
+            )
         }
         
         // Scanner - JABCode scanning with live preview
@@ -46,7 +52,10 @@ fun NavigationGraph(
             )
         ) { backStackEntry ->
             val cameraId = backStackEntry.arguments?.getString("cameraId") ?: "0"
-            CameraDetailScreenPlaceholder(cameraId = cameraId)
+            CameraDetailScreen(
+                cameraId = cameraId,
+                onNavigateBack = { navController.popBackStack() }
+            )
         }
         
         // Error Log - Timestamped error history
@@ -74,18 +83,8 @@ fun NavigationGraph(
 // Placeholder screens - to be replaced with actual implementations
 
 @Composable
-private fun DashboardScreenPlaceholder() {
-    androidx.compose.material3.Text("Dashboard Screen")
-}
-
-@Composable
 private fun ScannerScreenPlaceholder() {
     androidx.compose.material3.Text("Scanner Screen")
-}
-
-@Composable
-private fun CameraDetailScreenPlaceholder(cameraId: String) {
-    androidx.compose.material3.Text("Camera Detail Screen - ID: $cameraId")
 }
 
 @Composable
