@@ -40,6 +40,8 @@ class TestJABCodeEncoderImpl : JABCodeEncoder {
             ColorMode.COLOR_2 -> drawTwoColorPattern(canvas, paint, options.width, options.height)
             ColorMode.COLOR_4 -> drawFourColorPattern(canvas, paint, options.width, options.height)
             ColorMode.COLOR_8 -> drawEightColorPattern(canvas, paint, options.width, options.height)
+            ColorMode.COLOR_16, ColorMode.COLOR_32, ColorMode.COLOR_64, ColorMode.COLOR_128 -> 
+                drawEightColorPattern(canvas, paint, options.width, options.height)  // Fallback to 8-color for higher modes in tests
         }
 
         // Store metadata for test decoder
@@ -57,6 +59,10 @@ class TestJABCodeEncoderImpl : JABCodeEncoder {
             ColorMode.COLOR_2 -> MAX_CAPACITY_COLOR_2
             ColorMode.COLOR_4 -> MAX_CAPACITY_COLOR_4
             ColorMode.COLOR_8 -> MAX_CAPACITY_COLOR_8
+            ColorMode.COLOR_16 -> MAX_CAPACITY_COLOR_8 * 2
+            ColorMode.COLOR_32 -> MAX_CAPACITY_COLOR_8 * 4
+            ColorMode.COLOR_64 -> MAX_CAPACITY_COLOR_8 * 8
+            ColorMode.COLOR_128 -> MAX_CAPACITY_COLOR_8 * 16
         }
     }
 

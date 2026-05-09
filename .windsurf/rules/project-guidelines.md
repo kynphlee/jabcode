@@ -10,8 +10,13 @@ globs:
 - All documentation must be timestamped and organized to prevent excessive documentation clutter and minimize outdated documentation.
 - All documentation generated must be grounded in the codebase in order to produce accurate documentation for reference, review and diagnostic investigations.
 - To avoid token limits and timeouts, always plan out how the documentaion will be generated; consider breaking down large documentation into multiple pages with an index page linking them.
-- All documentation must be timestamped and organized
+- All documentation must be timestamped and organized.
+
+# Investigation
+- Always analyze the code before and during investigations.
+- When using tools to perform web searches, do not just 'copy patterns' without grounded understanding of the codebase issues.
 
 ## Implementation
+- Do not just blindly deploy changes. All changes must be tested using the tools available (test-coverage-update workflow).
 - Do not always rely on assumptions. If in doubt, perform web searches, ask questions and  perform SWOT and TOWS analysis for clarity.
 - To minimize the effects of over-engineering, perform SWOT and TOWS analysis on key decision points during the planning, implementation and testing phases of tasks.
