@@ -25,7 +25,7 @@ This living document tracks actual implementation progress, challenges encounter
 **Diagnostic App Implementation:**
 - **Status:** 🔄 In Progress
 - **Current Phase:** Phase 3 (Integration & Testing)
-- **Progress:** 17/60 tasks (28%)
+- **Progress:** 18/60 tasks (30%)
 - **Blockers:** None
 
 **Timeline:**
@@ -588,7 +588,7 @@ None - Phase proceeded smoothly with established patterns from Phase 1
 **Status:** 🔄 In Progress  
 **Planned Duration:** 3-5 days  
 **Actual Duration:** In progress (started 2026-05-09)  
-**Progress:** 5/10 tasks (50%)
+**Progress:** 6/10 tasks (60%)
 
 #### Completed Tasks
 1. ✅ Scanner camera integration with runtime permissions (Update #13)
@@ -596,15 +596,15 @@ None - Phase proceeded smoothly with established patterns from Phase 1
 3. ✅ Scanner-settings live integration (decode timeout, analyze interval) (Update #15)
 4. ✅ Debug logging toggle integration (Update #16)
 5. ✅ Auto-focus setting application to Camera2Preview (Update #17)
+6. ✅ Preferred color mode decoder validation (Update #18)
 
 #### In Progress Tasks
-6. ⏳ Preferred color mode decoder integration
 7. ⏳ Device testing and validation
 8. ⏳ Performance validation (timeout/interval tuning)
 9. ⏳ Settings persistence verification across restarts
 10. ⏳ Debug logging output verification
 
-**Next:** Integrate preferred color mode decoder setting
+**Next:** Device testing and validation
 
 ---
 
@@ -2568,6 +2568,146 @@ _This document will be updated throughout the implementation. Check back for lat
 
 ---
 
+### Update #18: Preferred Color Mode Validation
+**Date:** 2026-05-09 14:05 EDT  
+**Phase:** Diagnostic App Phase 3  
+**Task:** Color Mode Preference Integration
+
+**Objective:**
+Enable users to specify preferred color mode (4, 8, 16, 32, 64, 128-color or auto-detect) with validation logging to verify decoder behavior.
+
+**Implementation Complete:**
+
+**Note on Architecture:**
+- JABCode decoder uses **auto-detection** - cannot force specific color mode
+- Preferred setting serves as **diagnostic hint** for result validation
+- Decoder reads actual color mode from JABCode metadata (Part I)
+- User preference validates decoded result matches expectations
+
+**ScannerViewModel Updates:**
+```kotlin
+// Track preferred color mode for result validation
+private var preferredColorMode: Int? = null
+
+init {
+    viewModelScope.launch {
+        settingsRepository.settingsFlow.collect { settings ->
+            preferredColorMode = settings.preferredColorMode
+            
+            val colorModeStr = settings.preferredColorMode?.let { "\${it}-color" } ?: "auto-detect"
+            logger.dSync(
+                "Settings updated: timeout=\${settings.decodeTimeout}ms, " +
+                "colorMode=$colorModeStr, ...",
+                isDebugEnabled
+            )
+        }
+    }
+}
+```
+
+**Decode Result Validation:**
+```kotlin
+onDecodeSuccess = { result ->
+    val decodedColorValue = result.colorMode.value
+    logger.dSync("Decode SUCCESS: colorMode=\${result.colorMode}, ...")
+    
+    // Validate against preferred color mode if set
+    preferredColorMode?.let { preferred ->
+        if (decodedColorValue != preferred) {
+            logger.dSync(
+                "Color mode mismatch: expected \${preferred}-color, " +
+                "decoded \${decodedColorValue}-color (auto-detect found different mode)"
+            )
+        } else {
+            logger.dSync("Color mode validated: \${decodedColorValue}-color matches preference")
+        }
+    }
+}
+```
+
+**Settings Flow Integration:**
+- User selects preferred color mode in Settings screen
+- DataStore persists preference (null = auto-detect)
+- ScannerViewModel tracks preference via settings flow
+- Decode success callback validates result against preference
+- Mismatch logged for diagnostic purposes
+
+**Validation Scenarios:**
+
+1. **Auto-Detect Mode (null):**
+   - Decoder scans any color mode (4-128)
+   - No validation performed
+   - User accepts whatever decoder finds
+
+2. **Specific Mode (e.g., 16-color):**
+   - User expects 16-color JABCode
+   - Decoder auto-detects and returns actual mode
+   - If decoded ≠ 16: logs mismatch diagnostic
+   - If decoded = 16: logs validation success
+
+3. **Mode Mismatch:**
+   - User sets 32-color preference
+   - Scans 8-color JABCode
+   - Logs: "Color mode mismatch: expected 32-color, decoded 8-color"
+   - Decode still succeeds (auto-detect worked)
+   - User informed their assumption was incorrect
+
+**Use Cases:**
+- **QA Testing:** Verify printed codes match spec ("expect 64-color")
+- **Debugging:** Identify why codes scan as different mode than intended
+- **Education:** Learn which modes work best in environment
+- **Performance:** Track decode times across color modes
+
+**Technical Features:**
+- **Diagnostic Only:** Does not constrain decoder behavior
+- **Non-Blocking:** Mismatch logged, decode still succeeds
+- **Optional:** null preference skips validation entirely
+- **Debug Logging:** Only visible when debug toggle enabled
+
+**ColorMode Enum Support:**
+```kotlin
+enum class ColorMode(val value: Int) {
+    COLOR_4(4), COLOR_8(8), COLOR_16(16),
+    COLOR_32(32), COLOR_64(64), COLOR_128(128)
+}
+```
+
+**Decoder Auto-Detection:**
+- Reads Nc (color number) from Part I metadata
+- Uses finder patterns and palette sampling
+- All 6 color modes (4-128) fully supported ✅
+- 256-color mode not implemented (encoder bug)
+
+**Build Results:**
+- ✅ Clean build (no compilation errors)
+- ✅ Color mode preference tracked
+- ✅ Validation logging integrated
+- ✅ Settings flow reactive
+
+**Files Modified:**
+- `@/diagnostic-app/src/main/java/com/jabauth/diagnostic/ui/scanner/ScannerViewModel.kt` (validation logic)
+
+**Progress Update:**
+- Task 18 of 60 complete (30%)
+- **Color Mode Validation** - Diagnostic preference with mismatch detection
+- All Phase 3 integration tasks complete
+- Ready for device testing
+
+**Next Steps:**
+- Device testing with various color modes
+- Validate mismatch detection works correctly
+- Test auto-detect mode (null preference)
+- Performance comparison across color modes
+
+**Blockers:**
+- None
+
+---
+
+_This document will be updated throughout the implementation. Check back for latest progress._
+
+---
+
 **JARVIS**  
 *Progress Chronicler*  
-*Last Updated: 2026-05-09 13:55 EDT*
+*Last Updated: 2026-05-09 14:05 EDT*

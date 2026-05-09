@@ -37,6 +37,9 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
     // Track debug logging state for synchronous logging
     private var isDebugEnabled = false
     
+    // Track preferred color mode for result validation
+    private var preferredColorMode: Int? = null
+    
     // Mutable analyzer - recreated when settings change
     private var analyzer: Camera2JABCodeAnalyzer
     
@@ -51,8 +54,14 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             settingsRepository.settingsFlow.collect { settings ->
                 isDebugEnabled = settings.debugLogging
+                preferredColorMode = settings.preferredColorMode
                 
-                logger.dSync("Settings updated: timeout=${settings.decodeTimeout}ms, interval=${settings.analyzeInterval}ms, debug=${settings.debugLogging}", isDebugEnabled)
+                val colorModeStr = settings.preferredColorMode?.let { "${it}-color" } ?: "auto-detect"
+                logger.dSync(
+                    "Settings updated: timeout=${settings.decodeTimeout}ms, interval=${settings.analyzeInterval}ms, " +
+                    "autoFocus=${settings.autoFocus}, colorMode=$colorModeStr, debug=${settings.debugLogging}", 
+                    isDebugEnabled
+                )
                 
                 analyzer = createAnalyzer(
                     timeout = settings.decodeTimeout.toLong(),
@@ -72,7 +81,20 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
                 analyzeIntervalMs = analyzeInterval
             ),
             onDecodeSuccess = { result ->
+                val decodedColorValue = result.colorMode.value
                 logger.dSync("Decode SUCCESS: data='${result.asString()}', colorMode=${result.colorMode}, decodeTime=${result.decodeTimeMs}ms", isDebugEnabled)
+                
+                // Validate against preferred color mode if set
+                preferredColorMode?.let { preferred ->
+                    if (decodedColorValue != preferred) {
+                        logger.dSync(
+                            "Color mode mismatch: expected ${preferred}-color, decoded ${decodedColorValue}-color (auto-detect found different mode)",
+                            isDebugEnabled
+                        )
+                    } else {
+                        logger.dSync("Color mode validated: ${decodedColorValue}-color matches preference", isDebugEnabled)
+                    }
+                }
                 
                 _scanResult.value = result
                 _scanError.value = null
