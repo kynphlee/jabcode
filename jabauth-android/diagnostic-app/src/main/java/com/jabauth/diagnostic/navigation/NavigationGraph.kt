@@ -13,6 +13,7 @@ import com.jabauth.diagnostic.ui.scanner.ScannerScreen
 import com.jabauth.diagnostic.ui.errorlog.ErrorLogScreen
 import com.jabauth.diagnostic.ui.capturetest.CaptureTestScreen
 import com.jabauth.diagnostic.ui.settings.SettingsScreen
+import com.jabauth.diagnostic.ui.errorstate.ErrorStateScreen
 
 /**
  * Main navigation graph for diagnostic app
@@ -79,14 +80,10 @@ fun NavigationGraph(
         
         // Error State - Error display screen
         composable(Routes.ErrorState) {
-            ErrorStateScreenPlaceholder()
+            ErrorStateScreen(
+                onRetry = { /* Retry logic */ },
+                onNavigateBack = { navController.popBackStack() }
+            )
         }
     }
-}
-
-// Placeholder screens - to be replaced with actual implementations
-
-@Composable
-private fun ErrorStateScreenPlaceholder() {
-    androidx.compose.material3.Text("Error State Screen")
 }

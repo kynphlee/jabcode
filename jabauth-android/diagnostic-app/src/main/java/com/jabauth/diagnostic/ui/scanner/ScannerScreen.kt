@@ -13,11 +13,23 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jabauth.ui.scanner.Camera2Preview
+import com.jabauth.diagnostic.ui.permissions.CameraPermissionHandler
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScannerScreen(
     viewModel: ScannerViewModel = viewModel()
+) {
+    CameraPermissionHandler(
+        onPermissionGranted = {
+            ScannerScreenContent(viewModel = viewModel)
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ScannerScreenContent(
+    viewModel: ScannerViewModel
 ) {
     val scanResult by viewModel.scanResult.collectAsState()
     val scanError by viewModel.scanError.collectAsState()
