@@ -9,6 +9,10 @@ import androidx.navigation.navArgument
 import androidx.navigation.NavType
 import com.jabauth.diagnostic.ui.dashboard.DashboardScreen
 import com.jabauth.diagnostic.ui.camera.CameraDetailScreen
+import com.jabauth.diagnostic.ui.scanner.ScannerScreen
+import com.jabauth.diagnostic.ui.errorlog.ErrorLogScreen
+import com.jabauth.diagnostic.ui.capturetest.CaptureTestScreen
+import com.jabauth.diagnostic.ui.settings.SettingsScreen
 
 /**
  * Main navigation graph for diagnostic app
@@ -41,7 +45,7 @@ fun NavigationGraph(
         
         // Scanner - JABCode scanning with live preview
         composable(Routes.Scanner) {
-            ScannerScreenPlaceholder()
+            ScannerScreen()
         }
         
         // Camera Detail - Deep-dive characteristics inspector
@@ -60,17 +64,17 @@ fun NavigationGraph(
         
         // Error Log - Timestamped error history
         composable(Routes.ErrorLog) {
-            ErrorLogScreenPlaceholder()
+            ErrorLogScreen()
         }
         
         // Capture Test - Stream validation and testing
         composable(Routes.CaptureTest) {
-            CaptureTestScreenPlaceholder()
+            CaptureTestScreen()
         }
         
         // Settings - App configuration
         composable(Routes.Settings) {
-            SettingsScreenPlaceholder()
+            SettingsScreen()
         }
         
         // Error State - Error display screen
@@ -81,26 +85,6 @@ fun NavigationGraph(
 }
 
 // Placeholder screens - to be replaced with actual implementations
-
-@Composable
-private fun ScannerScreenPlaceholder() {
-    androidx.compose.material3.Text("Scanner Screen")
-}
-
-@Composable
-private fun ErrorLogScreenPlaceholder() {
-    androidx.compose.material3.Text("Error Log Screen")
-}
-
-@Composable
-private fun CaptureTestScreenPlaceholder() {
-    androidx.compose.material3.Text("Capture Test Screen")
-}
-
-@Composable
-private fun SettingsScreenPlaceholder() {
-    androidx.compose.material3.Text("Settings Screen")
-}
 
 @Composable
 private fun ErrorStateScreenPlaceholder() {
