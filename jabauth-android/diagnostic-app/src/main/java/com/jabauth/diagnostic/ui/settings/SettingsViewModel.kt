@@ -1,52 +1,63 @@
 package com.jabauth.diagnostic.ui.settings
 
-import androidx.lifecycle.ViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.jabauth.diagnostic.data.SettingsRepository
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 /**
  * ViewModel for Settings screen
  * 
- * Manages app configuration and preferences
+ * Manages app configuration and preferences with persistent storage
  */
-class SettingsViewModel : ViewModel() {
+class SettingsViewModel(application: Application) : AndroidViewModel(application) {
     
-    private val _settings = MutableStateFlow(AppSettings())
-    val settings: StateFlow<AppSettings> = _settings.asStateFlow()
+    private val repository = SettingsRepository(application)
     
-    fun updateDecodeTimeout(timeout: Long) {
-        _settings.value = _settings.value.copy(decodeTimeout = timeout)
+    val settings: StateFlow<SettingsRepository.Settings> = repository.settingsFlow
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = SettingsRepository.Settings()
+        )
+    
+    fun updateDecodeTimeout(timeout: Int) {
+        viewModelScope.launch {
+            repository.updateDecodeTimeout(timeout)
+        }
     }
     
-    fun updateAnalyzeInterval(interval: Long) {
-        _settings.value = _settings.value.copy(analyzeInterval = interval)
+    fun updateAnalyzeInterval(interval: Int) {
+        viewModelScope.launch {
+            repository.updateAnalyzeInterval(interval)
+        }
     }
     
     fun updateAutoFocus(enabled: Boolean) {
-        _settings.value = _settings.value.copy(autoFocusEnabled = enabled)
+        viewModelScope.launch {
+            repository.updateAutoFocus(enabled)
+        }
     }
     
     fun updateDebugLogging(enabled: Boolean) {
-        _settings.value = _settings.value.copy(debugLoggingEnabled = enabled)
+        viewModelScope.launch {
+            repository.updateDebugLogging(enabled)
+        }
     }
     
-    fun updateColorMode(mode: Int) {
-        _settings.value = _settings.value.copy(preferredColorMode = mode)
+    fun updateColorMode(mode: Int?) {
+        viewModelScope.launch {
+            repository.updatePreferredColorMode(mode)
+        }
     }
     
     fun resetToDefaults() {
-        _settings.value = AppSettings()
+        viewModelScope.launch {
+            repository.resetToDefaults()
+        }
     }
 }
-
-/**
- * Application settings data class
- */
-data class AppSettings(
-    val decodeTimeout: Long = 200L,
-    val analyzeInterval: Long = 500L,
-    val autoFocusEnabled: Boolean = true,
-    val debugLoggingEnabled: Boolean = false,
-    val preferredColorMode: Int? = null // null = auto-detect
-)

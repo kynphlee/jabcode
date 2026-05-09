@@ -25,7 +25,7 @@ This living document tracks actual implementation progress, challenges encounter
 **Diagnostic App Implementation:**
 - **Status:** 🔄 In Progress
 - **Current Phase:** Phase 3 (Integration & Testing)
-- **Progress:** 13/60 tasks (22%)
+- **Progress:** 14/60 tasks (23%)
 - **Blockers:** None
 
 **Timeline:**
@@ -2052,10 +2052,122 @@ ScannerScreen
 
 ---
 
+### Update #14: Settings Persistence with DataStore
+**Date:** 2026-05-09 11:12 EDT  
+**Phase:** Diagnostic App Phase 3  
+**Task:** Settings Persistence Integration
+
+**Objective:**
+Implement persistent storage for app configuration using DataStore, replacing in-memory state management.
+
+**Implementation Complete:**
+
+**Settings Repository:**
+- **DataStore Preferences:** Type-safe reactive storage
+- **Settings Data Class:** Structured configuration model
+- **Flow-Based API:** Reactive state propagation
+- **Async Operations:** Coroutine-based persistence
+
+**Repository Features:**
+- **Read Settings:** Flow-based reactive reads
+- **Update Methods:** Individual setters for each setting
+- **Reset to Defaults:** Clear all preferences
+- **Error Handling:** IOException recovery with empty preferences
+- **Default Values:** Fallback when preferences don't exist
+
+**Persisted Settings:**
+```
+Decoder Settings
+  ├─ Decode Timeout (100-1000ms, default: 200ms)
+  └─ Analyze Interval (100-2000ms, default: 500ms)
+
+Camera Settings
+  └─ Auto Focus (boolean, default: true)
+
+Debug Options
+  └─ Debug Logging (boolean, default: false)
+
+JABCode Preferences
+  └─ Preferred Color Mode (Int?, default: null/auto)
+```
+
+**ViewModel Integration:**
+- **AndroidViewModel:** Access to Application context
+- **Repository Injection:** Direct repository instantiation
+- **StateFlow Conversion:** DataStore Flow → StateFlow
+- **WhileSubscribed(5000):** 5s cache after last subscriber
+- **ViewModelScope:** Coroutine scope for updates
+
+**Technical Implementation:**
+```kotlin
+class SettingsViewModel(application: Application) : AndroidViewModel(application) {
+    private val repository = SettingsRepository(application)
+    
+    val settings: StateFlow<Settings> = repository.settingsFlow
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = Settings()
+        )
+    
+    fun updateDecodeTimeout(timeout: Int) {
+        viewModelScope.launch {
+            repository.updateDecodeTimeout(timeout)
+        }
+    }
+}
+```
+
+**DataStore Configuration:**
+- **Storage:** Preferences DataStore (key-value)
+- **File Name:** `diagnostic_settings`
+- **Location:** `app_datastore/diagnostic_settings.preferences_pb`
+- **Type Safety:** Compile-time key checking
+- **Transactions:** Atomic multi-preference updates
+
+**Build Integration:**
+- **Dependency:** `androidx.datastore:datastore-preferences:1.0.0`
+- **Clean Build:** ✅ No compilation errors
+- **Type Conversions:** Int ↔ Long for slider compatibility
+
+**Benefits:**
+- Settings survive app restart
+- Reactive UI updates on preference changes
+- Type-safe preference access
+- No SharedPreferences boilerplate
+- Coroutine-based async operations
+- Automatic data migration support
+
+**Files Created:**
+- `@/diagnostic-app/src/main/java/com/jabauth/diagnostic/data/SettingsRepository.kt:116` (116 lines)
+
+**Files Modified:**
+- `@/diagnostic-app/src/main/java/com/jabauth/diagnostic/ui/settings/SettingsViewModel.kt` (repository integration)
+- `@/diagnostic-app/src/main/java/com/jabauth/diagnostic/ui/settings/SettingsScreen.kt` (Settings data class usage)
+- `@/diagnostic-app/build.gradle.kts` (DataStore dependency)
+
+**Progress Update:**
+- Task 14 of 60 complete (23%)
+- **Settings Now Persistent** - Configuration survives app restart
+- DataStore integration complete
+- Ready for decoder/analyzer configuration hookup
+
+**Next Steps:**
+- Connect settings to ScannerViewModel (decode timeout, analyze interval)
+- Apply settings to Camera2Preview (auto-focus)
+- Integrate debug logging toggle
+- Use preferred color mode in decoder
+- Device testing to verify persistence
+
+**Blockers:**
+- None
+
+---
+
 _This document will be updated throughout the implementation. Check back for latest progress._
 
 ---
 
 **JARVIS**  
 *Progress Chronicler*  
-*Last Updated: 2026-05-09 11:07 EDT*
+*Last Updated: 2026-05-09 11:12 EDT*

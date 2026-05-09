@@ -53,20 +53,20 @@ fun SettingsScreen(
             SettingsSection(title = "Decoder Settings") {
                 SliderSetting(
                     label = "Decode Timeout",
-                    value = settings.decodeTimeout,
+                    value = settings.decodeTimeout.toLong(),
                     valueRange = 100f..1000f,
                     steps = 8,
-                    onValueChange = { viewModel.updateDecodeTimeout(it.toLong()) },
-                    valueDisplay = { "${it.toLong()}ms" }
+                    onValueChange = { viewModel.updateDecodeTimeout(it.toInt()) },
+                    valueDisplay = { "${it.toInt()}ms" }
                 )
                 
                 SliderSetting(
                     label = "Analyze Interval",
-                    value = settings.analyzeInterval,
+                    value = settings.analyzeInterval.toLong(),
                     valueRange = 100f..2000f,
                     steps = 18,
-                    onValueChange = { viewModel.updateAnalyzeInterval(it.toLong()) },
-                    valueDisplay = { "${it.toLong()}ms" }
+                    onValueChange = { viewModel.updateAnalyzeInterval(it.toInt()) },
+                    valueDisplay = { "${it.toInt()}ms" }
                 )
             }
             
@@ -75,7 +75,7 @@ fun SettingsScreen(
                 SwitchSetting(
                     label = "Auto Focus",
                     description = "Enable continuous auto-focus during capture",
-                    checked = settings.autoFocusEnabled,
+                    checked = settings.autoFocus,
                     onCheckedChange = { viewModel.updateAutoFocus(it) }
                 )
             }
@@ -85,7 +85,7 @@ fun SettingsScreen(
                 SwitchSetting(
                     label = "Debug Logging",
                     description = "Enable verbose logging for troubleshooting",
-                    checked = settings.debugLoggingEnabled,
+                    checked = settings.debugLogging,
                     onCheckedChange = { viewModel.updateDebugLogging(it) }
                 )
             }
@@ -104,7 +104,7 @@ fun SettingsScreen(
                         64 to "64 colors",
                         128 to "128 colors"
                     ),
-                    onValueChange = { viewModel.updateColorMode(it ?: 0) },
+                    onValueChange = { viewModel.updateColorMode(it) },
                     displayValue = { mode ->
                         when (mode) {
                             null -> "Auto-detect"

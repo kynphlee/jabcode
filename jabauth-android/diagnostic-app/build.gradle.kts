@@ -103,6 +103,9 @@ dependencies {
     // Navigation
     implementation("androidx.navigation:navigation-compose:${rootProject.property("NAVIGATION_VERSION")}")
     
+    // DataStore
+    implementation("androidx.datastore:datastore-preferences:1.0.0")
+    
     // Hilt
     implementation("com.google.dagger:hilt-android:${rootProject.property("HILT_VERSION")}")
     kapt("com.google.dagger:hilt-compiler:${rootProject.property("HILT_VERSION")}")
