@@ -9,6 +9,9 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import java.io.IOException
 
+// DataStore delegate - must be top-level property
+private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "diagnostic_settings")
+
 /**
  * Settings Repository - Persistent configuration storage
  * 
@@ -17,8 +20,7 @@ import java.io.IOException
 class SettingsRepository(private val context: Context) {
     
     companion object {
-        private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "diagnostic_settings")
-        
+        // Preference keys
         private val DECODE_TIMEOUT = intPreferencesKey("decode_timeout")
         private val ANALYZE_INTERVAL = intPreferencesKey("analyze_interval")
         private val AUTO_FOCUS = booleanPreferencesKey("auto_focus")
