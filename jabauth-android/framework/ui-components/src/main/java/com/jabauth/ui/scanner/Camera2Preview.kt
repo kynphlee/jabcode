@@ -12,6 +12,7 @@ import android.os.HandlerThread
 import android.util.Log
 import android.view.Surface
 import android.view.TextureView
+import android.view.WindowManager
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -54,7 +55,8 @@ fun Camera2Preview(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val camera2Controller = remember { Camera2Controller(context, onFrameAvailable, autoFocus) }
+    val windowManager = remember { context.getSystemService(Context.WINDOW_SERVICE) as WindowManager }
+    val camera2Controller = remember { Camera2Controller(context, windowManager, onFrameAvailable, autoFocus) }
     
     // Update auto-focus when setting changes
     LaunchedEffect(autoFocus) {
@@ -72,12 +74,11 @@ fun Camera2Preview(
             TextureView(ctx).apply {
                 surfaceTextureListener = object : TextureView.SurfaceTextureListener {
                     override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
-                        camera2Controller.openCamera(this@apply)
-                        updateTransform(this@apply, width, height)
+                        camera2Controller.openCamera(this@apply, width, height)
                     }
                     
                     override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {
-                        updateTransform(this@apply, width, height)
+                        camera2Controller.updateTransform(this@apply, width, height)
                     }
                     override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean = true
                     override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
@@ -88,41 +89,9 @@ fun Camera2Preview(
     )
 }
 
-/**
- * Update TextureView transform to properly scale camera output to view
- * 
- * Camera outputs 1280x720 (landscape 16:9)
- * View is portrait with 16:9 aspect ratio
- * Scale to fill width and center vertically
- */
-private fun updateTransform(textureView: TextureView, viewWidth: Int, viewHeight: Int) {
-    if (viewWidth == 0 || viewHeight == 0) return
-    
-    val matrix = android.graphics.Matrix()
-    
-    // Camera output dimensions (landscape)
-    val bufferWidth = 1280f
-    val bufferHeight = 720f
-    
-    // Scale to fill view width, maintain aspect ratio
-    val scaleX = viewWidth / bufferWidth
-    val scaleY = viewHeight / bufferHeight
-    val scale = maxOf(scaleX, scaleY)
-    
-    // Center the preview
-    val scaledWidth = bufferWidth * scale
-    val scaledHeight = bufferHeight * scale
-    val dx = (viewWidth - scaledWidth) / 2f
-    val dy = (viewHeight - scaledHeight) / 2f
-    
-    matrix.setScale(scale, scale)
-    matrix.postTranslate(dx, dy)
-    
-    textureView.setTransform(matrix)
-}
-
 private class Camera2Controller(
     private val context: Context,
+    private val windowManager: WindowManager,
     private val onFrameAvailable: ((ImageReader) -> Unit)?,
     initialAutoFocus: Boolean
 ) {
@@ -136,6 +105,8 @@ private class Camera2Controller(
     private var captureSession: CameraCaptureSession? = null
     private var imageReader: ImageReader? = null
     private var previewSurface: Surface? = null
+    private var sensorOrientation: Int = 0
+    private var currentTextureView: TextureView? = null
     
     @Volatile
     private var autoFocusEnabled: Boolean = initialAutoFocus
@@ -158,7 +129,9 @@ private class Camera2Controller(
         }
     }
     
-    fun openCamera(textureView: TextureView) {
+    fun openCamera(textureView: TextureView, viewWidth: Int, viewHeight: Int) {
+        currentTextureView = textureView
+        
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) 
             != PackageManager.PERMISSION_GRANTED) {
             Log.e(TAG, "Camera permission not granted")
@@ -168,6 +141,10 @@ private class Camera2Controller(
         val manager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
         try {
             val cameraId = manager.cameraIdList[0]  // Back camera
+            
+            // Get sensor orientation for rotation compensation
+            val characteristics = manager.getCameraCharacteristics(cameraId)
+            sensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0
             
             // Set buffer size to match ImageReader dimensions
             val texture = textureView.surfaceTexture
@@ -189,6 +166,9 @@ private class Camera2Controller(
                 override fun onOpened(camera: CameraDevice) {
                     cameraDevice = camera
                     createCaptureSession(textureView)
+                    
+                    // Apply transform after camera opens
+                    updateTransform(textureView, viewWidth, viewHeight)
                 }
                 
                 override fun onDisconnected(camera: CameraDevice) {
@@ -297,5 +277,59 @@ private class Camera2Controller(
         } catch (e: Exception) {
             Log.e(TAG, "Error closing camera", e)
         }
+    }
+    
+    /**
+     * Update TextureView transform with proper rotation compensation
+     * 
+     * Handles aspect ratio and rotation to prevent preview distortion when device rotates.
+     * Compensates for sensor orientation vs display orientation delta.
+     */
+    fun updateTransform(textureView: TextureView, viewWidth: Int, viewHeight: Int) {
+        if (viewWidth == 0 || viewHeight == 0) return
+        
+        val matrix = android.graphics.Matrix()
+        val viewRect = android.graphics.RectF(0f, 0f, viewWidth.toFloat(), viewHeight.toFloat())
+        val bufferRect = android.graphics.RectF(0f, 0f, IMAGE_HEIGHT.toFloat(), IMAGE_WIDTH.toFloat())
+        val centerX = viewRect.centerX()
+        val centerY = viewRect.centerY()
+        
+        // Get display rotation
+        val rotation = windowManager.defaultDisplay.rotation
+        
+        // Calculate rotation compensation
+        // Sensor is typically 90° or 270°, display rotation is 0°/90°/180°/270°
+        when (rotation) {
+            Surface.ROTATION_90, Surface.ROTATION_270 -> {
+                // Landscape orientation
+                bufferRect.offset(centerX - bufferRect.centerX(), centerY - bufferRect.centerY())
+                matrix.setRectToRect(viewRect, bufferRect, android.graphics.Matrix.ScaleToFit.FILL)
+                
+                val scale = maxOf(
+                    viewHeight.toFloat() / IMAGE_HEIGHT,
+                    viewWidth.toFloat() / IMAGE_WIDTH
+                )
+                
+                matrix.postScale(scale, scale, centerX, centerY)
+                matrix.postRotate((90 * (rotation - 2)).toFloat(), centerX, centerY)
+            }
+            else -> {
+                // Portrait orientation (ROTATION_0 or ROTATION_180)
+                if (rotation == Surface.ROTATION_180) {
+                    matrix.postRotate(180f, centerX, centerY)
+                }
+                
+                val scale = maxOf(
+                    viewWidth.toFloat() / IMAGE_WIDTH,
+                    viewHeight.toFloat() / IMAGE_HEIGHT
+                )
+                
+                // Scale to fill
+                matrix.postScale(scale, scale, centerX, centerY)
+            }
+        }
+        
+        textureView.setTransform(matrix)
+        Log.d(TAG, "Transform updated: rotation=$rotation, sensorOrientation=$sensorOrientation")
     }
 }
