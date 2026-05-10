@@ -107,6 +107,7 @@ private class Camera2Controller(
     private var previewSurface: Surface? = null
     private var sensorOrientation: Int = 0
     private var currentTextureView: TextureView? = null
+    private var cameraCharacteristics: CameraCharacteristics? = null
     
     @Volatile
     private var autoFocusEnabled: Boolean = initialAutoFocus
@@ -144,6 +145,7 @@ private class Camera2Controller(
             
             // Get sensor orientation for rotation compensation
             val characteristics = manager.getCameraCharacteristics(cameraId)
+            cameraCharacteristics = characteristics
             sensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0
             
             // Set buffer size to match ImageReader dimensions
@@ -280,56 +282,123 @@ private class Camera2Controller(
     }
     
     /**
-     * Update TextureView transform with proper rotation compensation
+     * Compute relative rotation between sensor orientation and display rotation
+     * Following official Android Camera2 pattern from developer.android.com
+     */
+    private fun computeRelativeRotation(surfaceRotationDegrees: Int): Int {
+        val characteristics = cameraCharacteristics ?: return 0
+        
+        val sensorOrientationDegrees = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0
+        
+        // Reverse device orientation for front-facing cameras
+        val sign = if (characteristics.get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_FRONT) {
+            1
+        } else {
+            -1
+        }
+        
+        return (sensorOrientationDegrees - (surfaceRotationDegrees * sign) + 360) % 360
+    }
+    
+    /**
+     * Update TextureView transform with proper rotation and scaling compensation
      * 
-     * Handles aspect ratio and rotation to prevent preview distortion when device rotates.
-     * Compensates for sensor orientation vs display orientation delta.
+     * Implements official Android Camera2 preview scaling pattern to handle:
+     * - Aspect ratio preservation
+     * - Sensor orientation vs display rotation delta
+     * - Dimension swapping when rotation is required
+     * 
+     * Based on: https://developer.android.com/codelabs/android-camera2-preview
      */
     fun updateTransform(textureView: TextureView, viewWidth: Int, viewHeight: Int) {
         if (viewWidth == 0 || viewHeight == 0) return
         
-        val matrix = android.graphics.Matrix()
-        val viewRect = android.graphics.RectF(0f, 0f, viewWidth.toFloat(), viewHeight.toFloat())
-        val bufferRect = android.graphics.RectF(0f, 0f, IMAGE_HEIGHT.toFloat(), IMAGE_WIDTH.toFloat())
-        val centerX = viewRect.centerX()
-        val centerY = viewRect.centerY()
+        val characteristics = cameraCharacteristics ?: run {
+            Log.w(TAG, "Cannot update transform: camera characteristics not available")
+            return
+        }
         
-        // Get display rotation
-        val rotation = windowManager.defaultDisplay.rotation
+        val surfaceRotation = windowManager.defaultDisplay.rotation
+        val surfaceRotationDegrees = surfaceRotation * 90
         
-        // Calculate rotation compensation
-        // Sensor is typically 90° or 270°, display rotation is 0°/90°/180°/270°
-        when (rotation) {
-            Surface.ROTATION_90, Surface.ROTATION_270 -> {
-                // Landscape orientation
-                bufferRect.offset(centerX - bufferRect.centerX(), centerY - bufferRect.centerY())
-                matrix.setRectToRect(viewRect, bufferRect, android.graphics.Matrix.ScaleToFit.FILL)
-                
-                val scale = maxOf(
-                    viewHeight.toFloat() / IMAGE_HEIGHT,
-                    viewWidth.toFloat() / IMAGE_WIDTH
-                )
-                
-                matrix.postScale(scale, scale, centerX, centerY)
-                matrix.postRotate((90 * (rotation - 2)).toFloat(), centerX, centerY)
+        // Camera output is always landscape (1280x720)
+        val previewWidth = IMAGE_WIDTH
+        val previewHeight = IMAGE_HEIGHT
+        
+        // Determine if rotation swaps dimensions
+        val relativeRotation = computeRelativeRotation(surfaceRotationDegrees)
+        val isRotationRequired = relativeRotation % 180 != 0
+        
+        // Calculate scale factors to reverse TextureView's default scaling
+        var scaleX: Float
+        var scaleY: Float
+        
+        if (sensorOrientation == 0) {
+            // Sensor orientation 0° (rare, e.g., Chromebooks)
+            scaleX = if (!isRotationRequired) {
+                viewWidth.toFloat() / previewHeight
+            } else {
+                viewWidth.toFloat() / previewWidth
             }
-            else -> {
-                // Portrait orientation (ROTATION_0 or ROTATION_180)
-                if (rotation == Surface.ROTATION_180) {
-                    matrix.postRotate(180f, centerX, centerY)
-                }
-                
-                val scale = maxOf(
-                    viewWidth.toFloat() / IMAGE_WIDTH,
-                    viewHeight.toFloat() / IMAGE_HEIGHT
-                )
-                
-                // Scale to fill
-                matrix.postScale(scale, scale, centerX, centerY)
+            
+            scaleY = if (!isRotationRequired) {
+                viewHeight.toFloat() / previewWidth
+            } else {
+                viewHeight.toFloat() / previewHeight
+            }
+        } else {
+            // Sensor orientation 90° or 270° (standard phones/tablets)
+            scaleX = if (isRotationRequired) {
+                viewWidth.toFloat() / previewHeight
+            } else {
+                viewWidth.toFloat() / previewWidth
+            }
+            
+            scaleY = if (isRotationRequired) {
+                viewHeight.toFloat() / previewWidth
+            } else {
+                viewHeight.toFloat() / previewHeight
             }
         }
         
+        // Use uniform scale to fill view while maintaining aspect ratio
+        val finalScale = maxOf(scaleX, scaleY)
+        
+        val halfWidth = viewWidth / 2f
+        val halfHeight = viewHeight / 2f
+        
+        val matrix = android.graphics.Matrix()
+        
+        // Apply scaling based on rotation requirement
+        if (isRotationRequired) {
+            // Dimensions are swapped - use inverse scaling
+            matrix.setScale(
+                1 / scaleX * finalScale,
+                1 / scaleY * finalScale,
+                halfWidth,
+                halfHeight
+            )
+        } else {
+            // Dimensions not swapped - compensate for aspect ratio difference
+            matrix.setScale(
+                viewHeight / viewWidth.toFloat() / scaleY * finalScale,
+                viewWidth / viewHeight.toFloat() / scaleX * finalScale,
+                halfWidth,
+                halfHeight
+            )
+        }
+        
+        // Rotate to compensate for display rotation
+        matrix.postRotate(
+            -surfaceRotationDegrees.toFloat(),
+            halfWidth,
+            halfHeight
+        )
+        
         textureView.setTransform(matrix)
-        Log.d(TAG, "Transform updated: rotation=$rotation, sensorOrientation=$sensorOrientation")
+        
+        Log.d(TAG, "Transform updated: surfaceRot=${surfaceRotationDegrees}°, sensorOri=${sensorOrientation}°, " +
+                   "relativeRot=${relativeRotation}°, rotRequired=${isRotationRequired}, " +
+                   "scaleX=${scaleX}, scaleY=${scaleY}, finalScale=${finalScale}")
     }
 }
