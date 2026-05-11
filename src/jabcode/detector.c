@@ -3343,9 +3343,9 @@ jab_boolean detectMaster(jab_bitmap* bitmap, jab_bitmap* ch[], jab_decoded_symbo
         jab_float rgb_ave[3];
         getAveragePixelValue(bitmap, fps, rgb_ave);
         free(fps);
-        //binarize the bitmap using the average pixel values as thresholds
+        //binarize the bitmap using Otsu adaptive thresholds (Tier 3)
         for(jab_int32 i=0; i<3; free(ch[i++]));
-        if(!binarizerRGB(bitmap, ch, rgb_ave))
+        if(!binarizerLuminanceRGB(bitmap, ch))  // Use Otsu for fallback detection too
         {
             return JAB_FAILURE;
         }
