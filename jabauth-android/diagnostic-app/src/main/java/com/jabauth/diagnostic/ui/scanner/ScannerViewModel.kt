@@ -72,6 +72,12 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
     }
     
     private fun createAnalyzer(timeout: Long, analyzeInterval: Long): Camera2JABCodeAnalyzer {
+        Log.i("ScannerViewModel", "🔧 Creating new Camera2JABCodeAnalyzer")
+        Log.i("ScannerViewModel", "   - Timeout: ${timeout}ms")
+        Log.i("ScannerViewModel", "   - Analyze interval: ${analyzeInterval}ms")
+        Log.i("ScannerViewModel", "   - Preferred color mode: ${preferredColorMode?.let { "$it-color" } ?: "auto-detect"}")
+        Log.i("ScannerViewModel", "   - Debug logging: $isDebugEnabled")
+        
         logger.iSync("Creating analyzer: timeout=${timeout}ms, interval=${analyzeInterval}ms", isDebugEnabled)
         
         return Camera2JABCodeAnalyzer(
@@ -82,16 +88,23 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
             ),
             onDecodeSuccess = { result ->
                 val decodedColorValue = result.colorMode.value
+                Log.i("ScannerViewModel", "✅ DECODE SUCCESS!")
+                Log.i("ScannerViewModel", "   - Data: '${result.asString()}'")
+                Log.i("ScannerViewModel", "   - Color mode: ${result.colorMode} (${decodedColorValue} colors)")
+                Log.i("ScannerViewModel", "   - Decode time: ${result.decodeTimeMs}ms")
+                
                 logger.dSync("Decode SUCCESS: data='${result.asString()}', colorMode=${result.colorMode}, decodeTime=${result.decodeTimeMs}ms", isDebugEnabled)
                 
                 // Validate against preferred color mode if set
                 preferredColorMode?.let { preferred ->
                     if (decodedColorValue != preferred) {
+                        Log.w("ScannerViewModel", "⚠️ Color mode mismatch: expected ${preferred}-color, decoded ${decodedColorValue}-color")
                         logger.dSync(
                             "Color mode mismatch: expected ${preferred}-color, decoded ${decodedColorValue}-color (auto-detect found different mode)",
                             isDebugEnabled
                         )
                     } else {
+                        Log.d("ScannerViewModel", "✅ Color mode validated: ${decodedColorValue}-color matches preference")
                         logger.dSync("Color mode validated: ${decodedColorValue}-color matches preference", isDebugEnabled)
                     }
                 }
@@ -101,6 +114,7 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
                 _scanCount.value++
             },
             onDecodeFailure = { error ->
+                Log.e("ScannerViewModel", "❌ Decode FAILURE: $error")
                 logger.dSync("Decode FAILURE: $error", isDebugEnabled)
                 _scanError.value = error
             }

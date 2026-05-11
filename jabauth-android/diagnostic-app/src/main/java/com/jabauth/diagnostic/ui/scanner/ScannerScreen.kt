@@ -61,12 +61,14 @@ private fun ScannerScreenContent(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // Camera preview with auto-focus setting
+            // Camera preview with auto-focus setting and exposure compensation
+            // Tier 2: +1 EV biases toward brighter whites for better binarization
             Camera2Preview(
                 onFrameAvailable = { reader ->
                     viewModel.analyzeFrame(reader)
                 },
                 autoFocus = settings.autoFocus,
+                exposureCompensation = +1,  // Tier 2: Improve contrast (black→20, white→240+)
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(0.4f)

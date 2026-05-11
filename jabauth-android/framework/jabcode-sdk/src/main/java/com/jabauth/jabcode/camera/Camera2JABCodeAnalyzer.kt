@@ -2,6 +2,7 @@ package com.jabauth.jabcode.camera
 
 import android.media.Image
 import android.media.ImageReader
+import android.util.Log
 import com.jabauth.jabcode.DecodeOptions
 import com.jabauth.jabcode.DecodeResult
 import com.jabauth.jabcode.JABCodeDecoder
@@ -47,6 +48,10 @@ class Camera2JABCodeAnalyzer(
     private val onQualityUpdate: ((ImageQualityAnalyzer.QualityMetrics) -> Unit)? = null
 ) {
     
+    companion object {
+        private const val TAG = "Camera2JABCodeAnalyzer"
+    }
+    
     private val qualityAnalyzer = if (options.includeQualityMetrics && onQualityUpdate != null) {
         ImageQualityAnalyzer()
     } else {
@@ -54,6 +59,8 @@ class Camera2JABCodeAnalyzer(
     }
     
     private var lastAnalyzedTimestamp = 0L
+    private var frameCount = 0
+    private var decodeAttempts = 0
     
     /**
      * Analyze a frame from ImageReader
@@ -62,36 +69,65 @@ class Camera2JABCodeAnalyzer(
     fun analyze(imageReader: ImageReader) {
         var image: Image? = null
         try {
+            frameCount++
+            
             // Frame throttling - prevent CPU overload
             val currentTimestamp = System.currentTimeMillis()
             if (currentTimestamp - lastAnalyzedTimestamp < options.analyzeIntervalMs) {
+                Log.v(TAG, "Frame $frameCount throttled (interval: ${currentTimestamp - lastAnalyzedTimestamp}ms < ${options.analyzeIntervalMs}ms)")
                 return
             }
             lastAnalyzedTimestamp = currentTimestamp
             
+            Log.d(TAG, "=== Analyzing frame $frameCount ===")
+            
             // Acquire latest image
-            image = imageReader.acquireLatestImage() ?: return
-            
-            // Convert Image to Bitmap
-            val bitmap = CameraUtils.imageToBitmap(image)
-            
-            if (bitmap == null) {
+            image = imageReader.acquireLatestImage()
+            if (image == null) {
+                Log.w(TAG, "Frame $frameCount: No image available from ImageReader")
                 return
             }
+            
+            Log.d(TAG, "Frame $frameCount: Acquired image ${image.width}x${image.height}, format=${image.format}")
+            
+            // Convert Image to Bitmap
+            val bitmapStart = System.currentTimeMillis()
+            val bitmap = CameraUtils.imageToBitmap(image)
+            val bitmapTime = System.currentTimeMillis() - bitmapStart
+            
+            if (bitmap == null) {
+                Log.e(TAG, "Frame $frameCount: Bitmap conversion failed")
+                return
+            }
+            
+            Log.d(TAG, "Frame $frameCount: Bitmap created ${bitmap.width}x${bitmap.height} (${bitmapTime}ms)")
             
             try {
                 // Calculate quality metrics (if enabled)
                 if (qualityAnalyzer != null && onQualityUpdate != null) {
+                    val qualityStart = System.currentTimeMillis()
                     val metrics = qualityAnalyzer.analyze(bitmap)
+                    val qualityTime = System.currentTimeMillis() - qualityStart
+                    Log.v(TAG, "Frame $frameCount: Quality metrics - brightness=${metrics.brightness}, " +
+                               "contrast=${metrics.contrast}, focus=${metrics.focus} (${qualityTime}ms)")
                     onQualityUpdate.invoke(metrics)
                 }
                 
                 // Attempt JABCode decode
+                decodeAttempts++
+                Log.d(TAG, "Frame $frameCount: Starting decode attempt #$decodeAttempts (timeout=${options.timeout}ms)")
+                
+                val decodeStart = System.currentTimeMillis()
                 val result = decoder.decode(bitmap, options)
+                val decodeTime = System.currentTimeMillis() - decodeStart
                 
                 if (result != null) {
                     // Success - found JABCode
+                    Log.i(TAG, "Frame $frameCount: ✅ JABCode DETECTED! Data size=${result.data.size} bytes, " +
+                               "colorMode=${result.colorMode}, decodeTime=${decodeTime}ms")
                     onDecodeSuccess(result)
+                } else {
+                    Log.v(TAG, "Frame $frameCount: No JABCode found (decode took ${decodeTime}ms)")
                 }
                 // No else - null result is normal during scanning
                 
@@ -100,10 +136,12 @@ class Camera2JABCodeAnalyzer(
             }
         } catch (e: Exception) {
             // Decode error - report to callback
+            Log.e(TAG, "Frame $frameCount: ❌ Decode exception: ${e.javaClass.simpleName}: ${e.message}", e)
             onDecodeFailure("Decode error: ${e.message}")
         } finally {
             // CRITICAL: Close image to prevent buffer exhaustion
             image?.close()
+            Log.v(TAG, "Frame $frameCount: Image closed")
         }
     }
 }

@@ -28,7 +28,7 @@ import androidx.core.content.ContextCompat
  * **Features:**
  * - Camera2 TextureView preview
  * - Configurable auto-focus (continuous picture mode or off)
- * - Auto-exposure
+ * - Auto-exposure with compensation
  * - Auto white balance
  * - ImageReader for frame analysis
  * - Lifecycle management
@@ -40,27 +40,35 @@ import androidx.core.content.ContextCompat
  *         analyzer.analyze(reader)
  *     },
  *     autoFocus = true,
+ *     exposureCompensation = 0,
  *     modifier = Modifier.aspectRatio(16f/9f)
  * )
  * ```
  * 
  * @param onFrameAvailable Callback when new camera frame available (receives ImageReader)
  * @param autoFocus Enable continuous auto-focus (default: true)
+ * @param exposureCompensation Exposure compensation in EV steps (-2 to +2, default: 0)
  * @param modifier Compose modifier
  */
 @Composable
 fun Camera2Preview(
     onFrameAvailable: ((ImageReader) -> Unit)? = null,
     autoFocus: Boolean = true,
+    exposureCompensation: Int = 0,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val windowManager = remember { context.getSystemService(Context.WINDOW_SERVICE) as WindowManager }
-    val camera2Controller = remember { Camera2Controller(context, windowManager, onFrameAvailable, autoFocus) }
+    val camera2Controller = remember { Camera2Controller(context, windowManager, onFrameAvailable, autoFocus, exposureCompensation) }
     
     // Update auto-focus when setting changes
     LaunchedEffect(autoFocus) {
         camera2Controller.updateAutoFocus(autoFocus)
+    }
+    
+    // Update exposure compensation when setting changes
+    LaunchedEffect(exposureCompensation) {
+        camera2Controller.updateExposureCompensation(exposureCompensation)
     }
     
     DisposableEffect(Unit) {
@@ -93,12 +101,13 @@ private class Camera2Controller(
     private val context: Context,
     private val windowManager: WindowManager,
     private val onFrameAvailable: ((ImageReader) -> Unit)?,
-    initialAutoFocus: Boolean
+    initialAutoFocus: Boolean,
+    initialExposureCompensation: Int
 ) {
     companion object {
         private const val TAG = "Camera2Controller"
-        private const val IMAGE_WIDTH = 1280
-        private const val IMAGE_HEIGHT = 720
+        private const val IMAGE_WIDTH = 1920  // Increased from 1280 for sharper edges
+        private const val IMAGE_HEIGHT = 1080  // Increased from 720 for sharper edges
     }
     
     private var cameraDevice: CameraDevice? = null
@@ -112,6 +121,9 @@ private class Camera2Controller(
     @Volatile
     private var autoFocusEnabled: Boolean = initialAutoFocus
     
+    @Volatile
+    private var exposureCompensationValue: Int = initialExposureCompensation
+    
     private val backgroundThread = HandlerThread("Camera2Background").apply { start() }
     private val backgroundHandler = Handler(backgroundThread.looper)
     
@@ -122,6 +134,21 @@ private class Camera2Controller(
         if (autoFocusEnabled != enabled) {
             autoFocusEnabled = enabled
             Log.d(TAG, "Auto-focus ${if (enabled) "enabled" else "disabled"}")
+            
+            // Restart capture request with new setting
+            previewSurface?.let { surface ->
+                startRepeatingRequest(surface)
+            }
+        }
+    }
+    
+    /**
+     * Update exposure compensation and restart capture request if active
+     */
+    fun updateExposureCompensation(value: Int) {
+        if (exposureCompensationValue != value) {
+            exposureCompensationValue = value
+            Log.d(TAG, "Exposure compensation set to ${value} EV")
             
             // Restart capture request with new setting
             previewSurface?.let { surface ->
@@ -159,9 +186,12 @@ private class Camera2Controller(
                 2  // Double buffering
             ).apply {
                 setOnImageAvailableListener({ reader ->
+                    Log.v(TAG, "ImageReader onImageAvailable callback triggered")
                     onFrameAvailable?.invoke(reader)
                 }, backgroundHandler)
             }
+            
+            Log.d(TAG, "ImageReader initialized: ${IMAGE_WIDTH}x${IMAGE_HEIGHT}, format=YUV_420_888")
             
             // Open camera
             manager.openCamera(cameraId, object : CameraDevice.StateCallback() {
@@ -243,6 +273,17 @@ private class Camera2Controller(
                 CaptureRequest.CONTROL_AE_MODE_ON
             )
             
+            // Set exposure compensation (Tier 2: Improve binarization)
+            val aeCompensationRange = cameraCharacteristics?.get(CameraCharacteristics.CONTROL_AE_COMPENSATION_RANGE)
+            if (aeCompensationRange != null && exposureCompensationValue in aeCompensationRange.lower..aeCompensationRange.upper) {
+                requestBuilder.set(
+                    CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION,
+                    exposureCompensationValue
+                )
+            } else {
+                Log.w(TAG, "Exposure compensation ${exposureCompensationValue} out of range: ${aeCompensationRange?.lower}..${aeCompensationRange?.upper}")
+            }
+            
             // Enable auto white balance
             requestBuilder.set(
                 CaptureRequest.CONTROL_AWB_MODE,
@@ -255,7 +296,7 @@ private class Camera2Controller(
                 backgroundHandler
             )
             
-            Log.d(TAG, "Camera2 preview started: AF=${if (autoFocusEnabled) "ON" else "OFF"}, AE=ON, AWB=AUTO")
+            Log.d(TAG, "Camera2 preview started: AF=${if (autoFocusEnabled) "ON" else "OFF"}, AE=ON (EV=${exposureCompensationValue}), AWB=AUTO")
             
         } catch (e: CameraAccessException) {
             Log.e(TAG, "Start repeating request failed", e)

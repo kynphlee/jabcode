@@ -2,6 +2,7 @@ package com.jabauth.jabcode
 
 import android.graphics.Bitmap
 import android.graphics.Rect
+import android.util.Log
 import com.jabauth.core.logging.Logger
 import com.jabcode.JABCodeMobile
 import java.nio.ByteBuffer
@@ -16,10 +17,20 @@ class JABCodeDecoderImpl(
     private val logger: Logger? = null
 ) : JABCodeDecoder {
 
+    companion object {
+        private const val TAG = "JABCodeDecoder"
+    }
+
     private val nativeBridge = JABCodeMobile()
+    private var decodeCount = 0
 
     override fun decode(image: Bitmap, options: DecodeOptions): DecodeResult? {
+        decodeCount++
         val startTime = System.currentTimeMillis()
+        
+        Log.d(TAG, "--- Decode #$decodeCount START ---")
+        Log.d(TAG, "Bitmap: ${image.width}x${image.height}, config=${image.config}, hasAlpha=${image.hasAlpha()}")
+        Log.d(TAG, "Options: timeout=${options.timeout}ms, scanRegion=${options.scanRegion}")
         
         logger?.debug("Decoding JABCode", mapOf(
             "imageSize" to "${image.width}x${image.height}",
@@ -29,17 +40,30 @@ class JABCodeDecoderImpl(
         
         try {
             // Use nativeDecodeFromBitmap for simplicity
+            Log.d(TAG, "Calling nativeDecodeFromBitmap()...")
             val decodedData = nativeBridge.nativeDecodeFromBitmap(image, options.timeout)
+            
             if (decodedData == null) {
                 val errorMsg = nativeBridge.nativeGetLastError() ?: "Unknown error"
+                Log.e(TAG, "❌ Native decode FAILED: $errorMsg")
                 logger?.error("Native decode failed: $errorMsg", null, mapOf(
                     "imageSize" to "${image.width}x${image.height}"
                 ))
-                android.util.Log.e("JABCodeDecoder", "Native error: $errorMsg")
                 return null
             }
             
+            Log.d(TAG, "✅ Native decode SUCCESS: ${decodedData.size} bytes received")
+            
             val decodeTime = System.currentTimeMillis() - startTime
+            
+            // Try to decode as string for logging
+            val dataPreview = try {
+                String(decodedData, Charsets.UTF_8).take(50)
+            } catch (e: Exception) {
+                "<binary data>"
+            }
+            
+            Log.i(TAG, "Decoded data preview: \"$dataPreview\"${if (decodedData.size > 50) "..." else ""}")
             
             // Create result (native library doesn't return metadata yet)
             val result = DecodeResult(
@@ -49,6 +73,8 @@ class JABCodeDecoderImpl(
                 decodeTimeMs = decodeTime
             )
             
+            Log.i(TAG, "--- Decode #$decodeCount SUCCESS (${decodeTime}ms) ---")
+            
             logger?.info("JABCode decoded successfully", mapOf(
                 "dataSize" to result.data.size,
                 "colorMode" to result.colorMode.name,
@@ -57,6 +83,10 @@ class JABCodeDecoderImpl(
             
             return result
         } catch (e: Exception) {
+            val decodeTime = System.currentTimeMillis() - startTime
+            Log.e(TAG, "--- Decode #$decodeCount EXCEPTION (${decodeTime}ms) ---", e)
+            Log.e(TAG, "Exception: ${e.javaClass.simpleName}: ${e.message}")
+            
             logger?.error("JABCode decoding failed", e, mapOf(
                 "imageSize" to "${image.width}x${image.height}"
             ))

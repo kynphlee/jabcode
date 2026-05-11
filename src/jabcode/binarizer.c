@@ -595,15 +595,74 @@ void getMinMax(jab_byte* rgb, jab_byte* min, jab_byte* mid, jab_byte* max, jab_i
 }
 
 /**
- * @brief Binarize RGB channels using luminance-based thresholds
+ * @brief Calculate optimal threshold using Otsu's method
+ * @param histogram Array of 256 integers (pixel counts per intensity)
+ * @param total_pixels Total number of pixels in histogram
+ * @return Optimal threshold value [0-255]
+ * 
+ * Otsu's method finds the threshold that maximizes inter-class variance
+ * between foreground and background. Optimal for bimodal distributions
+ * (black/white JABCode modules). Adapts to camera tone mapping automatically.
+ */
+jab_int32 calculateOtsuThreshold(jab_int32* histogram, jab_int32 total_pixels)
+{
+	if (total_pixels == 0) return 128;  // Fallback
+	
+	// Calculate probability distribution and total sum
+	jab_float prob[256];
+	jab_float total_sum = 0.0f;
+	
+	for (jab_int32 i = 0; i < 256; i++) {
+		prob[i] = (jab_float)histogram[i] / total_pixels;
+		total_sum += i * prob[i];
+	}
+	
+	// Find threshold with maximum inter-class variance
+	jab_float w0 = 0.0f;           // Weight of class 0 (background)
+	jab_float sum0 = 0.0f;         // Sum of class 0
+	jab_float max_variance = 0.0f;
+	jab_int32 optimal_threshold = 128;  // Default fallback
+	
+	for (jab_int32 t = 0; t < 256; t++) {
+		// Incremental update of class 0
+		w0 += prob[t];
+		sum0 += t * prob[t];
+		
+		// Class 1 (derived)
+		jab_float w1 = 1.0f - w0;
+		
+		// Avoid division by zero
+		if (w0 == 0.0f || w1 == 0.0f) {
+			continue;
+		}
+		
+		// Class means
+		jab_float mu0 = sum0 / w0;
+		jab_float mu1 = (total_sum - sum0) / w1;
+		
+		// Inter-class variance
+		jab_float variance = w0 * w1 * (mu0 - mu1) * (mu0 - mu1);
+		
+		if (variance > max_variance) {
+			max_variance = variance;
+			optimal_threshold = t;
+		}
+	}
+	
+	return optimal_threshold;
+}
+
+/**
+ * @brief Binarize RGB channels using Otsu's method per block (Tier 3)
  * @param bitmap the input bitmap
  * @param rgb the binarized RGB channels (output)
  * @return JAB_SUCCESS | JAB_FAILURE
  * 
- * Uses ITU-R BT.601 luminance for thresholds but preserves RGB colors.
- * More robust for finder pattern detection in high color modes (16+)
- * where intermediate RGB values contaminate per-channel block averages.
-*/
+ * Tier 3: Adaptive binarization using Otsu's method.
+ * Calculates optimal threshold per block and RGB channel using Otsu's algorithm.
+ * Adapts to camera tone mapping (compressed 40-210 range or full 0-255).
+ * Replaces hardcoded threshold=128 with mathematically optimal value.
+ */
 jab_boolean binarizerLuminanceRGB(jab_bitmap* bitmap, jab_bitmap* rgb[3])
 {
 	// Allocate output channels
@@ -626,16 +685,28 @@ jab_boolean binarizerLuminanceRGB(jab_bitmap* bitmap, jab_bitmap* rgb[3])
 	jab_int32 bytes_per_pixel = bitmap->bits_per_pixel / 8;
 	jab_int32 bytes_per_row = bitmap->width * bytes_per_pixel;
 
-	// Calculate block-wise average luminance
+	// Calculate block structure for Otsu threshold per block
 	jab_int32 max_block_size = MAX(bitmap->width, bitmap->height) / 2;
 	jab_int32 block_num_x = (bitmap->width % max_block_size) != 0 ? (bitmap->width / max_block_size) + 1 : (bitmap->width / max_block_size);
 	jab_int32 block_num_y = (bitmap->height % max_block_size) != 0 ? (bitmap->height / max_block_size) + 1 : (bitmap->height / max_block_size);
 	jab_int32 block_size_x = bitmap->width / block_num_x;
 	jab_int32 block_size_y = bitmap->height / block_num_y;
-	jab_float luma_ave[block_num_x * block_num_y];
-	memset(luma_ave, 0, sizeof(jab_float) * block_num_x * block_num_y);
+	
+	// Allocate threshold arrays for Otsu per block per channel
+	jab_int32* threshold_r = (jab_int32*)malloc(block_num_x * block_num_y * sizeof(jab_int32));
+	jab_int32* threshold_g = (jab_int32*)malloc(block_num_x * block_num_y * sizeof(jab_int32));
+	jab_int32* threshold_b = (jab_int32*)malloc(block_num_x * block_num_y * sizeof(jab_int32));
+	
+	if (!threshold_r || !threshold_g || !threshold_b) {
+		JAB_REPORT_ERROR(("Memory allocation for Otsu thresholds failed"))
+		if (threshold_r) free(threshold_r);
+		if (threshold_g) free(threshold_g);
+		if (threshold_b) free(threshold_b);
+		for(jab_int32 k=0; k<3; k++) free(rgb[k]);
+		return JAB_FAILURE;
+	}
 
-	// Calculate average luminance per block
+	// Calculate Otsu threshold per block per channel (Tier 3)
 	for(jab_int32 i=0; i<block_num_y; i++)
 	{
 		for(jab_int32 j=0; j<block_num_x; j++)
@@ -645,7 +716,10 @@ jab_boolean binarizerLuminanceRGB(jab_bitmap* bitmap, jab_bitmap* rgb[3])
 			jab_int32 ex = (j == block_num_x-1) ? bitmap->width : (sx + block_size_x);
 			jab_int32 sy = i * block_size_y;
 			jab_int32 ey = (i == block_num_y-1) ? bitmap->height : (sy + block_size_y);
-			jab_int32 counter = 0;
+			
+			// Build histograms for this block
+			jab_int32 hist_r[256] = {0}, hist_g[256] = {0}, hist_b[256] = {0};
+			jab_int32 pixel_count = 0;
 			
 			for(jab_int32 y=sy; y<ey; y++)
 			{
@@ -655,18 +729,22 @@ jab_boolean binarizerLuminanceRGB(jab_bitmap* bitmap, jab_bitmap* rgb[3])
 					jab_byte r = bitmap->pixel[offset + 0];
 					jab_byte g = bitmap->pixel[offset + 1];
 					jab_byte b = bitmap->pixel[offset + 2];
-					// ITU-R BT.601 luminance coefficients
-					jab_float y_val = 0.299f * r + 0.587f * g + 0.114f * b;
-					luma_ave[block_index] += y_val;
-					counter++;
+					
+					hist_r[r]++;
+					hist_g[g]++;
+					hist_b[b]++;
+					pixel_count++;
 				}
 			}
-			luma_ave[block_index] /= (jab_float)counter;
+			
+			// Calculate Otsu threshold for each channel
+			threshold_r[block_index] = calculateOtsuThreshold(hist_r, pixel_count);
+			threshold_g[block_index] = calculateOtsuThreshold(hist_g, pixel_count);
+			threshold_b[block_index] = calculateOtsuThreshold(hist_b, pixel_count);
 		}
 	}
 
-	// Binarize each RGB channel based on luminance threshold
-	// This preserves color information while using robust luminance-based thresholding
+	// Binarize using Otsu thresholds (Tier 3: Adaptive per block per channel)
 	for(jab_int32 i=0; i<bitmap->height; i++)
 	{
 		for(jab_int32 j=0; j<bitmap->width; j++)
@@ -676,31 +754,24 @@ jab_boolean binarizerLuminanceRGB(jab_bitmap* bitmap, jab_bitmap* rgb[3])
 			jab_byte g = bitmap->pixel[offset + 1];
 			jab_byte b = bitmap->pixel[offset + 2];
 			
-			// Calculate pixel luminance
-			jab_float y_val = 0.299f * r + 0.587f * g + 0.114f * b;
-			
-			// Get block threshold
+			// Get block index and Otsu thresholds
 			jab_int32 block_index = MIN(i/block_size_y, block_num_y-1) * block_num_x + MIN(j/block_size_x, block_num_x-1);
-			jab_float threshold = luma_ave[block_index];
+			jab_int32 ths_r = threshold_r[block_index];
+			jab_int32 ths_g = threshold_g[block_index];
+			jab_int32 ths_b = threshold_b[block_index];
 			
-			// Binarize based on luminance but preserve RGB color info
-			// Dark pixels (Y < threshold) -> set all channels to 0
-			// Bright pixels (Y >= threshold) -> keep original RGB, but binarize to 0 or 255 per channel
-			if(y_val < threshold)
-			{
-				rgb[0]->pixel[i*bitmap->width + j] = 0;
-				rgb[1]->pixel[i*bitmap->width + j] = 0;
-				rgb[2]->pixel[i*bitmap->width + j] = 0;
-			}
-			else
-			{
-				// For bright pixels, binarize each channel independently to 0 or 255
-				rgb[0]->pixel[i*bitmap->width + j] = (r >= 128) ? 255 : 0;
-				rgb[1]->pixel[i*bitmap->width + j] = (g >= 128) ? 255 : 0;
-				rgb[2]->pixel[i*bitmap->width + j] = (b >= 128) ? 255 : 0;
-			}
+			// Binarize each channel with its Otsu threshold
+			// Adapts to compressed camera range (e.g., 40-210) or full range (0-255)
+			rgb[0]->pixel[i*bitmap->width + j] = (r >= ths_r) ? 255 : 0;
+			rgb[1]->pixel[i*bitmap->width + j] = (g >= ths_g) ? 255 : 0;
+			rgb[2]->pixel[i*bitmap->width + j] = (b >= ths_b) ? 255 : 0;
 		}
 	}
+	
+	// Free threshold arrays
+	free(threshold_r);
+	free(threshold_g);
+	free(threshold_b);
 
 	return JAB_SUCCESS;
 }
