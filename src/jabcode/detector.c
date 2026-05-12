@@ -33,7 +33,12 @@ jab_boolean checkPatternCross(jab_int32* state_count, jab_float* module_size)
     for(jab_int32 i=1; i<layer_number+1; i++)
     {
         if(state_count[i] == 0)
+        {
+            // Tier 5 diagnostic: Pattern check FAILED - zero state
+            JAB_REPORT_INFO(("checkPatternCross REJECT: state[%d]=0 (states=%d,%d,%d,%d,%d)",
+                i, state_count[0], state_count[1], state_count[2], state_count[3], state_count[4]))
             return JAB_FAILURE;
+        }
         inside_layer_size += state_count[i];
     }
 
@@ -49,6 +54,17 @@ jab_boolean checkPatternCross(jab_int32* state_count, jab_float* module_size)
 					 (jab_float)state_count[0] > 0.5 * layer_tolerance && //the two outside layers can be larger than layer_size
 					 (jab_float)state_count[4] > 0.5 * layer_tolerance &&
 					 fabs(state_count[1] - state_count[3]) < layer_tolerance; //layer 1 and layer 3 shall be of the same size
+
+    // Tier 5 diagnostic: Report pattern check result
+    if(size_condition) {
+        JAB_REPORT_INFO(("checkPatternCross ACCEPT: states=%d,%d,%d,%d,%d, layerSize=%.1f, tol=%.1f",
+            state_count[0], state_count[1], state_count[2], state_count[3], state_count[4],
+            layer_size, layer_tolerance))
+    } else {
+        JAB_REPORT_INFO(("checkPatternCross REJECT: states=%d,%d,%d,%d,%d, layerSize=%.1f, tol=%.1f",
+            state_count[0], state_count[1], state_count[2], state_count[3], state_count[4],
+            layer_size, layer_tolerance))
+    }
 
     return size_condition;
 }
@@ -285,6 +301,9 @@ jab_boolean seekPatternHorizontal(jab_byte* row, jab_int32* startx, jab_int32* e
                         state_count[cur_state]++;
                         continue;
                     }
+                    // Tier 5 diagnostic: Candidate found, testing pattern
+                    JAB_REPORT_INFO(("seekPatternHorizontal: Candidate at x=%d, testing states=%d,%d,%d,%d,%d",
+                        j, state_count[0], state_count[1], state_count[2], state_count[3], state_count[4]))
                     //check if it is a valid finder pattern
                     if(checkPatternCross(state_count, module_size))
                     {
@@ -294,6 +313,7 @@ jab_boolean seekPatternHorizontal(jab_byte* row, jab_int32* startx, jab_int32* e
 						if(j == (max - 1) && row[j] == row[j-1]) end = j + 1;
 						else end = j;
 						*centerx = (jab_float)(end - state_count[4] - state_count[3]) - (jab_float)state_count[2] / 2.0f;
+                        JAB_REPORT_INFO(("seekPatternHorizontal: FOUND PATTERN at centerx=%.1f", *centerx))
                         return JAB_SUCCESS;
                     }
                     else //check failed, update state_count
@@ -1571,6 +1591,10 @@ void seekMissingFinderPattern(jab_bitmap* bitmap, jab_finder_pattern* fps, jab_i
 */
 jab_finder_pattern* findMasterSymbol(jab_bitmap* bitmap, jab_bitmap* ch[], jab_detect_mode mode, jab_int32* status)
 {
+    // Tier 4 diagnostic: Finder pattern search START
+    JAB_REPORT_INFO(("findMasterSymbol START: mode=%d, bitmap=%dx%d", 
+        mode, ch[0]->width, ch[0]->height))
+    
     //suppose the code size is minimally 1/4 image size
     jab_int32 min_module_size = ch[0]->height / (2 * MAX_SYMBOL_ROWS * MAX_MODULES);
     if(min_module_size < 1 || mode == INTENSIVE_DETECT) min_module_size = 1;
@@ -1733,6 +1757,12 @@ jab_finder_pattern* findMasterSymbol(jab_bitmap* bitmap, jab_bitmap* ch[], jab_d
 	//select best patterns
 	jab_int32 missing_fp_count = selectBestPatterns(fps, total_finder_patterns, fp_type_count);
 
+	// Tier 4 diagnostic: Report finder pattern search results
+	JAB_REPORT_INFO(("findMasterSymbol RESULTS: total_patterns=%d, missing=%d", 
+		total_finder_patterns, missing_fp_count))
+	JAB_REPORT_INFO(("  Pattern counts by type: FP0=%d FP1=%d FP2=%d FP3=%d",
+		fp_type_count[0], fp_type_count[1], fp_type_count[2], fp_type_count[3]))
+	
 	//if more than one finder patterns are missing, detection fails
 	if(missing_fp_count > 1)
 	{
@@ -3329,6 +3359,14 @@ void getAveragePixelValue(jab_bitmap* bitmap, jab_finder_pattern* fps, jab_float
 */
 jab_boolean detectMaster(jab_bitmap* bitmap, jab_bitmap* ch[], jab_decoded_symbol* master_symbol)
 {
+    // Tier 4 diagnostic: Verify detector called with valid binarized channels
+    JAB_REPORT_INFO(("detectMaster ENTRY: bitmap=%dx%d, ch[0]=%p ch[1]=%p ch[2]=%p", 
+        bitmap->width, bitmap->height, (void*)ch[0], (void*)ch[1], (void*)ch[2]))
+    if(ch[0] && ch[1] && ch[2]) {
+        JAB_REPORT_INFO(("  Binarized channels valid: R[0,0]=%d G[0,0]=%d B[0,0]=%d", 
+            ch[0]->pixel[0], ch[1]->pixel[0], ch[2]->pixel[0]))
+    }
+    
     //find master symbol
     jab_finder_pattern* fps;
     jab_int32 status;

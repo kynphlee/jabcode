@@ -102,6 +102,13 @@ class Camera2JABCodeAnalyzer(
             
             Log.d(TAG, "Frame $frameCount: Bitmap created ${bitmap.width}x${bitmap.height} (${bitmapTime}ms)")
             
+            // Pixel validation (Priority 2 diagnostic)
+            val firstPixel = bitmap.getPixel(0, 0)
+            val r = (firstPixel shr 16) and 0xFF
+            val g = (firstPixel shr 8) and 0xFF
+            val b = firstPixel and 0xFF
+            Log.d(TAG, "Frame $frameCount: First pixel RGB=($r,$g,$b), center pixel RGB=(${(bitmap.getPixel(bitmap.width/2, bitmap.height/2) shr 16) and 0xFF},${(bitmap.getPixel(bitmap.width/2, bitmap.height/2) shr 8) and 0xFF},${bitmap.getPixel(bitmap.width/2, bitmap.height/2) and 0xFF})")
+            
             try {
                 // Calculate quality metrics (if enabled)
                 if (qualityAnalyzer != null && onQualityUpdate != null) {

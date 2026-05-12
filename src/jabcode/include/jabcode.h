@@ -55,8 +55,17 @@ extern "C" {
 #define MAX(a,b) 			({__typeof__ (a) _a = (a); __typeof__ (b) _b = (b); _a > _b ? _a : _b;})
 #define MIN(a,b) 			({__typeof__ (a) _a = (a); __typeof__ (b) _b = (b); _a < _b ? _a : _b;})
 
+#ifdef MOBILE_BUILD
+#include <android/log.h>
+// Helper macros to unpack double-parenthesis printf-style arguments
+#define __JAB_ANDROID_LOG_ERROR(...) __android_log_print(ANDROID_LOG_ERROR, "JABCode", __VA_ARGS__)
+#define __JAB_ANDROID_LOG_INFO(...)  __android_log_print(ANDROID_LOG_INFO, "JABCode", __VA_ARGS__)
+#define JAB_REPORT_ERROR(x) { __JAB_ANDROID_LOG_ERROR x; }
+#define JAB_REPORT_INFO(x)  { __JAB_ANDROID_LOG_INFO x; }
+#else
 #define JAB_REPORT_ERROR(x)	{ printf("JABCode Error: "); printf x; printf("\n"); }
 #define JAB_REPORT_INFO(x)	{ printf("JABCode Info: "); printf x; printf("\n"); }
+#endif
 
 typedef unsigned char 		jab_byte;
 typedef char 				jab_char;

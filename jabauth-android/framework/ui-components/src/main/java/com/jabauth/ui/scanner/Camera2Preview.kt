@@ -191,7 +191,7 @@ private class Camera2Controller(
                 }, backgroundHandler)
             }
             
-            Log.d(TAG, "ImageReader initialized: ${IMAGE_WIDTH}x${IMAGE_HEIGHT}, format=YUV_420_888")
+            Log.d(TAG, "ImageReader initialized: ${imageReader?.width}x${imageReader?.height}, format=${imageReader?.imageFormat} (expected: ${IMAGE_WIDTH}x${IMAGE_HEIGHT}, YUV=${ImageFormat.YUV_420_888})")
             
             // Open camera
             manager.openCamera(cameraId, object : CameraDevice.StateCallback() {

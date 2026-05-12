@@ -606,6 +606,7 @@ void getMinMax(jab_byte* rgb, jab_byte* min, jab_byte* mid, jab_byte* max, jab_i
  */
 jab_int32 calculateOtsuThreshold(jab_int32* histogram, jab_int32 total_pixels)
 {
+	JAB_REPORT_INFO(("Otsu starting: total_pixels=%d, hist[128]=%d", total_pixels, histogram[128]))
 	if (total_pixels == 0) return 128;  // Fallback
 	
 	// Calculate probability distribution and total sum
@@ -649,6 +650,7 @@ jab_int32 calculateOtsuThreshold(jab_int32* histogram, jab_int32 total_pixels)
 		}
 	}
 	
+	JAB_REPORT_INFO(("Otsu result: threshold=%d, variance=%.2f", optimal_threshold, max_variance))
 	return optimal_threshold;
 }
 
