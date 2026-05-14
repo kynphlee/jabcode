@@ -21,10 +21,17 @@ build/
 *.dylib
 *.dll
 lib/
+libs/
+!javacpp-wrapper/libs/.gitkeep
 CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
 Makefile
+
+# NOTE: Files already tracked in git history (e.g. javacpp-wrapper/build/*.o,
+# javacpp-wrapper/lib*/*.so, top-level *.pdf, prior *.logcat captures) require
+# `git rm --cached <path>` in a dedicated hygiene commit. Adding patterns here
+# only prevents NEW additions; it does not retroactively untrack.
 
 # Test executables (but keep source)
 test_encode_roundtrip
@@ -44,8 +51,15 @@ target/
 # Test outputs
 /tmp/
 *.log
+*.logcat
 test-output/
 phase*.txt
+
+# Android device test artifacts
+# Includes adb logcat captures (tolerance*-test-*.logcat, samsung-*.logcat, etc.)
+jabauth-android/diagnostic-app/found-patterns.txt
+jabauth-android/diagnostic-app/*.logcat
+**/diagnostic-app/*.logcat
 
 # Android / Gradle
 .gradle/
