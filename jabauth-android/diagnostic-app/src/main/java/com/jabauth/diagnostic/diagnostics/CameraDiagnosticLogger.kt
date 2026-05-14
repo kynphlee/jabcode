@@ -1,4 +1,4 @@
-package com.jabauth.jabcode.camera.diagnostics
+package com.jabauth.diagnostic.diagnostics
 
 import android.hardware.camera2.CaptureResult
 import android.util.Log
@@ -7,10 +7,11 @@ import com.jabauth.jabcode.camera.metadata.MetadataExtractor
 import kotlin.math.abs
 
 /**
- * Phase 2 - Option C: Camera configuration diagnostics for optimal screen display tuning
+ * Phase 2 - Camera Diagnostics: Testing tool for diagnostic-app
  * 
  * Logs camera parameters (exposure time, ISO, FPS) to enable statistical analysis
- * for computing optimal settings to minimize screen refresh interference.
+ * for tuning screen display compatibility. This is a diagnostic-app-specific tool,
+ * not intended for production framework consumers.
  * 
  * **Key Metrics:**
  * - Exposure time (target: 1/30 sec = 33.3ms to average 2-4 refresh cycles at 60Hz/120Hz)
