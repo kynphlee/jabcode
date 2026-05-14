@@ -20,6 +20,11 @@ jab_bitmap* test_mode_bitmap;
 jab_int32	test_mode_color;
 #endif
 
+// Phase 2B: Screen display mode for adaptive color validation
+// Set to 1 for screen display testing (relaxed tolerance, non-consecutive sampling)
+// Set to 0 for printed code scanning (strict tolerance, consecutive sampling)
+#define SCREEN_DISPLAY_MODE	1
+
 #define MAX_MODULES 		145	//the number of modules in side-version 32
 #define MAX_SYMBOL_ROWS		3
 #define MAX_SYMBOL_COLUMNS	3
