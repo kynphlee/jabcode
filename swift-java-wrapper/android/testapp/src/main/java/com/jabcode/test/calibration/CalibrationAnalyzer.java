@@ -3,7 +3,7 @@ package com.jabcode.test.calibration;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.util.Log;
-import com.jabcode.test.JABCodeMobile;
+import com.jabcode.JABCodeMobile;
 import java.util.ArrayList;
 import java.util.List;
 

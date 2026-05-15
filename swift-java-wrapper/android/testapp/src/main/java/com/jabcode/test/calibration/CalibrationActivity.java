@@ -316,7 +316,7 @@ public class CalibrationActivity extends AppCompatActivity {
         
         sb.append("Quality: ").append(quality.getQualityLevel()).append("\n");
         sb.append("Min Separation: ").append(String.format("%.2f", quality.minSeparation)).append("\n");
-        sb.append("Avg Separation: ").append(String.format("%.2f", quality.avgSeparation)).append("\n");
+        sb.append("Avg Separation: ").append(String.format("%.2f", quality.averageColorDistance)).append("\n");
         sb.append("Red↔Magenta: ").append(String.format("%.2f", quality.redMagentaSeparation)).append("\n\n");
         
         sb.append("Calibrated Colors:\n");
