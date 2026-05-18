@@ -94,7 +94,14 @@ void genColorPalette(jab_int32 color_number, jab_byte* palette)
  */
 void setDefaultPalette(jab_int32 color_number, jab_byte* palette)
 {
-    if(color_number == 4)
+    if(color_number == 2)
+    {
+    	/* WS-0: Mode 0 monochrome palette [K, W].
+    	 * See docs/jabcode-all-nc-plan/00b-mode-0-monochrome.md Step 0.5 */
+    	palette[0] = 0;   palette[1] = 0;   palette[2] = 0;     /* K (black) — index 0 */
+    	palette[3] = 255; palette[4] = 255; palette[5] = 255;   /* W (white) — index 1 */
+    }
+    else if(color_number == 4)
     {
     	memcpy(palette + 0, jab_default_palette + FP0_CORE_COLOR * 3, 3);	//black   000 for 00
     	memcpy(palette + 3, jab_default_palette + 5 * 3, 3);				//magenta 101 for 01
@@ -179,7 +186,10 @@ jab_encode* createEncode(jab_int32 color_number, jab_int32 symbol_number)
     if(enc == NULL)
         return NULL;
 
-    if(color_number != 4  && color_number != 8   && color_number != 16 &&
+    /* WS-0: Accept color_number=2 (Nc=0, Mode 0 monochrome).
+     * See docs/jabcode-all-nc-plan/00b-mode-0-monochrome.md and DECISIONS.md ADR-010. */
+    if(color_number != 2  &&
+       color_number != 4  && color_number != 8   && color_number != 16 &&
        color_number != 32 && color_number != 64 && color_number != 128 && color_number != 256)
     {
         color_number = DEFAULT_COLOR_NUMBER;
