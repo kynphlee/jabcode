@@ -212,9 +212,6 @@ jab_int32 readColorPaletteInMaster(jab_bitmap* matrix, jab_decoded_symbol* symbo
 	//allocate buffer for palette
 	jab_int32 color_number = (jab_int32)pow(2, symbol->metadata.Nc + 1);
 	
-	// DEBUG: Log palette reading for all color modes
-	DEBUG_LOG("[readColorPalette] Reading palette for %d-color mode (Nc=%d)", color_number, symbol->metadata.Nc);
-	
 	free(symbol->palette);
 	symbol->palette = (jab_byte*)malloc(color_number * sizeof(jab_byte) * 3 * COLOR_PALETTE_NUMBER);
 	if(symbol->palette == NULL)
@@ -286,14 +283,6 @@ jab_int32 readColorPaletteInMaster(jab_bitmap* matrix, jab_decoded_symbol* symbo
 	if(color_number > 64)
 	{
 		interpolatePalette(symbol->palette, color_number);
-	}
-	
-	// DEBUG: Dump palette for comparison with encoder
-	if(color_number == 16) {
-		DEBUG_LOG("[Decoder Palette] Index 7:  RGB(%d, %d, %d)", 
-		          symbol->palette[7*3], symbol->palette[7*3+1], symbol->palette[7*3+2]);
-		DEBUG_LOG("[Decoder Palette] Index 11: RGB(%d, %d, %d)", 
-		          symbol->palette[11*3], symbol->palette[11*3+1], symbol->palette[11*3+2]);
 	}
 	
 	return JAB_SUCCESS;
@@ -434,10 +423,6 @@ jab_byte decodeModuleHD(jab_bitmap* matrix, jab_byte* palette, jab_int32 color_n
 	//get the nearest palette
 	jab_int32 p_index = getNearestPalette(matrix, x, y);
 	
-	// DEBUG: Log first few modules for 16+ color modes
-	static jab_int32 debug_count = 0;
-	jab_boolean log_this = (color_number >= 16 && debug_count < 10);
-	if(log_this) debug_count++;
 
 	//read the RGB values
 	jab_byte rgb[3];
@@ -522,11 +507,6 @@ jab_byte decodeModuleHD(jab_bitmap* matrix, jab_byte* palette, jab_int32 color_n
 			}
 		}
 		
-		// DEBUG logging for high color modes
-		if(log_this) {
-			DEBUG_LOG("[decodeModuleHD] pos(%d,%d) color_num=%d p_idx=%d rgb=(%d,%d,%d) → index=%d min1=%.1f min2=%.1f",
-				x, y, color_number, p_index, rgb[0], rgb[1], rgb[2], index1, min1, min2);
-		}
 		//if the minimum is close to the second minimum, do further match
 /*		if(min1 * 1.5 > min2)
 		{
@@ -567,28 +547,15 @@ jab_byte decodeModuleNc(jab_byte* rgb)
 {
 	// FIX: For 16+ color modes, check for exact matches to base palette colors first
 	// Part I always uses black(0,0,0), cyan(0,255,255), yellow(255,255,0)
-	jab_int32 tolerance = 30; // Allow some tolerance for camera noise
-	
+	jab_int32 tolerance = 80; // Camera-captured blacks read up to ~(60,40,50) due to screen glow + ambient light
+
 	// Check for black (index 0)
 	if(rgb[0] < tolerance && rgb[1] < tolerance && rgb[2] < tolerance)
-	{
-		DEBUG_LOG("[decodeModuleNc] RGB(%d,%d,%d) → 0 (black)", rgb[0], rgb[1], rgb[2]);
 		return 0;
-	}
-	
-	// Check for cyan (index 3): RGB(0,255,255)
 	if(rgb[0] < tolerance && rgb[1] > (255-tolerance) && rgb[2] > (255-tolerance))
-	{
-		DEBUG_LOG("[decodeModuleNc] RGB(%d,%d,%d) → 3 (cyan)", rgb[0], rgb[1], rgb[2]);
 		return 3;
-	}
-	
-	// Check for yellow (index 6): RGB(255,255,0)
 	if(rgb[0] > (255-tolerance) && rgb[1] > (255-tolerance) && rgb[2] < tolerance)
-	{
-		DEBUG_LOG("[decodeModuleNc] RGB(%d,%d,%d) → 6 (yellow)", rgb[0], rgb[1], rgb[2]);
 		return 6;
-	}
 	
 	// Fallback to original algorithm for 4/8-color modes or imperfect colors
 	jab_double ths_std = 0.08;
@@ -622,11 +589,9 @@ jab_byte decodeModuleNc(jab_byte* rgb)
 	}
 	else
 	{
-		DEBUG_LOG("[decodeModuleNc] RGB(%d,%d,%d) → 7 (white/gray, std=%.3f)", rgb[0], rgb[1], rgb[2], std);
 		return 7;//111
 	}
 	jab_byte result = ((bits[0] << 2) + (bits[1] << 1) + bits[2]);
-	DEBUG_LOG("[decodeModuleNc] RGB(%d,%d,%d) → %d (color)", rgb[0], rgb[1], rgb[2], result);
 	return result;
 }
 
@@ -870,7 +835,6 @@ jab_int32 decodeMasterMetadataPartI(jab_bitmap* matrix, jab_decoded_symbol* symb
 		jab_byte rgb =  decodeModuleNc(&matrix->pixel[mtx_offset]);
 		if(rgb != 0 && rgb != 3 && rgb != 6)
 		{
-			DEBUG_LOG("[Metadata] INVALID color %d at module %d (expected 0, 3, or 6) - METADATA DECODE FAILED", rgb, *module_count);
 #if TEST_MODE
 		reportError("Invalid module color in primary metadata part 1 found");
 #endif
@@ -909,10 +873,8 @@ jab_int32 decodeMasterMetadataPartI(jab_bitmap* matrix, jab_decoded_symbol* symb
 	}
 
 	//decode ldpc for part1
-	DEBUG_LOG("[PartI] Running LDPC decode on %d bits with wc=2...", MASTER_METADATA_PART1_LENGTH);
 	if( !decodeLDPChd(part1, MASTER_METADATA_PART1_LENGTH, 2, 0) )
 	{
-		DEBUG_LOG("[PartI] FAILED: LDPC decoding failed");
 #if TEST_MODE
 		reportError("LDPC decoding for master metadata part 1 failed");
 #endif
@@ -958,13 +920,10 @@ jab_int32 decodeMasterMetadataPartII(jab_bitmap* matrix, jab_decoded_symbol* sym
 	jab_int32 part2_bit_count = 0;
 
     //read part2 - read ALL modules completely including padding bits
-    DEBUG_LOG("[PartII] Reading %d modules for Part II metadata (bits_per_module=%d, total_bits=%d including padding)", 
-              modules_needed, bits_per_module, total_bits);
     for(jab_int32 mod=0; mod<modules_needed; mod++)
     {
 		//decode bits out of the module at (x,y)
 		jab_byte bits = decodeModuleHD(matrix, symbol->palette, color_number, norm_palette, pal_ths, *x, *y);
-		DEBUG_LOG("[PartII] Module (%d,%d) decoded as %d (0x%02x)", *x, *y, bits, bits);
 		//write ALL bits from this module into part2
 		for(jab_int32 i=0; i<bits_per_module; i++)
 		{
@@ -980,17 +939,14 @@ jab_int32 decodeMasterMetadataPartII(jab_bitmap* matrix, jab_decoded_symbol* sym
     }
 
 	//decode ldpc for part2 using EXACTLY 38 bits (encoder outputs 38, padding is only for module alignment)
-	DEBUG_LOG("[PartII] Running LDPC decode on %d bits with wc=2...", MASTER_METADATA_PART2_LENGTH);
 	if( !decodeLDPChd(part2, MASTER_METADATA_PART2_LENGTH, 2, 0) )
 	{
-		DEBUG_LOG("[PartII] FAILED: LDPC decoding failed");
 		free(part2);
 #if TEST_MODE
 		reportError("LDPC decoding for master metadata part 2 failed");
 #endif
 		return DECODE_METADATA_FAILED;
 	}
-	DEBUG_LOG("[PartII] LDPC decode SUCCESS");
 
     //parse part2
 	//read V
@@ -1289,8 +1245,6 @@ void loadDefaultMasterMetadata(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 */
 jab_int32 decodeSymbol(jab_bitmap* matrix, jab_decoded_symbol* symbol, jab_byte* data_map, jab_float* norm_palette, jab_float* pal_ths, jab_int32 type)
 {
-	jab_int32 color_number_debug = (jab_int32)pow(2, symbol->metadata.Nc + 1);
-	DEBUG_LOG("[decodeSymbol] Starting symbol decode for %d-color mode", color_number_debug);
 #if TEST_MODE
 	jab_int32 color_number = color_number_debug;
 	printf("p1:\n");
@@ -1321,16 +1275,13 @@ jab_int32 decodeSymbol(jab_bitmap* matrix, jab_decoded_symbol* symbol, jab_byte*
 	}
 
 	//read raw data
-	DEBUG_LOG("[decodeSymbol] Reading raw module data...");
 	jab_data* raw_module_data = readRawModuleData(matrix, symbol, data_map, norm_palette, pal_ths);
 	if(raw_module_data == NULL)
 	{
-		DEBUG_LOG("[decodeSymbol] FAILED: readRawModuleData returned NULL");
 		JAB_REPORT_ERROR(("Reading raw module data in symbol %d failed", symbol->index))
 		free(data_map);
 		return FATAL_ERROR;
 	}
-	DEBUG_LOG("[decodeSymbol] Raw module data read success (%d bytes)", raw_module_data->length);
 #if TEST_MODE
 	FILE* fp = fopen("jab_dec_module_data.bin", "wb");
 	fwrite(raw_module_data->data, raw_module_data->length, 1, fp);
@@ -1380,16 +1331,13 @@ jab_int32 decodeSymbol(jab_bitmap* matrix, jab_decoded_symbol* symbol, jab_byte*
 #endif // TEST_MODE
 
 	//decode ldpc
-	jab_int32 color_number_ldpc = (jab_int32)pow(2, symbol->metadata.Nc + 1);
     if(decodeLDPChd((jab_byte*)raw_data->data, Pg, symbol->metadata.ecl.x, symbol->metadata.ecl.y) != Pn)
     {
-		DEBUG_LOG("[LDPC] FAILED for %d-color mode (Pg=%d, Pn=%d, wc=%d, wr=%d)", 
-			color_number_ldpc, Pg, Pn, symbol->metadata.ecl.x, symbol->metadata.ecl.y);
 		JAB_REPORT_ERROR(("LDPC decoding for data in symbol %d failed", symbol->index))
 		free(raw_data);
 		return JAB_FAILURE;
 	}
-	DEBUG_LOG("[LDPC] SUCCESS for %d-color mode (decoded %d bytes)", color_number_ldpc, Pn);
+	DEBUG_LOG("[DECODE] SUCCESS Nc=%d (%d bytes)", symbol->metadata.Nc, Pn);
 
 	//find the start flag of metadata
 	jab_int32 metadata_offset = Pn - 1;
@@ -1484,6 +1432,7 @@ jab_int32 decodeMaster(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 	jab_int32 decode_partI_ret = decodeMasterMetadataPartI(matrix, symbol, data_map, &module_count, &x, &y);
 	if(decode_partI_ret == JAB_FAILURE)
 	{
+		free(data_map);
 		return JAB_FAILURE;
 	}
 	if(decode_partI_ret == DECODE_METADATA_FAILED)
@@ -1498,43 +1447,79 @@ jab_int32 decodeMaster(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 		loadDefaultMasterMetadata(matrix, symbol);
 	}
 
-	//read color palettes
-    if(readColorPaletteInMaster(matrix, symbol, data_map, &module_count, &x, &y) < 0)
-	{
-		reportError("Reading color palettes in master symbol failed");
-		DEBUG_LOG("[decodeMaster] FAILED: readColorPaletteInMaster returned error");
-		return JAB_FAILURE;
-	}
-	DEBUG_LOG("[decodeMaster] Palette read success, normalizing...");
+	//save state after PartI for potential Nc retry
+	jab_int32 x_postP1 = x, y_postP1 = y, mc_postP1 = module_count;
+	size_t dm_size = (size_t)matrix->width * matrix->height * sizeof(jab_byte);
+	jab_byte* dm_postP1 = (jab_byte*)malloc(dm_size);
+	if(dm_postP1) memcpy(dm_postP1, data_map, dm_size);
 
-	//normalize the RGB values in color palettes
-	jab_int32 color_number = (jab_int32)pow(2, symbol->metadata.Nc + 1);
-	jab_float norm_palette[color_number * 4 * COLOR_PALETTE_NUMBER];	//each color contains 4 normalized values, i.e. R, G, B and Luminance
-	normalizeColorPalette(symbol, norm_palette, color_number);
-	DEBUG_LOG("[decodeMaster] Normalization done, getting thresholds...");
+	jab_byte original_Nc = symbol->metadata.Nc;
+	jab_byte nc_order[] = {original_Nc, 1, 0, 2, 3, 4, 5, 6};
+	jab_int32 nc_tries = 8;
 
-	//get the palette RGB thresholds
-	jab_float pal_ths[3 * COLOR_PALETTE_NUMBER];
-	for(jab_int32 i=0; i<COLOR_PALETTE_NUMBER; i++)
+	for(jab_int32 nc_idx = 0; nc_idx < nc_tries; nc_idx++)
 	{
-		getPaletteThreshold(symbol->palette + (color_number*3)*i, color_number, &pal_ths[i*3]);
-	}
-	DEBUG_LOG("[decodeMaster] Thresholds done, decoding metadata Part II...");
+		if(nc_idx > 0 && nc_order[nc_idx] == original_Nc) continue;
 
-	//decode metadata PartII
-	if(decode_partI_ret == JAB_SUCCESS)
-	{
-		jab_int32 part2_result = decodeMasterMetadataPartII(matrix, symbol, data_map, norm_palette, pal_ths, &module_count, &x, &y);
-		DEBUG_LOG("[decodeMaster] Metadata Part II result: %d", part2_result);
-		if(part2_result <= 0)
+		if(nc_idx > 0)
 		{
-			DEBUG_LOG("[decodeMaster] FAILED: Metadata Part II failed");
-			return JAB_FAILURE;
+			if(!dm_postP1) break;
+			x = x_postP1; y = y_postP1; module_count = mc_postP1;
+			memcpy(data_map, dm_postP1, dm_size);
+			symbol->metadata.Nc = nc_order[nc_idx];
+			JAB_REPORT_INFO(("Nc_FALLBACK: Retrying with Nc=%d (try %d/%d, original=%d)",
+				nc_order[nc_idx], nc_idx+1, nc_tries, original_Nc));
+		}
+
+		//read color palettes
+		if(readColorPaletteInMaster(matrix, symbol, data_map, &module_count, &x, &y) < 0)
+		{
+			continue;
+		}
+
+		//normalize the RGB values in color palettes
+		jab_int32 color_number = (jab_int32)pow(2, symbol->metadata.Nc + 1);
+		jab_float norm_palette[color_number * 4 * COLOR_PALETTE_NUMBER];
+		normalizeColorPalette(symbol, norm_palette, color_number);
+
+		//get the palette RGB thresholds
+		jab_float pal_ths[3 * COLOR_PALETTE_NUMBER];
+		for(jab_int32 i=0; i<COLOR_PALETTE_NUMBER; i++)
+		{
+			getPaletteThreshold(symbol->palette + (color_number*3)*i, color_number, &pal_ths[i*3]);
+		}
+
+		//decode metadata PartII
+		jab_boolean partII_ok = 0;
+		if(decode_partI_ret == JAB_SUCCESS)
+		{
+			jab_int32 part2_result = decodeMasterMetadataPartII(matrix, symbol, data_map, norm_palette, pal_ths, &module_count, &x, &y);
+			if(part2_result > 0) partII_ok = 1;
+		}
+		else
+		{
+			partII_ok = 1;
+		}
+
+		if(!partII_ok) continue;
+
+		//decode master symbol — give decodeSymbol its own copy because it frees data_map internally
+		jab_byte* dm_copy = (jab_byte*)malloc(dm_size);
+		if(!dm_copy) break;
+		memcpy(dm_copy, data_map, dm_size);
+		jab_int32 sym_ret = decodeSymbol(matrix, symbol, dm_copy, norm_palette, pal_ths, 0);
+		if(sym_ret == JAB_SUCCESS)
+		{
+			if(nc_idx > 0) JAB_REPORT_INFO(("Nc_FALLBACK: SUCCESS with Nc=%d (original was %d)", symbol->metadata.Nc, original_Nc));
+			free(dm_postP1);
+			free(data_map);
+			return JAB_SUCCESS;
 		}
 	}
 
-	//decode master symbol
-	return decodeSymbol(matrix, symbol, data_map, norm_palette, pal_ths, 0);
+	free(dm_postP1);
+	free(data_map);
+	return JAB_FAILURE;
 }
 
 /**

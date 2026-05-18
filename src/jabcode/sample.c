@@ -58,8 +58,8 @@ jab_bitmap* sampleSymbol(jab_bitmap* bitmap, jab_perspective_transform* pt, jab_
 		warpPoints(pt, points, side_size.x);
 		for(jab_int32 j=0; j<side_size.x; j++)
 		{
-			jab_int32 mapped_x = (jab_int32)points[j].x;
-			jab_int32 mapped_y = (jab_int32)points[j].y;
+			jab_int32 mapped_x = (jab_int32)(points[j].x + 0.5f);
+			jab_int32 mapped_y = (jab_int32)(points[j].y + 0.5f);
 			if(mapped_x < 0 || mapped_x > bitmap->width-1)
 			{
 				if(mapped_x == -1) mapped_x = 0;
@@ -74,7 +74,7 @@ jab_bitmap* sampleSymbol(jab_bitmap* bitmap, jab_perspective_transform* pt, jab_
 			}
 			for(jab_int32 c=0; c<matrix->channel_count; c++)
 			{
-				//get the average of pixel values in 3x3 neighborhood as the sampled value
+#ifdef MOBILE_BUILD
 				jab_float sum = 0;
 				for(jab_int32 dx=-1; dx<=1; dx++)
 				{
@@ -88,8 +88,22 @@ jab_bitmap* sampleSymbol(jab_bitmap* bitmap, jab_perspective_transform* pt, jab_
 					}
 				}
 				jab_byte ave = (jab_byte)(sum / 9.0f + 0.5f);
+#else
+				jab_float sum = 0;
+				for(jab_int32 dx=-1; dx<=1; dx++)
+				{
+					for(jab_int32 dy=-1; dy<=1; dy++)
+					{
+						jab_int32 px = mapped_x + dx;
+						jab_int32 py = mapped_y + dy;
+						if(px < 0 || px > bitmap->width - 1)  px = mapped_x;
+						if(py < 0 || py > bitmap->height - 1) py = mapped_y;
+						sum += bitmap->pixel[py*bmp_bytes_per_row + px*bmp_bytes_per_pixel + c];
+					}
+				}
+				jab_byte ave = (jab_byte)(sum / 9.0f + 0.5f);
+#endif
 				matrix->pixel[i*mtx_bytes_per_row + j*mtx_bytes_per_pixel + c] = ave;
-				//matrix->pixel[i*mtx_bytes_per_row + j*mtx_bytes_per_pixel + c] = bitmap->pixel[mapped_y*bmp_bytes_per_row + mapped_x*bmp_bytes_per_pixel + c];
 #if TEST_MODE
 				test_mode_bitmap->pixel[mapped_y*bmp_bytes_per_row + mapped_x*bmp_bytes_per_pixel + c] = test_mode_color;
 				if(c == 3 && test_mode_color == 0)
@@ -138,8 +152,8 @@ jab_bitmap* sampleCrossArea(jab_bitmap* bitmap, jab_perspective_transform* pt)
 		warpPoints(pt, points, SAMPLE_AREA_WIDTH);
 		for(jab_int32 j=0; j<SAMPLE_AREA_WIDTH; j++)
 		{
-			jab_int32 mapped_x = (jab_int32)points[j].x;
-			jab_int32 mapped_y = (jab_int32)points[j].y;
+			jab_int32 mapped_x = (jab_int32)(points[j].x + 0.5f);
+			jab_int32 mapped_y = (jab_int32)(points[j].y + 0.5f);
 			if(mapped_x < 0 || mapped_x > bitmap->width-1)
 			{
 				if(mapped_x == -1) mapped_x = 0;

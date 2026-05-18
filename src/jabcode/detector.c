@@ -20,75 +20,53 @@
 #include "decoder.h"
 #include "encoder.h"
 
+#define JABCODE_DIAG 0
+
+/* WS-0 Step 0.7: Mode 0 (Nc=0, monochrome) decode support.
+ * Set by detectMaster() when the input bitmap has R==G==B on all sampled pixels
+ * (greyscale signature). When true, scanPatternVertical produces FP candidates
+ * for all four FP types from K-cored candidates, and crossCheckPattern skips
+ * the color-channel-specific cross-checks (which assume Y/C cores at FP2/FP3).
+ * See: docs/jabcode-all-nc-plan/00b-mode-0-monochrome.md Step 0.7 */
+static jab_boolean g_mode0_decode = 0;
+
+#if JABCODE_DIAG
+static jab_int32 diag_cc_green_fail = 0;
+static jab_int32 diag_cc_red_fail = 0, diag_cc_blue_fail = 0;
+static jab_int32 diag_cc_modsize_fail = 0;
+static jab_int32 diag_cc_color_h_fail = 0, diag_cc_color_v_fail = 0, diag_cc_color_d_fail = 0;
+static jab_int32 diag_cc_pass = 0;
+#endif
+
 /**
  * @brief Check the proportion of layer sizes in finder pattern
  * @param state_count the layer sizes in pixel
  * @param module_size the module size
- * @param scan_dir the scan direction (0=horizontal, 1=vertical, 2=diagonal)
- * @param type the pattern type (FP0, FP1, FP2, FP3) for type-specific tolerance, or -1 if unknown
  * @return JAB_SUCCESS | JAB_FAILURE
 */
-jab_boolean checkPatternCross(jab_int32* state_count, jab_float* module_size, jab_int32 scan_dir, jab_int32 type)
+jab_boolean checkPatternCross(jab_int32* state_count, jab_float* module_size)
 {
     jab_int32 layer_number = 3;
     jab_int32 inside_layer_size = 0;
     for(jab_int32 i=1; i<layer_number+1; i++)
     {
         if(state_count[i] == 0)
-        {
-            // Tier 5 diagnostic: Pattern check FAILED - zero state
-            JAB_REPORT_INFO(("checkPatternCross REJECT: state[%d]=0 (states=%d,%d,%d,%d,%d)",
-                i, state_count[0], state_count[1], state_count[2], state_count[3], state_count[4]))
             return JAB_FAILURE;
-        }
         inside_layer_size += state_count[i];
     }
 
     jab_float layer_size = (jab_float)inside_layer_size / 3.0f;
     *module_size = layer_size;
     jab_float layer_tolerance = layer_size / 2.0f;
-    
-    // Phase 2E-2F-2G - Universal + FP2-specific tolerance for screen mode
-    // Phase 2E: Universal 2.5x resolved horizontal failures (76% → 2.5%)
-    // Phase 2F: FP2 vertical boost (Council FP2-VERTICAL-001) → FP2 detection breakthrough
-    // Phase 2G: FP2 horizontal boost (Council FP2-HORIZONTAL-001)
-    //   - Phase 2F success: FP2 0 → 1-6 patterns, vertical 45.7% → 10.9%
-    //   - Exposed bottleneck: Horizontal 44.1%, Diagonal 45.0%
-    //   - Historian's pattern: 100% success rate maintained (4/4 → targeting 5/5)
-    //   - Lazarus safeguard: Detection ≠ decode, monitor decode success
-#if SCREEN_DISPLAY_MODE
-    jab_float tolerance_multiplier = 2.5f;  // Universal baseline for screen mode
-    
-    // Phase 2F-2G: FP2 requires elevated tolerance (vertical + horizontal)
-    // Council confidence: 65%, proven pattern with Lazarus decode monitoring
-    if (type == FP2 && (scan_dir == 0 || scan_dir == 1)) {
-        tolerance_multiplier = 3.5f;  // Horizontal + vertical boost for FP2
-    }
-#else
-    jab_float tolerance_multiplier = (scan_dir == 1 || scan_dir == 2) ? 2.5f : 1.0f;  // Print mode: directional
-#endif
-    jab_float adaptive_tolerance = layer_tolerance * tolerance_multiplier;
-    jab_float adaptive_outer_tolerance = layer_tolerance * 3.0f * tolerance_multiplier;
 
     jab_boolean size_condition;
 	//layer size proportion must be n-1-1-1-m where n>1, m>1
-	size_condition = fabs(layer_size - (jab_float)state_count[1]) < adaptive_tolerance &&
-					 fabs(layer_size - (jab_float)state_count[2]) < adaptive_tolerance &&
-					 fabs(layer_size - (jab_float)state_count[3]) < adaptive_tolerance &&
-					 fabs(layer_size - (jab_float)state_count[0]) < adaptive_outer_tolerance && //outer layers with 3x tolerance for edge effects
-					 fabs(layer_size - (jab_float)state_count[4]) < adaptive_outer_tolerance &&
-					 fabs(state_count[1] - state_count[3]) < adaptive_tolerance; //layer 1 and layer 3 shall be of the same size
-
-    // Tier 5 diagnostic: Report pattern check result with adaptive tolerance info
-    if(size_condition) {
-        JAB_REPORT_INFO(("checkPatternCross ACCEPT: states=%d,%d,%d,%d,%d, layerSize=%.1f, tol=%.1f (dir=%d, mult=%.1fx)",
-            state_count[0], state_count[1], state_count[2], state_count[3], state_count[4],
-            layer_size, adaptive_tolerance, scan_dir, tolerance_multiplier))
-    } else {
-        JAB_REPORT_INFO(("checkPatternCross REJECT: states=%d,%d,%d,%d,%d, layerSize=%.1f, tol=%.1f (dir=%d, mult=%.1fx)",
-            state_count[0], state_count[1], state_count[2], state_count[3], state_count[4],
-            layer_size, adaptive_tolerance, scan_dir, tolerance_multiplier))
-    }
+	size_condition = fabs(layer_size - (jab_float)state_count[1]) < layer_tolerance &&
+					 fabs(layer_size - (jab_float)state_count[2]) < layer_tolerance &&
+					 fabs(layer_size - (jab_float)state_count[3]) < layer_tolerance &&
+					 (jab_float)state_count[0] > 0.5 * layer_tolerance && //the two outside layers can be larger than layer_size
+					 (jab_float)state_count[4] > 0.5 * layer_tolerance &&
+					 fabs(state_count[1] - state_count[3]) < layer_tolerance; //layer 1 and layer 3 shall be of the same size
 
     return size_condition;
 }
@@ -222,7 +200,7 @@ jab_boolean seekPattern(jab_bitmap* ch, jab_int32 row, jab_int32 col, jab_int32*
                         continue;
                     }
                     //check if it is a valid finder pattern
-                    if(checkPatternCross(state_count, module_size, 1, -1))  // vertical scan, type unknown at this stage
+                    if(checkPatternCross(state_count, module_size))
                     {
                         *end = p+1;
                         if(skip)  *skip = state_count[0];
@@ -325,11 +303,8 @@ jab_boolean seekPatternHorizontal(jab_byte* row, jab_int32* startx, jab_int32* e
                         state_count[cur_state]++;
                         continue;
                     }
-                    // Tier 5 diagnostic: Candidate found, testing pattern
-                    JAB_REPORT_INFO(("seekPatternHorizontal: Candidate at x=%d, testing states=%d,%d,%d,%d,%d",
-                        j, state_count[0], state_count[1], state_count[2], state_count[3], state_count[4]))
                     //check if it is a valid finder pattern
-                    if(checkPatternCross(state_count, module_size, 0, -1))  // horizontal scan, type unknown at this stage
+                    if(checkPatternCross(state_count, module_size))
                     {
                         *endx = j+1;
                         if(skip)  *skip = state_count[0];
@@ -337,7 +312,6 @@ jab_boolean seekPatternHorizontal(jab_byte* row, jab_int32* startx, jab_int32* e
 						if(j == (max - 1) && row[j] == row[j-1]) end = j + 1;
 						else end = j;
 						*centerx = (jab_float)(end - state_count[4] - state_count[3]) - (jab_float)state_count[2] / 2.0f;
-                        JAB_REPORT_INFO(("seekPatternHorizontal: FOUND PATTERN at centerx=%.1f", *centerx))
                         return JAB_SUCCESS;
                     }
                     else //check failed, update state_count
@@ -372,11 +346,6 @@ jab_boolean seekPatternHorizontal(jab_byte* row, jab_int32* startx, jab_int32* e
 */
 jab_int32 crossCheckPatternDiagonal(jab_bitmap* image, jab_int32 type, jab_float module_size_max, jab_float* centerx, jab_float* centery, jab_float* module_size, jab_int32* dir, jab_boolean both_dir)
 {
-#if SCREEN_DISPLAY_MODE
-	jab_int32 state_merge_threshold = 1;  // Screen: allow 1-pixel states
-#else
-	jab_int32 state_merge_threshold = 3;  // Print: merge states < 3 pixels
-#endif
     jab_int32 state_number = 5;
     jab_int32 state_middle = (state_number - 1) / 2;
 
@@ -440,7 +409,7 @@ jab_int32 crossCheckPatternDiagonal(jab_bitmap* image, jab_int32 type, jab_float
             }
             else
             {
-                if(state_index >0 && state_count[state_middle - state_index] < state_merge_threshold)
+                if(state_index >0 && state_count[state_middle - state_index] < 3)
                 {
                     state_count[state_middle - (state_index-1)] += state_count[state_middle - state_index];
                     state_count[state_middle - state_index] = 0;
@@ -477,7 +446,7 @@ jab_int32 crossCheckPatternDiagonal(jab_bitmap* image, jab_int32 type, jab_float
 				}
 				else
 				{
-					if(state_index >0 && state_count[state_middle + state_index] < state_merge_threshold)
+					if(state_index >0 && state_count[state_middle + state_index] < 3)
 					{
 						state_count[state_middle + (state_index-1)] += state_count[state_middle + state_index];
 						state_count[state_middle + state_index] = 0;
@@ -508,7 +477,7 @@ jab_int32 crossCheckPatternDiagonal(jab_bitmap* image, jab_int32 type, jab_float
 		if(!flag)
 		{
 			//check module size, if it is too big, assume it is a false positive
-			jab_boolean ret = checkPatternCross(state_count, module_size, 2, type);  // diagonal scan with known type
+			jab_boolean ret = checkPatternCross(state_count, module_size);
 			if(ret && ((*module_size) <= module_size_max))
 			{
 				if(tmp_module_size > 0)
@@ -521,9 +490,6 @@ jab_int32 crossCheckPatternDiagonal(jab_bitmap* image, jab_int32 type, jab_float
 				//calculate the center y
 				*centery = (jab_float)(starty+i - state_count[4] - state_count[3]) - (jab_float)state_count[2] / 2.0f;
 				confirmed++;
-				JAB_REPORT_INFO(("crossCheckDiagonal ACCEPT: states=%d,%d,%d,%d,%d at (%.1f,%.1f), confirmed=%d",
-					state_count[0], state_count[1], state_count[2], state_count[3], state_count[4],
-					*centerx, *centery, confirmed));
 				if( !both_dir || try_count == 2 || fix_dir)
 				{
 					if(confirmed == 2)
@@ -533,9 +499,6 @@ jab_int32 crossCheckPatternDiagonal(jab_bitmap* image, jab_int32 type, jab_float
 			}
 			else
 			{
-				JAB_REPORT_INFO(("crossCheckDiagonal REJECT: states=%d,%d,%d,%d,%d, layerSize=%.1f, max=%.1f, ret=%d",
-					state_count[0], state_count[1], state_count[2], state_count[3], state_count[4],
-					*module_size, module_size_max, ret));
 				offset_x = -offset_x;
 				*dir = -(*dir);
 			}
@@ -552,16 +515,10 @@ jab_int32 crossCheckPatternDiagonal(jab_bitmap* image, jab_int32 type, jab_float
  * @param centerx the x coordinate of the finder pattern center
  * @param centery the y coordinate of the finder pattern center
  * @param module_size the module size in vertical direction
- * @param type the pattern type (FP0-FP3) or -1 if unknown
  * @return JAB_SUCCESS | JAB_FAILURE
 */
-jab_boolean crossCheckPatternVertical(jab_bitmap* image, jab_int32 module_size_max, jab_float centerx, jab_float* centery, jab_float* module_size, jab_int32 type)
+jab_boolean crossCheckPatternVertical(jab_bitmap* image, jab_int32 module_size_max, jab_float centerx, jab_float* centery, jab_float* module_size)
 {
-#if SCREEN_DISPLAY_MODE
-	jab_int32 state_merge_threshold = 1;  // Screen: allow 1-pixel states (subpixel blur)
-#else
-	jab_int32 state_merge_threshold = 3;  // Print: merge states < 3 pixels
-#endif
 	jab_int32 state_number = 5;
 	jab_int32 state_middle = (state_number - 1) / 2;
     jab_int32 state_count[5] = {0};
@@ -579,7 +536,7 @@ jab_boolean crossCheckPatternVertical(jab_bitmap* image, jab_int32 module_size_m
         }
         else
         {
-            if(state_index > 0 && state_count[state_middle - state_index] < state_merge_threshold)
+            if(state_index > 0 && state_count[state_middle - state_index] < 3)
             {
                 state_count[state_middle - (state_index-1)] += state_count[state_middle - state_index];
                 state_count[state_middle - state_index] = 0;
@@ -595,11 +552,7 @@ jab_boolean crossCheckPatternVertical(jab_bitmap* image, jab_int32 module_size_m
         }
     }
     if(state_index < state_middle)
-    {
-        JAB_REPORT_INFO(("crossCheckVertical FAIL: incomplete upward states at (%.1f,%.1f), state_index=%d < %d",
-            centerx, *centery, state_index, state_middle));
         return JAB_FAILURE;
-    }
 
     for(i=1, state_index=0; (centery_int+i)<image->height && state_index<=state_middle; i++)
     {
@@ -609,7 +562,7 @@ jab_boolean crossCheckPatternVertical(jab_bitmap* image, jab_int32 module_size_m
         }
         else
         {
-            if(state_index > 0 && state_count[state_middle + state_index] < state_merge_threshold)
+            if(state_index > 0 && state_count[state_middle + state_index] < 3)
             {
                 state_count[state_middle + (state_index-1)] += state_count[state_middle + state_index];
                 state_count[state_middle + state_index] = 0;
@@ -625,26 +578,16 @@ jab_boolean crossCheckPatternVertical(jab_bitmap* image, jab_int32 module_size_m
         }
     }
     if(state_index < state_middle)
-    {
-        JAB_REPORT_INFO(("crossCheckVertical FAIL: incomplete downward states at (%.1f,%.1f), state_index=%d < %d",
-            centerx, *centery, state_index, state_middle));
         return JAB_FAILURE;
-    }
 
     //check module size, if it is too big, assume it is a false positive
-    jab_boolean ret = checkPatternCross(state_count, module_size, 1, type);  // vertical scan with type for FP2 boost
+    jab_boolean ret = checkPatternCross(state_count, module_size);
     if(ret && ((*module_size) <= module_size_max))
     {
-        JAB_REPORT_INFO(("crossCheckVertical ACCEPT: states=%d,%d,%d,%d,%d at (%.1f,%.1f), layerSize=%.1f",
-            state_count[0], state_count[1], state_count[2], state_count[3], state_count[4],
-            centerx, *centery, *module_size));
         //calculate the center y
         *centery = (jab_float)(centery_int + i - state_count[4] - state_count[3]) - (jab_float)state_count[2] / 2.0f;
         return JAB_SUCCESS;
     }
-    JAB_REPORT_INFO(("crossCheckVertical REJECT: states=%d,%d,%d,%d,%d at (%.1f,%.1f), layerSize=%.1f, max=%d, ret=%d",
-        state_count[0], state_count[1], state_count[2], state_count[3], state_count[4],
-        centerx, *centery, *module_size, module_size_max, ret));
     return JAB_FAILURE;
 }
 
@@ -655,16 +598,10 @@ jab_boolean crossCheckPatternVertical(jab_bitmap* image, jab_int32 module_size_m
  * @param centerx the x coordinate of the finder pattern center
  * @param centery the y coordinate of the finder pattern center
  * @param module_size the module size in horizontal direction
- * @param type the pattern type (FP0-FP3) or -1 if unknown
  * @return JAB_SUCCESS | JAB_FAILURE
 */
-jab_boolean crossCheckPatternHorizontal(jab_bitmap* image, jab_float module_size_max, jab_float* centerx, jab_float centery, jab_float* module_size, jab_int32 type)
+jab_boolean crossCheckPatternHorizontal(jab_bitmap* image, jab_float module_size_max, jab_float* centerx, jab_float centery, jab_float* module_size)
 {
-#if SCREEN_DISPLAY_MODE
-	jab_int32 state_merge_threshold = 1;  // Screen: allow 1-pixel states
-#else
-	jab_int32 state_merge_threshold = 3;  // Print: merge states < 3 pixels
-#endif
     jab_int32 state_number = 5;
     jab_int32 state_middle = (state_number - 1) / 2;
     jab_int32 state_count[5] = {0};
@@ -682,7 +619,7 @@ jab_boolean crossCheckPatternHorizontal(jab_bitmap* image, jab_float module_size
         }
         else
         {
-            if(state_index > 0 && state_count[state_middle - state_index] < state_merge_threshold)
+            if(state_index > 0 && state_count[state_middle - state_index] < 3)
             {
                 state_count[state_middle - (state_index-1)] += state_count[state_middle - state_index];
                 state_count[state_middle - state_index] = 0;
@@ -708,7 +645,7 @@ jab_boolean crossCheckPatternHorizontal(jab_bitmap* image, jab_float module_size
         }
         else
         {
-            if(state_index > 0 && state_count[state_middle + state_index] < state_merge_threshold)
+            if(state_index > 0 && state_count[state_middle + state_index] < 3)
             {
                 state_count[state_middle + (state_index-1)] += state_count[state_middle + state_index];
                 state_count[state_middle + state_index] = 0;
@@ -727,7 +664,7 @@ jab_boolean crossCheckPatternHorizontal(jab_bitmap* image, jab_float module_size
         return JAB_FAILURE;
 
     //check module size, if it is too big, assume it is a false positive
-    jab_boolean ret = checkPatternCross(state_count, module_size, 0, type);  // horizontal scan with type for FP2 boost
+    jab_boolean ret = checkPatternCross(state_count, module_size);
     if(ret && ((*module_size) <= module_size_max))
     {
         //calculate the center x
@@ -750,140 +687,52 @@ jab_boolean crossCheckPatternHorizontal(jab_bitmap* image, jab_float module_size
 */
 jab_boolean crossCheckColor(jab_bitmap* image, jab_int32 color, jab_int32 module_size, jab_int32 module_number, jab_int32 centerx, jab_int32 centery, jab_int32 dir)
 {
-#if SCREEN_DISPLAY_MODE
-	// Phase 2H (Robin Hood): ratio-based color check for screen mode
-	// Consecutive-count algorithm fails on screens due to subpixel boundary blur
-	// extending non-matching runs by 1-2px (unmatch always hits tol+1).
-	// Ratio check: count total matches in center region, pass if >= 25% match.
-	jab_int32 sample_interval = 2;
-	jab_float pass_ratio = 0.25f;
-
-	jab_int32 total_samples = 0;
-	jab_int32 match_count = 0;
-
+	jab_int32 tolerance = 3;
+	//horizontal
 	if(dir == 0)
 	{
-		jab_int32 length = module_size * (module_number - 1);
-		jab_int32 startx = (centerx - length/2) < 0 ? 0 : (centerx - length/2);
-		for(jab_int32 j=startx; j<(startx+length) && j<image->width; j+=sample_interval)
-		{
-			total_samples++;
-			if(image->pixel[centery * image->width + j] == color) match_count++;
-		}
-	}
-	else if(dir == 1)
-	{
-		jab_int32 length = module_size * (module_number - 1);
-		jab_int32 starty = (centery - length/2) < 0 ? 0 : (centery - length/2);
-		for(jab_int32 i=starty; i<(starty+length) && i<image->height; i+=sample_interval)
-		{
-			total_samples++;
-			if(image->pixel[image->width * i + centerx] == color) match_count++;
-		}
-	}
-	else if(dir == 2)
-	{
-		jab_int32 offset = module_size * (module_number / (2.0f * 1.41421f));
-		jab_int32 length = offset * 2;
-		jab_int32 sx = (centerx - offset) < 0 ? 0 : (centerx - offset);
-		jab_int32 sy = (centery - offset) < 0 ? 0 : (centery - offset);
-		for(jab_int32 i=0; i<length && (sy+i)<image->height; i+=sample_interval)
-		{
-			total_samples++;
-			if(image->pixel[image->width * (sy+i) + (sx+i)] == color) match_count++;
-		}
-		if(total_samples > 0 && (jab_float)match_count / total_samples >= pass_ratio)
-		{
-			JAB_REPORT_INFO(("crossCheckColor PASS [SCREEN]: diagonal1 at (%d,%d), match=%d/%d (%.0f%%)",
-				centerx, centery, match_count, total_samples, 100.0f * match_count / total_samples));
-			return JAB_SUCCESS;
-		}
-		// try the other diagonal direction
-		match_count = 0;
-		total_samples = 0;
-		sx = (centerx - offset) < 0 ? 0 : (centerx - offset);
-		sy = (centery + offset) > (image->height - 1) ? (image->height - 1) : (centery + offset);
-		for(jab_int32 i=0; i<length && (sy-i)>=0; i+=sample_interval)
-		{
-			total_samples++;
-			if(image->pixel[image->width * (sy-i) + (sx+i)] == color) match_count++;
-		}
-	}
-	else
-	{
-		JAB_REPORT_ERROR(("Invalid direction"))
-		return JAB_FAILURE;
-	}
-
-	if(total_samples == 0) return JAB_FAILURE;
-	jab_float ratio = (jab_float)match_count / total_samples;
-	const char* dir_str = (dir == 0) ? "horizontal" : (dir == 1) ? "vertical" : "diagonal2";
-	if(ratio >= pass_ratio)
-	{
-		JAB_REPORT_INFO(("crossCheckColor PASS [SCREEN]: %s at (%d,%d), match=%d/%d (%.0f%%)",
-			dir_str, centerx, centery, match_count, total_samples, ratio * 100.0f));
-		return JAB_SUCCESS;
-	}
-	JAB_REPORT_INFO(("crossCheckColor FAIL [SCREEN]: %s at (%d,%d), match=%d/%d (%.0f%%), need %.0f%%, color=%d",
-		dir_str, centerx, centery, match_count, total_samples, ratio * 100.0f, pass_ratio * 100.0f, color));
-	return JAB_FAILURE;
-
-#else
-	// Print mode: original consecutive-unmatch algorithm
-	jab_int32 tolerance = 4;
-	jab_int32 sample_interval = 1;
-
-	if(dir == 0)
-	{
-		jab_int32 length = module_size * (module_number - 1);
+		jab_int32 length = module_size * (module_number - 1); //module number minus one for better tolerance
 		jab_int32 startx = (centerx - length/2) < 0 ? 0 : (centerx - length/2);
 		jab_int32 unmatch = 0;
-		for(jab_int32 j=startx; j<(startx+length) && j<image->width; j+=sample_interval)
+		for(jab_int32 j=startx; j<(startx+length) && j<image->width; j++)
 		{
 			if(image->pixel[centery * image->width + j] != color) unmatch++;
 			else
 			{
 				if(unmatch <= tolerance) unmatch = 0;
 			}
-			if(unmatch > tolerance)
-			{
-				JAB_REPORT_INFO(("crossCheckColor FAIL [PRINT]: horizontal at (%d,%d), unmatch=%d > tol=%d, color=%d",
-					centerx, centery, unmatch, tolerance, color));
-				return JAB_FAILURE;
-			}
+			if(unmatch > tolerance)	return JAB_FAILURE;
 		}
 		return JAB_SUCCESS;
 	}
+	//vertical
 	else if(dir == 1)
 	{
 		jab_int32 length = module_size * (module_number - 1);
 		jab_int32 starty = (centery - length/2) < 0 ? 0 : (centery - length/2);
 		jab_int32 unmatch = 0;
-		for(jab_int32 i=starty; i<(starty+length) && i<image->height; i+=sample_interval)
+		for(jab_int32 i=starty; i<(starty+length) && i<image->height; i++)
 		{
 			if(image->pixel[image->width * i + centerx] != color) unmatch++;
 			else
 			{
 				if(unmatch <= tolerance) unmatch = 0;
 			}
-			if(unmatch > tolerance)
-			{
-				JAB_REPORT_INFO(("crossCheckColor FAIL [PRINT]: vertical at (%d,%d), unmatch=%d > tol=%d, color=%d",
-					centerx, centery, unmatch, tolerance, color));
-				return JAB_FAILURE;
-			}
+			if(unmatch > tolerance)	return JAB_FAILURE;
 		}
 		return JAB_SUCCESS;
 	}
+	//diagonal
 	else if(dir == 2)
 	{
-		jab_int32 offset = module_size * (module_number / (2.0f * 1.41421f));
+		jab_int32 offset = module_size * (module_number / (2.0f * 1.41421f)); // e.g. for FP, module_size * (5/(2*sqrt(2));
 		jab_int32 length = offset * 2;
 
+		//one direction
 		jab_int32 unmatch = 0;
 		jab_int32 startx = (centerx - offset) < 0 ? 0 : (centerx - offset);
 		jab_int32 starty = (centery - offset) < 0 ? 0 : (centery - offset);
-		for(jab_int32 i=0; i<length && (starty+i)<image->height; i+=sample_interval)
+		for(jab_int32 i=0; i<length && (starty+i)<image->height; i++)
 		{
 			if(image->pixel[image->width * (starty+i) + (startx+i)] != color) unmatch++;
 			else
@@ -894,22 +743,18 @@ jab_boolean crossCheckColor(jab_bitmap* image, jab_int32 color, jab_int32 module
 		}
 		if(unmatch < tolerance) return JAB_SUCCESS;
 
+		//the other direction
 		unmatch = 0;
 		startx = (centerx - offset) < 0 ? 0 : (centerx - offset);
 		starty = (centery + offset) > (image->height - 1) ? (image->height - 1) : (centery + offset);
-		for(jab_int32 i=0; i<length && (starty-i)>=0; i+=sample_interval)
+		for(jab_int32 i=0; i<length && (starty-i)>=0; i++)
 		{
 			if(image->pixel[image->width * (starty-i) + (startx+i)] != color) unmatch++;
 			else
 			{
 				if(unmatch <= tolerance) unmatch = 0;
 			}
-			if(unmatch > tolerance)
-			{
-				JAB_REPORT_INFO(("crossCheckColor FAIL [PRINT]: diagonal2 at (%d,%d), unmatch=%d > tol=%d, color=%d",
-					centerx, centery, unmatch, tolerance, color));
-				return JAB_FAILURE;
-			}
+			if(unmatch > tolerance) return JAB_FAILURE;
 		}
 		return JAB_SUCCESS;
 	}
@@ -918,7 +763,6 @@ jab_boolean crossCheckColor(jab_bitmap* image, jab_int32 color, jab_int32 module
 		JAB_REPORT_ERROR(("Invalid direction"))
 		return JAB_FAILURE;
 	}
-#endif
 }
 
 /**
@@ -936,10 +780,6 @@ jab_boolean crossCheckColor(jab_bitmap* image, jab_int32 color, jab_int32 module
 */
 jab_boolean crossCheckPatternCh(jab_bitmap* ch, jab_int32 type, jab_int32 h_v, jab_float module_size_max, jab_float* module_size, jab_float* centerx, jab_float* centery, jab_int32* dir, jab_int32* dcc)
 {
-	JAB_REPORT_INFO(("crossCheckPatternCh CALLED: type=%d, h_v=%d, ch=%p", type, h_v, (void*)ch));
-	JAB_REPORT_INFO(("crossCheckPatternCh ENTRY: type=%d, h_v=%d, center=(%.1f,%.1f), max_size=%.1f",
-		type, h_v, *centerx, *centery, module_size_max));
-	
 	jab_float module_size_v = 0.0f;
 	jab_float module_size_h = 0.0f;
 	jab_float module_size_d = 0.0f;
@@ -947,16 +787,11 @@ jab_boolean crossCheckPatternCh(jab_bitmap* ch, jab_int32 type, jab_int32 h_v, j
 	if(h_v == 0)
 	{
 		jab_boolean vcc = JAB_FAILURE;
-		if(crossCheckPatternVertical(ch, module_size_max, *centerx, centery, &module_size_v, type))
+		if(crossCheckPatternVertical(ch, module_size_max, *centerx, centery, &module_size_v))
 		{
 			vcc = JAB_SUCCESS;
-			if(!crossCheckPatternHorizontal(ch, module_size_max, centerx, *centery, &module_size_h, type)) {
-				if(type == FP2) JAB_REPORT_INFO(("H3_FP2: FAIL at crossCheckPatternHorizontal after vert pass"));
+			if(!crossCheckPatternHorizontal(ch, module_size_max, centerx, *centery, &module_size_h))
 				return JAB_FAILURE;
-			}
-		}
-		else {
-			if(type == FP2) JAB_REPORT_INFO(("H3_FP2: FAIL at crossCheckPatternVertical (h_v=0)"));
 		}
 		*dcc = crossCheckPatternDiagonal(ch, type, module_size_max, centerx, centery, &module_size_d, dir, !vcc);
 		if(vcc && *dcc > 0)
@@ -966,28 +801,20 @@ jab_boolean crossCheckPatternCh(jab_bitmap* ch, jab_int32 type, jab_int32 h_v, j
 		}
 		else if(*dcc == 2)
 		{
-			if(!crossCheckPatternHorizontal(ch, module_size_max, centerx, *centery, &module_size_h, type)) {
-				if(type == FP2) JAB_REPORT_INFO(("H3_FP2: FAIL at crossCheckPatternHorizontal (dcc=2 path)"));
+			if(!crossCheckPatternHorizontal(ch, module_size_max, centerx, *centery, &module_size_h))
 				return JAB_FAILURE;
-			}
 			*module_size = (module_size_h + module_size_d * 2.0f) / 3.0f;
 			return JAB_SUCCESS;
 		}
-		if(type == FP2) JAB_REPORT_INFO(("H3_FP2: FAIL final check: vcc=%d, dcc=%d", vcc, *dcc));
 	}
 	else
 	{
 		jab_boolean hcc = JAB_FAILURE;
-		if(crossCheckPatternHorizontal(ch, module_size_max, centerx, *centery, &module_size_h, type))
+		if(crossCheckPatternHorizontal(ch, module_size_max, centerx, *centery, &module_size_h))
 		{
 			hcc = JAB_SUCCESS;
-			if(!crossCheckPatternVertical(ch, module_size_max, *centerx, centery, &module_size_v, type)) {
-				if(type == FP2) JAB_REPORT_INFO(("H3_FP2: FAIL at crossCheckPatternVertical after horiz pass"));
+			if(!crossCheckPatternVertical(ch, module_size_max, *centerx, centery, &module_size_v))
 				return JAB_FAILURE;
-			}
-		}
-		else {
-			if(type == FP2) JAB_REPORT_INFO(("H3_FP2: FAIL at crossCheckPatternHorizontal (h_v=1)"));
 		}
 		*dcc = crossCheckPatternDiagonal(ch, type, module_size_max, centerx, centery, &module_size_d, dir, !hcc);
 		if(hcc && *dcc > 0)
@@ -997,14 +824,11 @@ jab_boolean crossCheckPatternCh(jab_bitmap* ch, jab_int32 type, jab_int32 h_v, j
 		}
 		else if(*dcc == 2)
 		{
-			if(!crossCheckPatternVertical(ch, module_size_max, *centerx, centery, &module_size_v, type)) {
-				if(type == FP2) JAB_REPORT_INFO(("H3_FP2: FAIL at crossCheckPatternVertical (dcc=2 path)"));
+			if(!crossCheckPatternVertical(ch, module_size_max, *centerx, centery, &module_size_v))
 				return JAB_FAILURE;
-			}
 			*module_size = (module_size_v + module_size_d * 2.0f) / 3.0f;
 			return JAB_SUCCESS;
 		}
-		if(type == FP2) JAB_REPORT_INFO(("H3_FP2: FAIL final check: hcc=%d, dcc=%d", hcc, *dcc));
 	}
 	return JAB_FAILURE;
 }
@@ -1018,9 +842,6 @@ jab_boolean crossCheckPatternCh(jab_bitmap* ch, jab_int32 type, jab_int32 h_v, j
 */
 jab_boolean crossCheckPattern(jab_bitmap* ch[], jab_finder_pattern* fp, jab_int32 h_v)
 {
-	JAB_REPORT_INFO(("crossCheckPattern ENTRY: type=%d, h_v=%d, center=(%.1f,%.1f), module_size=%.1f",
-		fp->type, h_v, fp->center.x, fp->center.y, fp->module_size));
-	
     jab_float module_size_max = fp->module_size * 2.0f;
 
     //check g channel
@@ -1029,14 +850,28 @@ jab_boolean crossCheckPattern(jab_bitmap* ch[], jab_finder_pattern* fp, jab_int3
     jab_float centery_g = fp->center.y;
     jab_int32 dir_g = 0;
     jab_int32 dcc_g = 0;
-    if(!crossCheckPatternCh(ch[1], fp->type, h_v, module_size_max, &module_size_g, &centerx_g, &centery_g, &dir_g, &dcc_g)) {
-		JAB_REPORT_INFO(("H3_CROSSCHECK: FP%d FAIL at green channel crossCheckPatternCh", fp->type));
+    if(!crossCheckPatternCh(ch[1], fp->type, h_v, module_size_max, &module_size_g, &centerx_g, &centery_g, &dir_g, &dcc_g))
+    {
+#if JABCODE_DIAG
+		diag_cc_green_fail++;
+#endif
 		return JAB_FAILURE;
-	}
+    }
 
 	//Finder Pattern FP1 and FP2
     if(fp->type == FP1 || fp->type == FP2)
 	{
+		/* WS-0 Step 0.7: at Mode 0, R/G/B channels are identical (greyscale).
+		 * The G-channel cross-check already passed; R-channel and B-channel
+		 * color-specific checks would just re-validate the same pattern and
+		 * the B-channel check (line ~882) expects the yellow FP2 core which
+		 * doesn't exist in monochrome. Skip both for Mode 0. */
+		if (g_mode0_decode)
+		{
+			fp->direction = dir_g;
+			goto crosscheck_pattern_done;
+		}
+
 		//check r channel
 		jab_float module_size_r;
 		jab_float centerx_r = fp->center.x;
@@ -1044,11 +879,21 @@ jab_boolean crossCheckPattern(jab_bitmap* ch[], jab_finder_pattern* fp, jab_int3
 		jab_int32 dir_r = 0;
 		jab_int32 dcc_r = 0;
 		if(!crossCheckPatternCh(ch[0], fp->type, h_v, module_size_max, &module_size_r, &centerx_r, &centery_r, &dir_r, &dcc_r))
+		{
+#if JABCODE_DIAG
+			diag_cc_red_fail++;
+#endif
 			return JAB_FAILURE;
+		}
 
 		//module size must be consistent
 		if(!checkModuleSize2(module_size_r, module_size_g))
+		{
+#if JABCODE_DIAG
+			diag_cc_modsize_fail++;
+#endif
 			return JAB_FAILURE;
+		}
 		fp->module_size = (module_size_r + module_size_g) / 2.0f;
 		fp->center.x = (centerx_r + centerx_g) / 2.0f;
 		fp->center.y = (centery_r + centery_g) / 2.0f;
@@ -1056,11 +901,26 @@ jab_boolean crossCheckPattern(jab_bitmap* ch[], jab_finder_pattern* fp, jab_int3
 		//check b channel
 		jab_int32 core_color_in_blue_channel = jab_default_palette[FP2_CORE_COLOR * 3 + 2];
 		if(!crossCheckColor(ch[2], core_color_in_blue_channel, (jab_int32)fp->module_size, 5, (jab_int32)fp->center.x, (jab_int32)fp->center.y, 0))
+		{
+#if JABCODE_DIAG
+			diag_cc_color_h_fail++;
+#endif
 			return JAB_FAILURE;
+		}
 		if(!crossCheckColor(ch[2], core_color_in_blue_channel, (jab_int32)fp->module_size, 5, (jab_int32)fp->center.x, (jab_int32)fp->center.y, 1))
+		{
+#if JABCODE_DIAG
+			diag_cc_color_v_fail++;
+#endif
 			return JAB_FAILURE;
+		}
 		if(!crossCheckColor(ch[2], core_color_in_blue_channel, (jab_int32)fp->module_size, 5, (jab_int32)fp->center.x, (jab_int32)fp->center.y, 2))
+		{
+#if JABCODE_DIAG
+			diag_cc_color_d_fail++;
+#endif
 			return JAB_FAILURE;
+		}
 
 		if(dcc_r == 2 || dcc_g == 2)
 			fp->direction = 2;
@@ -1071,20 +931,34 @@ jab_boolean crossCheckPattern(jab_bitmap* ch[], jab_finder_pattern* fp, jab_int3
 	//Finder Pattern FP0 and FP3
 	if(fp->type == FP0 || fp->type == FP3)
 	{
+		/* WS-0 Step 0.7: at Mode 0, all FP cores are K — no color disambiguation
+		 * needed. G channel already verified the pattern. Skip B/R channel checks. */
+		if (g_mode0_decode)
+		{
+			fp->direction = dir_g;
+			goto crosscheck_pattern_done;
+		}
+
 		//check b channel
 		jab_float module_size_b;
 		jab_float centerx_b = fp->center.x;
 		jab_float centery_b = fp->center.y;
 		jab_int32 dir_b = 0;
 		jab_int32 dcc_b = 0;
-		if(!crossCheckPatternCh(ch[2], fp->type, h_v, module_size_max, &module_size_b, &centerx_b, &centery_b, &dir_b, &dcc_b)) {
-			JAB_REPORT_INFO(("H3_CROSSCHECK: FP0/3 FAIL at blue channel crossCheckPatternCh"));
+		if(!crossCheckPatternCh(ch[2], fp->type, h_v, module_size_max, &module_size_b, &centerx_b, &centery_b, &dir_b, &dcc_b))
+		{
+#if JABCODE_DIAG
+			diag_cc_blue_fail++;
+#endif
 			return JAB_FAILURE;
 		}
 
 		//module size must be consistent
-		if(!checkModuleSize2(module_size_g, module_size_b)) {
-			JAB_REPORT_INFO(("H3_CROSSCHECK: FP0/3 FAIL at checkModuleSize2: g=%.1f, b=%.1f", module_size_g, module_size_b));
+		if(!checkModuleSize2(module_size_g, module_size_b))
+		{
+#if JABCODE_DIAG
+			diag_cc_modsize_fail++;
+#endif
 			return JAB_FAILURE;
 		}
 		fp->module_size = (module_size_g + module_size_b) / 2.0f;
@@ -1093,16 +967,25 @@ jab_boolean crossCheckPattern(jab_bitmap* ch[], jab_finder_pattern* fp, jab_int3
 
 		//check r channel
 		jab_int32 core_color_in_red_channel = jab_default_palette[FP3_CORE_COLOR * 3 + 0];
-		if(!crossCheckColor(ch[0], core_color_in_red_channel, (jab_int32)fp->module_size, 5, (jab_int32)fp->center.x, (jab_int32)fp->center.y, 0)) {
-			JAB_REPORT_INFO(("H3_CROSSCHECK: FP0/3 FAIL at red channel crossCheckColor dir=0 (horizontal)"));
+		if(!crossCheckColor(ch[0], core_color_in_red_channel, (jab_int32)fp->module_size, 5, (jab_int32)fp->center.x, (jab_int32)fp->center.y, 0))
+		{
+#if JABCODE_DIAG
+			diag_cc_color_h_fail++;
+#endif
 			return JAB_FAILURE;
 		}
-		if(!crossCheckColor(ch[0], core_color_in_red_channel, (jab_int32)fp->module_size, 5, (jab_int32)fp->center.x, (jab_int32)fp->center.y, 1)) {
-			JAB_REPORT_INFO(("H3_CROSSCHECK: FP0/3 FAIL at red channel crossCheckColor dir=1 (vertical)"));
+		if(!crossCheckColor(ch[0], core_color_in_red_channel, (jab_int32)fp->module_size, 5, (jab_int32)fp->center.x, (jab_int32)fp->center.y, 1))
+		{
+#if JABCODE_DIAG
+			diag_cc_color_v_fail++;
+#endif
 			return JAB_FAILURE;
 		}
-		if(!crossCheckColor(ch[0], core_color_in_red_channel, (jab_int32)fp->module_size, 5, (jab_int32)fp->center.x, (jab_int32)fp->center.y, 2)) {
-			JAB_REPORT_INFO(("H3_CROSSCHECK: FP0/3 FAIL at red channel crossCheckColor dir=2 (diagonal)"));
+		if(!crossCheckColor(ch[0], core_color_in_red_channel, (jab_int32)fp->module_size, 5, (jab_int32)fp->center.x, (jab_int32)fp->center.y, 2))
+		{
+#if JABCODE_DIAG
+			diag_cc_color_d_fail++;
+#endif
 			return JAB_FAILURE;
 		}
 
@@ -1112,6 +995,10 @@ jab_boolean crossCheckPattern(jab_bitmap* ch[], jab_finder_pattern* fp, jab_int3
 			fp->direction = (dir_g + dir_b) > 0 ? 1 : -1;
 	}
 
+crosscheck_pattern_done:
+#if JABCODE_DIAG
+	diag_cc_pass++;
+#endif
 	return JAB_SUCCESS;
 }
 
@@ -1156,7 +1043,6 @@ jab_int32 saveAlignmentPattern(jab_alignment_pattern* ap, jab_alignment_pattern*
 */
 void saveFinderPattern(jab_finder_pattern* fp, jab_finder_pattern* fps, jab_int32* counter, jab_int32* fp_type_count)
 {
-    JAB_REPORT_INFO(("H3_SAVE: saveFinderPattern CALLED for FP type %d at (%.1f,%.1f), counter=%d", fp->type, fp->center.x, fp->center.y, *counter));
     //combine the finder patterns at the same position with the same size
     for(jab_int32 i=0; i<(*counter); i++)
     {
@@ -1171,7 +1057,6 @@ void saveFinderPattern(jab_finder_pattern* fp, jab_finder_pattern* fps, jab_int3
                 fps[i].module_size = ((jab_float)fps[i].found_count * fps[i].module_size + fp->module_size) / (jab_float)(fps[i].found_count + 1);
                 fps[i].found_count++;
                 fps[i].direction += fp->direction;
-                JAB_REPORT_INFO(("H3_SAVE: COMBINED with existing FP at index %d, found_count now %d", i, fps[i].found_count));
                 return;
             }
         }
@@ -1180,7 +1065,6 @@ void saveFinderPattern(jab_finder_pattern* fp, jab_finder_pattern* fps, jab_int3
     fps[*counter] = *fp;
     (*counter)++;
     fp_type_count[fp->type]++;
-    JAB_REPORT_INFO(("H3_SAVE: NEW FP added at index %d, type=%d, fp_type_count[%d]=%d", *counter-1, fp->type, fp->type, fp_type_count[fp->type]));
 }
 
 #if TEST_MODE
@@ -1328,8 +1212,6 @@ jab_finder_pattern getBestPattern(jab_finder_pattern* fps, jab_int32 fp_count)
 */
 jab_int32 selectBestPatterns(jab_finder_pattern* fps, jab_int32 fp_count, jab_int32* fp_type_count)
 {
-    JAB_REPORT_INFO(("H3_SELECT: selectBestPatterns START: fp_count=%d, type_counts=[%d,%d,%d,%d]", 
-        fp_count, fp_type_count[0], fp_type_count[1], fp_type_count[2], fp_type_count[3]));
     //classify finder patterns into four types
     jab_finder_pattern fps0[fp_type_count[FP0]];
     jab_finder_pattern fps1[fp_type_count[FP1]];
@@ -1339,20 +1221,15 @@ jab_int32 selectBestPatterns(jab_finder_pattern* fps, jab_int32 fp_count, jab_in
 
     for(jab_int32 i=0; i<fp_count; i++)
     {
-        // Phase 2I: Screen-aware found_count threshold
-        // FP1/FP2 structurally generate fewer candidates per frame than FP0/FP3 on screens
-        // because their color channel detection paths (red→blue) produce fewer scan-line hits
-        // than the FP0/FP3 path (green→blue). Accept single-detection patterns in screen mode.
-#if SCREEN_DISPLAY_MODE
-        jab_int32 min_found_count = 1;  // Screen: accept single-detection patterns
-#else
-        jab_int32 min_found_count = 3;  // Print: require patterns found 3+ times (original)
+        //abandon the finder patterns which are founds less than 3 times,
+        //which means a module shall not be smaller than 3 pixels.
+        if(fps[i].found_count < 3)
+        {
+#if JABCODE_DIAG
+            JAB_REPORT_INFO(("DIAG selectBest: FP%d @ (%.0f,%.0f) ms=%.1f cnt=%d DROPPED (cnt<3)", fps[i].type, fps[i].center.x, fps[i].center.y, fps[i].module_size, fps[i].found_count))
 #endif
-        if(fps[i].found_count < min_found_count) {
-            JAB_REPORT_INFO(("H3_SELECT: REJECT FP[%d] type=%d, found_count=%d < %d", i, fps[i].type, fps[i].found_count, min_found_count));
             continue;
         }
-        JAB_REPORT_INFO(("H3_SELECT: ACCEPT FP[%d] type=%d, found_count=%d", i, fps[i].type, fps[i].found_count));
         switch (fps[i].type)
         {
             case FP0:
@@ -1369,6 +1246,9 @@ jab_int32 selectBestPatterns(jab_finder_pattern* fps, jab_int32 fp_count, jab_in
                 break;
         }
     }
+#if JABCODE_DIAG
+    JAB_REPORT_INFO(("DIAG selectBest: after cnt>=3 filter: FP0=%d FP1=%d FP2=%d FP3=%d", counter0, counter1, counter2, counter3))
+#endif
 
 	//set fp0
     if(counter0 > 1)
@@ -1399,30 +1279,7 @@ jab_int32 selectBestPatterns(jab_finder_pattern* fps, jab_int32 fp_count, jab_in
 	else
 		memset(&fps[3], 0, sizeof(jab_finder_pattern));
 
-#if SCREEN_DISPLAY_MODE
-    // Phase 2L: Prevent degenerate quads from same-type FPs assigned to same physical pattern.
-    // FP0 and FP1 are both black-cored — the detector can assign the same pattern to both.
-    // Check all pairs: if two selected FPs are closer than 3× their module_size, discard the weaker.
-    for(jab_int32 i=0; i<4; i++)
-    {
-        if(fps[i].found_count == 0) continue;
-        for(jab_int32 j=i+1; j<4; j++)
-        {
-            if(fps[j].found_count == 0) continue;
-            jab_float d = DIST(fps[i].center.x, fps[i].center.y, fps[j].center.x, fps[j].center.y);
-            jab_float min_sep = 3.0f * MAX(fps[i].module_size, fps[j].module_size);
-            if(d < min_sep)
-            {
-                jab_int32 discard = (fps[i].found_count >= fps[j].found_count) ? j : i;
-                JAB_REPORT_INFO(("H3_SELECT: DEDUP FP%d≈FP%d (dist=%.1f < min_sep=%.1f) — discard FP%d (cnt=%d)",
-                    i, j, d, min_sep, discard, fps[discard].found_count))
-                memset(&fps[discard], 0, sizeof(jab_finder_pattern));
-            }
-        }
-    }
-#endif
-
-    //if the found-count of a FP is smaller than a fraction of max-found-count, abandon it
+    //if the found-count of a FP is smaller than the half of the max-found-count, abandon it
     jab_int32 max_found_count = 0;
     for(jab_int32 i=0; i<4; i++)
     {
@@ -1431,175 +1288,19 @@ jab_int32 selectBestPatterns(jab_finder_pattern* fps, jab_int32 fp_count, jab_in
             max_found_count = fps[i].found_count;
         }
     }
-#if SCREEN_DISPLAY_MODE
-    // Phase 2I+2K: Screen mode uses geometric consistency instead of proportional abandonment.
-    // FP0/FP3 accumulate 10-30x more candidates than FP1/FP2 due to channel detection
-    // asymmetry. Instead of a count-based gate, reject low-count FPs whose positions are
-    // geometrically inconsistent with the high-count FPs.
-    {
-        // Find the two most reliable FPs (highest found_count)
-        jab_int32 reliable[4] = {0};
-        jab_int32 reliable_count = 0;
-        for(jab_int32 i=0; i<4; i++)
-        {
-            if(fps[i].found_count >= 3)
-            {
-                reliable[i] = 1;
-                reliable_count++;
-            }
-        }
-        JAB_REPORT_INFO(("H3_GEOM: reliable_count=%d (cnt>=%d): FP0=%d FP1=%d FP2=%d FP3=%d",
-            reliable_count, 3,
-            reliable[0] ? fps[0].found_count : 0,
-            reliable[1] ? fps[1].found_count : 0,
-            reliable[2] ? fps[2].found_count : 0,
-            reliable[3] ? fps[3].found_count : 0))
-
-        if(reliable_count >= 2)
-        {
-            // Compute expected module size from reliable FPs
-            jab_float reliable_size_sum = 0;
-            jab_int32 reliable_size_n = 0;
-            for(jab_int32 i=0; i<4; i++)
-            {
-                if(reliable[i])
-                {
-                    reliable_size_sum += fps[i].module_size;
-                    reliable_size_n++;
-                }
-            }
-            jab_float expected_module_size = reliable_size_sum / (jab_float)reliable_size_n;
-
-            jab_float min_edge = 10.0f * expected_module_size;
-            jab_float max_edge = 150.0f * expected_module_size;
-
-            JAB_REPORT_INFO(("H3_GEOM: expected_module_size=%.1f, edge_range=[%.0f, %.0f]",
-                expected_module_size, min_edge, max_edge))
-
-            // Phase 2L: Inter-reliable consistency — check that reliable FPs form
-            // a plausible quadrilateral. For a square barcode, adjacent edge distances
-            // should be within a factor of 2.5 of each other.
-            if(reliable_count >= 3)
-            {
-                // Collect inter-reliable distances
-                jab_float inter_dist[6] = {0};
-                jab_int32 inter_pairs[6][2];
-                jab_int32 n_pairs = 0;
-                for(jab_int32 i=0; i<4; i++)
-                {
-                    if(!reliable[i]) continue;
-                    for(jab_int32 j=i+1; j<4; j++)
-                    {
-                        if(!reliable[j]) continue;
-                        inter_dist[n_pairs] = DIST(fps[i].center.x, fps[i].center.y,
-                                                    fps[j].center.x, fps[j].center.y);
-                        inter_pairs[n_pairs][0] = i;
-                        inter_pairs[n_pairs][1] = j;
-                        n_pairs++;
-                    }
-                }
-                // Find min and max edge distances among reliable FPs
-                jab_float d_min = 1e9f, d_max = 0;
-                for(jab_int32 k=0; k<n_pairs; k++)
-                {
-                    if(inter_dist[k] < d_min) d_min = inter_dist[k];
-                    if(inter_dist[k] > d_max) d_max = inter_dist[k];
-                }
-                // For a roughly square barcode, max/min should be < ~2.5
-                // (allows for perspective + the diagonal being √2× an edge)
-                if(d_min > 0 && d_max / d_min > 2.5f)
-                {
-                    // Find the weakest reliable FP that creates the worst distance ratio
-                    jab_int32 worst_fp = -1;
-                    jab_int32 worst_cnt = 0x7FFFFFFF;
-                    for(jab_int32 i=0; i<4; i++)
-                    {
-                        if(reliable[i] && fps[i].found_count < worst_cnt)
-                        {
-                            worst_cnt = fps[i].found_count;
-                            worst_fp = i;
-                        }
-                    }
-                    if(worst_fp >= 0)
-                    {
-                        JAB_REPORT_INFO(("H3_GEOM: INTER-RELIABLE inconsistency: d_max/d_min=%.1f > 2.5 — demote FP%d (cnt=%d)",
-                            d_max / d_min, worst_fp, fps[worst_fp].found_count))
-                        reliable[worst_fp] = 0;
-                        reliable_count--;
-                        memset(&fps[worst_fp], 0, sizeof(jab_finder_pattern));
-                        // Recompute expected_module_size
-                        reliable_size_sum = 0;
-                        reliable_size_n = 0;
-                        for(jab_int32 i=0; i<4; i++)
-                        {
-                            if(reliable[i]) { reliable_size_sum += fps[i].module_size; reliable_size_n++; }
-                        }
-                        if(reliable_size_n > 0)
-                        {
-                            expected_module_size = reliable_size_sum / (jab_float)reliable_size_n;
-                            min_edge = 10.0f * expected_module_size;
-                            max_edge = 150.0f * expected_module_size;
-                        }
-                    }
-                }
-            }
-
-            // Check each low-confidence FP against reliable ones
-            for(jab_int32 i=0; i<4; i++)
-            {
-                if(fps[i].found_count > 0 && !reliable[i])
-                {
-                    jab_boolean geom_ok = JAB_FAILURE;
-                    // Check distance to each reliable FP
-                    jab_int32 valid_edges = 0;
-                    jab_int32 checked_edges = 0;
-                    for(jab_int32 j=0; j<4; j++)
-                    {
-                        if(!reliable[j]) continue;
-                        jab_float dist = DIST(fps[i].center.x, fps[i].center.y,
-                                              fps[j].center.x, fps[j].center.y);
-                        checked_edges++;
-                        if(dist >= min_edge && dist <= max_edge)
-                            valid_edges++;
-                        JAB_REPORT_INFO(("H3_GEOM: FP%d→FP%d dist=%.1f %s",
-                            i, j, dist,
-                            (dist >= min_edge && dist <= max_edge) ? "OK" : "BAD"))
-                    }
-                    // Also check module size consistency
-                    jab_float size_ratio = fps[i].module_size / expected_module_size;
-                    jab_boolean size_ok = (size_ratio > 0.3f && size_ratio < 3.0f);
-                    JAB_REPORT_INFO(("H3_GEOM: FP%d size=%.1f ratio=%.2f %s",
-                        i, fps[i].module_size, size_ratio, size_ok ? "OK" : "BAD"))
-
-                    if(valid_edges == checked_edges && checked_edges > 0 && size_ok)
-                        geom_ok = JAB_SUCCESS;
-
-                    if(!geom_ok)
-                    {
-                        JAB_REPORT_INFO(("H3_GEOM: REJECT FP%d (cnt=%d) — failed geometric consistency at (%.1f,%.1f)",
-                            i, fps[i].found_count, fps[i].center.x, fps[i].center.y))
-                        memset(&fps[i], 0, sizeof(jab_finder_pattern));
-                    }
-                    else
-                    {
-                        JAB_REPORT_INFO(("H3_GEOM: ACCEPT FP%d (cnt=%d) — passed geometric consistency",
-                            i, fps[i].found_count))
-                    }
-                }
-            }
-        }
-        (void)max_found_count;
-    }
-#else
     for(jab_int32 i=0; i<4; i++)
     {
         if(fps[i].found_count > 0)
         {
             if(fps[i].found_count < (0.5*max_found_count))
+            {
+#if JABCODE_DIAG
+                JAB_REPORT_INFO(("DIAG selectBest: FP%d cnt=%d DROPPED (< 50%% of max=%d)", i, fps[i].found_count, max_found_count))
+#endif
                 memset(&fps[i], 0, sizeof(jab_finder_pattern));
+            }
         }
     }
-#endif
 
 	//check how many finder patterns are not found
 	jab_int32 missing_fp_count = 0;
@@ -1608,6 +1309,11 @@ jab_int32 selectBestPatterns(jab_finder_pattern* fps, jab_int32 fp_count, jab_in
 		if(fps[i].found_count == 0)
 			missing_fp_count++;
 	}
+#if JABCODE_DIAG
+    JAB_REPORT_INFO(("DIAG selectBest: final FP0(cnt=%d,ms=%.1f) FP1(cnt=%d,ms=%.1f) FP2(cnt=%d,ms=%.1f) FP3(cnt=%d,ms=%.1f) missing=%d",
+        fps[0].found_count, fps[0].module_size, fps[1].found_count, fps[1].module_size,
+        fps[2].found_count, fps[2].module_size, fps[3].found_count, fps[3].module_size, missing_fp_count))
+#endif
 	return missing_fp_count;
 }
 
@@ -1647,7 +1353,7 @@ void scanPatternVertical(jab_bitmap* ch[], jab_int32 min_module_size, jab_finder
                 centery_r = centery_g;
                 centery_b = centery_g;
                 //check blue channel for Finder Pattern UL and LL
-                if(crossCheckPatternVertical(ch[2], module_size_g*2, (jab_float)j, &centery_b, &module_size_b, -1))
+                if(crossCheckPatternVertical(ch[2], module_size_g*2, (jab_float)j, &centery_b, &module_size_b))
                 {
                     type_b = ch[2]->pixel[(jab_int32)(centery_b)*ch[2]->width + j] > 0 ? 255 : 0;
                     //check red channel
@@ -1655,13 +1361,12 @@ void scanPatternVertical(jab_bitmap* ch[], jab_int32 min_module_size, jab_finder
                     jab_int32 core_color_in_red_channel = jab_default_palette[FP3_CORE_COLOR * 3 + 0];
                     if(crossCheckColor(ch[0], core_color_in_red_channel, module_size_r, 5, j, (jab_int32)centery_r, 1))
                     {
-                    	JAB_REPORT_INFO(("H3_TRACE: crossCheckColor PASS vertical at (%d,%d), FP1 candidate", j, (jab_int32)centery_r));
                     	type_r = 0;
                     	finder_pattern1_found = JAB_SUCCESS;
                     }
                 }
                 //check red channel for Finder Pattern UR and LR
-                else if(crossCheckPatternVertical(ch[0], module_size_g*2, (jab_float)j, &centery_r, &module_size_r, -1))
+                else if(crossCheckPatternVertical(ch[0], module_size_g*2, (jab_float)j, &centery_r, &module_size_r))
 				{
 					type_r = ch[0]->pixel[(jab_int32)(centery_r)*ch[0]->width + j] > 0 ? 255 : 0;
 					//check blue channel
@@ -1669,7 +1374,6 @@ void scanPatternVertical(jab_bitmap* ch[], jab_int32 min_module_size, jab_finder
 					jab_int32 core_color_in_blue_channel = jab_default_palette[FP2_CORE_COLOR * 3 + 2];
                     if(crossCheckColor(ch[2], core_color_in_blue_channel, module_size_b, 5, j, (jab_int32)centery_b, 1))
                     {
-                    	JAB_REPORT_INFO(("H3_TRACE: crossCheckColor PASS vertical at (%d,%d), FP2 candidate", j, (jab_int32)centery_b));
                     	type_b = 0;
                     	finder_pattern2_found = JAB_SUCCESS;
                     }
@@ -1682,10 +1386,7 @@ void scanPatternVertical(jab_bitmap* ch[], jab_int32 min_module_size, jab_finder
 					fp.found_count = 1;
 					if(finder_pattern1_found)
 					{
-						if(!checkModuleSize2(module_size_g, module_size_b)) {
-							JAB_REPORT_INFO(("H3_TRACE: GATE1 REJECT checkModuleSize2 (FP1): size_g=%.1f, size_b=%.1f", module_size_g, module_size_b));
-							continue;
-						}
+						if(!checkModuleSize2(module_size_g, module_size_b)) continue;
 						fp.center.y = (centery_g + centery_b) / 2.0f;
 						fp.module_size = (module_size_g + module_size_b) / 2.0f;
 						if( type_r == jab_default_palette[FP0_CORE_COLOR * 3] &&
@@ -1693,27 +1394,21 @@ void scanPatternVertical(jab_bitmap* ch[], jab_int32 min_module_size, jab_finder
 							type_b == jab_default_palette[FP0_CORE_COLOR * 3 + 2])
 						{
 							fp.type = FP0;	//candidate for fp0
-							JAB_REPORT_INFO(("H3_TRACE: GATE2 PASS FP0 RGB match at (%.1f,%.1f)", fp.center.x, fp.center.y));
 						}
 						else if(type_r == jab_default_palette[FP3_CORE_COLOR * 3] &&
 								type_g == jab_default_palette[FP3_CORE_COLOR * 3 + 1] &&
 								type_b == jab_default_palette[FP3_CORE_COLOR * 3 + 2])
 						{
 							fp.type = FP3;	//candidate for fp3
-							JAB_REPORT_INFO(("H3_TRACE: GATE2 PASS FP3 RGB match at (%.1f,%.1f)", fp.center.x, fp.center.y));
 						}
 						else
 						{
-							JAB_REPORT_INFO(("H3_TRACE: GATE2 REJECT RGB type (FP0/3): r=%d,g=%d,b=%d", type_r, type_g, type_b));
 							continue;		//invalid type
 						}
 					}
 					else if(finder_pattern2_found)
 					{
-						if(!checkModuleSize2(module_size_r, module_size_g)) {
-							JAB_REPORT_INFO(("H3_TRACE: GATE1 REJECT checkModuleSize2 (FP2): size_r=%.1f, size_g=%.1f", module_size_r, module_size_g));
-							continue;
-						}
+						if(!checkModuleSize2(module_size_r, module_size_g)) continue;
 						fp.center.y = (centery_r + centery_g) / 2.0f;
 						fp.module_size = (module_size_r + module_size_g) / 2.0f;
 						if(type_r == jab_default_palette[FP1_CORE_COLOR * 3] &&
@@ -1721,36 +1416,60 @@ void scanPatternVertical(jab_bitmap* ch[], jab_int32 min_module_size, jab_finder
 						   type_b == jab_default_palette[FP1_CORE_COLOR * 3 + 2])
 						{
 							fp.type = FP1;	//candidate for fp1
-							JAB_REPORT_INFO(("H3_TRACE: GATE2 PASS FP1 RGB match at (%.1f,%.1f)", fp.center.x, fp.center.y));
 						}
 						else if(type_r == jab_default_palette[FP2_CORE_COLOR * 3] &&
 								type_g == jab_default_palette[FP2_CORE_COLOR * 3 + 1] &&
 								type_b == jab_default_palette[FP2_CORE_COLOR * 3 + 2])
 						{
 							fp.type = FP2;	//candidate for fp2
-							JAB_REPORT_INFO(("H3_TRACE: GATE2 PASS FP2 RGB match at (%.1f,%.1f)", fp.center.x, fp.center.y));
 						}
 						else
 						{
-							JAB_REPORT_INFO(("H3_TRACE: GATE2 REJECT RGB type (FP1/2): r=%d,g=%d,b=%d", type_r, type_g, type_b));
 							continue;		//invalid type
 						}
 					}
 					//cross check
-					JAB_REPORT_INFO(("H3_TRACE: Testing GATE3 crossCheckPattern for FP type %d at (%.1f,%.1f)", fp.type, fp.center.x, fp.center.y));
 					if( crossCheckPattern(ch, &fp, 1) )
 					{
-						JAB_REPORT_INFO(("H3_TRACE: GATE3 PASS! Saving FP type %d at (%.1f,%.1f)", fp.type, fp.center.x, fp.center.y));
 						saveFinderPattern(&fp, fps, total_finder_patterns, fp_type_count);
 						if(*total_finder_patterns >= (MAX_FINDER_PATTERNS - 1) )
 						{
 							done = 1;
 							break;
 						}
-					}
-					else
-					{
-						JAB_REPORT_INFO(("H3_TRACE: GATE3 REJECT crossCheckPattern for FP type %d", fp.type));
+
+						/* WS-0 Step 0.7: at Mode 0, the scan only produces FP0/FP3 (or FP1/FP2)
+						 * candidates depending on which channel check succeeded first. But at
+						 * Mode 0, all FP cores are K — a single K-core candidate could be any
+						 * of FP0/FP1/FP2/FP3; geometry (via selectBestPatterns) disambiguates.
+						 * Save the candidate as the THREE other FP types too so all four
+						 * fp_type_count bins are populated.
+						 * See: docs/jabcode-all-nc-plan/00b-mode-0-monochrome.md Step 0.7 */
+						if (g_mode0_decode)
+						{
+							jab_int32 sibling_types[3];
+							switch (fp.type) {
+								case FP0: sibling_types[0]=FP1; sibling_types[1]=FP2; sibling_types[2]=FP3; break;
+								case FP1: sibling_types[0]=FP0; sibling_types[1]=FP2; sibling_types[2]=FP3; break;
+								case FP2: sibling_types[0]=FP0; sibling_types[1]=FP1; sibling_types[2]=FP3; break;
+								default:  sibling_types[0]=FP0; sibling_types[1]=FP1; sibling_types[2]=FP2; break;  /* FP3 */
+							}
+							for (jab_int32 si = 0; si < 3; si++)
+							{
+								jab_finder_pattern sibling = fp;
+								sibling.type = sibling_types[si];
+								if (crossCheckPattern(ch, &sibling, 1))
+								{
+									saveFinderPattern(&sibling, fps, total_finder_patterns, fp_type_count);
+									if(*total_finder_patterns >= (MAX_FINDER_PATTERNS - 1))
+									{
+										done = 1;
+										break;
+									}
+								}
+							}
+							if (done) break;
+						}
 					}
 				}
             }
@@ -1905,18 +1624,14 @@ void seekMissingFinderPattern(jab_bitmap* bitmap, jab_finder_pattern* fps, jab_i
 				case 0:
 				case 3:
 					//check blue channel for Finder Pattern UL and LL
-					if(crossCheckPatternHorizontal(rgb[2], module_size_g*2, &centerx_b, (jab_float)i, &module_size_b, -1))
+					if(crossCheckPatternHorizontal(rgb[2], module_size_g*2, &centerx_b, (jab_float)i, &module_size_b))
 					{
 						type_b = row_b[(jab_int32)(centerx_b)] > 0 ? 255 : 0;
 						if(type_b != exp_type_b) continue;
 						//check red channel
 						module_size_r = module_size_g;
 						jab_int32 core_color_in_red_channel = jab_default_palette[FP3_CORE_COLOR * 3 + 0];
-						// SCREEN MODE BYPASS: Skip crossCheckColor for diagnostic testing
-						// Original: if(crossCheckColor(rgb[0], core_color_in_red_channel, module_size_r, 5, (jab_int32)centerx_r, i, 0))
-						JAB_REPORT_INFO(("SCREEN_MODE_BYPASS: Skipping crossCheckColor validation at (%d,%d)",
-							(jab_int32)centerx_r, i))
-						if(JAB_SUCCESS) // Bypass for screen display testing
+						if(crossCheckColor(rgb[0], core_color_in_red_channel, module_size_r, 5, (jab_int32)centerx_r, i, 0))
 						{
 							type_r = 0;
 							finder_pattern_found = JAB_SUCCESS;
@@ -1932,18 +1647,14 @@ void seekMissingFinderPattern(jab_bitmap* bitmap, jab_finder_pattern* fps, jab_i
 				case 1:
 				case 2:
 					//check red channel for Finder Pattern UR and LR
-					if(crossCheckPatternHorizontal(rgb[0], module_size_g*2, &centerx_r, (jab_float)i, &module_size_r, -1))
+					if(crossCheckPatternHorizontal(rgb[0], module_size_g*2, &centerx_r, (jab_float)i, &module_size_r))
 					{
 						type_r = row_r[(jab_int32)(centerx_r)] > 0 ? 255 : 0;
 						if(type_r != exp_type_r) continue;
 						//check blue channel
 						module_size_b = module_size_g;
 						jab_int32 core_color_in_blue_channel = jab_default_palette[FP2_CORE_COLOR * 3 + 2];
-						// SCREEN MODE BYPASS: Skip crossCheckColor for diagnostic testing
-						// Original: if(crossCheckColor(rgb[2], core_color_in_blue_channel, module_size_b, 5, (jab_int32)centerx_b, i, 0))
-						JAB_REPORT_INFO(("SCREEN_MODE_BYPASS: Skipping crossCheckColor validation at (%d,%d)",
-							(jab_int32)centerx_b, i))
-						if(JAB_SUCCESS) // Bypass for screen display testing
+						if(crossCheckColor(rgb[2], core_color_in_blue_channel, module_size_b, 5, (jab_int32)centerx_b, i, 0))
 						{
 							type_b = 0;
 							finder_pattern_found = JAB_SUCCESS;
@@ -2008,10 +1719,6 @@ void seekMissingFinderPattern(jab_bitmap* bitmap, jab_finder_pattern* fps, jab_i
 */
 jab_finder_pattern* findMasterSymbol(jab_bitmap* bitmap, jab_bitmap* ch[], jab_detect_mode mode, jab_int32* status)
 {
-    // Tier 4 diagnostic: Finder pattern search START
-    JAB_REPORT_INFO(("findMasterSymbol START: mode=%d, bitmap=%dx%d", 
-        mode, ch[0]->width, ch[0]->height))
-    
     //suppose the code size is minimally 1/4 image size
     jab_int32 min_module_size = ch[0]->height / (2 * MAX_SYMBOL_ROWS * MAX_MODULES);
     if(min_module_size < 1 || mode == INTENSIVE_DETECT) min_module_size = 1;
@@ -2026,6 +1733,18 @@ jab_finder_pattern* findMasterSymbol(jab_bitmap* bitmap, jab_bitmap* ch[], jab_d
     jab_int32 total_finder_patterns = 0;
     jab_boolean done = 0;
     jab_int32 fp_type_count[4] = {0};
+
+#if JABCODE_DIAG
+    jab_int32 diag_green_seek = 0;
+    jab_int32 diag_blue_cross_pass = 0, diag_blue_cross_fail = 0;
+    jab_int32 diag_red_cross_pass = 0, diag_red_cross_fail = 0;
+    jab_int32 diag_color_r_pass = 0, diag_color_r_fail = 0;
+    jab_int32 diag_color_b_pass = 0, diag_color_b_fail = 0;
+    jab_int32 diag_fp1_cand = 0, diag_fp2_cand = 0;
+    jab_int32 diag_type_invalid = 0;
+    jab_int32 diag_modsize_fail = 0;
+    jab_int32 diag_fullcheck_pass = 0, diag_fullcheck_fail = 0;
+#endif
 
     for(jab_int32 i=0; i<ch[0]->height && done == 0; i+=min_module_size)
     {
@@ -2051,38 +1770,62 @@ jab_finder_pattern* findMasterSymbol(jab_bitmap* bitmap, jab_bitmap* ch[], jab_d
             //green channel
             if(seekPatternHorizontal(row_g, &startx, &endx, &centerx_g, &module_size_g, &skip))
             {
+#if JABCODE_DIAG
+                diag_green_seek++;
+#endif
                 type_g = row_g[(jab_int32)(centerx_g)] > 0 ? 255 : 0;
 
                 centerx_r = centerx_g;
                 centerx_b = centerx_g;
                 //check blue channel for Finder Pattern UL and LL
-                if(crossCheckPatternHorizontal(ch[2], module_size_g*2, &centerx_b, (jab_float)i, &module_size_b, -1))
+                if(crossCheckPatternHorizontal(ch[2], module_size_g*2, &centerx_b, (jab_float)i, &module_size_b))
                 {
+#if JABCODE_DIAG
+                    diag_blue_cross_pass++;
+#endif
                     type_b = row_b[(jab_int32)(centerx_b)] > 0 ? 255 : 0;
                     //check red channel
                     module_size_r = module_size_g;
                     jab_int32 core_color_in_red_channel = jab_default_palette[FP3_CORE_COLOR * 3 + 0];
                     if(crossCheckColor(ch[0], core_color_in_red_channel, module_size_r, 5, (jab_int32)centerx_r, i, 0))
                     {
-                    	JAB_REPORT_INFO(("H3_TRACE: crossCheckColor PASS horizontal at (%d,%d), FP1 candidate", (jab_int32)centerx_r, i));
+#if JABCODE_DIAG
+                    	diag_color_r_pass++;
+                    	diag_fp1_cand++;
+#endif
                     	type_r = 0;
                     	finder_pattern1_found = JAB_SUCCESS;
                     }
+#if JABCODE_DIAG
+                    else { diag_color_r_fail++; }
+#endif
                 }
                 //check red channel for Finder Pattern UR and LR
-                else if(crossCheckPatternHorizontal(ch[0], module_size_g*2, &centerx_r, (jab_float)i, &module_size_r, -1))
+                else if(crossCheckPatternHorizontal(ch[0], module_size_g*2, &centerx_r, (jab_float)i, &module_size_r))
                 {
+#if JABCODE_DIAG
+                	diag_red_cross_pass++;
+#endif
                 	type_r = row_r[(jab_int32)(centerx_r)] > 0 ? 255 : 0;
                 	//check blue channel
                     module_size_b = module_size_g;
                     jab_int32 core_color_in_blue_channel = jab_default_palette[FP2_CORE_COLOR * 3 + 2];
                     if(crossCheckColor(ch[2], core_color_in_blue_channel, module_size_b, 5, (jab_int32)centerx_b, i, 0))
                     {
-                    	JAB_REPORT_INFO(("H3_TRACE: crossCheckColor PASS horizontal at (%d,%d), FP2 candidate", (jab_int32)centerx_b, i));
+#if JABCODE_DIAG
+                    	diag_color_b_pass++;
+                    	diag_fp2_cand++;
+#endif
                     	type_b = 0;
                     	finder_pattern2_found = JAB_SUCCESS;
                     }
+#if JABCODE_DIAG
+                    else { diag_color_b_fail++; }
+#endif
                 }
+#if JABCODE_DIAG
+                else { diag_blue_cross_fail++; diag_red_cross_fail++; }
+#endif
 				//finder pattern candidate found
 				if(finder_pattern1_found || finder_pattern2_found)
 				{
@@ -2091,8 +1834,11 @@ jab_finder_pattern* findMasterSymbol(jab_bitmap* bitmap, jab_bitmap* ch[], jab_d
 					fp.found_count = 1;
 					if(finder_pattern1_found)
 					{
-						if(!checkModuleSize2(module_size_g, module_size_b)) {
-							JAB_REPORT_INFO(("H3_TRACE: GATE1 REJECT checkModuleSize2 (horiz FP1): size_g=%.1f, size_b=%.1f", module_size_g, module_size_b));
+						if(!checkModuleSize2(module_size_g, module_size_b))
+						{
+#if JABCODE_DIAG
+							diag_modsize_fail++;
+#endif
 							continue;
 						}
 						fp.center.x = (centerx_g + centerx_b) / 2.0f;
@@ -2102,25 +1848,29 @@ jab_finder_pattern* findMasterSymbol(jab_bitmap* bitmap, jab_bitmap* ch[], jab_d
 							type_b == jab_default_palette[FP0_CORE_COLOR * 3 + 2])
 						{
 							fp.type = FP0;	//candidate for fp0
-							JAB_REPORT_INFO(("H3_TRACE: GATE2 PASS FP0 RGB match (horiz) at (%.1f,%.1f)", fp.center.x, fp.center.y));
 						}
 						else if(type_r == jab_default_palette[FP3_CORE_COLOR * 3] &&
 								type_g == jab_default_palette[FP3_CORE_COLOR * 3 + 1] &&
 								type_b == jab_default_palette[FP3_CORE_COLOR * 3 + 2])
 						{
 							fp.type = FP3;	//candidate for fp3
-							JAB_REPORT_INFO(("H3_TRACE: GATE2 PASS FP3 RGB match (horiz) at (%.1f,%.1f)", fp.center.x, fp.center.y));
 						}
 						else
 						{
-							JAB_REPORT_INFO(("H3_TRACE: GATE2 REJECT RGB type (horiz FP0/3): r=%d,g=%d,b=%d", type_r, type_g, type_b));
+#if JABCODE_DIAG
+							diag_type_invalid++;
+							JAB_REPORT_INFO(("DIAG fp1_cand type_invalid: R=%d G=%d B=%d @ (%.0f,%d) ms=%.1f", type_r, type_g, type_b, centerx_g, i, module_size_g))
+#endif
 							continue;		//invalid type
 						}
 					}
 					else if(finder_pattern2_found)
 					{
-						if(!checkModuleSize2(module_size_r, module_size_g)) {
-							JAB_REPORT_INFO(("H3_TRACE: GATE1 REJECT checkModuleSize2 (horiz FP2): size_r=%.1f, size_g=%.1f", module_size_r, module_size_g));
+						if(!checkModuleSize2(module_size_r, module_size_g))
+						{
+#if JABCODE_DIAG
+							diag_modsize_fail++;
+#endif
 							continue;
 						}
 						fp.center.x = (centerx_r + centerx_g) / 2.0f;
@@ -2130,26 +1880,28 @@ jab_finder_pattern* findMasterSymbol(jab_bitmap* bitmap, jab_bitmap* ch[], jab_d
 						   type_b == jab_default_palette[FP1_CORE_COLOR * 3 + 2])
 						{
 							fp.type = FP1;	//candidate for fp1
-							JAB_REPORT_INFO(("H3_TRACE: GATE2 PASS FP1 RGB match (horiz) at (%.1f,%.1f)", fp.center.x, fp.center.y));
 						}
 						else if(type_r == jab_default_palette[FP2_CORE_COLOR * 3] &&
 								type_g == jab_default_palette[FP2_CORE_COLOR * 3 + 1] &&
 								type_b == jab_default_palette[FP2_CORE_COLOR * 3 + 2])
 						{
 							fp.type = FP2;	//candidate for fp2
-							JAB_REPORT_INFO(("H3_TRACE: GATE2 PASS FP2 RGB match (horiz) at (%.1f,%.1f)", fp.center.x, fp.center.y));
 						}
 						else
 						{
-							JAB_REPORT_INFO(("H3_TRACE: GATE2 REJECT RGB type (horiz FP1/2): r=%d,g=%d,b=%d", type_r, type_g, type_b));
+#if JABCODE_DIAG
+							diag_type_invalid++;
+							JAB_REPORT_INFO(("DIAG fp2_cand type_invalid: R=%d G=%d B=%d @ (%.0f,%d) ms=%.1f", type_r, type_g, type_b, centerx_r, i, module_size_g))
+#endif
 							continue;		//invalid type
 						}
 					}
 					//cross check
-					JAB_REPORT_INFO(("H3_TRACE: Testing GATE3 crossCheckPattern (horiz) for FP type %d at (%.1f,%.1f)", fp.type, fp.center.x, fp.center.y));
 					if( crossCheckPattern(ch, &fp, 0) )
 					{
-						JAB_REPORT_INFO(("H3_TRACE: GATE3 PASS! Saving FP type %d (horiz) at (%.1f,%.1f)", fp.type, fp.center.x, fp.center.y));
+#if JABCODE_DIAG
+						diag_fullcheck_pass++;
+#endif
 						saveFinderPattern(&fp, fps, &total_finder_patterns, fp_type_count);
 						if(total_finder_patterns >= (MAX_FINDER_PATTERNS - 1) )
 						{
@@ -2157,14 +1909,22 @@ jab_finder_pattern* findMasterSymbol(jab_bitmap* bitmap, jab_bitmap* ch[], jab_d
 							break;
 						}
 					}
-					else
-					{
-						JAB_REPORT_INFO(("H3_TRACE: GATE3 REJECT crossCheckPattern (horiz) for FP type %d", fp.type));
-					}
+#if JABCODE_DIAG
+					else { diag_fullcheck_fail++; }
+#endif
 				}
             }
         }while(startx < ch[0]->width && endx < ch[0]->width);
     }
+
+#if JABCODE_DIAG
+    JAB_REPORT_INFO(("DIAG findMaster img=%dx%d min_mod=%d", ch[0]->width, ch[0]->height, min_module_size))
+    JAB_REPORT_INFO(("DIAG seek: green_h=%d", diag_green_seek))
+    JAB_REPORT_INFO(("DIAG cross_h: blue_pass=%d blue_fail=%d red_pass=%d red_fail=%d", diag_blue_cross_pass, diag_blue_cross_fail, diag_red_cross_pass, diag_red_cross_fail))
+    JAB_REPORT_INFO(("DIAG color: r_pass=%d r_fail=%d b_pass=%d b_fail=%d", diag_color_r_pass, diag_color_r_fail, diag_color_b_pass, diag_color_b_fail))
+    JAB_REPORT_INFO(("DIAG candidates: fp1=%d fp2=%d modsize_fail=%d type_invalid=%d", diag_fp1_cand, diag_fp2_cand, diag_modsize_fail, diag_type_invalid))
+    JAB_REPORT_INFO(("DIAG fullcheck: pass=%d fail=%d saved=%d", diag_fullcheck_pass, diag_fullcheck_fail, total_finder_patterns))
+#endif
 
     //if only FP0 and FP1 are found or only FP2 and FP3 are found, do vertical-scan
 	if( (fp_type_count[0] != 0 && fp_type_count[1] !=0 && fp_type_count[2] == 0 && fp_type_count[3] == 0) ||
@@ -2192,296 +1952,7 @@ jab_finder_pattern* findMasterSymbol(jab_bitmap* bitmap, jab_bitmap* ch[], jab_d
 		fps[i].direction = fps[i].direction >=0 ? 1 : -1;
 	}
 	//select best patterns
-	JAB_REPORT_INFO(("H3_SELECT: Calling selectBestPatterns with total=%d, counts=[%d,%d,%d,%d]", 
-		total_finder_patterns, fp_type_count[0], fp_type_count[1], fp_type_count[2], fp_type_count[3]));
 	jab_int32 missing_fp_count = selectBestPatterns(fps, total_finder_patterns, fp_type_count);
-
-	// Tier 4 diagnostic: Report finder pattern search results
-	JAB_REPORT_INFO(("findMasterSymbol RESULTS: total_patterns=%d, missing=%d", 
-		total_finder_patterns, missing_fp_count))
-	JAB_REPORT_INFO(("  Pattern counts by type: FP0=%d FP1=%d FP2=%d FP3=%d",
-		fp_type_count[0], fp_type_count[1], fp_type_count[2], fp_type_count[3]))
-	
-#if SCREEN_DISPLAY_MODE
-    // Phase 2K: Handle missing=2 when two same-edge FPs are reliably detected.
-    // On screen displays, FP1/FP2 are often undetectable (both use the else-if red path).
-    // If FP0+FP3 (left edge) are present, estimate FP1+FP2 by perpendicular rotation.
-    if(missing_fp_count == 2)
-    {
-        // Identify which pair is present
-        jab_boolean has_left_edge  = (fps[0].found_count > 0 && fps[3].found_count > 0);
-        jab_boolean has_right_edge = (fps[1].found_count > 0 && fps[2].found_count > 0);
-        jab_boolean has_top_edge   = (fps[0].found_count > 0 && fps[1].found_count > 0);
-        jab_boolean has_bottom_edge= (fps[3].found_count > 0 && fps[2].found_count > 0);
-
-        if(has_left_edge)
-        {
-            // Phase 2M: Known-geometry perspective-aware FP estimation (Council BC-JAB-2L-001)
-            // Use detected module sizes to scale perpendicular separately at FP0 and FP3.
-            // This produces a trapezoid (not square) that models perspective foreshortening.
-            jab_float vx = fps[3].center.x - fps[0].center.x;
-            jab_float vy = fps[3].center.y - fps[0].center.y;
-            jab_float left_edge_len = (jab_float)sqrt(vx*vx + vy*vy);
-            // Perpendicular unit vector (90° CW: (vx,vy) → (vy,-vx) / length)
-            jab_float px_unit = (left_edge_len > 1.0f) ? vy / left_edge_len : 0;
-            jab_float py_unit = (left_edge_len > 1.0f) ? -vx / left_edge_len : 0;
-            // FP centers span 14 modules for v1 21×21
-            jab_float fp_span = 14.0f;
-            jab_float h_extent_fp0 = fp_span * fps[0].module_size;
-            jab_float h_extent_fp3 = fp_span * fps[3].module_size;
-            JAB_REPORT_INFO(("H3_GEOM: Phase2M: edge=%.1f, v_ms=%.1f, h_ms0=%.1f, h_ms3=%.1f, h_ext0=%.1f, h_ext3=%.1f",
-                left_edge_len, left_edge_len/fp_span, fps[0].module_size, fps[3].module_size, h_extent_fp0, h_extent_fp3))
-            // FP1 = FP0 + perpendicular scaled by horizontal extent at FP0
-            fps[1].center.x = fps[0].center.x + px_unit * h_extent_fp0;
-            fps[1].center.y = fps[0].center.y + py_unit * h_extent_fp0;
-            fps[1].type = FP1;
-            fps[1].found_count = 1;
-            fps[1].direction = -fps[0].direction;
-            fps[1].module_size = fps[0].module_size;
-            // FP2 = FP3 + perpendicular scaled by horizontal extent at FP3
-            fps[2].center.x = fps[3].center.x + px_unit * h_extent_fp3;
-            fps[2].center.y = fps[3].center.y + py_unit * h_extent_fp3;
-            fps[2].type = FP2;
-            fps[2].found_count = 1;
-            fps[2].direction = fps[3].direction;
-            fps[2].module_size = fps[3].module_size;
-
-            // Bounds check — both estimated FPs must be within image
-            jab_boolean fp1_valid = (fps[1].center.x >= 0 && fps[1].center.x < ch[0]->width &&
-                                     fps[1].center.y >= 0 && fps[1].center.y < ch[0]->height);
-            jab_boolean fp2_valid = (fps[2].center.x >= 0 && fps[2].center.x < ch[0]->width &&
-                                     fps[2].center.y >= 0 && fps[2].center.y < ch[0]->height);
-            if(fp1_valid && fp2_valid)
-            {
-                JAB_REPORT_INFO(("H3_GEOM: Phase2M estimation: FP1=(%.1f,%.1f) FP2=(%.1f,%.1f) [trapezoid]",
-                    fps[1].center.x, fps[1].center.y, fps[2].center.x, fps[2].center.y))
-                missing_fp_count = 0;
-            }
-            else
-            {
-                // Try opposite perpendicular (code might be mirrored/rotated)
-                fps[1].center.x = fps[0].center.x - px_unit * h_extent_fp0;
-                fps[1].center.y = fps[0].center.y - py_unit * h_extent_fp0;
-                fps[2].center.x = fps[3].center.x - px_unit * h_extent_fp3;
-                fps[2].center.y = fps[3].center.y - py_unit * h_extent_fp3;
-                fp1_valid = (fps[1].center.x >= 0 && fps[1].center.x < ch[0]->width &&
-                             fps[1].center.y >= 0 && fps[1].center.y < ch[0]->height);
-                fp2_valid = (fps[2].center.x >= 0 && fps[2].center.x < ch[0]->width &&
-                             fps[2].center.y >= 0 && fps[2].center.y < ch[0]->height);
-                if(fp1_valid && fp2_valid)
-                {
-                    JAB_REPORT_INFO(("H3_GEOM: Phase2M estimation (flipped): FP1=(%.1f,%.1f) FP2=(%.1f,%.1f)",
-                        fps[1].center.x, fps[1].center.y, fps[2].center.x, fps[2].center.y))
-                    missing_fp_count = 0;
-                }
-                else
-                {
-                    JAB_REPORT_INFO(("H3_GEOM: Phase2M LEFT EDGE FAILED — both orientations out of bounds"))
-                    memset(&fps[1], 0, sizeof(jab_finder_pattern));
-                    memset(&fps[2], 0, sizeof(jab_finder_pattern));
-                }
-            }
-        }
-        else if(has_right_edge)
-        {
-            jab_float vx = fps[2].center.x - fps[1].center.x;
-            jab_float vy = fps[2].center.y - fps[1].center.y;
-            jab_float px = -vy;
-            jab_float py = vx;
-            fps[0].center.x = fps[1].center.x + px;
-            fps[0].center.y = fps[1].center.y + py;
-            fps[0].type = FP0;
-            fps[0].found_count = 1;
-            fps[0].direction = -fps[1].direction;
-            fps[0].module_size = (fps[1].module_size + fps[2].module_size) / 2.0f;
-            fps[3].center.x = fps[2].center.x + px;
-            fps[3].center.y = fps[2].center.y + py;
-            fps[3].type = FP3;
-            fps[3].found_count = 1;
-            fps[3].direction = fps[2].direction;
-            fps[3].module_size = (fps[1].module_size + fps[2].module_size) / 2.0f;
-
-            jab_boolean ok = (fps[0].center.x >= 0 && fps[0].center.x < ch[0]->width &&
-                              fps[0].center.y >= 0 && fps[0].center.y < ch[0]->height &&
-                              fps[3].center.x >= 0 && fps[3].center.x < ch[0]->width &&
-                              fps[3].center.y >= 0 && fps[3].center.y < ch[0]->height);
-            if(ok)
-            {
-                JAB_REPORT_INFO(("H3_GEOM: missing=2 RIGHT EDGE estimation: FP0=(%.1f,%.1f) FP3=(%.1f,%.1f)",
-                    fps[0].center.x, fps[0].center.y, fps[3].center.x, fps[3].center.y))
-                missing_fp_count = 0;
-            }
-            else
-            {
-                fps[0].center.x = fps[1].center.x - px;
-                fps[0].center.y = fps[1].center.y - py;
-                fps[3].center.x = fps[2].center.x - px;
-                fps[3].center.y = fps[2].center.y - py;
-                ok = (fps[0].center.x >= 0 && fps[0].center.x < ch[0]->width &&
-                      fps[0].center.y >= 0 && fps[0].center.y < ch[0]->height &&
-                      fps[3].center.x >= 0 && fps[3].center.x < ch[0]->width &&
-                      fps[3].center.y >= 0 && fps[3].center.y < ch[0]->height);
-                if(ok)
-                {
-                    JAB_REPORT_INFO(("H3_GEOM: missing=2 RIGHT EDGE estimation (flipped): FP0=(%.1f,%.1f) FP3=(%.1f,%.1f)",
-                        fps[0].center.x, fps[0].center.y, fps[3].center.x, fps[3].center.y))
-                    missing_fp_count = 0;
-                }
-                else
-                {
-                    JAB_REPORT_INFO(("H3_GEOM: missing=2 RIGHT EDGE estimation FAILED"))
-                    memset(&fps[0], 0, sizeof(jab_finder_pattern));
-                    memset(&fps[3], 0, sizeof(jab_finder_pattern));
-                }
-            }
-        }
-        else if(has_top_edge)
-        {
-            jab_float vx = fps[1].center.x - fps[0].center.x;
-            jab_float vy = fps[1].center.y - fps[0].center.y;
-            jab_float px = vy;
-            jab_float py = -vx;
-            fps[3].center.x = fps[0].center.x + px;
-            fps[3].center.y = fps[0].center.y + py;
-            fps[3].type = FP3;
-            fps[3].found_count = 1;
-            fps[3].direction = fps[0].direction;
-            fps[3].module_size = (fps[0].module_size + fps[1].module_size) / 2.0f;
-            fps[2].center.x = fps[1].center.x + px;
-            fps[2].center.y = fps[1].center.y + py;
-            fps[2].type = FP2;
-            fps[2].found_count = 1;
-            fps[2].direction = fps[1].direction;
-            fps[2].module_size = (fps[0].module_size + fps[1].module_size) / 2.0f;
-
-            jab_boolean ok = (fps[3].center.x >= 0 && fps[3].center.x < ch[0]->width &&
-                              fps[3].center.y >= 0 && fps[3].center.y < ch[0]->height &&
-                              fps[2].center.x >= 0 && fps[2].center.x < ch[0]->width &&
-                              fps[2].center.y >= 0 && fps[2].center.y < ch[0]->height);
-            if(ok)
-            {
-                JAB_REPORT_INFO(("H3_GEOM: missing=2 TOP EDGE estimation: FP3=(%.1f,%.1f) FP2=(%.1f,%.1f)",
-                    fps[3].center.x, fps[3].center.y, fps[2].center.x, fps[2].center.y))
-                missing_fp_count = 0;
-            }
-            else
-            {
-                fps[3].center.x = fps[0].center.x - px;
-                fps[3].center.y = fps[0].center.y - py;
-                fps[2].center.x = fps[1].center.x - px;
-                fps[2].center.y = fps[1].center.y - py;
-                ok = (fps[3].center.x >= 0 && fps[3].center.x < ch[0]->width &&
-                      fps[3].center.y >= 0 && fps[3].center.y < ch[0]->height &&
-                      fps[2].center.x >= 0 && fps[2].center.x < ch[0]->width &&
-                      fps[2].center.y >= 0 && fps[2].center.y < ch[0]->height);
-                if(ok)
-                {
-                    JAB_REPORT_INFO(("H3_GEOM: missing=2 TOP EDGE estimation (flipped)"))
-                    missing_fp_count = 0;
-                }
-                else
-                {
-                    JAB_REPORT_INFO(("H3_GEOM: missing=2 TOP EDGE estimation FAILED"))
-                    memset(&fps[3], 0, sizeof(jab_finder_pattern));
-                    memset(&fps[2], 0, sizeof(jab_finder_pattern));
-                }
-            }
-        }
-        else if(has_bottom_edge)
-        {
-            jab_float vx = fps[2].center.x - fps[3].center.x;
-            jab_float vy = fps[2].center.y - fps[3].center.y;
-            jab_float px = -vy;
-            jab_float py = vx;
-            fps[0].center.x = fps[3].center.x + px;
-            fps[0].center.y = fps[3].center.y + py;
-            fps[0].type = FP0;
-            fps[0].found_count = 1;
-            fps[0].direction = -fps[3].direction;
-            fps[0].module_size = (fps[3].module_size + fps[2].module_size) / 2.0f;
-            fps[1].center.x = fps[2].center.x + px;
-            fps[1].center.y = fps[2].center.y + py;
-            fps[1].type = FP1;
-            fps[1].found_count = 1;
-            fps[1].direction = -fps[2].direction;
-            fps[1].module_size = (fps[3].module_size + fps[2].module_size) / 2.0f;
-
-            jab_boolean ok = (fps[0].center.x >= 0 && fps[0].center.x < ch[0]->width &&
-                              fps[0].center.y >= 0 && fps[0].center.y < ch[0]->height &&
-                              fps[1].center.x >= 0 && fps[1].center.x < ch[0]->width &&
-                              fps[1].center.y >= 0 && fps[1].center.y < ch[0]->height);
-            if(ok)
-            {
-                JAB_REPORT_INFO(("H3_GEOM: missing=2 BOTTOM EDGE estimation: FP0=(%.1f,%.1f) FP1=(%.1f,%.1f)",
-                    fps[0].center.x, fps[0].center.y, fps[1].center.x, fps[1].center.y))
-                missing_fp_count = 0;
-            }
-            else
-            {
-                fps[0].center.x = fps[3].center.x - px;
-                fps[0].center.y = fps[3].center.y - py;
-                fps[1].center.x = fps[2].center.x - px;
-                fps[1].center.y = fps[2].center.y - py;
-                ok = (fps[0].center.x >= 0 && fps[0].center.x < ch[0]->width &&
-                      fps[0].center.y >= 0 && fps[0].center.y < ch[0]->height &&
-                      fps[1].center.x >= 0 && fps[1].center.x < ch[0]->width &&
-                      fps[1].center.y >= 0 && fps[1].center.y < ch[0]->height);
-                if(ok)
-                {
-                    JAB_REPORT_INFO(("H3_GEOM: missing=2 BOTTOM EDGE estimation (flipped)"))
-                    missing_fp_count = 0;
-                }
-                else
-                {
-                    JAB_REPORT_INFO(("H3_GEOM: missing=2 BOTTOM EDGE estimation FAILED"))
-                    memset(&fps[0], 0, sizeof(jab_finder_pattern));
-                    memset(&fps[1], 0, sizeof(jab_finder_pattern));
-                }
-            }
-        }
-        else
-        {
-            JAB_REPORT_INFO(("H3_GEOM: missing=2 but no same-edge pair found — cannot estimate"))
-        }
-
-        // Phase 2K: Refine estimated FP positions using local image search
-        if(missing_fp_count == 0)
-        {
-            jab_float ref_size = 0;
-            jab_int32 ref_count = 0;
-            for(jab_int32 i=0; i<4; i++)
-            {
-                if(fps[i].found_count > 1) { ref_size += fps[i].module_size; ref_count++; }
-            }
-            if(ref_count > 0) ref_size /= ref_count;
-
-            for(jab_int32 i=0; i<4; i++)
-            {
-                if(fps[i].found_count == 1)
-                {
-                    jab_point saved_center = fps[i].center;
-                    jab_float saved_size = fps[i].module_size;
-                    JAB_REPORT_INFO(("H3_GEOM: Refining estimated FP%d at (%.1f,%.1f) via local search",
-                        i, fps[i].center.x, fps[i].center.y))
-                    seekMissingFinderPattern(bitmap, fps, i);
-                    // Reject refinement if module_size is wildly different from detected FPs
-                    if(ref_size > 0 && (fps[i].module_size < ref_size * 0.2f || fps[i].module_size > ref_size * 5.0f))
-                    {
-                        JAB_REPORT_INFO(("H3_GEOM: REJECT refined FP%d (size=%.2f vs ref=%.2f) — reverting",
-                            i, fps[i].module_size, ref_size))
-                        fps[i].center = saved_center;
-                        fps[i].module_size = saved_size;
-                    }
-                    else
-                    {
-                        JAB_REPORT_INFO(("H3_GEOM: Refined FP%d to (%.1f,%.1f) size=%.2f",
-                            i, fps[i].center.x, fps[i].center.y, fps[i].module_size))
-                    }
-                }
-            }
-        }
-    }
-#endif
 
 	//if more than one finder patterns are missing, detection fails
 	if(missing_fp_count > 1)
@@ -2560,25 +2031,13 @@ jab_finder_pattern* findMasterSymbol(jab_bitmap* bitmap, jab_bitmap* ch[], jab_d
 #endif
 		seekMissingFinderPattern(bitmap, fps, miss_fp);
     }
-    // Phase 2J: Always log final selected FP positions for decode pipeline diagnosis
-    JAB_REPORT_INFO(("H3_PIPELINE: Final selected FPs (missing=%d):", missing_fp_count))
+#if TEST_MODE
+    //output the final selected 4 patterns
+    JAB_REPORT_INFO(("Final patterns:"))
     for(jab_int32 i=0; i<4; i++)
     {
-        JAB_REPORT_INFO(("  FP%d: (%.1f,%.1f) size=%.2f cnt=%d dir=%d",
-            i, fps[i].center.x, fps[i].center.y, fps[i].module_size, fps[i].found_count, fps[i].direction))
+        JAB_REPORT_INFO(("x:%6.1f\ty:%6.1f\tsize:%.2f\tcnt:%d\ttype:%d\tdir:%d", fps[i].center.x, fps[i].center.y, fps[i].module_size, fps[i].found_count, fps[i].type, fps[i].direction))
     }
-    // Log inter-FP distances to detect degenerate quadrilaterals
-    {
-        jab_float d01 = DIST(fps[0].center.x, fps[0].center.y, fps[1].center.x, fps[1].center.y);
-        jab_float d12 = DIST(fps[1].center.x, fps[1].center.y, fps[2].center.x, fps[2].center.y);
-        jab_float d23 = DIST(fps[2].center.x, fps[2].center.y, fps[3].center.x, fps[3].center.y);
-        jab_float d30 = DIST(fps[3].center.x, fps[3].center.y, fps[0].center.x, fps[0].center.y);
-        jab_float d02 = DIST(fps[0].center.x, fps[0].center.y, fps[2].center.x, fps[2].center.y);
-        jab_float d13 = DIST(fps[1].center.x, fps[1].center.y, fps[3].center.x, fps[3].center.y);
-        JAB_REPORT_INFO(("  Quad edges: d01=%.1f d12=%.1f d23=%.1f d30=%.1f diag02=%.1f diag13=%.1f",
-            d01, d12, d23, d30, d02, d13))
-    }
-#if TEST_MODE
 	drawFoundFinderPatterns(fps, 4, 0xff0000);
 	saveImage(test_mode_bitmap, "jab_detector_result_fp.png");
 #endif
@@ -3181,10 +2640,6 @@ jab_boolean findSlaveSymbol(jab_bitmap* bitmap, jab_bitmap* ch[], jab_decoded_sy
         return JAB_FAILURE;
     }
 
-    //get slave symbol side size from its metadata
-    slave_symbol->side_size.x = VERSION2SIZE(slave_symbol->metadata.side_version.x);
-    slave_symbol->side_size.y = VERSION2SIZE(slave_symbol->metadata.side_version.y);
-
     //docked horizontally
     jab_float distx01 = host_symbol->pattern_positions[1].x - host_symbol->pattern_positions[0].x;
     jab_float disty01 = host_symbol->pattern_positions[1].y - host_symbol->pattern_positions[0].y;
@@ -3198,7 +2653,6 @@ jab_boolean findSlaveSymbol(jab_bitmap* bitmap, jab_bitmap* ch[], jab_decoded_sy
 
     jab_float alpha1 = 0.0f, alpha2 = 0.0f;
     jab_int32 sign = 1;
-    jab_int32 docked_side_size = 0, undocked_side_size;
     jab_int32 ap1 = 0, ap2 = 0, ap3 = 0, ap4 = 0, hp1 = 0, hp2 = 0;
     switch(docked_position)
     {
@@ -3213,8 +2667,6 @@ jab_boolean findSlaveSymbol(jab_bitmap* bitmap, jab_bitmap* ch[], jab_decoded_sy
             alpha1 = atan2(disty01, distx01);
             alpha2 = atan2(disty32, distx32);
             sign = 1;
-            docked_side_size   = slave_symbol->side_size.y;
-            undocked_side_size = slave_symbol->side_size.x;
             ap1 = AP0;	//ap[0]
             ap2 = AP3;	//ap[3]
             ap3 = AP1;	//ap[1]
@@ -3234,8 +2686,6 @@ jab_boolean findSlaveSymbol(jab_bitmap* bitmap, jab_bitmap* ch[], jab_decoded_sy
             alpha1 = atan2(disty32, distx32);
             alpha2 = atan2(disty01, distx01);
             sign = -1;
-            docked_side_size   = slave_symbol->side_size.y;
-            undocked_side_size = slave_symbol->side_size.x;
             ap1 = AP2;	//ap[2]
             ap2 = AP1;	//ap[1]
             ap3 = AP3;	//ap[3]
@@ -3262,8 +2712,6 @@ jab_boolean findSlaveSymbol(jab_bitmap* bitmap, jab_bitmap* ch[], jab_decoded_sy
             alpha1 = atan2(disty12, distx12);
             alpha2 = atan2(disty03, distx03);
             sign = 1;
-            docked_side_size   = slave_symbol->side_size.x;
-            undocked_side_size = slave_symbol->side_size.y;
             ap1 = AP1;	//ap[1]
             ap2 = AP0;	//ap[0]
             ap3 = AP2;	//ap[2]
@@ -3290,8 +2738,6 @@ jab_boolean findSlaveSymbol(jab_bitmap* bitmap, jab_bitmap* ch[], jab_decoded_sy
             alpha1 = atan2(disty03, distx03);
             alpha2 = atan2(disty12, distx12);
             sign = -1;
-            docked_side_size   = slave_symbol->side_size.x;
-            undocked_side_size = slave_symbol->side_size.y;
             ap1 = AP3;	//ap[3]
             ap2 = AP2;	//ap[2]
             ap3 = AP0;	//ap[0]
@@ -3323,17 +2769,28 @@ jab_boolean findSlaveSymbol(jab_bitmap* bitmap, jab_bitmap* ch[], jab_decoded_sy
         return JAB_FAILURE;
     }
 
+    //get slave symbol side size from its metadata
+    slave_symbol->side_size.x = VERSION2SIZE(slave_symbol->metadata.side_version.x);
+    slave_symbol->side_size.y = VERSION2SIZE(slave_symbol->metadata.side_version.y);
+
     //estimate the module size in the slave symbol
-    slave_symbol->module_size = DIST(aps[ap1].center.x, aps[ap1].center.y, aps[ap2].center.x, aps[ap2].center.y) / (docked_side_size - 7);
+    if(docked_position == 3 || docked_position == 2)
+    {
+        slave_symbol->module_size = DIST(aps[ap1].center.x, aps[ap1].center.y, aps[ap2].center.x, aps[ap2].center.y) / (slave_symbol->side_size.y - 7);
+    }
+    if(docked_position == 1 || docked_position == 0)
+    {
+        slave_symbol->module_size = DIST(aps[ap1].center.x, aps[ap1].center.y, aps[ap2].center.x, aps[ap2].center.y) / (slave_symbol->side_size.x - 7);
+    }
 
     //calculate the coordinate of ap3
-    aps[ap3].center.x = aps[ap1].center.x + sign * (undocked_side_size - 7) * slave_symbol->module_size * cos(alpha1);
-    aps[ap3].center.y = aps[ap1].center.y + sign * (undocked_side_size - 7) * slave_symbol->module_size * sin(alpha1);
+    aps[ap3].center.x = aps[ap1].center.x + sign * (slave_symbol->side_size.x - 7) * slave_symbol->module_size * cos(alpha1);
+    aps[ap3].center.y = aps[ap1].center.y + sign * (slave_symbol->side_size.y - 7) * slave_symbol->module_size * sin(alpha1);
     //find alignment pattern around ap3
     aps[ap3] = findAlignmentPattern(ch, aps[ap3].center.x, aps[ap3].center.y, slave_symbol->module_size, ap3);
     //calculate the coordinate of ap4
-    aps[ap4].center.x = aps[ap2].center.x + sign * (undocked_side_size - 7) * slave_symbol->module_size * cos(alpha2);
-    aps[ap4].center.y = aps[ap2].center.y + sign * (undocked_side_size - 7) * slave_symbol->module_size * sin(alpha2);
+    aps[ap4].center.x = aps[ap2].center.x + sign * (slave_symbol->side_size.x - 7) * slave_symbol->module_size * cos(alpha2);
+    aps[ap4].center.y = aps[ap2].center.y + sign * (slave_symbol->side_size.y - 7) * slave_symbol->module_size * sin(alpha2);
     //find alignment pattern around ap4
     aps[ap4] = findAlignmentPattern(ch, aps[ap4].center.x, aps[ap4].center.y, slave_symbol->module_size, ap4);
 
@@ -3503,43 +2960,6 @@ jab_vector2d calculateSideSize(jab_finder_pattern* fps)
     size_y_right = getSideSize(size_y_right, &flag2);
 
     side_size.y = chooseSideSize(size_y_left, flag1, size_y_right, flag2);
-
-#if SCREEN_DISPLAY_MODE
-    // Phase 2L: Angle-correction compensation for screen display mode.
-    // calculateModuleNumber's cos_theta approximation breaks at steep tilt angles,
-    // causing one axis to compute correctly while the other returns -1.
-    // For single master symbols, both axes must be equal.
-    JAB_REPORT_INFO(("H3_SIDESIZE: raw x_top=%d x_bot=%d y_left=%d y_right=%d → x=%d y=%d",
-        size_x_top, size_x_bottom, size_y_left, size_y_right, side_size.x, side_size.y))
-    if(side_size.x == -1 && side_size.y > 0)
-        side_size.x = side_size.y;
-    else if(side_size.y == -1 && side_size.x > 0)
-        side_size.y = side_size.x;
-    else if(side_size.x > 0 && side_size.y > 0 && side_size.x != side_size.y)
-        side_size.x = side_size.y = MIN(side_size.x, side_size.y);
-    else if(side_size.x == -1 && side_size.y == -1)
-    {
-        // Both axes failed — try to salvage from individual raw values.
-        // Any raw value in valid range [21..145] that is a valid version is usable.
-        jab_int32 candidates[] = {size_x_top, size_x_bottom, size_y_left, size_y_right};
-        for(jab_int32 i=0; i<4; i++)
-        {
-            if(candidates[i] >= 21 && candidates[i] <= 145)
-            {
-                jab_int32 dummy;
-                jab_int32 valid = getSideSize(candidates[i], &dummy);
-                if(valid > 0)
-                {
-                    side_size.x = side_size.y = valid;
-                    JAB_REPORT_INFO(("H3_SIDESIZE: salvaged %d from raw candidate[%d]=%d", valid, i, candidates[i]))
-                    break;
-                }
-            }
-        }
-    }
-    if(side_size.x != -1)
-        JAB_REPORT_INFO(("H3_SIDESIZE: final=%dx%d", side_size.x, side_size.y))
-#endif
 
     return side_size;
 }
@@ -4128,14 +3548,43 @@ void getAveragePixelValue(jab_bitmap* bitmap, jab_finder_pattern* fps, jab_float
 */
 jab_boolean detectMaster(jab_bitmap* bitmap, jab_bitmap* ch[], jab_decoded_symbol* master_symbol)
 {
-    // Tier 4 diagnostic: Verify detector called with valid binarized channels
-    JAB_REPORT_INFO(("detectMaster ENTRY: bitmap=%dx%d, ch[0]=%p ch[1]=%p ch[2]=%p", 
-        bitmap->width, bitmap->height, (void*)ch[0], (void*)ch[1], (void*)ch[2]))
-    if(ch[0] && ch[1] && ch[2]) {
-        JAB_REPORT_INFO(("  Binarized channels valid: R[0,0]=%d G[0,0]=%d B[0,0]=%d", 
-            ch[0]->pixel[0], ch[1]->pixel[0], ch[2]->pixel[0]))
+#if JABCODE_DIAG
+    diag_cc_green_fail = 0; diag_cc_red_fail = 0; diag_cc_blue_fail = 0;
+    diag_cc_modsize_fail = 0; diag_cc_color_h_fail = 0; diag_cc_color_v_fail = 0; diag_cc_color_d_fail = 0;
+    diag_cc_pass = 0;
+    JAB_REPORT_INFO(("DIAG detectMaster: bitmap %dx%d, pass 1 (default binarizer)", bitmap->width, bitmap->height))
+#endif
+
+    /* WS-0 Step 0.7: detect Mode 0 (monochrome) signature.
+     * Sample pixels at intervals across the bitmap. If every sample has R==G==B,
+     * the image is greyscale and Mode 0 decode path should be used.
+     * See: docs/jabcode-all-nc-plan/00b-mode-0-monochrome.md */
+    {
+        jab_int32 bpp = bitmap->bits_per_pixel / 8;
+        jab_int32 stride = bitmap->width * bpp;
+        jab_int32 step_x = bitmap->width  / 16;  /* sample ~16x16 = 256 pixels */
+        jab_int32 step_y = bitmap->height / 16;
+        if (step_x < 1) step_x = 1;
+        if (step_y < 1) step_y = 1;
+        jab_boolean all_greyscale = 1;
+        jab_int32 samples = 0;
+        for (jab_int32 y = 0; y < bitmap->height && all_greyscale; y += step_y) {
+            for (jab_int32 x = 0; x < bitmap->width && all_greyscale; x += step_x) {
+                jab_int32 off = y * stride + x * bpp;
+                jab_byte r = bitmap->pixel[off + 0];
+                jab_byte g = bitmap->pixel[off + 1];
+                jab_byte b = bitmap->pixel[off + 2];
+                if (r != g || g != b) {
+                    all_greyscale = 0;
+                }
+                samples++;
+            }
+        }
+        g_mode0_decode = (samples > 0 && all_greyscale);
+        JAB_REPORT_INFO(("DIAG_MODE0_DETECT g_mode0_decode=%d (sampled=%d)",
+                         (int)g_mode0_decode, samples))
     }
-    
+
     //find master symbol
     jab_finder_pattern* fps;
     jab_int32 status;
@@ -4143,16 +3592,22 @@ jab_boolean detectMaster(jab_bitmap* bitmap, jab_bitmap* ch[], jab_decoded_symbo
     if(status == FATAL_ERROR) return JAB_FAILURE;
     else if(status == JAB_FAILURE)
     {
+#if JABCODE_DIAG
+        JAB_REPORT_INFO(("DIAG detectMaster: pass 1 FAILED, trying adaptive binarizer"))
+#endif
 #if TEST_MODE
         JAB_REPORT_INFO(("Trying to detect more finder patterns based on the found ones"))
 #endif
         //calculate the average pixel value around the found FPs
         jab_float rgb_ave[3];
         getAveragePixelValue(bitmap, fps, rgb_ave);
+#if JABCODE_DIAG
+        JAB_REPORT_INFO(("DIAG detectMaster: rgb_ave=(%.1f, %.1f, %.1f)", rgb_ave[0], rgb_ave[1], rgb_ave[2]))
+#endif
         free(fps);
-        //binarize the bitmap using Otsu adaptive thresholds (Tier 3)
+        //binarize the bitmap using the average pixel values as thresholds
         for(jab_int32 i=0; i<3; free(ch[i++]));
-        if(!binarizerLuminanceRGB(bitmap, ch))  // Use Otsu for fallback detection too
+        if(!binarizerRGB(bitmap, ch, rgb_ave))
         {
             return JAB_FAILURE;
         }
@@ -4160,72 +3615,106 @@ jab_boolean detectMaster(jab_bitmap* bitmap, jab_bitmap* ch[], jab_decoded_symbo
         fps = findMasterSymbol(bitmap, ch, INTENSIVE_DETECT, &status);
         if(status == JAB_FAILURE || status == FATAL_ERROR)
         {
+#if JABCODE_DIAG
+            JAB_REPORT_INFO(("DIAG crossCheck: green_fail=%d red_fail=%d blue_fail=%d modsize=%d color_h=%d color_v=%d color_d=%d pass=%d",
+                diag_cc_green_fail, diag_cc_red_fail, diag_cc_blue_fail, diag_cc_modsize_fail,
+                diag_cc_color_h_fail, diag_cc_color_v_fail, diag_cc_color_d_fail, diag_cc_pass))
+            JAB_REPORT_INFO(("DIAG detectMaster: pass 2 ALSO FAILED"))
+#endif
             free(fps);
             return JAB_FAILURE;
         }
     }
+    JAB_REPORT_INFO(("DETECT SUCCESS FP0(%.0f,%.0f,ms=%.0f) FP1(%.0f,%.0f,ms=%.0f) FP2(%.0f,%.0f,ms=%.0f) FP3(%.0f,%.0f,ms=%.0f)",
+        fps[0].center.x, fps[0].center.y, fps[0].module_size,
+        fps[1].center.x, fps[1].center.y, fps[1].module_size,
+        fps[2].center.x, fps[2].center.y, fps[2].module_size,
+        fps[3].center.x, fps[3].center.y, fps[3].module_size))
 
-    // Phase 2J: Pipeline stage 1 — calculateSideSize
+    //calculate the master symbol side size
     jab_vector2d side_size = calculateSideSize(fps);
-    JAB_REPORT_INFO(("H3_PIPELINE: Stage1 calculateSideSize: x=%d y=%d", side_size.x, side_size.y))
-#if SCREEN_DISPLAY_MODE
-    // Phase 2M: Known-geometry side_size fallback when calculateSideSize fails
-    // The cos_theta approximation in calculateModuleNumber breaks at steep angles,
-    // causing both axes to return -1. Derive side version from FP edge geometry instead.
-    if(side_size.x == -1 || side_size.y == -1)
-    {
-        jab_float d_left = DIST(fps[0].center.x, fps[0].center.y, fps[3].center.x, fps[3].center.y);
-        jab_float avg_ms = 0;
-        jab_int32 ms_cnt = 0;
-        for(jab_int32 i=0; i<4; i++)
-        {
-            if(fps[i].found_count > 1) { avg_ms += fps[i].module_size; ms_cnt++; }
-        }
-        if(ms_cnt > 0) avg_ms /= ms_cnt;
-        if(avg_ms > 0)
-        {
-            jab_int32 raw_N = (jab_int32)(d_left / avg_ms + 0.5f) + 7;
-            jab_int32 dummy;
-            jab_int32 valid = getSideSize(raw_N, &dummy);
-            if(valid > 0) side_size.x = side_size.y = valid;
-            else          side_size.x = side_size.y = 21;
-        }
-        else
-        {
-            side_size.x = side_size.y = 21;
-        }
-        JAB_REPORT_INFO(("H3_PIPELINE: Phase2M side_size fallback: %dx%d (d_left=%.1f, avg_ms=%.1f)",
-            side_size.x, side_size.y, d_left, avg_ms))
-    }
-#endif
     if(side_size.x == -1 || side_size.y == -1)
     {
 		reportError("Calculating side size failed");
-		JAB_REPORT_INFO(("H3_PIPELINE: FAIL at Stage1 — calculateSideSize returned invalid side"))
         free(fps);
 		return JAB_FAILURE;
     }
-
-    // Phase 2J: Pipeline stage 2 — getPerspectiveTransform
+#if TEST_MODE
+	JAB_REPORT_INFO(("Side sizes: %d %d", side_size.x, side_size.y))
+#endif
+    //try decoding using only finder patterns
+	//calculate perspective transform matrix
 	jab_perspective_transform* pt = getPerspectiveTransform(fps[0].center, fps[1].center,
 															fps[2].center, fps[3].center,
 															side_size);
 	if(pt == NULL)
 	{
-		JAB_REPORT_ERROR(("H3_PIPELINE: FAIL at Stage2 — getPerspectiveTransform returned NULL (FPs: (%.1f,%.1f)(%.1f,%.1f)(%.1f,%.1f)(%.1f,%.1f) side=%dx%d)",
-			fps[0].center.x, fps[0].center.y, fps[1].center.x, fps[1].center.y,
-			fps[2].center.x, fps[2].center.y, fps[3].center.x, fps[3].center.y,
-			side_size.x, side_size.y))
 		free(fps);
 		return JAB_FAILURE;
 	}
-	JAB_REPORT_INFO(("H3_PIPELINE: Stage2 getPerspectiveTransform OK"))
 
-    // Phase 2J: Pipeline stage 3 — sampleSymbol
+	//sample master symbol
 #if TEST_MODE
 	test_mode_color = 255;
 #endif
 	jab_bitmap* matrix = sampleSymbol(bitmap, pt, side_size);
+	if(matrix && side_size.x == 21 && side_size.y == 21)
+	{
+		static const char* hello_ref[21] = {
+			"MCCYYYCMMMMYKYMMKCMYK",
+			"YKKKCYCMMKCKMKKKKKCYM",
+			"CKCCYYMKKKCKYKMKYYMCK",
+			"YKCKCKYCCKKKMCCKYKYKM",
+			"KYMCCKMYMKMKYCYKMYYKY",
+			"YYMKKKKMMMCYCCKMMKKKY",
+			"YYCYYKMKCYYCKMYKYYMMK",
+			"CYCCKYKCKKKMYKCYYKCKC",
+			"MYMMKCMKMKYYYKCYMYYCM",
+			"KMYKYMMKYKYKYMKYMCMYM",
+			"MKKMYCMYYYKMKCMKCKYKM",
+			"YCCCKMYMKMKKCKMMCKYMM",
+			"KKMYKKMYMKCKYKYCKCKCC",
+			"MCMCYYCMYYMYKKMCKMYYK",
+			"KCMMKMKMKYKKYKKMCKCYC",
+			"YMCCCCKMKYMCMYMKYYYYM",
+			"CCYKKCYKKCYCMKCMMKKYM",
+			"CCKCKCYKCKCYYCCYKYKYM",
+			"MCKKMYMCMYCYKMMYKKYMM",
+			"KCCCMCCKKKCMCYKYYYCCY",
+			"MYCMYYMMMCYMCYMKCYMMY"
+		};
+		jab_int32 mp = matrix->bits_per_pixel / 8;
+		jab_int32 mr = matrix->width * mp;
+		jab_int32 ref_match = 0;
+		char grid[21][22];
+		for(jab_int32 row=0; row<21; row++)
+		{
+			for(jab_int32 c=0; c<21; c++)
+			{
+				jab_byte r=matrix->pixel[row*mr+c*mp], g=matrix->pixel[row*mr+c*mp+1], b=matrix->pixel[row*mr+c*mp+2];
+				grid[row][c] = (r>200&&g>200&&b<80)?'Y' : (r<80&&g>200&&b>200)?'C' : (r>200&&g<80&&b>200)?'M' : (r<80&&g<80&&b<80)?'K' : (r>200&&g>200&&b>200)?'W' : '?';
+				if(grid[row][c] == hello_ref[row][c]) ref_match++;
+			}
+			grid[row][21] = '\0';
+			JAB_REPORT_INFO(("GRID r%02d=[%s]", row, grid[row]))
+		}
+		jab_int32 ref_pct = ref_match * 100 / 441;
+		JAB_REPORT_INFO(("GRID_REF match=%d/441 (%d%%) %s", ref_match, ref_pct, ref_pct > 85 ? "HELLO_CONFIRMED" : ref_pct > 50 ? "PARTIAL" : "WRONG_BARCODE"))
+
+		jab_int32 fp_pos[4][2] = {{3,3},{3,17},{17,17},{17,3}};
+		for(jab_int32 f=0; f<4; f++)
+		{
+			jab_int32 fr=fp_pos[f][0], fc=fp_pos[f][1];
+			for(jab_int32 dr=-1; dr<=1; dr++)
+			{
+				jab_int32 rr=fr+dr;
+				jab_byte r0=matrix->pixel[rr*mr+(fc-1)*mp], g0=matrix->pixel[rr*mr+(fc-1)*mp+1], b0=matrix->pixel[rr*mr+(fc-1)*mp+2];
+				jab_byte r1=matrix->pixel[rr*mr+fc*mp],     g1=matrix->pixel[rr*mr+fc*mp+1],     b1=matrix->pixel[rr*mr+fc*mp+2];
+				jab_byte r2=matrix->pixel[rr*mr+(fc+1)*mp], g2=matrix->pixel[rr*mr+(fc+1)*mp+1], b2=matrix->pixel[rr*mr+(fc+1)*mp+2];
+				JAB_REPORT_INFO(("FP%d_RGB r%d [(%d,%d,%d)(%d,%d,%d)(%d,%d,%d)]", f, rr, r0,g0,b0, r1,g1,b1, r2,g2,b2))
+			}
+		}
+	}
 	free(pt);
 #if TEST_MODE
 	saveImage(test_mode_bitmap, "jab_sample_pos_fp.png");
@@ -4233,41 +3722,11 @@ jab_boolean detectMaster(jab_bitmap* bitmap, jab_bitmap* ch[], jab_decoded_symbo
 	if(matrix == NULL)
 	{
 		reportError("Sampling master symbol failed");
-		JAB_REPORT_INFO(("H3_PIPELINE: FAIL at Stage3 — sampleSymbol returned NULL"))
 		free(fps);
 		return JAB_FAILURE;
 	}
-	JAB_REPORT_INFO(("H3_PIPELINE: Stage3 sampleSymbol OK: %dx%d", matrix->width, matrix->height))
 
-#if SCREEN_DISPLAY_MODE
-	// Phase 2M: Diagnostic — sampled module RGB values at key positions (Council BC-JAB-2L-001)
-	{
-		jab_int32 bpp = matrix->bits_per_pixel / 8;
-		jab_int32 w = matrix->width;
-		jab_int32 h = matrix->height;
-		// First row: top of FP0 + start of metadata area
-		for(jab_int32 col=0; col<w && col<10; col++)
-		{
-			jab_int32 off = col * bpp;
-			JAB_REPORT_INFO(("H3_SAMPLE: [0,%d] RGB(%d,%d,%d)",
-				col, matrix->pixel[off], matrix->pixel[off+1], matrix->pixel[off+2]))
-		}
-		// FP centers: FP0=(3,3), FP1=(3,w-4), FP2=(h-4,w-4), FP3=(h-4,3)
-		jab_int32 fp_rc[][2] = {{3,3}, {3,w-4}, {h-4,w-4}, {h-4,3}};
-		const char* fp_names[] = {"FP0(black)", "FP1(black)", "FP2(yellow)", "FP3(cyan)"};
-		for(jab_int32 i=0; i<4; i++)
-		{
-			jab_int32 r = fp_rc[i][0], c = fp_rc[i][1];
-			if(r >= 0 && r < h && c >= 0 && c < w)
-			{
-				jab_int32 off = (r * w + c) * bpp;
-				JAB_REPORT_INFO(("H3_SAMPLE: %s center [%d,%d] RGB(%d,%d,%d)",
-					fp_names[i], r, c, matrix->pixel[off], matrix->pixel[off+1], matrix->pixel[off+2]))
-			}
-		}
-	}
-#endif
-
+	//save the detection result
 	master_symbol->index = 0;
 	master_symbol->host_index = 0;
 	master_symbol->side_size = side_size;
@@ -4277,50 +3736,41 @@ jab_boolean detectMaster(jab_bitmap* bitmap, jab_bitmap* ch[], jab_decoded_symbo
 	master_symbol->pattern_positions[2] = fps[2].center;
 	master_symbol->pattern_positions[3] = fps[3].center;
 
-    // Phase 2J: Pipeline stage 4 — decodeMaster (FP-only attempt)
+	//decode master symbol
 	jab_int32 decode_result = decodeMaster(matrix, master_symbol);
-	JAB_REPORT_INFO(("H3_PIPELINE: Stage4 decodeMaster(FP-only) result=%d", decode_result))
 	free(matrix);
 	if(decode_result == JAB_SUCCESS)
 	{
-		JAB_REPORT_INFO(("H3_PIPELINE: SUCCESS — JABCode decoded!"))
 		free(fps);
 		return JAB_SUCCESS;
 	}
 	else if(decode_result < 0)	//fatal error occurred
 	{
-		JAB_REPORT_INFO(("H3_PIPELINE: FAIL at Stage4 — decodeMaster fatal error"))
 		free(fps);
 		return JAB_FAILURE;
 	}
 	else	//if decoding using only finder patterns failed, try decoding using alignment patterns
 	{
-		JAB_REPORT_INFO(("H3_PIPELINE: Stage4 FP-only decode failed (non-fatal), trying alignment pattern refinement..."))
-		JAB_REPORT_INFO(("  metadata side_version: x=%d y=%d", master_symbol->metadata.side_version.x, master_symbol->metadata.side_version.y))
+#if TEST_MODE
+		JAB_REPORT_INFO(("Trying to sample master symbol using alignment pattern..."))
+#endif // TEST_MODE
 		master_symbol->side_size.x = VERSION2SIZE(master_symbol->metadata.side_version.x);
 		master_symbol->side_size.y = VERSION2SIZE(master_symbol->metadata.side_version.y);
-		JAB_REPORT_INFO(("  Adjusted side_size: x=%d y=%d", master_symbol->side_size.x, master_symbol->side_size.y))
 		matrix = sampleSymbolByAlignmentPattern(bitmap, ch, master_symbol, fps);
 		free(fps);
 		if(matrix == NULL)
 		{
-			JAB_REPORT_INFO(("H3_PIPELINE: FAIL at Stage5 — sampleSymbolByAlignmentPattern returned NULL"))
+#if TEST_MODE
+			reportError("Sampling master symbol using alignment pattern failed");
+#endif // TEST_MODE
 			return JAB_FAILURE;
 		}
-		JAB_REPORT_INFO(("H3_PIPELINE: Stage5 sampleSymbolByAlignmentPattern OK: %dx%d", matrix->width, matrix->height))
 		decode_result = decodeMaster(matrix, master_symbol);
-		JAB_REPORT_INFO(("H3_PIPELINE: Stage6 decodeMaster(AP-refined) result=%d", decode_result))
 		free(matrix);
 		if(decode_result == JAB_SUCCESS)
-		{
-			JAB_REPORT_INFO(("H3_PIPELINE: SUCCESS — JABCode decoded via alignment pattern refinement!"))
 			return JAB_SUCCESS;
-		}
 		else
-		{
-			JAB_REPORT_INFO(("H3_PIPELINE: FAIL at Stage6 — decodeMaster(AP-refined) failed"))
 			return JAB_FAILURE;
-		}
 	}
 }
 
@@ -4438,18 +3888,13 @@ jab_data* decodeJABCodeEx(jab_bitmap* bitmap, jab_int32 mode, jab_int32* status,
 		return NULL;
 	}
 
-	//binarize using luminance-based thresholds but preserve RGB colors
+	//binarize r, g, b channels
 	jab_bitmap* ch[3];
 	balanceRGB(bitmap);
-	
-	// Use luminance-based binarization for finder pattern detection
-	// More robust against intermediate color values in 16+ color modes
-	// Uses luminance for threshold but preserves RGB color information
-	if(!binarizerLuminanceRGB(bitmap, ch))
+    if(!binarizerRGB(bitmap, ch, 0))
 	{
 		return NULL;
 	}
-	
 #if TEST_MODE
     saveImage(bitmap, "jab_balanced.png");
 #endif // TEST_MODE

@@ -20,11 +20,6 @@ jab_bitmap* test_mode_bitmap;
 jab_int32	test_mode_color;
 #endif
 
-// Phase 2B: Screen display mode for adaptive color validation
-// Set to 1 for screen display testing (relaxed tolerance, non-consecutive sampling)
-// Set to 0 for printed code scanning (strict tolerance, consecutive sampling)
-#define SCREEN_DISPLAY_MODE	1
-
 #define MAX_MODULES 		145	//the number of modules in side-version 32
 #define MAX_SYMBOL_ROWS		3
 #define MAX_SYMBOL_COLUMNS	3
@@ -73,7 +68,6 @@ typedef struct {
 extern void getAveVar(jab_byte* rgb, jab_double* ave, jab_double* var);
 extern void getMinMax(jab_byte* rgb, jab_byte* min, jab_byte* mid, jab_byte* max, jab_int32* index_min, jab_int32* index_mid, jab_int32* index_max);
 extern void balanceRGB(jab_bitmap* bitmap);
-extern jab_boolean binarizerLuminanceRGB(jab_bitmap* bitmap, jab_bitmap* rgb[3]);
 extern jab_boolean binarizerRGB(jab_bitmap* bitmap, jab_bitmap* rgb[3], jab_float* blk_ths);
 extern jab_bitmap* binarizer(jab_bitmap* bitmap, jab_int32 channel);
 extern jab_bitmap* binarizerHist(jab_bitmap* bitmap, jab_int32 channel);
