@@ -185,6 +185,11 @@ extern jab_int32 generateJABCode(jab_encode* enc, jab_data* data);
 extern jab_data* decodeJABCode(jab_bitmap* bitmap, jab_int32 mode, jab_int32* status);
 extern jab_data* decodeJABCodeEx(jab_bitmap* bitmap, jab_int32 mode, jab_int32* status, jab_decoded_symbol* symbols, jab_int32 max_symbol_number);
 extern jab_data* decodeJABCodeSynthetic(jab_bitmap* bitmap, jab_int32 color_number, jab_int32 ecc_level, jab_int32 module_size, jab_int32 symbol_width, jab_int32 symbol_height, jab_int32 mask_type, jab_byte* encoder_data_map, jab_int32* encoder_wcwr, jab_int32 encoder_Pg, jab_int32 mode, jab_int32* status);
+/* WS-6 Option F ABI-compat stub: kept for Panama JAR symbol-lookup compatibility
+ * with the panama-poc fork (which uses this for thread-local observation-context
+ * cleanup). On swift-java-poc no such context exists, so this is a documented
+ * no-op. See docs/jabcode-all-nc-plan/mode0-investigation/09-ws6-option-f-resolution.md */
+extern void resetDecoderState(void);
 extern jab_boolean saveImage(jab_bitmap* bitmap, jab_char* filename);
 extern jab_boolean saveImageCMYK(jab_bitmap* bitmap, jab_boolean isCMYK, jab_char* filename);
 extern jab_bitmap* readImage(jab_char* filename);

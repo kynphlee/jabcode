@@ -2013,3 +2013,31 @@ jab_data* decodeData(jab_data* bits)
 	free(decoded_bytes);
 	return decoded_data;
 }
+
+/*
+ * WS-6 Option F ABI-compatibility stub.
+ *
+ * The Panama JAR shipped with jab-auth-jabcode was generated from the panama-poc
+ * fork, which exports `resetDecoderState` for thread-local observation-context
+ * cleanup as part of its adaptive-palette subsystem. The Panama wrapper's
+ * generated nested class `jabcode_h$resetDecoderState` performs a
+ * `SymbolLookup.findOrThrow("resetDecoderState")` at <clinit>; if the symbol is
+ * absent, the JAR raises `NoSuchElementException` at first reference site.
+ *
+ * The swift-java-poc branch carries the WS-0/2/3 work (Mode 0 monochrome,
+ * diagnostic markers, Nc=7) but does NOT include the adaptive observation
+ * context — there is genuinely no decoder state to reset. Per the council's
+ * Option F decision, we export this symbol as a documented no-op so the Panama
+ * JAR's symbol lookup succeeds without requiring either JAR regeneration or
+ * Java-side reflection-call modification.
+ *
+ * If/when the panama-poc adaptive system is merged onto swift-java-poc, this
+ * stub is removed and the full implementation from panama-poc:decoder.c
+ * replaces it.
+ *
+ * See: docs/jabcode-all-nc-plan/mode0-investigation/09-ws6-option-f-resolution.md
+ */
+void resetDecoderState(void)
+{
+	/* No-op: swift-java-poc has no observation context to reset. */
+}
