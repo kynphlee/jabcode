@@ -42,7 +42,25 @@
             android:name=".calibration.ProfileManagerActivity"
             android:label="Calibration Profiles"
             android:exported="false" />
-        
+
+        <!--
+            WS-0/2/3 verification harness — Android-ABI all-Nc encode↔decode
+            self-test. Secondary launcher: shows its own icon labelled
+            "JABCode All-Nc Self-Test" in the app drawer. Runs an in-memory
+            roundtrip for Nc=0..7 with no camera dependency. See:
+            AllNcSelfTestActivity.java and
+            docs/jabcode-all-nc-plan/00-CHECKLIST.md items 0.11, 2.4, 3.11.
+        -->
+        <activity
+            android:name=".AllNcSelfTestActivity"
+            android:label="JABCode All-Nc Self-Test"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="com.jabcode.test.fileprovider"

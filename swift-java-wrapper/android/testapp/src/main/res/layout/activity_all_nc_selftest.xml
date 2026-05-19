@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Layout for AllNcSelfTestActivity.
+
+    A single scrolling monospace text view that displays the live progress and
+    final summary of the all-Nc encode/decode roundtrip self-test. Monospace
+    is used so the per-Nc result lines align like the desktop test output.
+
+    See: src/jabcode/test/test_roundtrip_all_nc.c for the analogous desktop format.
+-->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    android:padding="16dp">
+
+    <TextView
+        android:id="@+id/all_nc_results"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:fontFamily="monospace"
+        android:textIsSelectable="true"
+        android:textSize="13sp" />
+
+</ScrollView>
