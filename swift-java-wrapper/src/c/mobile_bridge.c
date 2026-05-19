@@ -61,16 +61,17 @@ jab_mobile_encode_result* jabMobileEncode(
         return NULL;
     }
     
-    // Validate color mode (exclude 256-color mode - known broken)
-    if (params->color_number == 256) {
-        setError("256-color mode not supported (known issue - use 4, 8, 16, 32, 64, or 128)");
-        return NULL;
-    }
-    
-    if (params->color_number != 4 && params->color_number != 8 && 
-        params->color_number != 16 && params->color_number != 32 && 
-        params->color_number != 64 && params->color_number != 128) {
-        setError("Invalid color mode (must be 4, 8, 16, 32, 64, or 128)");
+    // Validate color mode: accept all 8 JABCode color modes (Nc=0..7 → 2,4,8,16,32,64,128,256).
+    // The historical 256-color "known broken" carve-out and the {4..128}-only allowed list
+    // pre-dated the WS-0 (Mode 0 / 2-color) and WS-3 (Nc=7 / 256-color) library work. The C
+    // library now supports all eight modes natively; this validation is purely a positive-list
+    // sanity check on the caller's color_number argument. See:
+    //   docs/jabcode-all-nc-plan/00-CHECKLIST.md items 0.11 (Mode 0 Android) and 3.11 (Nc=7 Android)
+    if (params->color_number != 2   && params->color_number != 4   &&
+        params->color_number != 8   && params->color_number != 16  &&
+        params->color_number != 32  && params->color_number != 64  &&
+        params->color_number != 128 && params->color_number != 256) {
+        setError("Invalid color mode (must be one of 2, 4, 8, 16, 32, 64, 128, 256)");
         return NULL;
     }
     
@@ -232,10 +233,13 @@ jab_data* jabMobileDecode(
         return NULL;
     }
     
-    // Validate color_number (must be power of 2 from 4 to 128)
-    if (color_number != 4 && color_number != 8 && color_number != 16 && 
-        color_number != 32 && color_number != 64 && color_number != 128) {
-        setError("Invalid color_number - must be 4, 8, 16, 32, 64, or 128");
+    // Validate color_number: accept all 8 JABCode color modes (Nc=0..7 → 2,4,8,16,32,64,128,256).
+    // Symmetric with the encode-path gate above; see that block's comment for history.
+    if (color_number != 2   && color_number != 4   &&
+        color_number != 8   && color_number != 16  &&
+        color_number != 32  && color_number != 64  &&
+        color_number != 128 && color_number != 256) {
+        setError("Invalid color_number - must be one of 2, 4, 8, 16, 32, 64, 128, 256");
         return NULL;
     }
     
