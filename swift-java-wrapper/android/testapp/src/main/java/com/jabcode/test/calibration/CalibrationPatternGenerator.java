@@ -3,7 +3,7 @@ package com.jabcode.test.calibration;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.util.Log;
-import com.jabcode.test.JABCodeMobile;
+import com.jabcode.JABCodeMobile;
 
 public class CalibrationPatternGenerator {
     private static final String TAG = "CalibrationPattern";
