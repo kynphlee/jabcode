@@ -1246,7 +1246,9 @@ void loadDefaultMasterMetadata(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 jab_int32 decodeSymbol(jab_bitmap* matrix, jab_decoded_symbol* symbol, jab_byte* data_map, jab_float* norm_palette, jab_float* pal_ths, jab_int32 type)
 {
 #if TEST_MODE
-	jab_int32 color_number = color_number_debug;
+	/* Fix for stale debug code: compute color_number from Nc instead of using
+	 * an undefined variable. Preserves the diagnostic intent. */
+	jab_int32 color_number = (jab_int32)pow(2, symbol->metadata.Nc + 1);
 	printf("p1:\n");
 	for(int i=0;i<color_number;i++)
 	{

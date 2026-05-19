@@ -1249,10 +1249,26 @@ jab_boolean createMatrix(jab_encode* enc, jab_int32 index, jab_data* ecc_encoded
                     if (i==k || j==k)
                     {
                         jab_byte fp0_color_index, fp1_color_index, fp2_color_index, fp3_color_index;
-						fp0_color_index = (k%2) ? fp3_core_color_index[Nc] : fp0_core_color_index[Nc];
-						fp1_color_index = (k%2) ? fp2_core_color_index[Nc] : fp1_core_color_index[Nc];
-						fp2_color_index = (k%2) ? fp1_core_color_index[Nc] : fp2_core_color_index[Nc];
-						fp3_color_index = (k%2) ? fp0_core_color_index[Nc] : fp3_core_color_index[Nc];
+						/* WS-0 Mode 0 fix: at Nc=0 all fp{0,1,2,3}_core_color_index[0]
+						 * are 0 (K), so the original alternating logic collapses to a
+						 * solid K block — no detectable alternating pattern. Force
+						 * proper K↔W alternation: even rings (k=0,2) = K (palette[0]),
+						 * odd rings (k=1) = W (palette[1]). All four FPs share this
+						 * pattern at Mode 0; geometric position disambiguates corners
+						 * (per ISO 23634 Section 4.3.7 monochrome reduction).
+						 * See: docs/jabcode-all-nc-plan/00b-mode-0-monochrome.md */
+						if (Nc == 0) {
+							jab_byte mode0_color = (k%2) ? 1 /*W*/ : 0 /*K*/;
+							fp0_color_index = mode0_color;
+							fp1_color_index = mode0_color;
+							fp2_color_index = mode0_color;
+							fp3_color_index = mode0_color;
+						} else {
+							fp0_color_index = (k%2) ? fp3_core_color_index[Nc] : fp0_core_color_index[Nc];
+							fp1_color_index = (k%2) ? fp2_core_color_index[Nc] : fp1_core_color_index[Nc];
+							fp2_color_index = (k%2) ? fp1_core_color_index[Nc] : fp2_core_color_index[Nc];
+							fp3_color_index = (k%2) ? fp0_core_color_index[Nc] : fp3_core_color_index[Nc];
+						}
 
 						//upper pattern
                         enc->symbols[index].matrix[(DISTANCE_TO_BORDER-(i+1))*enc->symbols[index].side_size.x+DISTANCE_TO_BORDER-j-1]=

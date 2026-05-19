@@ -16,8 +16,8 @@
 
 #define TEST_MODE			0
 #if TEST_MODE
-jab_bitmap* test_mode_bitmap;
-jab_int32	test_mode_color;
+extern jab_bitmap* test_mode_bitmap;
+extern jab_int32	test_mode_color;
 #endif
 
 #define MAX_MODULES 		145	//the number of modules in side-version 32

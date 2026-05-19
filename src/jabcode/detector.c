@@ -30,6 +30,11 @@
  * See: docs/jabcode-all-nc-plan/00b-mode-0-monochrome.md Step 0.7 */
 static jab_boolean g_mode0_decode = 0;
 
+#if TEST_MODE
+jab_bitmap* test_mode_bitmap = NULL;
+jab_int32   test_mode_color  = 0;
+#endif
+
 #if JABCODE_DIAG
 static jab_int32 diag_cc_green_fail = 0;
 static jab_int32 diag_cc_red_fail = 0, diag_cc_blue_fail = 0;
@@ -1358,8 +1363,15 @@ void scanPatternVertical(jab_bitmap* ch[], jab_int32 min_module_size, jab_finder
                     type_b = ch[2]->pixel[(jab_int32)(centery_b)*ch[2]->width + j] > 0 ? 255 : 0;
                     //check red channel
                     module_size_r = module_size_g;
+                    /* WS-0 Step 0.7: at Mode 0, the FP rings alternate K and W,
+                     * so the red channel along the FP vertical reads K(0)-W(255)-K(0)-W(255)-K(0).
+                     * The crossCheckColor "all pixels = R0" assumption (which Mode 1+ relies on
+                     * since K and C both have R=0) doesn't hold at Mode 0. Skip the color
+                     * exactness check; the green-channel pattern + blue-channel cross-check
+                     * already validated the FP structure. */
                     jab_int32 core_color_in_red_channel = jab_default_palette[FP3_CORE_COLOR * 3 + 0];
-                    if(crossCheckColor(ch[0], core_color_in_red_channel, module_size_r, 5, j, (jab_int32)centery_r, 1))
+                    if(g_mode0_decode ||
+                       crossCheckColor(ch[0], core_color_in_red_channel, module_size_r, 5, j, (jab_int32)centery_r, 1))
                     {
                     	type_r = 0;
                     	finder_pattern1_found = JAB_SUCCESS;
@@ -1371,8 +1383,12 @@ void scanPatternVertical(jab_bitmap* ch[], jab_int32 min_module_size, jab_finder
 					type_r = ch[0]->pixel[(jab_int32)(centery_r)*ch[0]->width + j] > 0 ? 255 : 0;
 					//check blue channel
 					module_size_b = module_size_g;
+					/* WS-0 Step 0.7: at Mode 0, same logic as above — the blue channel
+					 * along the FP vertical is K(0)-W(255)-K(0)-W(255)-K(0). Skip color
+					 * exactness check. */
 					jab_int32 core_color_in_blue_channel = jab_default_palette[FP2_CORE_COLOR * 3 + 2];
-                    if(crossCheckColor(ch[2], core_color_in_blue_channel, module_size_b, 5, j, (jab_int32)centery_b, 1))
+                    if(g_mode0_decode ||
+                       crossCheckColor(ch[2], core_color_in_blue_channel, module_size_b, 5, j, (jab_int32)centery_b, 1))
                     {
                     	type_b = 0;
                     	finder_pattern2_found = JAB_SUCCESS;
@@ -1428,6 +1444,20 @@ void scanPatternVertical(jab_bitmap* ch[], jab_int32 min_module_size, jab_finder
 							continue;		//invalid type
 						}
 					}
+					/* WS-0 Step 0.7: Mode 0 quadrant-based type assignment — see
+					 * the equivalent block in scanPatternHorizontal for rationale. */
+					if (g_mode0_decode)
+					{
+						jab_int32 half_w = ch[0]->width / 2;
+						jab_int32 half_h = ch[0]->height / 2;
+						jab_int32 cx = (jab_int32)fp.center.x;
+						jab_int32 cy = (jab_int32)fp.center.y;
+						if      (cx <  half_w && cy <  half_h) fp.type = FP0;
+						else if (cx >= half_w && cy <  half_h) fp.type = FP1;
+						else if (cx >= half_w && cy >= half_h) fp.type = FP2;
+						else                                   fp.type = FP3;
+					}
+
 					//cross check
 					if( crossCheckPattern(ch, &fp, 1) )
 					{
@@ -1436,39 +1466,6 @@ void scanPatternVertical(jab_bitmap* ch[], jab_int32 min_module_size, jab_finder
 						{
 							done = 1;
 							break;
-						}
-
-						/* WS-0 Step 0.7: at Mode 0, the scan only produces FP0/FP3 (or FP1/FP2)
-						 * candidates depending on which channel check succeeded first. But at
-						 * Mode 0, all FP cores are K — a single K-core candidate could be any
-						 * of FP0/FP1/FP2/FP3; geometry (via selectBestPatterns) disambiguates.
-						 * Save the candidate as the THREE other FP types too so all four
-						 * fp_type_count bins are populated.
-						 * See: docs/jabcode-all-nc-plan/00b-mode-0-monochrome.md Step 0.7 */
-						if (g_mode0_decode)
-						{
-							jab_int32 sibling_types[3];
-							switch (fp.type) {
-								case FP0: sibling_types[0]=FP1; sibling_types[1]=FP2; sibling_types[2]=FP3; break;
-								case FP1: sibling_types[0]=FP0; sibling_types[1]=FP2; sibling_types[2]=FP3; break;
-								case FP2: sibling_types[0]=FP0; sibling_types[1]=FP1; sibling_types[2]=FP3; break;
-								default:  sibling_types[0]=FP0; sibling_types[1]=FP1; sibling_types[2]=FP2; break;  /* FP3 */
-							}
-							for (jab_int32 si = 0; si < 3; si++)
-							{
-								jab_finder_pattern sibling = fp;
-								sibling.type = sibling_types[si];
-								if (crossCheckPattern(ch, &sibling, 1))
-								{
-									saveFinderPattern(&sibling, fps, total_finder_patterns, fp_type_count);
-									if(*total_finder_patterns >= (MAX_FINDER_PATTERNS - 1))
-									{
-										done = 1;
-										break;
-									}
-								}
-							}
-							if (done) break;
 						}
 					}
 				}
@@ -1786,8 +1783,10 @@ jab_finder_pattern* findMasterSymbol(jab_bitmap* bitmap, jab_bitmap* ch[], jab_d
                     type_b = row_b[(jab_int32)(centerx_b)] > 0 ? 255 : 0;
                     //check red channel
                     module_size_r = module_size_g;
+                    /* WS-0 Step 0.7: Mode 0 bypass — see scanPatternVertical for rationale. */
                     jab_int32 core_color_in_red_channel = jab_default_palette[FP3_CORE_COLOR * 3 + 0];
-                    if(crossCheckColor(ch[0], core_color_in_red_channel, module_size_r, 5, (jab_int32)centerx_r, i, 0))
+                    if(g_mode0_decode ||
+                       crossCheckColor(ch[0], core_color_in_red_channel, module_size_r, 5, (jab_int32)centerx_r, i, 0))
                     {
 #if JABCODE_DIAG
                     	diag_color_r_pass++;
@@ -1809,8 +1808,10 @@ jab_finder_pattern* findMasterSymbol(jab_bitmap* bitmap, jab_bitmap* ch[], jab_d
                 	type_r = row_r[(jab_int32)(centerx_r)] > 0 ? 255 : 0;
                 	//check blue channel
                     module_size_b = module_size_g;
+                    /* WS-0 Step 0.7: Mode 0 bypass — see scanPatternVertical for rationale. */
                     jab_int32 core_color_in_blue_channel = jab_default_palette[FP2_CORE_COLOR * 3 + 2];
-                    if(crossCheckColor(ch[2], core_color_in_blue_channel, module_size_b, 5, (jab_int32)centerx_b, i, 0))
+                    if(g_mode0_decode ||
+                       crossCheckColor(ch[2], core_color_in_blue_channel, module_size_b, 5, (jab_int32)centerx_b, i, 0))
                     {
 #if JABCODE_DIAG
                     	diag_color_b_pass++;
@@ -1896,6 +1897,23 @@ jab_finder_pattern* findMasterSymbol(jab_bitmap* bitmap, jab_bitmap* ch[], jab_d
 							continue;		//invalid type
 						}
 					}
+					/* WS-0 Step 0.7: Mode 0 quadrant-based type assignment.
+					 * At Mode 0, all FPs are K-cored — color cannot disambiguate. Assign
+					 * type by image quadrant instead: TL=FP0, TR=FP1, BR=FP2, BL=FP3.
+					 * This single-pass approach replaces sibling expansion (which collocated
+					 * type labels at the same position, producing degenerate transforms). */
+					if (g_mode0_decode)
+					{
+						jab_int32 half_w = ch[0]->width / 2;
+						jab_int32 half_h = ch[0]->height / 2;
+						jab_int32 cx = (jab_int32)fp.center.x;
+						jab_int32 cy = (jab_int32)fp.center.y;
+						if      (cx <  half_w && cy <  half_h) fp.type = FP0;  // TL
+						else if (cx >= half_w && cy <  half_h) fp.type = FP1;  // TR
+						else if (cx >= half_w && cy >= half_h) fp.type = FP2;  // BR
+						else                                   fp.type = FP3;  // BL
+					}
+
 					//cross check
 					if( crossCheckPattern(ch, &fp, 0) )
 					{
