@@ -1335,11 +1335,26 @@ jab_int32 decodeSymbol(jab_bitmap* matrix, jab_decoded_symbol* symbol, jab_byte*
 	//decode ldpc
     if(decodeLDPChd((jab_byte*)raw_data->data, Pg, symbol->metadata.ecl.x, symbol->metadata.ecl.y) != Pn)
     {
+		/* WS-2 Step 2.2: symbol decode failed in LDPC stage. */
+		JAB_REPORT_INFO(("DIAG_SYMBOL_DECODE result=ldpc_fail Nc=%d Pg=%d Pn=%d",
+		                 symbol->metadata.Nc, Pg, Pn));
 		JAB_REPORT_ERROR(("LDPC decoding for data in symbol %d failed", symbol->index))
 		free(raw_data);
 		return JAB_FAILURE;
 	}
 	DEBUG_LOG("[DECODE] SUCCESS Nc=%d (%d bytes)", symbol->metadata.Nc, Pn);
+	/* WS-2 Step 2.2: per-stage diagnostic marker — symbol decode complete.
+	 * Pg = gross payload (raw module bits / bits-per-module), Pn = net payload
+	 * (after LDPC). Includes a checksum of the decoded raw data for fast
+	 * cross-trace integrity comparison. */
+	{
+		jab_int32 _data_checksum = 0;
+		for(jab_int32 _i = 0; _i < Pn; _i++) {
+			_data_checksum = (_data_checksum * 31) + ((jab_byte*)raw_data->data)[_i];
+		}
+		JAB_REPORT_INFO(("DIAG_SYMBOL_DECODE result=ok Nc=%d Pg=%d Pn=%d checksum=0x%08x",
+		                 symbol->metadata.Nc, Pg, Pn, _data_checksum));
+	}
 
 	//find the start flag of metadata
 	jab_int32 metadata_offset = Pn - 1;
@@ -1479,6 +1494,21 @@ jab_int32 decodeMaster(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 			continue;
 		}
 
+		/* WS-2 Step 2.2: per-stage diagnostic marker — palette learning complete.
+		 * Captures Nc, color count, and a deterministic hash of the four palette
+		 * slots so trace comparison across decode attempts can detect divergence.
+		 * See: docs/jabcode-all-nc-plan/02-diagnostic-instrumentation.md */
+		{
+			jab_int32 _palette_color_n = (jab_int32)pow(2, symbol->metadata.Nc + 1);
+			jab_int32 _palette_hash = 0;
+			jab_int32 _palette_bytes = _palette_color_n * 3 * COLOR_PALETTE_NUMBER;
+			for(jab_int32 _i = 0; _i < _palette_bytes && _i < 768; _i++) {
+				_palette_hash = (_palette_hash * 31) + symbol->palette[_i];
+			}
+			JAB_REPORT_INFO(("DIAG_PALETTE_LEARNED Nc=%d colors=%d hash=0x%08x",
+			                 symbol->metadata.Nc, _palette_color_n, _palette_hash));
+		}
+
 		//normalize the RGB values in color palettes
 		jab_int32 color_number = (jab_int32)pow(2, symbol->metadata.Nc + 1);
 		jab_float norm_palette[color_number * 4 * COLOR_PALETTE_NUMBER];
@@ -1497,10 +1527,17 @@ jab_int32 decodeMaster(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 		{
 			jab_int32 part2_result = decodeMasterMetadataPartII(matrix, symbol, data_map, norm_palette, pal_ths, &module_count, &x, &y);
 			if(part2_result > 0) partII_ok = 1;
+			/* WS-2 Step 2.2: per-stage diagnostic marker — PartII metadata decode result. */
+			JAB_REPORT_INFO(("DIAG_PARTII_RESULT result=%d Nc=%d ok=%d",
+			                 part2_result, symbol->metadata.Nc, (int)partII_ok));
 		}
 		else
 		{
 			partII_ok = 1;
+			/* WS-2 Step 2.2: PartI failed; PartII skipped. Still emit marker for
+			 * consistent trace structure. */
+			JAB_REPORT_INFO(("DIAG_PARTII_RESULT result=skipped Nc=%d ok=1",
+			                 symbol->metadata.Nc));
 		}
 
 		if(!partII_ok) continue;
