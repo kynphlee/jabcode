@@ -144,12 +144,13 @@ jab_boolean parseCommandLineParameters(jab_int32 para_number, jab_char* para[])
 				printf("Invalid or missing values for option '%s'.\n", option);
 				return 0;
 			}
-            /* WS-0: Accept color_number=2 (Nc=0, Mode 0 monochrome). */
+            /* WS-0: Accept color_number=2 (Nc=0, Mode 0 monochrome).
+             * WS-3: Accept color_number=256 (Nc=7, max-density mode). */
             if(color_number != 2  &&
                color_number != 4  && color_number != 8  && color_number != 16 &&
-               color_number != 32 && color_number != 64 && color_number != 128)
+               color_number != 32 && color_number != 64 && color_number != 128 && color_number != 256)
             {
-				reportError("Invalid color number. Supported color numbers are 2, 4, 8, 16, 32, 64, 128.");
+				reportError("Invalid color number. Supported color numbers are 2, 4, 8, 16, 32, 64, 128, 256.");
 				return 0;
             }
         }
