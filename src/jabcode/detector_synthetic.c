@@ -129,18 +129,27 @@ jab_data* decodeJABCodeSynthetic(jab_bitmap* bitmap, jab_int32 color_number, jab
     memset(symbols, 0, MAX_SYMBOL_NUMBER * sizeof(jab_decoded_symbol));
     jab_int32 total = 0;
     jab_boolean res = 1;
-    // Use known parameters to completely bypass camera-specific detection
-    // Calculate Nc from color_number: Nc = log2(color_number) - 1
+    // Use known parameters to completely bypass camera-specific detection.
+    // Calculate Nc from color_number: Nc = log2(color_number) - 1.
+    //
+    // WS-0 (Mode 0 / 2-color monochrome): case 2  → Nc = 0
+    // WS-3 (Nc=7   / 256-color full):     case 256 → Nc = 7
+    // Without these cases, decodeJABCodeSynthetic returns NULL for Nc=0/Nc=7
+    // encodes — which is what mobile_bridge.c uses, causing WS-0/2/3 verification
+    // items 0.11 and 3.11 to fail at the synthetic-decode stage.
+    // See: docs/jabcode-all-nc-plan/00-CHECKLIST.md
     jab_byte Nc;
     switch(color_number) {
-        case 4:   Nc = 1; break;  // log2(4) - 1 = 2 - 1 = 1
-        case 8:   Nc = 2; break;  // log2(8) - 1 = 3 - 1 = 2
-        case 16:  Nc = 3; break;  // log2(16) - 1 = 4 - 1 = 3
-        case 32:  Nc = 4; break;  // log2(32) - 1 = 5 - 1 = 4
-        case 64:  Nc = 5; break;  // log2(64) - 1 = 6 - 1 = 5
+        case 2:   Nc = 0; break;  // log2(2)   - 1 = 1 - 1 = 0  (WS-0 Mode 0 monochrome)
+        case 4:   Nc = 1; break;  // log2(4)   - 1 = 2 - 1 = 1
+        case 8:   Nc = 2; break;  // log2(8)   - 1 = 3 - 1 = 2
+        case 16:  Nc = 3; break;  // log2(16)  - 1 = 4 - 1 = 3
+        case 32:  Nc = 4; break;  // log2(32)  - 1 = 5 - 1 = 4
+        case 64:  Nc = 5; break;  // log2(64)  - 1 = 6 - 1 = 5
         case 128: Nc = 6; break;  // log2(128) - 1 = 7 - 1 = 6
+        case 256: Nc = 7; break;  // log2(256) - 1 = 8 - 1 = 7  (WS-3 256-color)
         default:
-            reportError("Invalid color_number for synthetic decode");
+            reportError("Invalid color_number for synthetic decode (must be 2, 4, 8, 16, 32, 64, 128, or 256)");
             return NULL;
     }
     
