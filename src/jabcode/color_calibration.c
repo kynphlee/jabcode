@@ -201,20 +201,31 @@ void jabBuildCalibrationFromFPCores(const jab_bitmap* matrix, jab_int32 color_nu
     };
 
     /* FP0 center module is at (3, 3) — K-cored across all Nc.
-     * The matrix is in module-coordinate space (one pixel per module after
-     * perspective transform / synthetic setup), so direct (3,3) sample is
-     * the FP0 core. */
+     * fp0_core_color_index[Nc] = 0 ∀ Nc per encoder.h, so palette[0] = K
+     * canonical. The matrix is in module-coordinate space (one pixel per
+     * module after perspective transform / synthetic setup), so direct
+     * (3,3) sample is the FP0 core RGB. */
     sample_matrix_pixel(matrix, 3, 3, observed[0]);
 
-    /* FP2 (BR) Y-cored and FP3 (BL) C-cored for Nc≥2 (color_number ≥ 8). */
-    if (color_number >= 8) {
-        jab_int32 fp2_x = matrix->width  - 4;
-        jab_int32 fp2_y = matrix->height - 4;
-        jab_int32 fp3_x = 3;
-        jab_int32 fp3_y = matrix->height - 4;
-        sample_matrix_pixel(matrix, fp2_x, fp2_y, observed[5]); /* Y */
-        sample_matrix_pixel(matrix, fp3_x, fp3_y, observed[6]); /* C */
-    }
+    /* WS-4.5.1: K-only calibration. The original WS-4.4b implementation also
+     * sampled FP2 and FP3 cores for Y/C calibration, but empirical
+     * verification via the WS-4.8 threshold sweep (and follow-up sweeps in
+     * the same step) showed that the matrix samples at FP2/FP3 module
+     * positions do NOT reliably produce canonical palette colors in the
+     * intended slots — both the original (W-4,H-4)/(3,H-4) ordering and the
+     * swapped (3,H-4)/(W-4,H-4) ordering introduce regressions on at least
+     * one Nc level. The root cause involves how `decodeSymbol`'s matrix is
+     * sampled from the raw bitmap (sample center is at half-module offset)
+     * combined with per-Nc palette placement reordering (see
+     * encoder.h master_palette_placement_index[4][8]). Until that
+     * interaction is fully reverse-engineered, FP2/FP3 sampling is omitted
+     * here — K-only calibration is safe (palette[0]=K is canonical for all
+     * Nc) and the inverse remap stays identity for slots [1..7].
+     *
+     * (void)color_number; — kept in signature for future palette-aware impl
+     * See: docs/jabcode-all-nc-plan/04b-followups-plan.md item 4.5.1
+     */
+    (void)color_number;
 
     jabCalibrateFromObservedRGB(observed);
 }
