@@ -276,5 +276,9 @@ extern void interleaveData(jab_data* data);
 extern jab_int32 maskCode(jab_encode* enc, jab_code* cp);
 extern void maskSymbols(jab_encode* enc, jab_int32 mask_type, jab_int32* masked, jab_code* cp);
 extern void getNextMetadataModuleInMaster(jab_int32 matrix_height, jab_int32 matrix_width, jab_int32 next_module_count, jab_int32* x, jab_int32* y);
+/* WS-4.5.4 Bug E: declared here so the decoder can synthesize the procedural
+ * palette and recover indices the encoder never places in the matrix
+ * (specifically palette[1] for color_number > 8). */
+extern void genColorPalette(jab_int32 color_number, jab_byte* palette);
 
 #endif

@@ -316,12 +316,46 @@ jab_int32 readColorPaletteInMaster(jab_bitmap* matrix, jab_decoded_symbol* symbo
 		color_counter++;
 	}
 
+	/* WS-4.5.4 Bug E fix: for color_number > 8 (Nc>=3), neither the FP loop
+	 * (master_palette_placement_index[i][0..1] covers {0, 3, 6}) nor the
+	 * metadata loop (starts at color_counter=2 with sequential indexing for
+	 * >8) places palette index 1 anywhere in the matrix — yet the encoder
+	 * still uses palette[1] for data modules. With Fix B's calloc, the
+	 * decoder's symbol->palette[1] stays at (0,0,0), which never matches
+	 * the encoder's actual palette[1]; closest-match in decodeModuleHD then
+	 * misroutes those data modules, exhausting LDPC headroom for Nc=3.
+	 *
+	 * The encoder's setDefaultPalette path calls genColorPalette() for
+	 * color_number > 8 — a procedural R/G/B grid sampler that produces
+	 * different palette[1] values by color_number (e.g. (0,0,255) for
+	 * color_number=16/32 with vb=2, but (0,0,85) for color_number=64/128/256
+	 * with vb=4). Call the same function here so the decoder uses the
+	 * canonical value regardless of how the formula evolves upstream.
+	 * Populate before interpolatePalette runs, so Nc=6/7 interpolation
+	 * sees the correct palette[1] at its source indices 0..63.
+	 *
+	 * Master only — slave_palette_placement_index covers index 1 via
+	 * color_counter=4 within array bounds (separate concerns out of scope).
+	 */
+	if(color_number > 8)
+	{
+		jab_byte default_palette[256 * 3] = {0};
+		genColorPalette(color_number, default_palette);
+		for(jab_int32 panel = 0; panel < COLOR_PALETTE_NUMBER; panel++)
+		{
+			jab_int32 panel_offset = panel * color_number * 3;
+			symbol->palette[panel_offset + 3] = default_palette[3];  // palette[1].R
+			symbol->palette[panel_offset + 4] = default_palette[4];  // palette[1].G
+			symbol->palette[panel_offset + 5] = default_palette[5];  // palette[1].B
+		}
+	}
+
 	//interpolate the palette if there are more than 64 colors
 	if(color_number > 64)
 	{
 		interpolatePalette(symbol->palette, color_number);
 	}
-	
+
 	return JAB_SUCCESS;
 }
 
