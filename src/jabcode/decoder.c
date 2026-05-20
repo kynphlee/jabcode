@@ -32,6 +32,22 @@
 #include "lab_color.h"
 #endif
 
+/* WS-4 Step 4.4: optional FP-core color calibration in decodeModuleHD.
+ * Defined at compile time via -DUSE_FP_CALIBRATION. When defined AND when a
+ * calibration profile is active (jabHasCalibration() returns true), each
+ * sampled module RGB is normalized via jabRemapColorInverse before color
+ * classification. This wiring is intentionally passive — it does NOT build
+ * calibration from FP cores in this step; that integration ships in a
+ * follow-on commit (4.4b) once test_roundtrip_with_noise.c (4.7) exists to
+ * empirically validate the FP-core sampling path. Until then, calibration
+ * is populated externally via jabLoadCalibrationFromJSON or
+ * jabCalibrateFromObservedRGB.
+ * See: docs/jabcode-all-nc-plan/00-CHECKLIST.md item 4.4
+ *      src/jabcode/test/test_color_calibration.c phases 6–7 (TDD gate) */
+#ifdef USE_FP_CALIBRATION
+#include "color_calibration.h"
+#endif
+
 // Android logging support for debug output
 #ifdef __ANDROID__
 #include <android/log.h>
@@ -443,6 +459,19 @@ jab_byte decodeModuleHD(jab_bitmap* matrix, jab_byte* palette, jab_int32 color_n
 	rgb[0] = matrix->pixel[mtx_offset + 0];
 	rgb[1] = matrix->pixel[mtx_offset + 1];
 	rgb[2] = matrix->pixel[mtx_offset + 2];
+
+#ifdef USE_FP_CALIBRATION
+	/* WS-4 Step 4.4: normalize observed module RGB against the active
+	 * calibration profile (observed → standard). No-op when calibration
+	 * inactive — preserves Mode 1 Cassandra gate behavior by default. */
+	if (jabHasCalibration()) {
+		jab_byte normalized[3];
+		jabRemapColorInverse(rgb, normalized);
+		rgb[0] = normalized[0];
+		rgb[1] = normalized[1];
+		rgb[2] = normalized[2];
+	}
+#endif
 
 	jab_byte index1 = 0, index2 = 0;
 

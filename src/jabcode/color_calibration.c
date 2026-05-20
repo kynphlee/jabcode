@@ -124,3 +124,63 @@ void jabClearCalibration() {
 jab_boolean jabHasCalibration() {
     return g_calibration.is_active;
 }
+
+/* WS-4 Step 4.4: populate calibration from observed RGB array.
+ * The standard_colors[] table is fixed (K, W, R, G, B, Y, C, M canonical
+ * RGB values). The calibrated_colors[] table is filled from the caller's
+ * observations; for slots the caller did not observe, pass the standard
+ * color so jabRemapColorInverse leaves that color unmapped. */
+void jabCalibrateFromObservedRGB(const jab_byte observed[8][3]) {
+    if (!observed) {
+        return;
+    }
+
+    /* Standard colors are the canonical truth (same set jabLoadCalibrationFromJSON
+     * installs). Set them unconditionally so callers don't need to populate them. */
+    g_calibration.standard_colors[0][0] = 0;   g_calibration.standard_colors[0][1] = 0;   g_calibration.standard_colors[0][2] = 0;     /* Black */
+    g_calibration.standard_colors[1][0] = 255; g_calibration.standard_colors[1][1] = 255; g_calibration.standard_colors[1][2] = 255;   /* White */
+    g_calibration.standard_colors[2][0] = 255; g_calibration.standard_colors[2][1] = 0;   g_calibration.standard_colors[2][2] = 0;     /* Red */
+    g_calibration.standard_colors[3][0] = 0;   g_calibration.standard_colors[3][1] = 255; g_calibration.standard_colors[3][2] = 0;     /* Green */
+    g_calibration.standard_colors[4][0] = 0;   g_calibration.standard_colors[4][1] = 0;   g_calibration.standard_colors[4][2] = 255;   /* Blue */
+    g_calibration.standard_colors[5][0] = 255; g_calibration.standard_colors[5][1] = 255; g_calibration.standard_colors[5][2] = 0;     /* Yellow */
+    g_calibration.standard_colors[6][0] = 0;   g_calibration.standard_colors[6][1] = 255; g_calibration.standard_colors[6][2] = 255;   /* Cyan */
+    g_calibration.standard_colors[7][0] = 255; g_calibration.standard_colors[7][1] = 0;   g_calibration.standard_colors[7][2] = 255;   /* Magenta */
+
+    for (jab_int32 i = 0; i < 8; i++) {
+        g_calibration.calibrated_colors[i][0] = observed[i][0];
+        g_calibration.calibrated_colors[i][1] = observed[i][1];
+        g_calibration.calibrated_colors[i][2] = observed[i][2];
+    }
+
+    g_calibration.is_active = 1;
+}
+
+/* WS-4 Step 4.4: inverse-direction remap (observed → standard).
+ * Symmetric to jabRemapColor: exact-match lookup with pass-through for
+ * unmatched inputs. Used by the decoder's pre-sample pass to normalize
+ * camera observations against the encoder's palette geometry. */
+void jabRemapColorInverse(const jab_byte* rgb_in, jab_byte* rgb_out) {
+    if (!g_calibration.is_active) {
+        rgb_out[0] = rgb_in[0];
+        rgb_out[1] = rgb_in[1];
+        rgb_out[2] = rgb_in[2];
+        return;
+    }
+
+    for (jab_int32 i = 0; i < 8; i++) {
+        if (rgb_in[0] == g_calibration.calibrated_colors[i][0] &&
+            rgb_in[1] == g_calibration.calibrated_colors[i][1] &&
+            rgb_in[2] == g_calibration.calibrated_colors[i][2]) {
+
+            rgb_out[0] = g_calibration.standard_colors[i][0];
+            rgb_out[1] = g_calibration.standard_colors[i][1];
+            rgb_out[2] = g_calibration.standard_colors[i][2];
+            return;
+        }
+    }
+
+    /* No match — pass through unchanged */
+    rgb_out[0] = rgb_in[0];
+    rgb_out[1] = rgb_in[1];
+    rgb_out[2] = rgb_in[2];
+}

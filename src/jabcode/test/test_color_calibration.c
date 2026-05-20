@@ -1,5 +1,5 @@
 /*
- * test_color_calibration.c — WS-4 Step 4.3
+ * test_color_calibration.c — WS-4 Steps 4.3 + 4.4 (API regression gate)
  *
  * Phase B-Classical color calibration test. Creates a synthetic
  * "camera shift" scenario where standard colors (R, G, B, W, M) are
@@ -7,6 +7,11 @@
  * that color_calibration.c correctly loads the calibration profile and
  * remaps each standard color to its calibrated equivalent. Non-standard
  * pixels (e.g., grey) must pass through unchanged.
+ *
+ * Phases 1–5  WS-4.3  static JSON-driven lookup (jabLoadCalibrationFromJSON,
+ *                     jabRemapColor, jabApplyCalibration semantics)
+ * Phases 6–7  WS-4.4  decode-direction primitives (jabCalibrateFromObservedRGB,
+ *                     jabRemapColorInverse — inverse and passthrough)
  *
  * The "synthetic image" is a small 7-pixel test sequence covering:
  *   - 5 standard calibrated colors (R, G, B, W, M)
@@ -167,6 +172,92 @@ int main(void)
                       CAL_ENTRIES[0].standard)) {
         failures++;
     }
+
+    /* ---- Phase 6 (WS-4.4): Build calibration FROM observed RGB array ---- */
+    printf("--- Phase 6: jabCalibrateFromObservedRGB ---\n");
+    jabClearCalibration();
+    /* Construct an observation table: K, W, R, G, B, Y, C, M slots
+     * matching color_calibration.c's standard_colors order. Slots not
+     * present in CAL_ENTRIES (K=0, Y=5, C=6) pass through unmapped via
+     * supplying their canonical values. */
+    jab_byte observed[8][3] = {
+        {  0,   0,   0},   /* [0] K — observation = canonical (no shift) */
+        {CAL_ENTRIES[3].shifted[0], CAL_ENTRIES[3].shifted[1], CAL_ENTRIES[3].shifted[2]}, /* [1] W */
+        {CAL_ENTRIES[0].shifted[0], CAL_ENTRIES[0].shifted[1], CAL_ENTRIES[0].shifted[2]}, /* [2] R */
+        {CAL_ENTRIES[1].shifted[0], CAL_ENTRIES[1].shifted[1], CAL_ENTRIES[1].shifted[2]}, /* [3] G */
+        {CAL_ENTRIES[2].shifted[0], CAL_ENTRIES[2].shifted[1], CAL_ENTRIES[2].shifted[2]}, /* [4] B */
+        {255, 255,   0},   /* [5] Y — observation = canonical */
+        {  0, 255, 255},   /* [6] C — observation = canonical */
+        {CAL_ENTRIES[4].shifted[0], CAL_ENTRIES[4].shifted[1], CAL_ENTRIES[4].shifted[2]}, /* [7] M */
+    };
+    jabCalibrateFromObservedRGB(observed);
+    if (!jabHasCalibration()) {
+        printf("  FAIL: jabHasCalibration() false after jabCalibrateFromObservedRGB\n");
+        failures++;
+    } else {
+        printf("  PASS: jabCalibrateFromObservedRGB activates calibration\n");
+    }
+    /* Encode-direction remap should now produce the observed values
+     * (same contract as Phase 3 — the new function should be equivalent
+     * for these standard colors). */
+    for (size_t i = 0; i < N_CAL_ENTRIES; i++) {
+        char label[64];
+        snprintf(label, sizeof(label), "%s (via observed)", CAL_ENTRIES[i].name);
+        if (!assert_remap(label,
+                          CAL_ENTRIES[i].standard,
+                          CAL_ENTRIES[i].shifted)) {
+            failures++;
+        }
+    }
+
+    /* ---- Phase 7 (WS-4.4): Inverse remap (observed → standard) ---- */
+    printf("--- Phase 7: jabRemapColorInverse ---\n");
+    /* Test the inverse direction: given an OBSERVED color, recover the
+     * STANDARD color. This is what the decoder's pre-sample pass will use
+     * to normalize camera observations against the encoder's palette. */
+    for (size_t i = 0; i < N_CAL_ENTRIES; i++) {
+        char label[64];
+        snprintf(label, sizeof(label), "%s (inverse)", CAL_ENTRIES[i].name);
+        jab_byte output[3] = {0, 0, 0};
+        jabRemapColorInverse(CAL_ENTRIES[i].shifted, output);
+        int ok = (output[0] == CAL_ENTRIES[i].standard[0] &&
+                  output[1] == CAL_ENTRIES[i].standard[1] &&
+                  output[2] == CAL_ENTRIES[i].standard[2]);
+        printf("  %-30s in=(%3d,%3d,%3d) → out=(%3d,%3d,%3d)  expected=(%3d,%3d,%3d)  %s\n",
+            label,
+            CAL_ENTRIES[i].shifted[0],  CAL_ENTRIES[i].shifted[1],  CAL_ENTRIES[i].shifted[2],
+            output[0], output[1], output[2],
+            CAL_ENTRIES[i].standard[0], CAL_ENTRIES[i].standard[1], CAL_ENTRIES[i].standard[2],
+            ok ? "PASS" : "FAIL");
+        if (!ok) failures++;
+    }
+    /* Non-observed shifted color should pass through unchanged */
+    const jab_byte unknown_shift[3] = {123, 45, 67};
+    jab_byte unknown_out[3] = {0, 0, 0};
+    jabRemapColorInverse(unknown_shift, unknown_out);
+    int unknown_ok = (unknown_out[0] == 123 && unknown_out[1] == 45 && unknown_out[2] == 67);
+    printf("  %-30s in=(%3d,%3d,%3d) → out=(%3d,%3d,%3d)  expected=(%3d,%3d,%3d)  %s\n",
+        "unknown_shift (passthrough)",
+        unknown_shift[0], unknown_shift[1], unknown_shift[2],
+        unknown_out[0],   unknown_out[1],   unknown_out[2],
+        unknown_shift[0], unknown_shift[1], unknown_shift[2],
+        unknown_ok ? "PASS" : "FAIL");
+    if (!unknown_ok) failures++;
+
+    /* After clear, inverse should also pass through */
+    jabClearCalibration();
+    jab_byte after_clear_out[3] = {0, 0, 0};
+    jabRemapColorInverse(CAL_ENTRIES[0].shifted, after_clear_out);
+    int clear_ok = (after_clear_out[0] == CAL_ENTRIES[0].shifted[0] &&
+                    after_clear_out[1] == CAL_ENTRIES[0].shifted[1] &&
+                    after_clear_out[2] == CAL_ENTRIES[0].shifted[2]);
+    printf("  %-30s in=(%3d,%3d,%3d) → out=(%3d,%3d,%3d)  expected=(%3d,%3d,%3d)  %s\n",
+        "inverse after clear",
+        CAL_ENTRIES[0].shifted[0], CAL_ENTRIES[0].shifted[1], CAL_ENTRIES[0].shifted[2],
+        after_clear_out[0], after_clear_out[1], after_clear_out[2],
+        CAL_ENTRIES[0].shifted[0], CAL_ENTRIES[0].shifted[1], CAL_ENTRIES[0].shifted[2],
+        clear_ok ? "PASS" : "FAIL");
+    if (!clear_ok) failures++;
 
     printf("\n================================================\n");
     if (failures == 0) {
