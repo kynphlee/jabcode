@@ -155,6 +155,70 @@ void jabCalibrateFromObservedRGB(const jab_byte observed[8][3]) {
     g_calibration.is_active = 1;
 }
 
+/* WS-4 Step 4.4b: sample a single matrix pixel safely with bounds-check.
+ * Writes (0,0,0) to rgb_out when out of bounds — caller can detect this
+ * and fall back to canonical defaults. */
+static jab_int32 sample_matrix_pixel(const jab_bitmap* matrix,
+                                     jab_int32 x, jab_int32 y,
+                                     jab_byte rgb_out[3])
+{
+    if (!matrix || !matrix->pixel) {
+        rgb_out[0] = rgb_out[1] = rgb_out[2] = 0;
+        return 0;
+    }
+    if (x < 0 || y < 0 || x >= matrix->width || y >= matrix->height) {
+        rgb_out[0] = rgb_out[1] = rgb_out[2] = 0;
+        return 0;
+    }
+    jab_int32 bpp = matrix->bits_per_pixel / 8;
+    if (bpp < 3) {
+        rgb_out[0] = rgb_out[1] = rgb_out[2] = 0;
+        return 0;
+    }
+    jab_int32 offset = y * matrix->width * bpp + x * bpp;
+    rgb_out[0] = matrix->pixel[offset + 0];
+    rgb_out[1] = matrix->pixel[offset + 1];
+    rgb_out[2] = matrix->pixel[offset + 2];
+    return 1;
+}
+
+void jabBuildCalibrationFromFPCores(const jab_bitmap* matrix, jab_int32 color_number) {
+    if (!matrix || matrix->width <= 0 || matrix->height <= 0) {
+        return;
+    }
+
+    /* Start with canonical (no shift) for all 8 standard color slots.
+     * This guarantees that any slot we don't observe stays identity. */
+    jab_byte observed[8][3] = {
+        {  0,   0,   0},   /* [0] K — Black */
+        {255, 255, 255},   /* [1] W — White */
+        {255,   0,   0},   /* [2] R — Red */
+        {  0, 255,   0},   /* [3] G — Green */
+        {  0,   0, 255},   /* [4] B — Blue */
+        {255, 255,   0},   /* [5] Y — Yellow */
+        {  0, 255, 255},   /* [6] C — Cyan */
+        {255,   0, 255},   /* [7] M — Magenta */
+    };
+
+    /* FP0 center module is at (3, 3) — K-cored across all Nc.
+     * The matrix is in module-coordinate space (one pixel per module after
+     * perspective transform / synthetic setup), so direct (3,3) sample is
+     * the FP0 core. */
+    sample_matrix_pixel(matrix, 3, 3, observed[0]);
+
+    /* FP2 (BR) Y-cored and FP3 (BL) C-cored for Nc≥2 (color_number ≥ 8). */
+    if (color_number >= 8) {
+        jab_int32 fp2_x = matrix->width  - 4;
+        jab_int32 fp2_y = matrix->height - 4;
+        jab_int32 fp3_x = 3;
+        jab_int32 fp3_y = matrix->height - 4;
+        sample_matrix_pixel(matrix, fp2_x, fp2_y, observed[5]); /* Y */
+        sample_matrix_pixel(matrix, fp3_x, fp3_y, observed[6]); /* C */
+    }
+
+    jabCalibrateFromObservedRGB(observed);
+}
+
 /* WS-4 Step 4.4: inverse-direction remap (observed → standard).
  * Symmetric to jabRemapColor: exact-match lookup with pass-through for
  * unmatched inputs. Used by the decoder's pre-sample pass to normalize

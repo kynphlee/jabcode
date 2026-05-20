@@ -36,4 +36,27 @@ jab_boolean jabHasCalibration();
 void jabCalibrateFromObservedRGB(const jab_byte observed[8][3]);
 void jabRemapColorInverse(const jab_byte* rgb_in, jab_byte* rgb_out);
 
+/* WS-4 Step 4.4b: build calibration from FP-core observations.
+ *
+ * Samples the (module-coordinate) `matrix` bitmap at the canonical FP center
+ * positions to derive the camera's observed RGB for known-truth colors:
+ *
+ *   FP0 (TL) module (3, 3)                       → observed K (all Nc)
+ *   FP2 (BR) module (width-4, height-4) [Nc≥2]   → observed Y
+ *   FP3 (BL) module (3, height-4)        [Nc≥2]  → observed C
+ *
+ * Other palette slots (W, R, G, B, M) default to canonical (no shift), so
+ * jabRemapColorInverse leaves those colors unmapped. On CLEAN encoded input
+ * the observations equal canonical → calibration is identity → no behavioral
+ * change (Mode 1 Cassandra gate held by construction).
+ *
+ * `color_number` parameter gates whether Y/C are sampled: pass the symbol's
+ * encoded color_number (= 2^(Nc+1)). Pass 0 to disable Y/C sampling (K-only).
+ *
+ * No-op if matrix is NULL, has zero dimensions, or color_number is invalid.
+ *
+ * See: docs/jabcode-all-nc-plan/00-CHECKLIST.md item 4.4b
+ */
+void jabBuildCalibrationFromFPCores(const jab_bitmap* matrix, jab_int32 color_number);
+
 #endif // JABCODE_COLOR_CALIBRATION_H

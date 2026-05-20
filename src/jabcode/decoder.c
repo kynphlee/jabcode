@@ -1328,6 +1328,20 @@ void loadDefaultMasterMetadata(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 */
 jab_int32 decodeSymbol(jab_bitmap* matrix, jab_decoded_symbol* symbol, jab_byte* data_map, jab_float* norm_palette, jab_float* pal_ths, jab_int32 type)
 {
+#ifdef USE_FP_CALIBRATION
+	/* WS-4 Step 4.4b: build calibration from FP-core observations before
+	 * any module sampling. Samples matrix at module (3,3) for K and, for
+	 * Nc≥2, modules (W-4,H-4) for Y and (3,H-4) for C. On CLEAN encoded
+	 * input observations equal canonical → calibration is identity →
+	 * jabRemapColorInverse in decodeModuleHD is a literal no-op. Under
+	 * camera noise the observations diverge and the inverse remap
+	 * normalizes module samples back toward the palette. */
+	{
+		jab_int32 fp_cal_color_number = (jab_int32)pow(2, symbol->metadata.Nc + 1);
+		jabBuildCalibrationFromFPCores(matrix, fp_cal_color_number);
+	}
+#endif
+
 #if TEST_MODE
 	/* Fix for stale debug code: compute color_number from Nc instead of using
 	 * an undefined variable. Preserves the diagnostic intent. */
