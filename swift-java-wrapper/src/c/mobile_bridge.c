@@ -359,6 +359,97 @@ jab_data* jabMobileDecodeCamera(
     return result;
 }
 
+/* WS-4 Step 4.6: temporal-averaging multi-frame decode.
+ *
+ * Averages pixel values across N RGBA buffers (per-channel, per-position)
+ * then runs decodeJABCode on the averaged frame. Mirrors jabMobileDecodeCamera
+ * for everything except the averaging pass. The math gate is
+ * src/jabcode/test/test_multi_frame_palette.c (WS-4.5) — that test asserts
+ * the CLT property √N noise reduction; this API is the production wrapper
+ * that exposes the same averaging to mobile callers.
+ *
+ * See: docs/jabcode-all-nc-plan/00-CHECKLIST.md item 4.6 */
+jab_data* jabMobileDecodeMultiFrame(
+    jab_byte** rgba_buffers,
+    jab_int32 width,
+    jab_int32 height,
+    jab_int32 frame_count
+) {
+    jabMobileClearError();
+
+    if (!rgba_buffers) {
+        setError("Invalid rgba_buffers array (null)");
+        return NULL;
+    }
+    if (frame_count <= 0) {
+        setError("Invalid frame_count (must be ≥1)");
+        return NULL;
+    }
+    if (width <= 0 || height <= 0) {
+        setError("Invalid image dimensions");
+        return NULL;
+    }
+    for (jab_int32 f = 0; f < frame_count; f++) {
+        if (!rgba_buffers[f]) {
+            setError("Null buffer in rgba_buffers array");
+            return NULL;
+        }
+    }
+
+    /* Single-frame fast path: delegate to existing camera decode without copy. */
+    if (frame_count == 1) {
+        return jabMobileDecodeCamera(rgba_buffers[0], width, height);
+    }
+
+    jab_int32 pixel_count = width * height * 4;
+
+    /* Allocate the jab_bitmap directly to avoid a separate averaging buffer
+     * (saves one width*height*4 allocation pair). */
+    jab_bitmap* bitmap = (jab_bitmap*)malloc(sizeof(jab_bitmap) + pixel_count);
+    if (!bitmap) {
+        setError("Memory allocation failed for averaged bitmap");
+        return NULL;
+    }
+    bitmap->width = width;
+    bitmap->height = height;
+    bitmap->bits_per_pixel = 32;
+    bitmap->bits_per_channel = 8;
+    bitmap->channel_count = 4;
+
+    /* Per-byte average across frames, rounded to nearest integer.
+     * frame_count is bounded by jab_int32 and sum cannot overflow since
+     * each byte is ≤255 and frame_count is typically <100 in mobile use
+     * (max 255 * 8388607 frames before int overflow — practical upper
+     * bound for mobile multi-frame buffering is ~30). */
+    const jab_int32 half = frame_count / 2;  /* rounding offset */
+    for (jab_int32 i = 0; i < pixel_count; i++) {
+        jab_int32 sum = 0;
+        for (jab_int32 f = 0; f < frame_count; f++) {
+            sum += rgba_buffers[f][i];
+        }
+        bitmap->pixel[i] = (jab_byte)((sum + half) / frame_count);
+    }
+
+    /* Decode via the full camera pipeline — same path as jabMobileDecodeCamera */
+    jab_int32 decode_status;
+    jab_data* result = decodeJABCode(bitmap, NORMAL_DECODE, &decode_status);
+
+    free(bitmap);
+
+    if (!result) {
+        if (decode_status == 0) {
+            setError("No JABCode found in averaged frame");
+        } else if (decode_status == 1) {
+            setError("JABCode found but not decodable in averaged frame");
+        } else {
+            setError("Multi-frame decoding failed");
+        }
+        return NULL;
+    }
+
+    return result;
+}
+
 void jabMobileDataFree(jab_data* data) {
     if (data) {
         free(data);

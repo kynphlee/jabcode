@@ -105,8 +105,40 @@ jab_data* jabMobileDecodeCamera(
 );
 
 /**
+ * @brief Decode JABCode from multiple camera frames via temporal averaging
+ *
+ * Averages pixel values across N frames (per-channel, per-position), then
+ * runs the full JABCode camera detection pipeline on the averaged result.
+ * Theoretical noise reduction is σ/√N for independent Gaussian noise; in
+ * practice the benefit depends on noise model and palette saturation (see
+ * src/jabcode/test/test_multi_frame_palette.c for the math gate).
+ *
+ * All frames must share the same width × height dimensions and 4-channel
+ * RGBA layout. frame_count == 1 fast-paths through jabMobileDecodeCamera
+ * without copy overhead.
+ *
+ * @param rgba_buffers Array of frame_count RGBA pixel buffers
+ * @param width        Image width in pixels (all frames same)
+ * @param height       Image height in pixels (all frames same)
+ * @param frame_count  Number of frames in the buffers array (≥1)
+ * @return Decoded data or NULL on failure (check jabMobileGetLastError)
+ *
+ * @note Caller retains ownership of rgba_buffers and individual buffers;
+ *       this function only reads them. Caller must free result with
+ *       jabMobileDataFree().
+ *
+ * WS-4 Step 4.6 — see docs/jabcode-all-nc-plan/00-CHECKLIST.md
+ */
+jab_data* jabMobileDecodeMultiFrame(
+    jab_byte** rgba_buffers,
+    jab_int32 width,
+    jab_int32 height,
+    jab_int32 frame_count
+);
+
+/**
  * @brief Free decoded data
- * 
+ *
  * @param data Data to free
  */
 void jabMobileDataFree(jab_data* data);
