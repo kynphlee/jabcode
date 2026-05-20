@@ -95,3 +95,10 @@ symbol_folder_index.txt
 build_file_index.txt
 additional_project_files.txt
 hash_key.txt
+
+# Compiled CLI tool binaries (output directories)
+src/jabcodeReader/bin/
+src/jabcodeWriter/bin/
+
+# Gradle local build cache (Android wrapper)
+**/.gradle/
