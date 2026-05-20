@@ -1058,14 +1058,20 @@ void placeMasterMetadataPartII(jab_encode* enc)
 	jab_int32 metadata_index = partII_bit_start;
 	
 	jab_int32 part2_module_index = 0;
-	// Match official implementation: use <= because LDPC outputs unpacked bits (38 bytes, not 5 bytes)
-	while(metadata_index <= partII_bit_end)
+	/* WS-4.5.4: bounds use `<` not `<=`. partII_bit_end is a LENGTH
+	 * (= PART1_LENGTH + PART2_LENGTH), and metadata->data is allocated
+	 * (encoder.c:970) to exactly encoded_partI->length + encoded_partII->length
+	 * bytes — i.e. valid byte indices [0, partII_bit_end). The previous `<=`
+	 * triggered a 1-byte heap OOB read at index partII_bit_end, whose stale
+	 * value was interpreted as an LDPC unpacked bit and silently corrupted
+	 * one master-metadata module's color (process-state-dependent). */
+	while(metadata_index < partII_bit_end)
 	{
 		// Match official: read from matrix as base, then overwrite bits
     	jab_byte color_index = enc->symbols[0].matrix[y*enc->symbols[0].side_size.x + x];
 		for(jab_int32 j=0; j<nb_of_bits_per_mod; j++)
 		{
-			if(metadata_index <= partII_bit_end)
+			if(metadata_index < partII_bit_end)
 			{
 				// LDPC outputs unpacked bits: each byte is 0 or 1, not a packed bitstream
 				jab_byte bit = enc->symbols[0].metadata->data[metadata_index];

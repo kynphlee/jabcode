@@ -240,7 +240,17 @@ jab_int32 readColorPaletteInMaster(jab_bitmap* matrix, jab_decoded_symbol* symbo
 	jab_int32 color_number = (jab_int32)pow(2, symbol->metadata.Nc + 1);
 	
 	free(symbol->palette);
-	symbol->palette = (jab_byte*)malloc(color_number * sizeof(jab_byte) * 3 * COLOR_PALETTE_NUMBER);
+	/* WS-4.5.4: calloc (not malloc) is REQUIRED here. For Nc>=3 (color_number>8)
+	 * the FP-color loop writes slots {0, 3, 5, 6} (per master_palette_placement_index)
+	 * and the metadata loop writes slots 2..63 sequentially — leaving color
+	 * index 1 of every panel unwritten. With malloc, those 3 bytes are
+	 * process-state-dependent (ASLR-sensitive), causing ~22% non-deterministic
+	 * decode failure. For color_number>64, interpolatePalette propagates the
+	 * uninit bytes throughout the panel. calloc makes the unwritten slots
+	 * deterministic (0,0,0); decodeModuleHD already short-circuits true-black
+	 * inputs to index 0 via pal_ths, so slot 1==black is benign.
+	 * See: docs/jabcode-all-nc-plan/04d-ws4_5_4-determinism-fix.md */
+	symbol->palette = (jab_byte*)calloc(1, color_number * sizeof(jab_byte) * 3 * COLOR_PALETTE_NUMBER);
 	if(symbol->palette == NULL)
 	{
 		reportError("Memory allocation for master palette failed");
@@ -327,7 +337,8 @@ jab_int32 readColorPaletteInSlave(jab_bitmap* matrix, jab_decoded_symbol* symbol
 	//allocate buffer for palette
 	jab_int32 color_number = (jab_int32)pow(2, symbol->metadata.Nc + 1);
 	free(symbol->palette);
-	symbol->palette = (jab_byte*)malloc(color_number * sizeof(jab_byte) * 3 * COLOR_PALETTE_NUMBER);
+	/* WS-4.5.4: calloc required for the same reason as master (decoder.c:243). */
+	symbol->palette = (jab_byte*)calloc(1, color_number * sizeof(jab_byte) * 3 * COLOR_PALETTE_NUMBER);
     if(symbol->palette == NULL)
     {
 		reportError("Memory allocation for slave palette failed");
@@ -1612,7 +1623,15 @@ jab_int32 decodeMaster(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 		normalizeColorPalette(symbol, norm_palette, color_number);
 
 		//get the palette RGB thresholds
-		jab_float pal_ths[3 * COLOR_PALETTE_NUMBER];
+		/* WS-4.5.4: zero-initialize pal_ths because getPaletteThreshold writes
+		 * outputs only when color_number == 4 or 8 (see decoder.c:698). For
+		 * Nc=0 (color_number=2) and Nc>=3 (color_number>=16), it returns
+		 * without writing — leaving the VLA as uninitialized stack memory,
+		 * which the "early black module" check at decodeModuleHD reads as
+		 * `rgb[k] < pal_ths[...]`. Zero-init makes that comparison evaluate
+		 * to false for any non-negative rgb byte, preserving "no early
+		 * threshold" semantics for unhandled color modes. */
+		jab_float pal_ths[3 * COLOR_PALETTE_NUMBER] = {0};
 		for(jab_int32 i=0; i<COLOR_PALETTE_NUMBER; i++)
 		{
 			getPaletteThreshold(symbol->palette + (color_number*3)*i, color_number, &pal_ths[i*3]);
@@ -1694,7 +1713,8 @@ jab_int32 decodeSlave(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 	normalizeColorPalette(symbol, norm_palette, color_number);
 
 	//get the palette RGB thresholds
-	jab_float pal_ths[3 * COLOR_PALETTE_NUMBER];
+	/* WS-4.5.4: zero-init pal_ths (see master version above for rationale). */
+	jab_float pal_ths[3 * COLOR_PALETTE_NUMBER] = {0};
 	for(jab_int32 i=0; i<COLOR_PALETTE_NUMBER; i++)
 	{
 		getPaletteThreshold(symbol->palette + i*3, color_number, &pal_ths[i*3]);
