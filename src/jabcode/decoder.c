@@ -21,6 +21,17 @@
 #include "ldpc.h"
 #include "encoder.h"
 
+/* WS-4 Step 4.2: optional CIE Lab ΔE2000 color discrimination in decodeModuleHD.
+ * Defined at compile time via -DUSE_LAB_DISTANCE. When defined, Nc≥3 (color
+ * modes with color_number > 8) use perceptual Lab distance instead of squared
+ * RGB Euclidean. Nc<3 (modes 0,1,2 using normalized-RGB path) are untouched,
+ * preserving the Mode 1 regression gate by construction.
+ * See: docs/jabcode-all-nc-plan/00-CHECKLIST.md item 4.2
+ *      src/jabcode/test/test_lab_color_distance.c (WS-4 Step 4.1 TDD test) */
+#ifdef USE_LAB_DISTANCE
+#include "lab_color.h"
+#endif
+
 // Android logging support for debug output
 #ifdef __ANDROID__
 #include <android/log.h>
@@ -446,7 +457,49 @@ jab_byte decodeModuleHD(jab_bitmap* matrix, jab_byte* palette, jab_int32 color_n
 		// For 16+ color modes, use direct RGB comparison (normalized comparison fails for same-hue colors)
 		// For 4/8 color modes, normalized comparison works fine
 		jab_boolean use_direct_rgb = (color_number > 8);
-		
+
+#ifdef USE_LAB_DISTANCE
+		/* WS-4 Step 4.2: CIE Lab ΔE2000 perceptual discrimination path.
+		 * Activates only for Nc≥3 (color_number > 8); Nc<3 remains on the
+		 * normalized-RGB path below (Mode 1 regression gate untouched).
+		 * Sample is converted to Lab ONCE outside the loop; palette colors
+		 * are converted lazily inside the loop. The min1/min2/index1/index2
+		 * outputs preserve the same semantics as the RGB path so all
+		 * downstream logic (B/W disambiguation, second-best match handling)
+		 * works identically. */
+		if(use_direct_rgb)
+		{
+			jab_rgb_color sample_rgb_struct = { rgb[0], rgb[1], rgb[2] };
+			jab_lab_color sample_lab = rgb_to_lab(sample_rgb_struct);
+
+			jab_float min1 = 1e30f, min2 = 1e30f;
+			for(jab_int32 i=0; i<color_number; i++)
+			{
+				jab_rgb_color pal_rgb_struct;
+				pal_rgb_struct.r = palette[color_number*3*p_index + i*3 + 0];
+				pal_rgb_struct.g = palette[color_number*3*p_index + i*3 + 1];
+				pal_rgb_struct.b = palette[color_number*3*p_index + i*3 + 2];
+				jab_lab_color pal_lab = rgb_to_lab(pal_rgb_struct);
+
+				jab_float diff = delta_e_2000(sample_lab, pal_lab);
+
+				if(diff < min1)
+				{
+					min2 = min1;
+					index2 = index1;
+					min1 = diff;
+					index1 = (jab_byte)i;
+				}
+				else if(diff < min2)
+				{
+					min2 = diff;
+					index2 = (jab_byte)i;
+				}
+			}
+		}
+		else
+#endif /* USE_LAB_DISTANCE */
+		{
 	    //normalize the RGB values
         jab_float rgb_max = MAX(rgb[0], MAX(rgb[1], rgb[2]));
         jab_float r = use_direct_rgb ? (jab_float)rgb[0] : ((jab_float)rgb[0] / rgb_max);
@@ -488,6 +541,7 @@ jab_byte decodeModuleHD(jab_bitmap* matrix, jab_byte* palette, jab_int32 color_n
 				index2 = (jab_byte)i;
 			}
 		}
+		} /* end of #ifdef USE_LAB_DISTANCE else-block */
 
 		// Black/white disambiguation: use actual last color index (color_number-1) instead of hardcoded 7
 		jab_int32 white_index = color_number - 1;
