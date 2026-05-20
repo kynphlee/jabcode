@@ -15,6 +15,7 @@
 #include <math.h>
 #include "jabcode.h"
 #include "ldpc.h"
+#include "pseudo_random.h"   /* WS-4.5.3: deterministic LCG replaces stdlib rand() */
 #include <string.h>
 #include <stdio.h>
 #include "detector.h"
@@ -610,7 +611,15 @@ jab_int32 decodeMessage(jab_byte* data, jab_int32* matrix, jab_int32 length, jab
             *is_correct=(jab_boolean) 0;
             if(length < 36)
             {
-                jab_int32 rand_tmp=(jab_int32)(rand()/(jab_float)UINT32_MAX * counter);
+                /* WS-4.5.3: was rand() — unseeded stdlib PRNG. Replaced with
+                 * project's deterministic LCG (lcg64_temper) so the LDPC
+                 * bit-flip tiebreak is reproducible across processes.
+                 * Original behavior matched the divisor formula
+                 *   rand_tmp = rand() / (jab_float)UINT32_MAX * counter
+                 * Using lcg64_temper() (returns full uint32_t range)
+                 * preserves the same statistical distribution. */
+                uint32_t r = lcg64_temper();
+                jab_int32 rand_tmp = (jab_int32)((jab_float)r / (jab_float)UINT32_MAX * counter);
                 prev_index[0]=start_pos+equal_max[rand_tmp];
                 data[start_pos+equal_max[rand_tmp]]=(data[start_pos+equal_max[rand_tmp]]+1)%2;
             }
