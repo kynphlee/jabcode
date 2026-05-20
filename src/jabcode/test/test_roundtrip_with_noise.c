@@ -74,7 +74,14 @@ static const mode_t MODES[] = {
 };
 #define N_MODES (sizeof(MODES) / sizeof(MODES[0]))
 
-static const jab_int32 SIGMA_LEVELS[] = {0, 4, 8, 12, 16, 20};
+/* WS-4.5.2: σ range extended from {0,4,8,12,16,20} to {0,8,16,24,32,40,50}.
+ * Original range had all color modes (Nc=1..7) at 5/5 through σ=20 — no
+ * signal where -DUSE_LAB_DISTANCE might earn its keep. Extending to σ=50
+ * targets the regime where palette discrimination starts breaking down
+ * even with the encoder's uniform-grid palette construction. Drops the
+ * intermediate σ=4/12 levels (no useful signal at those points) in favor
+ * of higher noise where color-mode breakdown is empirically expected. */
+static const jab_int32 SIGMA_LEVELS[] = {0, 8, 16, 24, 32, 40, 50};
 #define N_SIGMAS (sizeof(SIGMA_LEVELS) / sizeof(SIGMA_LEVELS[0]))
 
 /* Graceful-degradation: at the smallest non-zero σ (σ=4), modes that
@@ -220,13 +227,14 @@ int main(void)
         }
         fprintf(stderr, "%s\n", row);
 
-        /* GRACEFUL-DEGRADATION INFO: σ=4 (index 1) < 60% retention for modes
-         * that pass at σ=0. Soft signal, not a hard failure. */
+        /* GRACEFUL-DEGRADATION INFO: at the first non-zero σ
+         * (SIGMA_LEVELS[1]), modes that pass σ=0 should retain ≥60% of
+         * trials. Soft signal, not a hard failure. */
         if (rates[m][0] >= 4 && N_SIGMAS > 1) {
             int min_retained = (int)(GRACEFUL_RETENTION * N_TRIALS + 0.5);
             if (rates[m][1] < min_retained) {
-                fprintf(stderr,"  INFO: %s σ=4 graceful-degradation %d/%d < %d/%d (60%% retention)\n",
-                    MODES[m].name, rates[m][1], N_TRIALS,
+                fprintf(stderr,"  INFO: %s σ=%d graceful-degradation %d/%d < %d/%d (60%% retention)\n",
+                    MODES[m].name, SIGMA_LEVELS[1], rates[m][1], N_TRIALS,
                     min_retained, N_TRIALS);
                 graceful_failures++;
             }
