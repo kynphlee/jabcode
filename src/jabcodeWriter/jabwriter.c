@@ -32,7 +32,7 @@ void printUsage()
 	printf("--input\t\t\tInput data (message to be encoded).\n");
 	printf("--input-file\t\tInput data file.\n");
     printf("--output\t\tOutput image file.\n");
-    printf("--color-number\t\tNumber of colors (4,8,default:8).\n");
+    printf("--color-number\t\tNumber of colors (2,4,8,16,32,64,128,256,default:8).\n");
 	printf("--module-size\t\tModule size in pixel (default:12 pixels).\n");
     printf("--symbol-width\t\tMaster symbol width in pixel.\n");
     printf("--symbol-height\t\tMaster symbol height in pixel.\n");
