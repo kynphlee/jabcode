@@ -19,7 +19,20 @@ import java.nio.ByteBuffer
  * Uses raw Android Camera2 API - no CameraX dependencies.
  */
 object CameraUtils {
-    
+
+    /**
+     * WS-5 YUV-stride diagnostic (one-shot guard).
+     *
+     * Logs the U/V plane stride parameters on the first frame to verify the
+     * device's YUV_420_888 layout. Galaxy S25 reported pixelStride=2 on both
+     * chroma planes (trace tolerance4-test-20260524_134450.logcat), confirming
+     * semi-planar NV21/NV12. The stride-aware conversion below handles this
+     * correctly; the diagnostic remains so future devices can be verified.
+     * Greppable prefix: `YUV_STRIDE_DIAG`.
+     */
+    @Volatile
+    private var stridesLogged: Boolean = false
+
     /**
      * Convert CameraX ImageProxy to Bitmap (COMPATIBILITY WRAPPER)
      * 
@@ -71,33 +84,85 @@ object CameraUtils {
      * @return Bitmap or null if conversion fails
      */
     private fun yuv420ToBitmap(image: Image): Bitmap? {
-        val yBuffer = image.planes[0].buffer
-        val uBuffer = image.planes[1].buffer
-        val vBuffer = image.planes[2].buffer
-        
-        val ySize = yBuffer.remaining()
-        val uSize = uBuffer.remaining()
-        val vSize = vBuffer.remaining()
-        
-        val nv21 = ByteArray(ySize + uSize + vSize)
-        
-        // Copy Y plane
-        yBuffer.get(nv21, 0, ySize)
-        
-        // CRITICAL: Proper UV interleaving for NV21
-        // NV21 format requires V-U-V-U... interleaving (not sequential copy)
-        var uvIndex = ySize
-        for (i in 0 until uSize) {
-            nv21[uvIndex++] = vBuffer.get(i)  // V first
-            nv21[uvIndex++] = uBuffer.get(i)  // U second
+        // WS-5 stride diagnostic: log once per session so we can verify the
+        // YUV layout on this device. Greppable prefix: YUV_STRIDE_DIAG.
+        if (!stridesLogged) {
+            val y = image.planes[0]
+            val u = image.planes[1]
+            val v = image.planes[2]
+            android.util.Log.i(
+                "CameraUtils",
+                "YUV_STRIDE_DIAG image=${image.width}x${image.height} " +
+                "Y(rowStride=${y.rowStride} pixelStride=${y.pixelStride} bufSize=${y.buffer.remaining()}) " +
+                "U(rowStride=${u.rowStride} pixelStride=${u.pixelStride} bufSize=${u.buffer.remaining()}) " +
+                "V(rowStride=${v.rowStride} pixelStride=${v.pixelStride} bufSize=${v.buffer.remaining()})"
+            )
+            stridesLogged = true
         }
-        
-        // Convert NV21 to Bitmap via JPEG
-        val yuvImage = YuvImage(nv21, ImageFormat.NV21, image.width, image.height, null)
+
+        val width = image.width
+        val height = image.height
+
+        val yPlane = image.planes[0]
+        val uPlane = image.planes[1]
+        val vPlane = image.planes[2]
+
+        val yBuffer = yPlane.buffer
+        val uBuffer = uPlane.buffer
+        val vBuffer = vPlane.buffer
+
+        val yRowStride = yPlane.rowStride
+        val uRowStride = uPlane.rowStride
+        val uPixelStride = uPlane.pixelStride
+        val vRowStride = vPlane.rowStride
+        val vPixelStride = vPlane.pixelStride
+
+        // NV21 layout: full-resolution Y plane followed by quarter-resolution
+        // V-U-interleaved chroma. Total bytes = width*height + width*height/2.
+        val nv21 = ByteArray(width * height * 3 / 2)
+
+        // ===== Y plane =====
+        // Fast path when tightly packed; row-by-row otherwise to skip padding.
+        var dstIdx = 0
+        if (yRowStride == width) {
+            yBuffer.position(0)
+            yBuffer.get(nv21, 0, width * height)
+            dstIdx = width * height
+        } else {
+            for (row in 0 until height) {
+                for (col in 0 until width) {
+                    nv21[dstIdx++] = yBuffer.get(row * yRowStride + col)
+                }
+            }
+        }
+
+        // ===== V-U interleaved chroma (NV21 ordering) =====
+        // CRITICAL FIX: respect pixelStride and rowStride. The previous loop
+        // treated the U/V buffers as flat byte arrays, which only works for
+        // I420 (planar, pixelStride=1). On Galaxy S25 - and most modern
+        // Android cameras - YUV_420_888 is delivered semi-planar (NV21/NV12)
+        // with pixelStride=2 and overlapping U/V buffers, so byte-by-byte
+        // copying scrambled the chroma into near-grayscale noise (RGB channels
+        // within ~5-20 units of each other across all sampled pixels - see
+        // WS-5 trace tolerance4-test-20260524_134450.logcat for the
+        // diagnostic that confirmed this).
+        val chromaHeight = height / 2
+        val chromaWidth = width / 2
+        for (row in 0 until chromaHeight) {
+            for (col in 0 until chromaWidth) {
+                val vSrcIdx = row * vRowStride + col * vPixelStride
+                val uSrcIdx = row * uRowStride + col * uPixelStride
+                nv21[dstIdx++] = vBuffer.get(vSrcIdx)  // V first (NV21 convention)
+                nv21[dstIdx++] = uBuffer.get(uSrcIdx)  // U second
+            }
+        }
+
+        // ===== NV21 -> Bitmap via JPEG (Android's well-tested pipeline) =====
+        val yuvImage = YuvImage(nv21, ImageFormat.NV21, width, height, null)
         val out = ByteArrayOutputStream()
-        yuvImage.compressToJpeg(Rect(0, 0, image.width, image.height), 100, out)
+        yuvImage.compressToJpeg(Rect(0, 0, width, height), 100, out)
         val imageBytes = out.toByteArray()
-        
+
         return BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
     }
     
