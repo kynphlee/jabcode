@@ -20,6 +20,21 @@
 #include "decoder.h"
 #include "encoder.h"
 
+/* WS-5 round-4 failure-attribution diagnostic (Bayesian Council convened
+ * 2026-05-24). Emits one log line per decodeJABCodeEx call indicating which
+ * stage failed (status + stage discriminator) or which Nc decoded on success.
+ * Heisenberg sanctioned ~1 line per attempt only; sustained rate is ~2 lines/sec.
+ * Android-only via __android_log_print; desktop builds expand to a no-op so
+ * the core jabcode test suite (ws4_9_full_regression etc.) is unaffected.
+ * Greppable: FAIL_ATTR, DECODE_OK. */
+#ifdef __ANDROID__
+#include <android/log.h>
+#define FAIL_ATTR_LOG(fmt, ...) \
+    __android_log_print(ANDROID_LOG_INFO, "JABCodeDetector", fmt, ##__VA_ARGS__)
+#else
+#define FAIL_ATTR_LOG(fmt, ...) ((void)0)
+#endif
+
 #define JABCODE_DIAG 0
 
 /* WS-0 Step 0.7: Mode 0 (Nc=0, monochrome) decode support.
@@ -692,7 +707,28 @@ jab_boolean crossCheckPatternHorizontal(jab_bitmap* image, jab_float module_size
 */
 jab_boolean crossCheckColor(jab_bitmap* image, jab_int32 color, jab_int32 module_size, jab_int32 module_number, jab_int32 centerx, jab_int32 centery, jab_int32 dir)
 {
-	jab_int32 tolerance = 3;
+	/* WS-5 round-4 scale-tolerance tuning (Bayesian Council, decision branch
+	 * γ from Solomon's synthesis). The original `tolerance = 3` is an
+	 * absolute pixel count for consecutive color-mismatched pixels along the
+	 * FP core scan. Scan length is module_size*(module_number-1) (always
+	 * module_size*4 for the FP core because all call sites pass
+	 * module_number=5), so the PROPORTIONAL tolerance shrinks linearly as
+	 * module_size grows:
+	 *   module_size=10  → 3/40   = 7.50%   (generous)
+	 *   module_size=20  → 3/80   = 3.75%   (works — proven by trace 200206)
+	 *   module_size=40  → 3/160  = 1.88%   (fails — Nc=5 prints, trace 002302)
+	 *   module_size=48  → 3/192  = 1.56%   (fails — Nc=7 prints)
+	 *
+	 * Anti-aliased module boundaries on real camera captures span 3-4 pixels
+	 * naturally, so a fixed 3-pixel tolerance rejects FP candidates whose
+	 * module_size exceeds ~22ppm. The 002306 failure-attribution trace
+	 * confirmed 84% of failures are `status=0` (no FP found at all), with
+	 * successes clustering at module_size 20-22 (right at the failure edge).
+	 *
+	 * Fix: scale tolerance with module_size so the proportional bound stays
+	 * fixed at ~3.6% for any module size > 21. Breakeven at module_size=21
+	 * makes this a no-op for the working small-module range. */
+	jab_int32 tolerance = (module_size / 7 > 3) ? module_size / 7 : 3;
 	//horizontal
 	if(dir == 0)
 	{
@@ -3958,6 +3994,14 @@ jab_data* decodeJABCodeEx(jab_bitmap* bitmap, jab_int32 mode, jab_int32* status,
 	{
 		if(symbols[0].module_size > 0 && status)
 			*status = 1;
+		/* WS-5 round-4 failure-attribution: log which stage failed.
+		 * stage=detect_or_slave covers both "detectMaster found no FP"
+		 * (total==0) and "FP found but decodeDockedSlaves failed" (total>0
+		 * && res==0). status field distinguishes:
+		 *   status=0 → "not detectable" (no FP)
+		 *   status=1 → "not decodable" (FP found, decode failed) */
+		FAIL_ATTR_LOG("FAIL_ATTR stage=detect_or_slave status=%d total=%d module_size=%.2f",
+		              (status ? *status : -1), total, symbols[0].module_size);
 		//clean memory
 		for(jab_int32 i=0; i<3; free(ch[i++]));
 		for(jab_int32 i=0; i<=MIN(total, max_symbol_number-1); i++)
@@ -4015,12 +4059,25 @@ jab_data* decodeJABCodeEx(jab_bitmap* bitmap, jab_int32 mode, jab_int32* status,
 #if TEST_MODE
 	free(test_mode_bitmap);
 #endif // TEST_MODE
-	if(res == 0) return NULL;
+	if(res == 0)
+	{
+		/* WS-5 round-4 failure-attribution: decodeData failed AFTER FP
+		 * detection and slave decoding both succeeded. Distinct from the
+		 * detect_or_slave failure above. */
+		FAIL_ATTR_LOG("FAIL_ATTR stage=decode_data status=%d total=%d",
+		              (status ? *status : -1), total);
+		return NULL;
+	}
 	if(status)
 	{
 		if(*status != 2)
 			*status = 3;
 	}
+	/* WS-5 round-4 success-attribution: log decoded Nc so a per-Nc
+	 * success-vs-failure-stage histogram can be built from the trace.
+	 * Nc is the color-index (0..7) mapping to {2,4,8,16,32,64,128,256}. */
+	FAIL_ATTR_LOG("DECODE_OK Nc=%d total=%d module_size=%.2f",
+	              (int)symbols[0].metadata.Nc, total, symbols[0].module_size);
     return decoded_data;
 }
 
