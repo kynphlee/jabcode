@@ -78,4 +78,21 @@ internal class JABCodeMobile {
      * Clear last error
      */
     external fun nativeClearError()
+
+    /**
+     * Toggle verbose diagnostic logging in the native decoder/detector.
+     *
+     * WS-5 Heisenberg gate: by default, per-iteration markers
+     * (DIAG_PALETTE_LEARNED, DIAG_PARTII_RESULT, Nc_FALLBACK retries,
+     * DIAG_MODE0_DETECT, DETECT SUCCESS, GRID_REF) are suppressed to
+     * preserve the camera-thread decode budget. Terminal markers
+     * (FAIL_ATTR, DECODE_OK, DIAG_SYMBOL_DECODE final result) always fire.
+     *
+     * Diagnostic apps may enable verbose mode before a capture window and
+     * disable it afterward. Production SDK consumers should leave this at
+     * the default. Thread-local; safe across concurrent decoders.
+     *
+     * @param verbose true to emit chatty markers, false to suppress
+     */
+    external fun nativeSetDiagVerbose(verbose: Boolean)
 }

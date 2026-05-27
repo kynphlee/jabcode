@@ -578,3 +578,7 @@ void jabMobileClearCalibration(void) {
 jab_boolean jabMobileHasCalibration(void) {
     return jabHasCalibration();
 }
+
+void jabMobileSetDiagVerbose(jab_int32 verbose) {
+    jabSetDiagVerbose(verbose ? 1 : 0);
+}
