@@ -134,7 +134,7 @@ static int test_one(const test_case_t* tc, int add_noise) {
 int main(void) {
     printf("================================================\n");
     printf("WS-0 Mode 0 Trigger Tolerance Test\n");
-    printf("Verifies MODE0_CHROMA_TOLERANCE in detector.c\n");
+    printf("Verifies MODE0_MEAN_CHROMA_TOLERANCE in detector.c\n");
     printf("================================================\n");
 
     int failures = 0;

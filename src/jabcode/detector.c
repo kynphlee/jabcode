@@ -37,42 +37,51 @@
 
 #define JABCODE_DIAG 0
 
-/* WS-0 Mode 0 trigger tolerance — per-pixel chroma slack for the greyscale
- * signature check. The check sums absolute channel deltas
- * (|R-G| + |G-B| + |R-B|) and treats any pixel below this threshold as
- * greyscale-compatible.
+/* WS-0 Mode 0 trigger — MEAN chroma threshold for the greyscale signature.
  *
- * Why a tolerance at all: real camera capture introduces ~3-8 ADU of chroma
- * noise per channel even on pure-greyscale content (Bayer demosaic
- * interpolation between neighboring R/G/B-filtered pixels). A strict
- * equality check (R == G == B) fails on the first noisy pixel out of 256
- * samples, leaving g_mode0_decode = 0 and the Nc=0 decoder pathway
- * inactive — exactly the failure mode observed in WS-5 verification
- * (trace tolerance4-test-20260527_031332.logcat: 36/36 status=0 fails on
- * the nc0-2c-20260521.png fixture).
+ * Per-pixel-strict didn't survive contact with real camera input. The
+ * first attempt (chroma_per_pixel > 24 → disqualify) was too brittle
+ * because the camera's chroma noise distribution has a long tail:
+ * the mean is low (~12-19) but a few outlier pixels per frame
+ * have chroma sums in the 40-100 range. With 256 samples per frame,
+ * even a 10% outlier rate guarantees at least one exceeds any
+ * reasonable per-pixel threshold.
+ *
+ * Empirical data (Galaxy S25 screen-displayed nc0-2c-20260521.png,
+ * trace tolerance4-test-20260527_094442.logcat, 118 frames):
+ *   - mean_chroma: 12-19 (median ~16)
+ *   - max_chroma: 36-48 typical, occasional outliers to 246-350
+ *   - failed-at-tol=24: 27-60 of 256 samples per frame (10-25%)
+ * All 118 frames evaluated g_mode0_decode=0 under the per-pixel rule
+ * despite obviously being greyscale on average.
+ *
+ * Switch to MEAN-based discrimination: a single threshold on the average
+ * chroma across all samples. Outlier-resistant by construction (a single
+ * 510-chroma colored pixel contributes <0.5% to a 256-sample mean), and
+ * the separation between true monochrome (~15) and any colored content
+ * (typically >50 even on a dim display) is large enough that the
+ * threshold choice is defensible without fine-tuning.
  *
  * Value rationale:
- *   - Pure greyscale (R=G=B): chroma sum = 0 (trivially passes)
- *   - Greyscale + 5 ADU chroma noise (typical bright capture):
- *     chroma sum ≈ 2*5 = 10 in expectation, up to ~25 at 3σ
- *   - A saturated colored pixel (e.g., red [255,0,0]):
- *     chroma sum = 255 + 0 + 255 = 510 (firmly rejected)
- *   - A low-saturation desaturated tint (e.g., pale beige [230,220,210]):
- *     chroma sum ≈ 30 (correctly NOT classified as Mode 0)
+ *   - Pure greyscale (R=G=B): mean = 0 (trivially passes)
+ *   - Greyscale + camera Bayer noise (typical): mean ~10-20
+ *   - Nc=1 four-color JABCode (K/M/Y/C cube vertices): mean ~250 even on dim screen
+ *   - Low-saturation tint (e.g., pale beige [230,220,210]): mean ~30
  *
- * Default 24 catches the camera-noise distribution on greyscale content
- * without false-positives on lightly-colored content. Tunable if field
- * data shows the camera-noise floor differs significantly on a given
- * sensor.
+ * Default 30 gives ~50-100% headroom over observed monochrome mean and
+ * still rejects every colored JABCode palette by a wide margin. The
+ * worst case false-positive would be a near-greyscale tinted image
+ * intentionally encoded as Nc>=1; in practice every JABCode palette
+ * spans the RGB cube so this is not a realistic confusion.
  *
  * See: docs/jabcode-all-nc-plan/00b-mode-0-monochrome.md
  *      memory: project_jabcode_screen_vs_print_physics.md (Mode 0 section) */
-#define MODE0_CHROMA_TOLERANCE 24
+#define MODE0_MEAN_CHROMA_TOLERANCE 30
 
 /* WS-0 Step 0.7: Mode 0 (Nc=0, monochrome) decode support.
- * Set by detectMaster() when the input bitmap has R==G==B (within
- * MODE0_CHROMA_TOLERANCE) on all sampled pixels. When true, scanPatternVertical
- * produces FP candidates for all four FP types from K-cored candidates, and
+ * Set by detectMaster() when the mean chroma across sampled pixels is below
+ * MODE0_MEAN_CHROMA_TOLERANCE. When true, scanPatternVertical produces FP
+ * candidates for all four FP types from K-cored candidates, and
  * crossCheckPattern skips the color-channel-specific cross-checks (which
  * assume Y/C cores at FP2/FP3).
  * See: docs/jabcode-all-nc-plan/00b-mode-0-monochrome.md Step 0.7 */
@@ -3653,24 +3662,36 @@ jab_boolean detectMaster(jab_bitmap* bitmap, jab_bitmap* ch[], jab_decoded_symbo
         jab_int32 step_y = bitmap->height / 16;
         if (step_x < 1) step_x = 1;
         if (step_y < 1) step_y = 1;
-        jab_boolean all_greyscale = 1;
+        /* Sample the bitmap on a ~16x16 grid and compute mean chroma.
+         * Mean-based discrimination is outlier-resistant: a few noisy
+         * pixels per frame don't disqualify the rest. See the comment
+         * on MODE0_MEAN_CHROMA_TOLERANCE above for the empirical
+         * rationale and the threshold choice.
+         *
+         * max_chroma is logged alongside mean for ongoing diagnostic
+         * value — useful for spotting unusual capture conditions
+         * (very high max with low mean = transient noise spike;
+         * high max with high mean = actually colored content). */
+        jab_int32 max_chroma_seen = 0;
+        jab_int32 sum_chroma = 0;
         jab_int32 samples = 0;
-        for (jab_int32 y = 0; y < bitmap->height && all_greyscale; y += step_y) {
-            for (jab_int32 x = 0; x < bitmap->width && all_greyscale; x += step_x) {
+        for (jab_int32 y = 0; y < bitmap->height; y += step_y) {
+            for (jab_int32 x = 0; x < bitmap->width; x += step_x) {
                 jab_int32 off = y * stride + x * bpp;
                 jab_int32 r = bitmap->pixel[off + 0];
                 jab_int32 g = bitmap->pixel[off + 1];
                 jab_int32 b = bitmap->pixel[off + 2];
                 jab_int32 chroma = abs(r - g) + abs(g - b) + abs(r - b);
-                if (chroma > MODE0_CHROMA_TOLERANCE) {
-                    all_greyscale = 0;
-                }
+                if (chroma > max_chroma_seen) max_chroma_seen = chroma;
+                sum_chroma += chroma;
                 samples++;
             }
         }
-        g_mode0_decode = (samples > 0 && all_greyscale);
-        JAB_DIAG_INFO(("DIAG_MODE0_DETECT g_mode0_decode=%d (sampled=%d)",
-                         (int)g_mode0_decode, samples));
+        jab_int32 mean_chroma = (samples > 0) ? (sum_chroma / samples) : 999;
+        g_mode0_decode = (samples > 0 && mean_chroma <= MODE0_MEAN_CHROMA_TOLERANCE);
+        JAB_DIAG_INFO(("DIAG_MODE0_DETECT g_mode0_decode=%d (sampled=%d max_chroma=%d mean_chroma=%d tol=%d)",
+                         (int)g_mode0_decode, samples,
+                         max_chroma_seen, mean_chroma, MODE0_MEAN_CHROMA_TOLERANCE));
     }
 
     //find master symbol
