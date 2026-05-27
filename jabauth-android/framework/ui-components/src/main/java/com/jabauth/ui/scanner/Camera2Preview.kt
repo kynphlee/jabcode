@@ -195,10 +195,21 @@ private class Camera2Controller(
 
             // Setup ImageReader for analysis frames at the smaller
             // analysis resolution to reduce per-frame conversion cost.
+            //
+            // maxImages = 4 (was 2): the analyzer uses acquireLatestImage()
+            // which auto-drops queued backlog, so the buffer count's job is
+            // to keep the camera HAL from throttling itself when a decode
+            // takes longer than one frame interval. With maxImages=2, even
+            // a single slow decode caused the HAL to block on its third
+            // outgoing frame (no buffer available to write into), cascading
+            // into AE/AWB drift and the intermittent stutter documented in
+            // docs/camera-control-audit.md issue E. At 1280x720 YUV_420_888
+            // each buffer is ~1.4 MB; 4 buffers ~= 5.6 MB — well within
+            // memory budget.
             imageReader = ImageReader.newInstance(
                 ANALYSIS_WIDTH, ANALYSIS_HEIGHT,
                 ImageFormat.YUV_420_888,
-                2  // Double buffering
+                4  // 4-deep buffer pool — see comment above
             ).apply {
                 setOnImageAvailableListener({ reader ->
                     Log.v(TAG, "ImageReader onImageAvailable callback triggered")
