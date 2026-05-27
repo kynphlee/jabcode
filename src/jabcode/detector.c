@@ -3635,8 +3635,8 @@ jab_boolean detectMaster(jab_bitmap* bitmap, jab_bitmap* ch[], jab_decoded_symbo
             }
         }
         g_mode0_decode = (samples > 0 && all_greyscale);
-        JAB_REPORT_INFO(("DIAG_MODE0_DETECT g_mode0_decode=%d (sampled=%d)",
-                         (int)g_mode0_decode, samples))
+        JAB_DIAG_INFO(("DIAG_MODE0_DETECT g_mode0_decode=%d (sampled=%d)",
+                         (int)g_mode0_decode, samples));
     }
 
     //find master symbol
@@ -3679,11 +3679,11 @@ jab_boolean detectMaster(jab_bitmap* bitmap, jab_bitmap* ch[], jab_decoded_symbo
             return JAB_FAILURE;
         }
     }
-    JAB_REPORT_INFO(("DETECT SUCCESS FP0(%.0f,%.0f,ms=%.0f) FP1(%.0f,%.0f,ms=%.0f) FP2(%.0f,%.0f,ms=%.0f) FP3(%.0f,%.0f,ms=%.0f)",
+    JAB_DIAG_INFO(("DETECT SUCCESS FP0(%.0f,%.0f,ms=%.0f) FP1(%.0f,%.0f,ms=%.0f) FP2(%.0f,%.0f,ms=%.0f) FP3(%.0f,%.0f,ms=%.0f)",
         fps[0].center.x, fps[0].center.y, fps[0].module_size,
         fps[1].center.x, fps[1].center.y, fps[1].module_size,
         fps[2].center.x, fps[2].center.y, fps[2].module_size,
-        fps[3].center.x, fps[3].center.y, fps[3].module_size))
+        fps[3].center.x, fps[3].center.y, fps[3].module_size));
 
     //calculate the master symbol side size
     jab_vector2d side_size = calculateSideSize(fps);
@@ -3750,10 +3750,10 @@ jab_boolean detectMaster(jab_bitmap* bitmap, jab_bitmap* ch[], jab_decoded_symbo
 				if(grid[row][c] == hello_ref[row][c]) ref_match++;
 			}
 			grid[row][21] = '\0';
-			JAB_REPORT_INFO(("GRID r%02d=[%s]", row, grid[row]))
+			JAB_DIAG_INFO(("GRID r%02d=[%s]", row, grid[row]));
 		}
 		jab_int32 ref_pct = ref_match * 100 / 441;
-		JAB_REPORT_INFO(("GRID_REF match=%d/441 (%d%%) %s", ref_match, ref_pct, ref_pct > 85 ? "HELLO_CONFIRMED" : ref_pct > 50 ? "PARTIAL" : "WRONG_BARCODE"))
+		JAB_DIAG_INFO(("GRID_REF match=%d/441 (%d%%) %s", ref_match, ref_pct, ref_pct > 85 ? "HELLO_CONFIRMED" : ref_pct > 50 ? "PARTIAL" : "WRONG_BARCODE"));
 
 		jab_int32 fp_pos[4][2] = {{3,3},{3,17},{17,17},{17,3}};
 		for(jab_int32 f=0; f<4; f++)

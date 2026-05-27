@@ -88,16 +88,31 @@ jab_data* jabMobileDecode(
 
 /**
  * @brief Decode JABCode from camera bitmap (uses full detection pipeline)
- * 
+ *
  * @param rgba_buffer RGBA pixel data from camera
  * @param width Image width in pixels
  * @param height Image height in pixels
  * @return Decoded data or NULL on failure (check jabMobileGetLastError)
- * 
+ *
  * @note This function uses the full JABCode camera detection pipeline.
  *       Slower than jabMobileDecode but works with real camera images.
  * @note Caller must free result with jabMobileDataFree()
+ *
+ * @deprecated WS-5 Council Session 5: permissive fall-through on metadata
+ *             failure produces fabricated decodes on degraded camera input
+ *             (HELLO-Nc-2 fabrications observed on Nc=3 prints — see
+ *             docs/cassandra-register/H_partI_clean_data_failure.md). For
+ *             strict Nc metadata reporting, use
+ *             jabMobileDecodeCameraWithMeta. The legacy permissive behavior
+ *             is preserved here for jabMobileDecodeMultiFrame's fast-path
+ *             at frame_count=1 (test_multi_frame_decode contract). The
+ *             open root-cause investigation may eventually allow this
+ *             function to be removed entirely.
  */
+__attribute__((deprecated(
+    "permissive fall-through; for accurate Nc metadata use "
+    "jabMobileDecodeCameraWithMeta — see Cassandra register entry "
+    "H_partI_clean_data_failure")))
 jab_data* jabMobileDecodeCamera(
     jab_byte* rgba_buffer,
     jab_int32 width,
@@ -215,6 +230,31 @@ jab_int32 jabMobileLoadCalibration(const char* json_string);
  * @brief Clear active calibration profile
  */
 void jabMobileClearCalibration(void);
+
+/**
+ * @brief Toggle verbose diagnostic logging.
+ *
+ * Forwards to jabSetDiagVerbose. When set TRUE, the decoder emits
+ * per-iteration markers (DIAG_PALETTE_LEARNED, DIAG_PARTII_RESULT,
+ * Nc_FALLBACK retries, DIAG_MODE0_DETECT, DETECT SUCCESS, GRID_REF)
+ * via __android_log_print on Android. When FALSE (default), those
+ * markers are suppressed and the camera-thread decode budget is
+ * preserved (~1.5-7ms per failed decode saved on Android, depending
+ * on Nc_FALLBACK depth and logd contention).
+ *
+ * Terminal markers (FAIL_ATTR, DECODE_OK, DIAG_SYMBOL_DECODE) always
+ * fire regardless of this flag — they are low-volume and diagnostic-
+ * essential.
+ *
+ * Intended use: diagnostic apps enable this before a capture window
+ * then disable it afterward. Production SDK consumers leave it at
+ * the default. Thread-local; safe across concurrent decoders.
+ *
+ * See: docs/cassandra-register/H_partI_clean_data_failure.md
+ *
+ * @param verbose 1 to enable, 0 to disable
+ */
+void jabMobileSetDiagVerbose(jab_int32 verbose);
 
 /**
  * @brief Check if calibration is active

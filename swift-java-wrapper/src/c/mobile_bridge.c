@@ -410,10 +410,20 @@ jab_data* jabMobileDecodeCameraWithMeta(
     // body of decodeJABCode (src/jabcode/detector.c:4035) — same code path,
     // same behavior, just with the symbols array kept in scope long enough
     // to read .Nc before it goes out of scope.
+    //
+    // Option D (WS-5 Council Session 5): scope strict PartII to the WithMeta
+    // path only. The legacy jabMobileDecodeCamera retains its permissive
+    // fall-through so test_multi_frame_decode Phase 1 (which fast-paths
+    // through the legacy entry point at frame_count=1) keeps passing.
+    // SDK consumers using WithMeta get honest metadata; legacy callers
+    // retain backward-compatible behavior. See:
+    //   docs/cassandra-register/H_partI_clean_data_failure.md
+    jabSetStrictPartIIRequired(1);
     jab_int32 decode_status;
     jab_decoded_symbol symbols[MAX_SYMBOL_NUMBER];
     jab_data* result = decodeJABCodeEx(bitmap, NORMAL_DECODE, &decode_status,
                                        symbols, MAX_SYMBOL_NUMBER);
+    jabSetStrictPartIIRequired(0);
     if (result && out_color_number) {
         // Nc is the color-index (0..7) mapping to {2,4,8,16,32,64,128,256}.
         // symbols[0].metadata.Nc is a value-type (jab_byte) field; valid to
@@ -475,9 +485,19 @@ jab_data* jabMobileDecodeMultiFrame(
         }
     }
 
-    /* Single-frame fast path: delegate to existing camera decode without copy. */
+    /* Single-frame fast path: delegate to existing camera decode without copy.
+     *
+     * The deprecation warning on jabMobileDecodeCamera is intentional for
+     * SDK consumers (it steers them to jabMobileDecodeCameraWithMeta). This
+     * internal call is the deliberate exception — multi-frame averaging
+     * needs the permissive fall-through preserved on the legacy path (see
+     * the @deprecated note in mobile_bridge.h and Cassandra register entry
+     * H_partI_clean_data_failure). Suppress the warning here only. */
     if (frame_count == 1) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
         return jabMobileDecodeCamera(rgba_buffers[0], width, height);
+#pragma GCC diagnostic pop
     }
 
     jab_int32 pixel_count = width * height * 4;
@@ -557,4 +577,8 @@ void jabMobileClearCalibration(void) {
 
 jab_boolean jabMobileHasCalibration(void) {
     return jabHasCalibration();
+}
+
+void jabMobileSetDiagVerbose(jab_int32 verbose) {
+    jabSetDiagVerbose(verbose ? 1 : 0);
 }

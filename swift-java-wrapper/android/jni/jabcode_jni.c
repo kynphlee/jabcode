@@ -333,7 +333,7 @@ Java_com_jabcode_JABCodeMobile_nativeClearError(
 
 /**
  * Get version string
- * 
+ *
  * Java signature: private static native String nativeGetVersion();
  */
 JNIEXPORT jstring JNICALL
@@ -343,4 +343,26 @@ Java_com_jabcode_JABCodeMobile_nativeGetVersion(
 {
     const char *version = jabMobileGetVersion();
     return (*env)->NewStringUTF(env, version);
+}
+
+/**
+ * Toggle verbose diagnostic logging on the decoder/detector hot paths.
+ *
+ * WS-5 Heisenberg gate: when verbose=true, the decoder emits per-iteration
+ * markers (DIAG_PALETTE_LEARNED, DIAG_PARTII_RESULT, Nc_FALLBACK retries,
+ * DIAG_MODE0_DETECT, DETECT SUCCESS, GRID_REF) via __android_log_print.
+ * When verbose=false (default), those markers are suppressed and the
+ * camera-thread decode budget is preserved.
+ *
+ * Terminal markers (FAIL_ATTR, DECODE_OK, DIAG_SYMBOL_DECODE) always fire.
+ *
+ * Java signature: external fun nativeSetDiagVerbose(verbose: Boolean)
+ */
+JNIEXPORT void JNICALL
+Java_com_jabcode_JABCodeMobile_nativeSetDiagVerbose(
+    JNIEnv *env,
+    jclass clazz,
+    jboolean verbose)
+{
+    jabMobileSetDiagVerbose(verbose ? 1 : 0);
 }
