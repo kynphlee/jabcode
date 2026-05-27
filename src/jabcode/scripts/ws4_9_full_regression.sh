@@ -16,6 +16,7 @@
 #   7. test_multi_frame_decode     WS-4.6 jabMobileDecodeMultiFrame integration
 #   8. test_roundtrip_with_noise   WS-4.7 8-Nc × 6-σ empirical sweep
 #   9. test_jab_mobile_with_meta   WS-5 Council Session 3 — WithMeta TDD contract
+#  10. test_mode0_chroma_tolerance WS-0 Mode 0 sample-check tolerance vs camera noise
 #
 # Run from src/jabcode/:
 #   bash scripts/ws4_9_full_regression.sh
@@ -54,6 +55,7 @@ LIB_TESTS=(
   "test_roundtrip_nc0"
   "test_roundtrip_all_nc"
   "test_roundtrip_with_noise"
+  "test_mode0_chroma_tolerance"
 )
 for t in "${LIB_TESTS[@]}"; do
   if [ -f "test/${t}.c" ]; then
@@ -116,6 +118,7 @@ GATE_TESTS=(
   "test_multi_frame_decode"
   "test_roundtrip_with_noise"
   "test_jab_mobile_with_meta"
+  "test_mode0_chroma_tolerance"
 )
 
 # Informational tests: report per-Nc state but expected to "fail" because
