@@ -15,6 +15,7 @@
 #   6. test_multi_frame_palette    WS-4.5 CLT averaging contract
 #   7. test_multi_frame_decode     WS-4.6 jabMobileDecodeMultiFrame integration
 #   8. test_roundtrip_with_noise   WS-4.7 8-Nc × 6-σ empirical sweep
+#   9. test_jab_mobile_with_meta   WS-5 Council Session 3 — WithMeta TDD contract
 #
 # Run from src/jabcode/:
 #   bash scripts/ws4_9_full_regression.sh
@@ -90,6 +91,16 @@ gcc -O2 -std=c11 \
     -o test/test_multi_frame_decode -Wl,-rpath,"$JABCODE_DIR/build"
 echo "  built: test/test_multi_frame_decode"
 
+# WS-5 Council Session 3: WithMeta TDD contract (also needs wrapper sources)
+gcc -O2 -std=c11 \
+    -I. -I./include -I../../swift-java-wrapper/include \
+    test/test_jab_mobile_with_meta.c \
+    ../../swift-java-wrapper/src/c/mobile_bridge.c \
+    ../../swift-java-wrapper/src/c/mobile_utils.c \
+    -L./build -ljabcode -ltiff -lpng16 -lz -lm \
+    -o test/test_jab_mobile_with_meta -Wl,-rpath,"$JABCODE_DIR/build"
+echo "  built: test/test_jab_mobile_with_meta"
+
 # --- Run each test, tally pass/fail ---
 echo ""
 echo "─── Run regression suite ───"
@@ -104,6 +115,7 @@ GATE_TESTS=(
   "test_multi_frame_palette"
   "test_multi_frame_decode"
   "test_roundtrip_with_noise"
+  "test_jab_mobile_with_meta"
 )
 
 # Informational tests: report per-Nc state but expected to "fail" because
