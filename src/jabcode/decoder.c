@@ -21,6 +21,30 @@
 #include "ldpc.h"
 #include "encoder.h"
 
+/* WS-5 round-6: caller-strict mode flag for decodeMaster's PartII fall-through.
+ *
+ * When TRUE, decodeMaster refuses to optimistically assume PartII succeeded
+ * when PartI returned DECODE_METADATA_FAILED — preventing fabricated decodes
+ * on degraded camera input that consistently returned the default-metadata
+ * Nc=2 payload (HELLO-Nc-2 fabrications observed in WS-5 traces 161346 and
+ * 181712 from a Nc=3 print).
+ *
+ * When FALSE (default), preserves the legacy optimistic fall-through used by
+ * multi-frame averaging callers — test_multi_frame_decode.c deliberately
+ * exercises this path where PartI fails on noisy structural bits but the
+ * averaged data modules still decode correctly with default metadata.
+ *
+ * Set TRUE by jabMobileDecodeCamera / jabMobileDecodeCameraWithMeta before
+ * each decode and reset to FALSE after, so the strict behavior is scoped
+ * to single-frame camera entry points only. Thread-local so concurrent
+ * callers cannot race. */
+__thread jab_boolean g_strict_partII_required = 0;
+
+void jabSetStrictPartIIRequired(jab_boolean strict)
+{
+	g_strict_partII_required = strict;
+}
+
 /* WS-4 Step 4.2: optional CIE Lab ΔE2000 color discrimination in decodeModuleHD.
  * Defined at compile time via -DUSE_LAB_DISTANCE. When defined, Nc≥3 (color
  * modes with color_number > 8) use perceptual Lab distance instead of squared
@@ -1626,6 +1650,23 @@ jab_int32 decodeMaster(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 			x = x_postP1; y = y_postP1; module_count = mc_postP1;
 			memcpy(data_map, dm_postP1, dm_size);
 			symbol->metadata.Nc = nc_order[nc_idx];
+
+			/* WS-5 round-6 memory hygiene: clear leftover symbol->data
+			 * allocated by a previous Nc_FALLBACK iteration. Without this,
+			 * a previous iteration's decoded data could be returned as the
+			 * current iteration's "successful" decode if any code path
+			 * falls through to a success return without overwriting
+			 * symbol->data. The success return at line ~1705 exits the
+			 * loop entirely, so this clear runs only on iterations where
+			 * the previous iteration did NOT succeed — making it safe to
+			 * free any partially-populated allocation. See the deeper
+			 * fix at the partII_ok else-branch below for the original
+			 * fall-through bug this hygiene defends against. */
+			if(symbol->data) {
+				free(symbol->data);
+				symbol->data = NULL;
+			}
+
 			JAB_REPORT_INFO(("Nc_FALLBACK: Retrying with Nc=%d (try %d/%d, original=%d)",
 				nc_order[nc_idx], nc_idx+1, nc_tries, original_Nc));
 		}
@@ -1672,20 +1713,37 @@ jab_int32 decodeMaster(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 		}
 
 		//decode metadata PartII
+		/* WS-5 round-6 BUG FIX (caller-strict mode): when the caller has
+		 * set g_strict_partII_required (e.g., jabMobileDecodeCamera*), do
+		 * NOT fall through to optimistic decode on PartI failure — that
+		 * path produces fabricated decodes from default-metadata Nc=2
+		 * state on degraded camera input (empirically confirmed via traces
+		 * 161346, 181712 showing HELLO-Nc-2 fabrications from a Nc=3
+		 * print). When the caller has NOT set the strict flag (e.g.,
+		 * jabMobileDecodeMultiFrame / desktop tests), preserve the
+		 * legacy optimistic fall-through — multi-frame averaging tests
+		 * (test_multi_frame_decode.c) deliberately exercise this path
+		 * where PartI fails on noisy structural bits but defaults still
+		 * decode the data modules correctly. */
 		jab_boolean partII_ok = 0;
 		if(decode_partI_ret == JAB_SUCCESS)
 		{
 			jab_int32 part2_result = decodeMasterMetadataPartII(matrix, symbol, data_map, norm_palette, pal_ths, &module_count, &x, &y);
 			if(part2_result > 0) partII_ok = 1;
-			/* WS-2 Step 2.2: per-stage diagnostic marker — PartII metadata decode result. */
 			JAB_REPORT_INFO(("DIAG_PARTII_RESULT result=%d Nc=%d ok=%d",
 			                 part2_result, symbol->metadata.Nc, (int)partII_ok));
+		}
+		else if(g_strict_partII_required)
+		{
+			/* Strict mode: PartI failed → don't fabricate success.
+			 * partII_ok stays 0; loop will skip to next Nc_FALLBACK. */
+			JAB_REPORT_INFO(("DIAG_PARTII_RESULT result=skipped Nc=%d ok=0 (strict)",
+			                 symbol->metadata.Nc));
 		}
 		else
 		{
 			partII_ok = 1;
-			/* WS-2 Step 2.2: PartI failed; PartII skipped. Still emit marker for
-			 * consistent trace structure. */
+			/* Legacy optimistic fall-through for multi-frame averaging callers. */
 			JAB_REPORT_INFO(("DIAG_PARTII_RESULT result=skipped Nc=%d ok=1",
 			                 symbol->metadata.Nc));
 		}

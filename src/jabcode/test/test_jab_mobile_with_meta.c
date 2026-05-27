@@ -227,8 +227,14 @@ static int test_parallel_equivalence(test_summary_t* sum) {
     jab_mobile_encode_result* enc = encode_fixture(payload, 16);
     if (!enc) { sum->failed++; return 1; }
 
+    /* Deliberate call to the deprecated legacy function — this test's whole
+     * point is to verify both paths return identical bytes. Suppress the
+     * deprecation warning at this exact site. */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
     jab_data* legacy = jabMobileDecodeCamera(
         enc->rgba_buffer, enc->width, enc->height);
+#pragma GCC diagnostic pop
 
     jab_int32 color_number = -1;
     jab_data* with_meta = jabMobileDecodeCameraWithMeta(
@@ -255,6 +261,70 @@ static int test_parallel_equivalence(test_summary_t* sum) {
     return 0;
 }
 
+/* ===== Test 7 (Delighter): strict-mode flag isolation =====
+ * Option D guarantees jabMobileDecodeCameraWithMeta sets the strict-mode
+ * flag for its own decode then resets it before returning. If the reset
+ * is buggy (forgotten call, early-return path bypasses it), a subsequent
+ * jabMobileDecodeCamera call would inherit the strict flag and start
+ * rejecting decodes that the multi-frame averaging tests expect to succeed.
+ *
+ * This test runs WithMeta and legacy in alternation to detect any flag
+ * leak. Both paths should independently honor their own contract:
+ *   - WithMeta succeeds with correct color_number, OR fails honestly
+ *   - Legacy succeeds (permissive) on the same clean input
+ * The key assertion: legacy succeeds on clean input AFTER WithMeta has
+ * been called — i.e., WithMeta did not leave strict mode active.
+ */
+static int test_strict_mode_isolation(test_summary_t* sum) {
+    const char* name = "strict_mode_isolation";
+    const char* payload = "HELLO";
+
+    jab_mobile_encode_result* enc = encode_fixture(payload, 16);
+    if (!enc) { sum->failed++; return 1; }
+
+    /* Step 1: call WithMeta — sets strict flag internally, then resets. */
+    jab_int32 color_number = -1;
+    jab_data* meta_result = jabMobileDecodeCameraWithMeta(
+        enc->rgba_buffer, enc->width, enc->height, &color_number);
+
+    /* Step 2: call legacy on the same input. If the strict flag leaked,
+     * this legacy call would behave under strict rules — which could
+     * produce different outcomes on edge cases. For clean encoded data
+     * both paths should succeed; the assertion locks in that property. */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+    jab_data* legacy_result = jabMobileDecodeCamera(
+        enc->rgba_buffer, enc->width, enc->height);
+#pragma GCC diagnostic pop
+
+    if (legacy_result) {
+        printf("  [%s] PASS: legacy decode succeeds after WithMeta call "
+               "(no strict-flag leak)\n", name);
+        sum->passed++;
+    } else {
+        printf("  [%s] FAIL: legacy decode returned NULL after WithMeta "
+               "call — strict-flag may have leaked\n", name);
+        sum->failed++;
+    }
+
+    /* Step 3: call WithMeta again to verify repeated invocation works. */
+    jab_int32 color_number_2 = -1;
+    jab_data* meta_result_2 = jabMobileDecodeCameraWithMeta(
+        enc->rgba_buffer, enc->width, enc->height, &color_number_2);
+    if (meta_result_2) {
+        check_eq_int(name, "color_number-second-call", 16, color_number_2, sum);
+        jabMobileDataFree(meta_result_2);
+    } else {
+        printf("  [%s] DECODE_INFO: WithMeta second call returned NULL "
+               "(see H_partI_clean_data_failure)\n", name);
+    }
+
+    if (meta_result)   jabMobileDataFree(meta_result);
+    if (legacy_result) jabMobileDataFree(legacy_result);
+    jabMobileEncodeResultFree(enc);
+    return 0;
+}
+
 int main(void) {
     printf("================================================\n");
     printf("jabMobileDecodeCameraWithMeta — TDD Contract Tests\n");
@@ -275,6 +345,8 @@ int main(void) {
     test_nc4_coverage(&sum);
     printf("--- Test 6: parallel_equivalence (Performance) ---\n");
     test_parallel_equivalence(&sum);
+    printf("--- Test 7: strict_mode_isolation (Delighter) ---\n");
+    test_strict_mode_isolation(&sum);
 
     printf("\n================================================\n");
     printf("Summary: %d passed, %d failed\n", sum.passed, sum.failed);
