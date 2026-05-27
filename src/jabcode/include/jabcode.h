@@ -190,6 +190,15 @@ extern jab_data* decodeJABCodeSynthetic(jab_bitmap* bitmap, jab_int32 color_numb
  * cleanup). On swift-java-poc no such context exists, so this is a documented
  * no-op. See docs/jabcode-all-nc-plan/mode0-investigation/09-ws6-option-f-resolution.md */
 extern void resetDecoderState(void);
+
+/* WS-5 round-6: opt-in strict mode for decodeMaster's PartII fall-through.
+ * When set TRUE, decodeMaster refuses to optimistically assume PartII
+ * succeeded when PartI failed — preventing fabricated decodes on degraded
+ * camera input. Defaults FALSE (legacy permissive behavior preserved for
+ * multi-frame averaging callers). Thread-local; safe across concurrent
+ * decoders. Reset to FALSE after each decode to scope the change tightly.
+ * See decoder.c definition for full rationale. */
+extern void jabSetStrictPartIIRequired(jab_boolean strict);
 extern jab_boolean saveImage(jab_bitmap* bitmap, jab_char* filename);
 extern jab_boolean saveImageCMYK(jab_bitmap* bitmap, jab_boolean isCMYK, jab_char* filename);
 extern jab_bitmap* readImage(jab_char* filename);

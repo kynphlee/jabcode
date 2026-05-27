@@ -88,16 +88,31 @@ jab_data* jabMobileDecode(
 
 /**
  * @brief Decode JABCode from camera bitmap (uses full detection pipeline)
- * 
+ *
  * @param rgba_buffer RGBA pixel data from camera
  * @param width Image width in pixels
  * @param height Image height in pixels
  * @return Decoded data or NULL on failure (check jabMobileGetLastError)
- * 
+ *
  * @note This function uses the full JABCode camera detection pipeline.
  *       Slower than jabMobileDecode but works with real camera images.
  * @note Caller must free result with jabMobileDataFree()
+ *
+ * @deprecated WS-5 Council Session 5: permissive fall-through on metadata
+ *             failure produces fabricated decodes on degraded camera input
+ *             (HELLO-Nc-2 fabrications observed on Nc=3 prints — see
+ *             docs/cassandra-register/H_partI_clean_data_failure.md). For
+ *             strict Nc metadata reporting, use
+ *             jabMobileDecodeCameraWithMeta. The legacy permissive behavior
+ *             is preserved here for jabMobileDecodeMultiFrame's fast-path
+ *             at frame_count=1 (test_multi_frame_decode contract). The
+ *             open root-cause investigation may eventually allow this
+ *             function to be removed entirely.
  */
+__attribute__((deprecated(
+    "permissive fall-through; for accurate Nc metadata use "
+    "jabMobileDecodeCameraWithMeta — see Cassandra register entry "
+    "H_partI_clean_data_failure")))
 jab_data* jabMobileDecodeCamera(
     jab_byte* rgba_buffer,
     jab_int32 width,
