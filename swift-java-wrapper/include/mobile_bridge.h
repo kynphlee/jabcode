@@ -105,6 +105,42 @@ jab_data* jabMobileDecodeCamera(
 );
 
 /**
+ * @brief Decode JABCode from camera bitmap AND return the decoded color mode.
+ *
+ * Same decode path as jabMobileDecodeCamera, but additionally captures the
+ * detected color count (1 << (Nc+1)) via the out_color_number output param.
+ * Intended for SDK callers that need to surface the actual decoded color
+ * mode to upstream consumers — the existing jabMobileDecodeCamera does not
+ * expose this metadata.
+ *
+ * IMPLEMENTATION NOTE: this is a PARALLEL function to jabMobileDecodeCamera,
+ * not a replacement. It calls decodeJABCodeEx directly with its own
+ * stack-resident symbols[] array (mirroring decodeJABCode's wrapper body
+ * defined in src/jabcode/detector.c:4035). The existing jabMobileDecodeCamera
+ * code path is untouched and continues to use the decodeJABCode wrapper.
+ * This deliberate duplication isolates a prior regression — a previous attempt
+ * to switch the existing function's call site from decodeJABCode to
+ * decodeJABCodeEx empirically broke decoding (claude/ws-5-color-metadata
+ * bisect). Root cause for that regression is not yet known; this approach
+ * sidesteps the question entirely.
+ *
+ * @param rgba_buffer       RGBA pixel data from camera (caller owns)
+ * @param width             Image width in pixels
+ * @param height            Image height in pixels
+ * @param out_color_number  OUT: on success, set to one of {2,4,8,16,32,64,128,256};
+ *                          on failure, set to 0. May be NULL to ignore.
+ * @return Decoded data or NULL on failure (check jabMobileGetLastError)
+ *
+ * @note Caller must free result with jabMobileDataFree()
+ */
+jab_data* jabMobileDecodeCameraWithMeta(
+    jab_byte* rgba_buffer,
+    jab_int32 width,
+    jab_int32 height,
+    jab_int32* out_color_number
+);
+
+/**
  * @brief Decode JABCode from multiple camera frames via temporal averaging
  *
  * Averages pixel values across N frames (per-channel, per-position), then

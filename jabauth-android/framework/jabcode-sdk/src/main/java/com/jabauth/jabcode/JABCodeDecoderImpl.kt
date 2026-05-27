@@ -39,10 +39,16 @@ class JABCodeDecoderImpl(
         ))
         
         try {
-            // Use nativeDecodeFromBitmap for simplicity
-            Log.d(TAG, "Calling nativeDecodeFromBitmap()...")
-            val decodedData = nativeBridge.nativeDecodeFromBitmap(image, options.timeout)
-            
+            // Use nativeDecodeFromBitmapWithMeta to get both the decoded bytes
+            // AND the actual color mode. Backed by jabMobileDecodeCameraWithMeta
+            // (a parallel native function — see mobile_bridge.h for the
+            // implementation-note explaining why this is parallel to the
+            // existing decode path rather than a replacement).
+            Log.d(TAG, "Calling nativeDecodeFromBitmapWithMeta()...")
+            val outColorNumber = IntArray(1)
+            val decodedData = nativeBridge.nativeDecodeFromBitmapWithMeta(
+                image, options.timeout, outColorNumber)
+
             if (decodedData == null) {
                 val errorMsg = nativeBridge.nativeGetLastError() ?: "Unknown error"
                 Log.e(TAG, "❌ Native decode FAILED: $errorMsg")
@@ -51,24 +57,28 @@ class JABCodeDecoderImpl(
                 ))
                 return null
             }
-            
-            Log.d(TAG, "✅ Native decode SUCCESS: ${decodedData.size} bytes received")
-            
+
+            Log.d(TAG, "✅ Native decode SUCCESS: ${decodedData.size} bytes received, " +
+                       "colorNumber=${outColorNumber[0]}")
+
             val decodeTime = System.currentTimeMillis() - startTime
-            
+
             // Try to decode as string for logging
             val dataPreview = try {
                 String(decodedData, Charsets.UTF_8).take(50)
             } catch (e: Exception) {
                 "<binary data>"
             }
-            
+
             Log.i(TAG, "Decoded data preview: \"$dataPreview\"${if (decodedData.size > 50) "..." else ""}")
-            
-            // Create result (native library doesn't return metadata yet)
+
+            // Translate the native color_number (2,4,8,...,256) to the Kotlin
+            // ColorMode enum. ColorMode.fromValue falls back to COLOR_8 if the
+            // value is unexpected (e.g., 0 from a failure-path read that we
+            // shouldn't reach given the null check above).
             val result = DecodeResult(
                 data = decodedData,
-                colorMode = ColorMode.COLOR_8, // Default - actual mode not returned by native
+                colorMode = ColorMode.fromValue(outColorNumber[0]),
                 position = Rect(0, 0, image.width, image.height), // Full image
                 decodeTimeMs = decodeTime
             )
