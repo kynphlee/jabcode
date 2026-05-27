@@ -310,18 +310,18 @@ jab_data* jabMobileDecodeCamera(
 ) {
     // Clear previous error
     jabMobileClearError();
-    
+
     // Validate parameters
     if (!rgba_buffer) {
         setError("Invalid RGBA buffer");
         return NULL;
     }
-    
+
     if (width <= 0 || height <= 0) {
         setError("Invalid image dimensions");
         return NULL;
     }
-    
+
     // Create bitmap structure from RGBA buffer
     jab_int32 pixel_count = width * height * 4;
     jab_bitmap* bitmap = (jab_bitmap*)malloc(
@@ -331,20 +331,20 @@ jab_data* jabMobileDecodeCamera(
         setError("Memory allocation failed");
         return NULL;
     }
-    
+
     bitmap->width = width;
     bitmap->height = height;
     bitmap->bits_per_pixel = 32;
     bitmap->bits_per_channel = 8;
     bitmap->channel_count = 4;
     memcpy(bitmap->pixel, rgba_buffer, pixel_count);
-    
+
     // Decode using full camera detection pipeline
     jab_int32 decode_status;
     jab_data* result = decodeJABCode(bitmap, NORMAL_DECODE, &decode_status);
-    
+
     free(bitmap);
-    
+
     if (!result) {
         if (decode_status == 0) {
             setError("No JABCode found in image");
@@ -355,7 +355,86 @@ jab_data* jabMobileDecodeCamera(
         }
         return NULL;
     }
-    
+
+    return result;
+}
+
+/**
+ * @see mobile_bridge.h for full contract documentation.
+ *
+ * IMPORTANT: this is a PARALLEL function to jabMobileDecodeCamera, NOT a
+ * replacement. Do not consolidate them. The duplication is intentional to
+ * isolate from a prior regression (see header doc).
+ */
+jab_data* jabMobileDecodeCameraWithMeta(
+    jab_byte* rgba_buffer,
+    jab_int32 width,
+    jab_int32 height,
+    jab_int32* out_color_number
+) {
+    // Always initialize the output param to 0 (= "no decode yet").
+    if (out_color_number) *out_color_number = 0;
+
+    // Clear previous error
+    jabMobileClearError();
+
+    // Validate parameters (same set as jabMobileDecodeCamera)
+    if (!rgba_buffer) {
+        setError("Invalid RGBA buffer");
+        return NULL;
+    }
+    if (width <= 0 || height <= 0) {
+        setError("Invalid image dimensions");
+        return NULL;
+    }
+
+    // Create bitmap structure from RGBA buffer
+    jab_int32 pixel_count = width * height * 4;
+    jab_bitmap* bitmap = (jab_bitmap*)malloc(
+        sizeof(jab_bitmap) + pixel_count
+    );
+    if (!bitmap) {
+        setError("Memory allocation failed");
+        return NULL;
+    }
+
+    bitmap->width = width;
+    bitmap->height = height;
+    bitmap->bits_per_pixel = 32;
+    bitmap->bits_per_channel = 8;
+    bitmap->channel_count = 4;
+    memcpy(bitmap->pixel, rgba_buffer, pixel_count);
+
+    // Decode via decodeJABCodeEx with our own stack-resident symbols array
+    // so we can capture symbols[0].metadata.Nc on success. This mirrors the
+    // body of decodeJABCode (src/jabcode/detector.c:4035) — same code path,
+    // same behavior, just with the symbols array kept in scope long enough
+    // to read .Nc before it goes out of scope.
+    jab_int32 decode_status;
+    jab_decoded_symbol symbols[MAX_SYMBOL_NUMBER];
+    jab_data* result = decodeJABCodeEx(bitmap, NORMAL_DECODE, &decode_status,
+                                       symbols, MAX_SYMBOL_NUMBER);
+    if (result && out_color_number) {
+        // Nc is the color-index (0..7) mapping to {2,4,8,16,32,64,128,256}.
+        // symbols[0].metadata.Nc is a value-type (jab_byte) field; valid to
+        // read after decodeJABCodeEx returns even though it frees the
+        // heap-owned palette/data pointers on the same struct.
+        *out_color_number = 1 << (symbols[0].metadata.Nc + 1);
+    }
+
+    free(bitmap);
+
+    if (!result) {
+        if (decode_status == 0) {
+            setError("No JABCode found in image");
+        } else if (decode_status == 1) {
+            setError("JABCode found but not decodable");
+        } else {
+            setError("Decoding failed");
+        }
+        return NULL;
+    }
+
     return result;
 }
 

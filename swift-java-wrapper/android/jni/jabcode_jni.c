@@ -207,8 +207,86 @@ Java_com_jabcode_JABCodeMobile_nativeDecodeFromBitmap(
 }
 
 /**
+ * Decode from bitmap implementation WITH color-mode metadata.
+ *
+ * Same logic as nativeDecodeFromBitmap, but also writes the detected color
+ * count (1 << (Nc+1)) into element [0] of the outColorNumber IntArray.
+ *
+ * Java signature: external fun nativeDecodeFromBitmapWithMeta(
+ *     bitmap: Bitmap, timeout: Long, outColorNumber: IntArray
+ * ): ByteArray?
+ */
+JNIEXPORT jbyteArray JNICALL
+Java_com_jabcode_JABCodeMobile_nativeDecodeFromBitmapWithMeta(
+    JNIEnv *env,
+    jobject thiz,
+    jobject bitmap,
+    jlong timeout,
+    jintArray outColorNumber)
+{
+    AndroidBitmapInfo info;
+    void* pixels;
+    int ret;
+
+    if ((ret = AndroidBitmap_getInfo(env, bitmap, &info)) < 0) {
+        LOGE("AndroidBitmap_getInfo failed, error=%d", ret);
+        return NULL;
+    }
+
+    if (info.format != ANDROID_BITMAP_FORMAT_RGBA_8888) {
+        LOGE("Bitmap format is not RGBA_8888, format=%d", info.format);
+        return NULL;
+    }
+
+    if ((ret = AndroidBitmap_lockPixels(env, bitmap, &pixels)) < 0) {
+        LOGE("AndroidBitmap_lockPixels failed, error=%d", ret);
+        return NULL;
+    }
+
+    // Decode via the meta-aware native function. The local color_number is
+    // populated on success; failure leaves it at the initial 0.
+    jab_int32 color_number = 0;
+    jab_data *decoded = jabMobileDecodeCameraWithMeta(
+        (jab_byte *)pixels, info.width, info.height, &color_number);
+
+    AndroidBitmap_unlockPixels(env, bitmap);
+
+    if (decoded == NULL) {
+        const char *error = jabMobileGetLastError();
+        LOGE("Camera decode (with meta) failed: %s", error ? error : "unknown error");
+        return NULL;
+    }
+
+    LOGI("Decoded %d bytes from %dx%d bitmap, color_number=%d",
+         decoded->length, info.width, info.height, color_number);
+
+    // Write color_number into element [0] of outColorNumber if caller provided it.
+    if (outColorNumber != NULL) {
+        jsize outLen = (*env)->GetArrayLength(env, outColorNumber);
+        if (outLen >= 1) {
+            jint colorNumberJ = (jint)color_number;
+            (*env)->SetIntArrayRegion(env, outColorNumber, 0, 1, &colorNumberJ);
+        } else {
+            LOGE("outColorNumber array too small (len=%d, need >=1)", outLen);
+        }
+    }
+
+    // Create result byte array
+    jbyteArray resultArray = (*env)->NewByteArray(env, decoded->length);
+    if (resultArray == NULL) {
+        LOGE("Failed to allocate result array");
+        jabMobileDataFree(decoded);
+        return NULL;
+    }
+    (*env)->SetByteArrayRegion(env, resultArray, 0, decoded->length, (jbyte *)decoded->data);
+
+    jabMobileDataFree(decoded);
+    return resultArray;
+}
+
+/**
  * Free encode result native memory
- * 
+ *
  * Java signature: private static native void nativeFreeEncodeResult(long ptr);
  */
 JNIEXPORT void JNICALL
