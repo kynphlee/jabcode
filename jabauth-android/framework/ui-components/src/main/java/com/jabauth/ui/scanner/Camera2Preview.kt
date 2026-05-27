@@ -131,6 +131,18 @@ private class Camera2Controller(
     private var sensorOrientation: Int = 0
     private var currentTextureView: TextureView? = null
     private var cameraCharacteristics: CameraCharacteristics? = null
+
+    // WS-camera-3 Low Light Boost AE Mode (Android 15+, API 35).
+    // Detected once per session in openCamera() from the camera's AE
+    // available modes. When true, startRepeatingRequest() opts into
+    // CONTROL_AE_MODE_ON_LOW_LIGHT_BOOST_BRIGHTNESS_PRIORITY instead of
+    // CONTROL_AE_MODE_ON; the captureCallback then observes
+    // CONTROL_LOW_LIGHT_BOOST_STATE so the diagnostic HUD knows when
+    // LLB has actually engaged (it activates dynamically based on
+    // scene luminance — supported ≠ active on a bright scene).
+    private var lowLightBoostSupported: Boolean = false
+    @Volatile
+    private var lastReportedLlbState: Int = -1  // -1 = no observation yet
     
     @Volatile
     private var autoFocusEnabled: Boolean = initialAutoFocus
@@ -188,6 +200,24 @@ private class Camera2Controller(
             val characteristics = manager.getCameraCharacteristics(cameraId)
             cameraCharacteristics = characteristics
             sensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0
+
+            // WS-camera-3: detect Low Light Boost AE Mode capability (API 35+).
+            // Google's own docs list "scanning QR codes in low light" as a
+            // primary use case. When supported, opt in to brighten the live
+            // preview adaptively under dim conditions — should help with
+            // print scanning in office lighting and may relax the Mode 0
+            // chroma-tolerance margin we already tightened (lower noise
+            // floor under longer exposure).
+            lowLightBoostSupported = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+                val availableAeModes = characteristics
+                    .get(CameraCharacteristics.CONTROL_AE_AVAILABLE_MODES)
+                availableAeModes?.contains(
+                    CameraMetadata.CONTROL_AE_MODE_ON_LOW_LIGHT_BOOST_BRIGHTNESS_PRIORITY
+                ) ?: false
+            } else {
+                false
+            }
+            Log.i(TAG, "Low Light Boost AE Mode supported: $lowLightBoostSupported (API ${Build.VERSION.SDK_INT})")
             
             // Preview surface buffer sized to the preview resolution.
             val texture = textureView.surfaceTexture
@@ -332,11 +362,19 @@ private class Camera2Controller(
             }
             requestBuilder.set(CaptureRequest.CONTROL_AF_MODE, afMode)
             
-            // Enable auto-exposure
-            requestBuilder.set(
-                CaptureRequest.CONTROL_AE_MODE,
+            // Enable auto-exposure. When the device supports Low Light
+            // Boost AE Mode (API 35+, detected in openCamera), opt in —
+            // it adaptively brightens the live preview under dim
+            // conditions without breaking temporal continuity (no
+            // multi-frame combining, no shutter delay). Detection state
+            // observed via the captureCallback below; supported != active.
+            val aeMode = if (lowLightBoostSupported &&
+                             Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+                CameraMetadata.CONTROL_AE_MODE_ON_LOW_LIGHT_BOOST_BRIGHTNESS_PRIORITY
+            } else {
                 CaptureRequest.CONTROL_AE_MODE_ON
-            )
+            }
+            requestBuilder.set(CaptureRequest.CONTROL_AE_MODE, aeMode)
             
             // Set exposure compensation (Tier 2: Improve binarization)
             val aeCompensationRange = cameraCharacteristics?.get(CameraCharacteristics.CONTROL_AE_COMPENSATION_RANGE)
@@ -355,13 +393,40 @@ private class Camera2Controller(
                 CaptureRequest.CONTROL_AWB_MODE_AUTO
             )
             
+            // WS-camera-3: capture callback that observes the LLB state
+            // transitions. Only logs on state CHANGE (debounced via
+            // lastReportedLlbState) so it does not flood the trace on
+            // every captured frame. When LLB is unsupported, this still
+            // runs but the LLB key returns null and the branch is a
+            // single no-op map lookup per frame.
+            val captureCallback = object : CameraCaptureSession.CaptureCallback() {
+                override fun onCaptureCompleted(
+                    session: CameraCaptureSession,
+                    request: CaptureRequest,
+                    result: TotalCaptureResult
+                ) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+                        val state = result.get(CaptureResult.CONTROL_LOW_LIGHT_BOOST_STATE)
+                        if (state != null && state != lastReportedLlbState) {
+                            lastReportedLlbState = state
+                            val stateName = when (state) {
+                                CameraMetadata.CONTROL_LOW_LIGHT_BOOST_STATE_ACTIVE -> "ACTIVE"
+                                CameraMetadata.CONTROL_LOW_LIGHT_BOOST_STATE_INACTIVE -> "INACTIVE"
+                                else -> "UNKNOWN($state)"
+                            }
+                            Log.i(TAG, "LowLightBoost state -> $stateName")
+                        }
+                    }
+                }
+            }
+
             session.setRepeatingRequest(
                 requestBuilder.build(),
-                null,
+                captureCallback,
                 backgroundHandler
             )
-            
-            Log.d(TAG, "Camera2 preview started: AF=${if (autoFocusEnabled) "ON" else "OFF"}, AE=ON (EV=${exposureCompensationValue}), AWB=AUTO")
+
+            Log.d(TAG, "Camera2 preview started: AF=${if (autoFocusEnabled) "ON" else "OFF"}, AE=${if (aeMode == CameraMetadata.CONTROL_AE_MODE_ON_LOW_LIGHT_BOOST_BRIGHTNESS_PRIORITY) "ON_LLB" else "ON"} (EV=${exposureCompensationValue}), AWB=AUTO")
             
         } catch (e: CameraAccessException) {
             Log.e(TAG, "Start repeating request failed", e)
