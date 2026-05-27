@@ -37,11 +37,44 @@
 
 #define JABCODE_DIAG 0
 
+/* WS-0 Mode 0 trigger tolerance — per-pixel chroma slack for the greyscale
+ * signature check. The check sums absolute channel deltas
+ * (|R-G| + |G-B| + |R-B|) and treats any pixel below this threshold as
+ * greyscale-compatible.
+ *
+ * Why a tolerance at all: real camera capture introduces ~3-8 ADU of chroma
+ * noise per channel even on pure-greyscale content (Bayer demosaic
+ * interpolation between neighboring R/G/B-filtered pixels). A strict
+ * equality check (R == G == B) fails on the first noisy pixel out of 256
+ * samples, leaving g_mode0_decode = 0 and the Nc=0 decoder pathway
+ * inactive — exactly the failure mode observed in WS-5 verification
+ * (trace tolerance4-test-20260527_031332.logcat: 36/36 status=0 fails on
+ * the nc0-2c-20260521.png fixture).
+ *
+ * Value rationale:
+ *   - Pure greyscale (R=G=B): chroma sum = 0 (trivially passes)
+ *   - Greyscale + 5 ADU chroma noise (typical bright capture):
+ *     chroma sum ≈ 2*5 = 10 in expectation, up to ~25 at 3σ
+ *   - A saturated colored pixel (e.g., red [255,0,0]):
+ *     chroma sum = 255 + 0 + 255 = 510 (firmly rejected)
+ *   - A low-saturation desaturated tint (e.g., pale beige [230,220,210]):
+ *     chroma sum ≈ 30 (correctly NOT classified as Mode 0)
+ *
+ * Default 24 catches the camera-noise distribution on greyscale content
+ * without false-positives on lightly-colored content. Tunable if field
+ * data shows the camera-noise floor differs significantly on a given
+ * sensor.
+ *
+ * See: docs/jabcode-all-nc-plan/00b-mode-0-monochrome.md
+ *      memory: project_jabcode_screen_vs_print_physics.md (Mode 0 section) */
+#define MODE0_CHROMA_TOLERANCE 24
+
 /* WS-0 Step 0.7: Mode 0 (Nc=0, monochrome) decode support.
- * Set by detectMaster() when the input bitmap has R==G==B on all sampled pixels
- * (greyscale signature). When true, scanPatternVertical produces FP candidates
- * for all four FP types from K-cored candidates, and crossCheckPattern skips
- * the color-channel-specific cross-checks (which assume Y/C cores at FP2/FP3).
+ * Set by detectMaster() when the input bitmap has R==G==B (within
+ * MODE0_CHROMA_TOLERANCE) on all sampled pixels. When true, scanPatternVertical
+ * produces FP candidates for all four FP types from K-cored candidates, and
+ * crossCheckPattern skips the color-channel-specific cross-checks (which
+ * assume Y/C cores at FP2/FP3).
  * See: docs/jabcode-all-nc-plan/00b-mode-0-monochrome.md Step 0.7 */
 static jab_boolean g_mode0_decode = 0;
 
@@ -3625,10 +3658,11 @@ jab_boolean detectMaster(jab_bitmap* bitmap, jab_bitmap* ch[], jab_decoded_symbo
         for (jab_int32 y = 0; y < bitmap->height && all_greyscale; y += step_y) {
             for (jab_int32 x = 0; x < bitmap->width && all_greyscale; x += step_x) {
                 jab_int32 off = y * stride + x * bpp;
-                jab_byte r = bitmap->pixel[off + 0];
-                jab_byte g = bitmap->pixel[off + 1];
-                jab_byte b = bitmap->pixel[off + 2];
-                if (r != g || g != b) {
+                jab_int32 r = bitmap->pixel[off + 0];
+                jab_int32 g = bitmap->pixel[off + 1];
+                jab_int32 b = bitmap->pixel[off + 2];
+                jab_int32 chroma = abs(r - g) + abs(g - b) + abs(r - b);
+                if (chroma > MODE0_CHROMA_TOLERANCE) {
                     all_greyscale = 0;
                 }
                 samples++;
