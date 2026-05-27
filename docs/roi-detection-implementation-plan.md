@@ -8,6 +8,14 @@ Filed: 2026-05-27 in response to WS-camera Bayesian Council Session 6 verdict. R
 
 Council Session 6 unanimously rejected "implement the H_AC hybrid ROI detector now" and unanimously endorsed "ROI detection is potentially high-leverage but conditional on empirical measurement." The verdict: a **four-PR sequenced plan, measurement-first**, plus parallel UX work.
 
+### 0.1 Product positioning (resolves Session 7 Q3)
+
+The SDK's primary use case is **continuous scanning** — the user holds the camera over a JABCode, the SDK detects and decodes it in the background without explicit user trigger. This is contrasted with the tap-to-decode pattern (user explicitly indicates intent to scan) that Prometheus's reframe in Session 7 raised as an alternative.
+
+**Decision: continuous scan is the primary mode.** All four PRs (1-4) are therefore load-bearing rather than speculative. The decision is anchored by the SDK's eventual deployment targets — authentication kiosks, library-checkout terminals, document-verification flows — where the user's expectation is "hold the camera near the code, scan happens automatically." Tap-to-decode remains a future opt-in mode but not the headline UX.
+
+This positioning increases the Kano tier of the default heuristic detector from Performance to **Must-be**: a continuous-scan SDK that occasionally engages tracking on a non-JABCode is worse than the current behavior. Adversarial test fixtures (§9.4) are therefore required for PR 3, not optional.
+
 | PR | Title | Effort | Empirical question it answers |
 |----|-------|--------|-------------------------------|
 | 1 | Manual pinch-zoom verification | ~1–2 days | Does crop-region/zoom actually unlock high-Nc and Mode 0 decoding on this device? |
@@ -103,6 +111,23 @@ Expected outcomes form a decision tree:
 - **A fails, B/C succeeds**: ROI hypothesis confirmed; proceed to PR 2-4
 - **A and B fail, C succeeds**: ROI alone insufficient; combine with other workstreams (slave-decode)
 - **A/B/C all fail**: Bottleneck is downstream of resolution; abandon ROI; pivot to slave-decode investigation
+
+### 1.6.1 Per-fixture decision rules (resolves Session 7 Q1 — matrix-shaped outcomes)
+
+PR 1's outcome is expected to be matrix-shaped, not binary. Per-fixture pass criteria:
+
+| Fixture | Pass criterion | Rationale |
+|---------|----------------|-----------|
+| Nc=3 print | At baseline (Scan A) decode rate ≥ 60%, AND zoom (B or C) bumps rate by ≥ 10 percentage points | The current floor (~60% from session-modernization) is the comparison baseline; ROI should additively improve it |
+| Nc=4 print | Baseline 0%, AND ANY of B/C produces ≥ 20% success rate | Nc=4 print is the historical 0% case; even modest ROI improvement is a strong signal |
+| Nc=5/6/7 print | Baseline ~0%, AND C produces ≥ 10% success rate at max usable zoom | These have multiple compounding bottlenecks (gamut, dot gain, slave-decode); ROI alone may not be sufficient |
+| Nc=0 (Mode 0) screen | Baseline 0% (gated by `H_mode0_partI_decode_failure`), AND zoom does NOT change baseline | Confirms Mode 0 bottleneck is downstream of resolution — independent verification of the hypothesis on that register entry |
+| Nc=3-7 screen | Baseline already 75%+ on most, AND zoom does not regress them | No regression check; screen mode already works well |
+
+**Gate-pass interpretation**:
+- **≥ 3 of the above fixtures pass their criterion** → PRs 2-4 proceed
+- **1-2 fixtures pass** → PR 2 ships (setCropRegion mechanism is defensible regardless); PRs 3+4 receive separate council review with the partial data
+- **0 fixtures pass** → entire chain stops; resources pivot to slave-decode investigation (`H_partI_clean_data_failure`, `H_mode0_partI_decode_failure`)
 
 ### 1.7 Cross-reference to Android best practices
 
@@ -435,6 +460,19 @@ To disentangle SCALER_CROP_REGION effects from AE-region effects (per Heisenberg
 
 Decode rates compared (A, B, C, D) tell us how much improvement comes from each lever independently.
 
+#### Interpretation rules (resolves Session 7 Q6 — Heisenberg's methodology)
+
+Each comparison isolates a single variable:
+
+| Comparison | Isolated effect | Reading the result |
+|------------|-----------------|--------------------|
+| A → B | AE-region effect only | If decode rate jumps A→B, AE region restriction was helping all along; the audit's workstream #4 (AE/AWB lock) is the correct lever |
+| A → C | Crop-region effect only (resolution boost) | If decode rate jumps A→C, ROI/zoom is the load-bearing variable; PR 4's full state machine is justified |
+| A → D | Combined effect | Confirms the additive case; should exceed both B and C if effects are independent |
+| C → D | Marginal value of AE-region on top of crop | If D ≈ C, AE-region adds little; if D > C significantly, the combination matters |
+
+Each effect is then graded against decode-rate-per-attempt (the OK/(OK+FAIL) ratio measured per PID per fixture), NOT total attempt count, to avoid the "longer scan = more attempts" confounder.
+
 ### 4.6 Risks (Cassandra Round 1)
 
 - **Worst case: flaky TRACKING mode that loses the viewfinder.** If state machine gets stuck in TRACKING with a stale crop, the user thinks "the camera is broken." Mitigation: aggressive staleness detection (5 frames max), prominent SDK telemetry for state transitions, fallback button in diagnostic-app UI to force SEARCH.
@@ -508,6 +546,19 @@ False alarms — a user holding the phone perfectly may get spurious "MOVE_CLOSE
 
 PR 1 can run in parallel with audit workstream #4. PRs 2–4 should land after #4 (which also touches AE/AWB and would otherwise conflict).
 
+### 6.1 CameraX migration consideration (resolves Session 7 Q4)
+
+The audit notes CameraX dependencies are declared in gradle but unused; the active scanner uses direct Camera2. CameraX has built-in ROI/zoom abstractions (`CameraControl.setZoomRatio`, `ImageAnalysis` use-case with `setTargetResolution`) that would do most of PRs 2-4's work automatically.
+
+**Decision: stay on direct Camera2 for ROI work.** Rationale:
+
+- We have substantial recent investment in Camera2-specific code (session modernization in `Camera2Preview.kt:232`, maxImages tuning, LLB AE wiring) — discarding it for CameraX would invalidate the empirical data we've gathered
+- CameraX's abstractions are convenient but opinionated; our state machine (SEARCH/TRACKING with explicit transitions) wants per-frame control that CameraX flattens away
+- Migration would require re-validating every camera-control improvement on the new substrate
+- The team's accumulated knowledge is concentrated in the direct Camera2 path
+
+**Future opt-in**: a CameraX migration could be considered as a separate workstream after the ROI feature stabilizes, IF it materially simplifies multi-camera or extension support. Not now.
+
 ---
 
 ## 7. Cross-References to Android Best Practices
@@ -544,10 +595,29 @@ PR 1 can run in parallel with audit workstream #4. PRs 2–4 should land after #
 
 All four PRs share a common verification skeleton:
 
-- **PR 1**: A/B/C zoom comparison per fixture; explicit decision gate on outcomes
+- **PR 1**: A/B/C zoom comparison per fixture; per-fixture decision rules per §1.6.1
 - **PR 2**: API-only PR; no on-device test; unit-test the coordinate transform helpers
-- **PR 3**: Synthetic fixture test — generate JABCodes at various positions/sizes, verify ROIDetector finds them at the right location ± 20% margin
-- **PR 4**: Heisenberg's 4-condition protocol (A/B/C/D in §4.5) per fixture
+- **PR 3**: Two-pronged — (a) synthetic positive fixtures: JABCodes at various positions/sizes; (b) **adversarial negative fixtures** per §9.4 below; ROIDetector must correctly identify positives AND reject negatives
+- **PR 4**: Heisenberg's 4-condition protocol (A/B/C/D in §4.5) per fixture, interpreted via the rules in §4.5.1
+
+### 9.4 Adversarial fixtures for PR 3 (per Kano + Session 7)
+
+Because §0.1 places the default ROI detector at Must-be tier, PR 3 cannot ship without explicit false-positive verification. The detector must REJECT (return null) on each of the following synthetic test images:
+
+| Fixture | Description | Why it's a confusable |
+|---------|-------------|-----------------------|
+| `rubiks_cube.png` | Photo of a Rubik's cube on neutral background | 9 colored squares; FP-candidate detector may find 4 in corner-like positions |
+| `magazine_4corners.png` | Magazine cover with 4 corner color-blocks | The classic FP-confusion case |
+| `qr_code.png` | A QR code (not a JABCode) | Has 3 finder patterns; tests rejection of related-but-wrong barcode formats |
+| `data_matrix.png` | A Data Matrix barcode | Different finder pattern structure; should reject |
+| `aztec_code.png` | An Aztec barcode | Bullseye center, no corner FPs; should reject |
+| `random_blocks.png` | 4 randomly-positioned colored squares on grey | Forms a quadrilateral but not an FP arrangement |
+| `dark_scene.png` | A dimly-lit scene with no barcode | Tests behavior under low-signal input |
+| `colorful_clutter.png` | A busy multi-color image with no barcode | Tests behavior under high-noise input |
+
+PR 3 must pass ≥ 95% of adversarial fixtures (reject correctly) AND ≥ 90% of positive fixtures (detect correctly within 20% margin). These thresholds are first-pass — refinement after PR 3 lands.
+
+Adversarial fixtures live at `src/jabcode/test/data/roi-adversarial/` and are checked into the repo with the PR.
 
 ---
 
