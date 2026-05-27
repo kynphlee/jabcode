@@ -6,9 +6,13 @@ import android.content.pm.PackageManager
 import android.graphics.ImageFormat
 import android.graphics.SurfaceTexture
 import android.hardware.camera2.*
+import android.hardware.camera2.params.OutputConfiguration
+import android.hardware.camera2.params.SessionConfiguration
 import android.media.ImageReader
+import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
+import java.util.concurrent.Executor
 import android.util.Log
 import android.view.Surface
 import android.view.TextureView
@@ -106,8 +110,18 @@ private class Camera2Controller(
 ) {
     companion object {
         private const val TAG = "Camera2Controller"
-        private const val IMAGE_WIDTH = 1920  // Increased from 1280 for sharper edges
-        private const val IMAGE_HEIGHT = 1080  // Increased from 720 for sharper edges
+        // WS-camera-1-2: split preview and analysis resolutions.
+        // Preview at 1920x1080 (TextureView display surface) preserves the
+        // existing viewfinder quality. Analysis at 1280x720 reduces the
+        // per-frame YUV->ARGB bitmap conversion cost by ~2.25x while still
+        // providing ~6 px/module at typical scanning distance (JABCode is
+        // 21 modules per side; at 40% frame fill on a 1280-wide stream
+        // that's 512 px / 21 = ~24 px/module — well above the 3-px
+        // decoder minimum). See docs/camera-control-audit.md issue B.
+        private const val PREVIEW_WIDTH = 1920
+        private const val PREVIEW_HEIGHT = 1080
+        private const val ANALYSIS_WIDTH = 1280
+        private const val ANALYSIS_HEIGHT = 720
     }
     
     private var cameraDevice: CameraDevice? = null
@@ -175,14 +189,15 @@ private class Camera2Controller(
             cameraCharacteristics = characteristics
             sensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0
             
-            // Set buffer size to match ImageReader dimensions
+            // Preview surface buffer sized to the preview resolution.
             val texture = textureView.surfaceTexture
-            texture?.setDefaultBufferSize(IMAGE_WIDTH, IMAGE_HEIGHT)
-            
-            // Setup ImageReader for analysis frames
+            texture?.setDefaultBufferSize(PREVIEW_WIDTH, PREVIEW_HEIGHT)
+
+            // Setup ImageReader for analysis frames at the smaller
+            // analysis resolution to reduce per-frame conversion cost.
             imageReader = ImageReader.newInstance(
-                IMAGE_WIDTH, IMAGE_HEIGHT, 
-                ImageFormat.YUV_420_888, 
+                ANALYSIS_WIDTH, ANALYSIS_HEIGHT,
+                ImageFormat.YUV_420_888,
                 2  // Double buffering
             ).apply {
                 setOnImageAvailableListener({ reader ->
@@ -190,8 +205,8 @@ private class Camera2Controller(
                     onFrameAvailable?.invoke(reader)
                 }, backgroundHandler)
             }
-            
-            Log.d(TAG, "ImageReader initialized: ${imageReader?.width}x${imageReader?.height}, format=${imageReader?.imageFormat} (expected: ${IMAGE_WIDTH}x${IMAGE_HEIGHT}, YUV=${ImageFormat.YUV_420_888})")
+
+            Log.d(TAG, "ImageReader initialized: ${imageReader?.width}x${imageReader?.height}, format=${imageReader?.imageFormat} (expected: ${ANALYSIS_WIDTH}x${ANALYSIS_HEIGHT}, YUV=${ImageFormat.YUV_420_888})")
             
             // Open camera
             manager.openCamera(cameraId, object : CameraDevice.StateCallback() {
@@ -222,28 +237,67 @@ private class Camera2Controller(
     private fun createCaptureSession(textureView: TextureView) {
         val camera = cameraDevice ?: return
         val reader = imageReader ?: return
-        
+
         try {
             val texture = textureView.surfaceTexture
-            texture?.setDefaultBufferSize(IMAGE_WIDTH, IMAGE_HEIGHT)
+            texture?.setDefaultBufferSize(PREVIEW_WIDTH, PREVIEW_HEIGHT)
             val surface = Surface(texture)
             previewSurface = surface  // Store for auto-focus updates
-            
-            camera.createCaptureSession(
-                listOf(surface, reader.surface),
-                object : CameraCaptureSession.StateCallback() {
-                    override fun onConfigured(session: CameraCaptureSession) {
-                        captureSession = session
-                        startRepeatingRequest(surface)
-                    }
-                    
-                    override fun onConfigureFailed(session: CameraCaptureSession) {
-                        Log.e(TAG, "Capture session configuration failed")
-                    }
-                },
-                backgroundHandler
-            )
-            
+
+            val stateCallback = object : CameraCaptureSession.StateCallback() {
+                override fun onConfigured(session: CameraCaptureSession) {
+                    captureSession = session
+                    startRepeatingRequest(surface)
+                }
+
+                override fun onConfigureFailed(session: CameraCaptureSession) {
+                    Log.e(TAG, "Capture session configuration failed")
+                }
+            }
+
+            // WS-camera-1-2: prefer the modern SessionConfiguration API
+            // (API 28+) so per-surface OutputConfiguration objects can
+            // carry a streamUseCase hint to the HAL on API 33+. On older
+            // Android versions, fall back to the legacy List<Surface>
+            // overload — same behavior as before the modernization.
+            //
+            // streamUseCase = PREVIEW_VIDEO_STILL signals to the HAL that
+            // this is a multi-purpose stream pipeline (sustained preview
+            // + concurrent analysis), unlocking sensor-mode and frame-
+            // rate optimizations the DEFAULT (0) case can't choose. See
+            // docs/camera-control-audit.md issue A for the empirical
+            // motivation — logcat under the legacy path showed
+            // streamUseCase=0 on every stream.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                val previewConfig = OutputConfiguration(surface)
+                val analysisConfig = OutputConfiguration(reader.surface)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    val streamUseCase = CameraMetadata
+                        .SCALER_AVAILABLE_STREAM_USE_CASES_PREVIEW_VIDEO_STILL
+                        .toLong()
+                    previewConfig.streamUseCase = streamUseCase
+                    analysisConfig.streamUseCase = streamUseCase
+                    Log.d(TAG, "Capture session: streamUseCase=PREVIEW_VIDEO_STILL on both surfaces")
+                } else {
+                    Log.d(TAG, "Capture session: modern API but pre-T (no streamUseCase)")
+                }
+                val executor = Executor { command -> backgroundHandler?.post(command) }
+                val sessionConfig = SessionConfiguration(
+                    SessionConfiguration.SESSION_REGULAR,
+                    listOf(previewConfig, analysisConfig),
+                    executor,
+                    stateCallback
+                )
+                camera.createCaptureSession(sessionConfig)
+            } else {
+                Log.d(TAG, "Capture session: legacy List<Surface> path (API < P)")
+                @Suppress("DEPRECATION")
+                camera.createCaptureSession(
+                    listOf(surface, reader.surface),
+                    stateCallback,
+                    backgroundHandler
+                )
+            }
         } catch (e: CameraAccessException) {
             Log.e(TAG, "Create capture session failed", e)
         }
@@ -363,8 +417,8 @@ private class Camera2Controller(
         val surfaceRotationDegrees = surfaceRotation * 90
         
         // Camera output is always landscape (1280x720)
-        val previewWidth = IMAGE_WIDTH
-        val previewHeight = IMAGE_HEIGHT
+        val previewWidth = PREVIEW_WIDTH
+        val previewHeight = PREVIEW_HEIGHT
         
         // Determine if rotation swaps dimensions
         val relativeRotation = computeRelativeRotation(surfaceRotationDegrees)
