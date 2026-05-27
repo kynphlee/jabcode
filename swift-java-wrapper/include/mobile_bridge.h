@@ -232,6 +232,31 @@ jab_int32 jabMobileLoadCalibration(const char* json_string);
 void jabMobileClearCalibration(void);
 
 /**
+ * @brief Toggle verbose diagnostic logging.
+ *
+ * Forwards to jabSetDiagVerbose. When set TRUE, the decoder emits
+ * per-iteration markers (DIAG_PALETTE_LEARNED, DIAG_PARTII_RESULT,
+ * Nc_FALLBACK retries, DIAG_MODE0_DETECT, DETECT SUCCESS, GRID_REF)
+ * via __android_log_print on Android. When FALSE (default), those
+ * markers are suppressed and the camera-thread decode budget is
+ * preserved (~1.5-7ms per failed decode saved on Android, depending
+ * on Nc_FALLBACK depth and logd contention).
+ *
+ * Terminal markers (FAIL_ATTR, DECODE_OK, DIAG_SYMBOL_DECODE) always
+ * fire regardless of this flag — they are low-volume and diagnostic-
+ * essential.
+ *
+ * Intended use: diagnostic apps enable this before a capture window
+ * then disable it afterward. Production SDK consumers leave it at
+ * the default. Thread-local; safe across concurrent decoders.
+ *
+ * See: docs/cassandra-register/H_partI_clean_data_failure.md
+ *
+ * @param verbose 1 to enable, 0 to disable
+ */
+void jabMobileSetDiagVerbose(jab_int32 verbose);
+
+/**
  * @brief Check if calibration is active
  * 
  * @return TRUE if calibration loaded, FALSE otherwise

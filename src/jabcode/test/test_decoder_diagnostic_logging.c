@@ -53,9 +53,12 @@ static int run_decode_capturing_stdout(void) {
         return 3;
     }
 
-    /* Step C: decode (produces diagnostic markers on stdout) */
+    /* Step C: enable verbose diagnostic logging (gated since WS-5 Heisenberg
+     * fix to keep production camera-thread overhead low). Then decode. */
+    jabSetDiagVerbose(1);
     jab_int32 status = -1;
     jab_data* result = decodeJABCode(enc->bitmap, NORMAL_DECODE, &status);
+    jabSetDiagVerbose(0);
 
     /* Step D: restore stdout */
     fflush(stdout);

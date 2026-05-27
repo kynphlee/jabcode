@@ -68,6 +68,27 @@ extern "C" {
 #endif
 
 typedef unsigned char 		jab_byte;
+
+/* WS-5 Heisenberg gate: verbose-only diagnostic logging.
+ *
+ * Wraps JAB_REPORT_INFO with a runtime check against g_diag_verbose.
+ * Use for per-iteration / per-frame markers that are high-volume
+ * (Nc_FALLBACK loop body, palette learning hashes, intermediate
+ * detection state). Use plain JAB_REPORT_INFO for terminal markers
+ * (FAIL_ATTR, DECODE_OK, final result) that should always fire.
+ *
+ * Caller toggles with jabSetDiagVerbose(1). Default OFF, so these
+ * markers don't fire — preserving the camera-thread decode budget in
+ * production builds. See decoder.c for the flag definition and
+ * docs/cassandra-register/H_partI_clean_data_failure.md for the
+ * investigation that motivated keeping the markers available but gated.
+ *
+ * Declared as the raw `unsigned char` underlying type (rather than
+ * jab_boolean, which is typedef'd further down this file) so the macro
+ * remains usable from sites that include only the early portion of
+ * this header. */
+extern __thread unsigned char g_diag_verbose;
+#define JAB_DIAG_INFO(x) do { if (g_diag_verbose) JAB_REPORT_INFO(x); } while (0)
 typedef char 				jab_char;
 typedef unsigned char 		jab_boolean;
 typedef int 				jab_int32;
@@ -199,6 +220,18 @@ extern void resetDecoderState(void);
  * decoders. Reset to FALSE after each decode to scope the change tightly.
  * See decoder.c definition for full rationale. */
 extern void jabSetStrictPartIIRequired(jab_boolean strict);
+
+/* WS-5 Heisenberg gate: opt-in verbose diagnostic logging.
+ * When set TRUE, decoder/detector emit per-iteration markers
+ * (DIAG_PALETTE_LEARNED, DIAG_PARTII_RESULT, Nc_FALLBACK retries, etc.)
+ * via JAB_DIAG_INFO. Default FALSE so production camera-thread decodes
+ * are not slowed by synchronous binder-IPC log calls. Diagnostic captures
+ * call jabSetDiagVerbose(1) before scanning, then jabSetDiagVerbose(0)
+ * after, to scope the verbose window tightly. Thread-local. See
+ * jabcode.h::JAB_DIAG_INFO and decoder.c for the macro and flag. */
+extern void jabSetDiagVerbose(jab_boolean verbose);
+extern jab_boolean jabIsDiagVerbose(void);
+
 extern jab_boolean saveImage(jab_bitmap* bitmap, jab_char* filename);
 extern jab_boolean saveImageCMYK(jab_bitmap* bitmap, jab_boolean isCMYK, jab_char* filename);
 extern jab_bitmap* readImage(jab_char* filename);

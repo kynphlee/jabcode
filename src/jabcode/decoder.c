@@ -45,6 +45,38 @@ void jabSetStrictPartIIRequired(jab_boolean strict)
 	g_strict_partII_required = strict;
 }
 
+/* WS-5 Heisenberg gate: opt-in verbose diagnostic logging.
+ *
+ * The decoder emits many per-iteration diagnostic markers
+ * (DIAG_PALETTE_LEARNED, DIAG_PARTII_RESULT, Nc_FALLBACK retries) that
+ * are valuable when investigating a specific scan but expensive on the
+ * camera hot path — each is a synchronous __android_log_print on Android,
+ * costing ~50-300 µs per call under load. A failed decode with full
+ * Nc_FALLBACK iteration emits ~24 such lines, adding ~1.5-7ms of binder
+ * overhead per frame.
+ *
+ * Default FALSE: the chatty per-iteration markers are suppressed; only
+ * terminal markers (FAIL_ATTR, DECODE_OK, DIAG_SYMBOL_DECODE final
+ * result) fire. Diagnostic tools can call jabSetDiagVerbose(1) to
+ * enable the full marker stream for a specific capture window.
+ *
+ * Thread-local so concurrent decoders can independently choose verbosity.
+ *
+ * See: docs/cassandra-register/H_partI_clean_data_failure.md for the
+ * underlying investigation that motivated keeping the markers available
+ * but gated. */
+__thread jab_boolean g_diag_verbose = 0;
+
+void jabSetDiagVerbose(jab_boolean verbose)
+{
+	g_diag_verbose = verbose;
+}
+
+jab_boolean jabIsDiagVerbose(void)
+{
+	return g_diag_verbose;
+}
+
 /* WS-4 Step 4.2: optional CIE Lab ΔE2000 color discrimination in decodeModuleHD.
  * Defined at compile time via -DUSE_LAB_DISTANCE. When defined, Nc≥3 (color
  * modes with color_number > 8) use perceptual Lab distance instead of squared
@@ -1667,7 +1699,7 @@ jab_int32 decodeMaster(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 				symbol->data = NULL;
 			}
 
-			JAB_REPORT_INFO(("Nc_FALLBACK: Retrying with Nc=%d (try %d/%d, original=%d)",
+			JAB_DIAG_INFO(("Nc_FALLBACK: Retrying with Nc=%d (try %d/%d, original=%d)",
 				nc_order[nc_idx], nc_idx+1, nc_tries, original_Nc));
 		}
 
@@ -1688,7 +1720,7 @@ jab_int32 decodeMaster(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 			for(jab_int32 _i = 0; _i < _palette_bytes && _i < 768; _i++) {
 				_palette_hash = (_palette_hash * 31) + symbol->palette[_i];
 			}
-			JAB_REPORT_INFO(("DIAG_PALETTE_LEARNED Nc=%d colors=%d hash=0x%08x",
+			JAB_DIAG_INFO(("DIAG_PALETTE_LEARNED Nc=%d colors=%d hash=0x%08x",
 			                 symbol->metadata.Nc, _palette_color_n, _palette_hash));
 		}
 
@@ -1730,21 +1762,21 @@ jab_int32 decodeMaster(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 		{
 			jab_int32 part2_result = decodeMasterMetadataPartII(matrix, symbol, data_map, norm_palette, pal_ths, &module_count, &x, &y);
 			if(part2_result > 0) partII_ok = 1;
-			JAB_REPORT_INFO(("DIAG_PARTII_RESULT result=%d Nc=%d ok=%d",
+			JAB_DIAG_INFO(("DIAG_PARTII_RESULT result=%d Nc=%d ok=%d",
 			                 part2_result, symbol->metadata.Nc, (int)partII_ok));
 		}
 		else if(g_strict_partII_required)
 		{
 			/* Strict mode: PartI failed → don't fabricate success.
 			 * partII_ok stays 0; loop will skip to next Nc_FALLBACK. */
-			JAB_REPORT_INFO(("DIAG_PARTII_RESULT result=skipped Nc=%d ok=0 (strict)",
+			JAB_DIAG_INFO(("DIAG_PARTII_RESULT result=skipped Nc=%d ok=0 (strict)",
 			                 symbol->metadata.Nc));
 		}
 		else
 		{
 			partII_ok = 1;
 			/* Legacy optimistic fall-through for multi-frame averaging callers. */
-			JAB_REPORT_INFO(("DIAG_PARTII_RESULT result=skipped Nc=%d ok=1",
+			JAB_DIAG_INFO(("DIAG_PARTII_RESULT result=skipped Nc=%d ok=1",
 			                 symbol->metadata.Nc));
 		}
 
