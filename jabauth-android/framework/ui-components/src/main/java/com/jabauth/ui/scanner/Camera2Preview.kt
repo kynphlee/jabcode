@@ -63,11 +63,23 @@ fun Camera2Preview(
     onFrameAvailable: ((ImageReader) -> Unit)? = null,
     autoFocus: Boolean = true,
     exposureCompensation: Int = 0,
+    /** Tier-1 HUD: pinch-zoom level changes (1.0 → maxDigitalZoom). */
+    onZoomChanged: ((Float) -> Unit)? = null,
+    /** Tier-1 HUD: LLB capability reported once per session-creation. */
+    onLowLightBoostSupported: ((Boolean) -> Unit)? = null,
+    /** Tier-1 HUD: LLB state transitions (0=INACTIVE, 1=ACTIVE). */
+    onLowLightBoostStateChanged: ((Int) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val windowManager = remember { context.getSystemService(Context.WINDOW_SERVICE) as WindowManager }
-    val camera2Controller = remember { Camera2Controller(context, windowManager, onFrameAvailable, autoFocus, exposureCompensation) }
+    val camera2Controller = remember {
+        Camera2Controller(
+            context, windowManager,
+            onFrameAvailable, autoFocus, exposureCompensation,
+            onZoomChanged, onLowLightBoostSupported, onLowLightBoostStateChanged
+        )
+    }
     
     // Update auto-focus when setting changes
     LaunchedEffect(autoFocus) {
@@ -110,7 +122,10 @@ private class Camera2Controller(
     private val windowManager: WindowManager,
     private val onFrameAvailable: ((ImageReader) -> Unit)?,
     initialAutoFocus: Boolean,
-    initialExposureCompensation: Int
+    initialExposureCompensation: Int,
+    private val onZoomChanged: ((Float) -> Unit)? = null,
+    private val onLowLightBoostSupported: ((Boolean) -> Unit)? = null,
+    private val onLowLightBoostStateChanged: ((Int) -> Unit)? = null
 ) {
     companion object {
         private const val TAG = "Camera2Controller"
@@ -195,6 +210,7 @@ private class Camera2Controller(
                         centerX + halfW, centerY + halfH)
         cachedCropRegion = crop
         Log.i(TAG, "PinchZoom: Zoom -> ${"%.2f".format(zoomRatio)}x, crop=$crop")
+        onZoomChanged?.invoke(zoomRatio)
         // Re-issue the repeating request with the new crop applied.
         previewSurface?.let { startRepeatingRequest(it) }
     }
@@ -264,6 +280,7 @@ private class Camera2Controller(
                 false
             }
             Log.i(TAG, "Low Light Boost AE Mode supported: $lowLightBoostSupported (API ${Build.VERSION.SDK_INT})")
+            onLowLightBoostSupported?.invoke(lowLightBoostSupported)
 
             // WS-camera-PR1: capture the sensor's active array (the coordinate
             // space for SCALER_CROP_REGION) and the device's max digital zoom
@@ -502,6 +519,7 @@ private class Camera2Controller(
                                 else -> "UNKNOWN($state)"
                             }
                             Log.i(TAG, "LowLightBoost state -> $stateName")
+                            onLowLightBoostStateChanged?.invoke(state)
                         }
                     }
                 }
