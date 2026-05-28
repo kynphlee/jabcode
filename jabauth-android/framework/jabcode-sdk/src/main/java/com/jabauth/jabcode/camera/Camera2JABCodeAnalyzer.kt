@@ -44,7 +44,7 @@ class Camera2JABCodeAnalyzer(
     private val decoder: JABCodeDecoder,
     private val options: DecodeOptions = DecodeOptions(),
     private val onDecodeSuccess: (DecodeResult) -> Unit,
-    private val onDecodeFailure: (String) -> Unit,
+    private val onDecodeFailure: (String, Long) -> Unit,
     private val onQualityUpdate: ((ImageQualityAnalyzer.QualityMetrics) -> Unit)? = null
 ) {
     
@@ -142,16 +142,19 @@ class Camera2JABCodeAnalyzer(
                     // can't be cross-referenced against ScannerViewModel telemetry.
                     val errorMsg = decoder.getLastError() ?: "No JABCode found"
                     Log.v(TAG, "Frame $frameCount: $errorMsg (decode took ${decodeTime}ms)")
-                    onDecodeFailure(errorMsg)
+                    onDecodeFailure(errorMsg, decodeTime)
                 }
                 
             } finally {
                 bitmap.recycle()
             }
         } catch (e: Exception) {
-            // Decode error - report to callback
+            // Decode error - report to callback. Decode time isn't available
+            // here because the exception may fire before the decode-start
+            // timestamp is captured; report 0L so the stats path treats it as
+            // a no-timing-info sample (excluded from min/max/avg/median).
             Log.e(TAG, "Frame $frameCount: ❌ Decode exception: ${e.javaClass.simpleName}: ${e.message}", e)
-            onDecodeFailure("Decode error: ${e.message}")
+            onDecodeFailure("Decode error: ${e.message}", 0L)
         } finally {
             // CRITICAL: Close image to prevent buffer exhaustion
             image?.close()

@@ -16,7 +16,7 @@ class Camera2JABCodeAnalyzerTest {
     private lateinit var mockImageReader: ImageReader
     private lateinit var mockImage: Image
     private lateinit var onDecodeSuccess: (DecodeResult) -> Unit
-    private lateinit var onDecodeFailure: (String) -> Unit
+    private lateinit var onDecodeFailure: (String, Long) -> Unit
     private lateinit var analyzer: Camera2JABCodeAnalyzer
 
     @Before
@@ -70,14 +70,19 @@ class Camera2JABCodeAnalyzerTest {
     }
 
     @Test
-    fun `analyze does not invoke callbacks when result is null`() {
+    fun `analyze invokes onDecodeFailure when result is null (a873969+)`() {
+        // Per the analyzer-bug fix (a873969), null result is a real failure
+        // outcome and MUST invoke onDecodeFailure so upstream telemetry can
+        // attribute failures. Mockito returns null for an unstubbed
+        // decoder.getLastError(), so the analyzer falls back to the literal
+        // "No JABCode found" sentinel string.
         whenever(mockImageReader.acquireLatestImage()).thenReturn(mockImage)
         whenever(mockDecoder.decode(any(), any())).thenReturn(null)
 
         analyzer.analyze(mockImageReader)
 
         verifyNoInteractions(onDecodeSuccess)
-        verifyNoInteractions(onDecodeFailure)
+        verify(onDecodeFailure).invoke(eq("No JABCode found"), any())
     }
 
     @Test
@@ -87,7 +92,7 @@ class Camera2JABCodeAnalyzerTest {
 
         analyzer.analyze(mockImageReader)
 
-        verify(onDecodeFailure).invoke(argThat { contains("Test error") })
+        verify(onDecodeFailure).invoke(argThat { contains("Test error") }, eq(0L))
         verifyNoInteractions(onDecodeSuccess)
     }
 

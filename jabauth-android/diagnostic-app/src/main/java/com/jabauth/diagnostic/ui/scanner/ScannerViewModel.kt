@@ -146,13 +146,11 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
         }
         _perNcStats.value = perNc
 
-        // Per-category failure breakdown over the rolling window.
+        // Per-category failure breakdown over the rolling window (overall).
         // Mapping mirrors the C-side FAIL_ATTR status codes so screen
         // logs and decoder logs can be cross-referenced on the same axis.
-        val failByCategory = attemptLog
-            .filter { !it.isSuccess }
-            .groupingBy { it.failureCategory }
-            .eachCount()
+        val failuresInWindow = attemptLog.filter { !it.isSuccess }
+        val failByCategory = failuresInWindow.groupingBy { it.failureCategory }.eachCount()
         val noFp = failByCategory[FailureCategory.NO_FP_FOUND] ?: 0
         val slaveFail = failByCategory[FailureCategory.SLAVE_DECODE_FAILED] ?: 0
         val otherFail = failByCategory[FailureCategory.OTHER] ?: 0
@@ -161,14 +159,16 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
         // Emit the stats to logcat unconditionally — silence on the failure
         // side was the old gap: a "we're scanning but nothing succeeds"
         // block is more diagnostically valuable than no block at all.
-        // Three sections: overall, 8 per-Nc rows, failure-category summary.
+        // Four sections: overall success timing, 8 per-Nc success rows,
+        // overall failure summary, 8 per-Nc failure rows.
         // Greppable: DECODE_TIME_STATS / DECODE_FAIL_STATS.
         if (overallStats != null) {
             Log.i(
                 "ScannerViewModel",
                 "DECODE_TIME_STATS overall: min=${overallStats.minMs}ms " +
                 "max=${overallStats.maxMs}ms avg=${overallStats.avgMs}ms " +
-                "Δ=${overallStats.deltaMs}ms n=${overallStats.sampleCount} " +
+                "median=${overallStats.medianMs}ms Δ=${overallStats.deltaMs}ms " +
+                "n=${overallStats.sampleCount} " +
                 "ok=${_recentStats.value.okCount}/${totalIn30s}_in_30s"
             )
         } else {
@@ -185,7 +185,7 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
                     "ScannerViewModel",
                     "DECODE_TIME_STATS Nc=$n: n=${s.sampleCount} " +
                     "min=${s.minMs}ms max=${s.maxMs}ms " +
-                    "avg=${s.avgMs}ms Δ=${s.deltaMs}ms"
+                    "avg=${s.avgMs}ms median=${s.medianMs}ms Δ=${s.deltaMs}ms"
                 )
             } else {
                 val annotation = NC_ANNOTATIONS[n]
@@ -196,22 +196,105 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
                 )
             }
         }
+
+        // Overall DECODE_FAIL_STATS — aggregate across all Nc values.
         Log.i(
             "ScannerViewModel",
             "DECODE_FAIL_STATS overall: fail=${_recentStats.value.failCount}/${totalIn30s}_in_30s " +
             "status0=$noFp status1=$slaveFail other=$otherFail"
         )
+
+        // Per-Nc DECODE_FAIL_STATS — landed per Bayesian Council Session
+        // bc-2026-05-28-03's discriminator spec (Option A). The per-Nc
+        // status0/status1 ratio AND median decode-time fingerprint together
+        // discriminate H_partI_unifies from H_independent_bugs / H_clustering_*.
+        // Failure attribution uses preferredColorMode (user-set per-fixture)
+        // — see onDecodeFailure callback for the derivation. Nc=-1 captures
+        // failures from auto-detect sessions where attempted Nc is unknown.
+        // Timing aggregates exclude samples with decodeTimeMs == 0 (exception
+        // path samples that don't have timing info).
+        for (n in 0..7) {
+            val nFailures = failuresInWindow.filter { it.nc == n }
+            val nFailCount = nFailures.size
+            val nNoFp = nFailures.count { it.failureCategory == FailureCategory.NO_FP_FOUND }
+            val nSlaveFail = nFailures.count { it.failureCategory == FailureCategory.SLAVE_DECODE_FAILED }
+            val nOther = nFailures.count { it.failureCategory == FailureCategory.OTHER }
+            val timingStats = statsFor(nFailures.map { it.decodeTimeMs }.filter { it > 0 })
+            if (nFailCount == 0) {
+                val annotation = NC_ANNOTATIONS[n]
+                val suffix = if (annotation != null) "  ($annotation)" else ""
+                Log.i(
+                    "ScannerViewModel",
+                    "DECODE_FAIL_STATS Nc=$n: fail=0$suffix"
+                )
+            } else if (timingStats != null) {
+                Log.i(
+                    "ScannerViewModel",
+                    "DECODE_FAIL_STATS Nc=$n: fail=$nFailCount " +
+                    "status0=$nNoFp status1=$nSlaveFail other=$nOther " +
+                    "min=${timingStats.minMs}ms max=${timingStats.maxMs}ms " +
+                    "avg=${timingStats.avgMs}ms median=${timingStats.medianMs}ms"
+                )
+            } else {
+                // Failures present but no timing info (all exception-path
+                // samples). Emit counts only.
+                Log.i(
+                    "ScannerViewModel",
+                    "DECODE_FAIL_STATS Nc=$n: fail=$nFailCount " +
+                    "status0=$nNoFp status1=$nSlaveFail other=$nOther " +
+                    "(no timing info available)"
+                )
+            }
+        }
+
+        // Failures from auto-detect sessions where Nc isn't known. If this
+        // bucket is non-empty, the user is scanning without setting
+        // preferredColorMode — note for the discriminator-scan recipe.
+        val unknownNcFailures = failuresInWindow.filter { it.nc == -1 }
+        if (unknownNcFailures.isNotEmpty()) {
+            val unknownTimingStats = statsFor(unknownNcFailures.map { it.decodeTimeMs }.filter { it > 0 })
+            val unknownNoFp = unknownNcFailures.count { it.failureCategory == FailureCategory.NO_FP_FOUND }
+            val unknownSlaveFail = unknownNcFailures.count { it.failureCategory == FailureCategory.SLAVE_DECODE_FAILED }
+            val unknownOther = unknownNcFailures.count { it.failureCategory == FailureCategory.OTHER }
+            if (unknownTimingStats != null) {
+                Log.i(
+                    "ScannerViewModel",
+                    "DECODE_FAIL_STATS Nc=? (auto-detect): fail=${unknownNcFailures.size} " +
+                    "status0=$unknownNoFp status1=$unknownSlaveFail other=$unknownOther " +
+                    "min=${unknownTimingStats.minMs}ms max=${unknownTimingStats.maxMs}ms " +
+                    "avg=${unknownTimingStats.avgMs}ms median=${unknownTimingStats.medianMs}ms"
+                )
+            } else {
+                Log.i(
+                    "ScannerViewModel",
+                    "DECODE_FAIL_STATS Nc=? (auto-detect): fail=${unknownNcFailures.size} " +
+                    "status0=$unknownNoFp status1=$unknownSlaveFail other=$unknownOther " +
+                    "(no timing info available)"
+                )
+            }
+        }
     }
 
     private fun statsFor(times: List<Long>): DecodeTimeStats? {
         if (times.isEmpty()) return null
-        val min = times.min()
-        val max = times.max()
-        val avg = times.sum() / times.size
+        val sorted = times.sorted()
+        val min = sorted.first()
+        val max = sorted.last()
+        val avg = sorted.sum() / sorted.size
+        // True median: for even-length samples, average the two middle values.
+        // Median is the load-bearing failure-timing fingerprint per the
+        // Bayesian Council Session bc-2026-05-28-03 — discriminates
+        // H_partI_unifies from H_independent_bugs.
+        val median = if (sorted.size % 2 == 1) {
+            sorted[sorted.size / 2]
+        } else {
+            (sorted[sorted.size / 2 - 1] + sorted[sorted.size / 2]) / 2
+        }
         return DecodeTimeStats(
             minMs = min,
             maxMs = max,
             avgMs = avg,
+            medianMs = median,
             deltaMs = max - min,
             sampleCount = times.size
         )
@@ -232,6 +315,7 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
         val minMs: Long,
         val maxMs: Long,
         val avgMs: Long,
+        val medianMs: Long,
         val deltaMs: Long,
         val sampleCount: Int
     )
@@ -326,9 +410,9 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
                 val updated = (listOf(result) + _decodeHistory.value).take(historyMaxSize)
                 _decodeHistory.value = updated
             },
-            onDecodeFailure = { error ->
-                Log.e("ScannerViewModel", "❌ Decode FAILURE: $error")
-                logger.dSync("Decode FAILURE: $error", isDebugEnabled)
+            onDecodeFailure = { error, decodeTimeMs ->
+                Log.e("ScannerViewModel", "❌ Decode FAILURE: $error (decodeTime=${decodeTimeMs}ms)")
+                logger.dSync("Decode FAILURE: $error (decodeTime=${decodeTimeMs}ms)", isDebugEnabled)
                 _scanError.value = error
                 // Classify the decoder's failure mode so the rolling stats
                 // can attribute attempts to FP-detection vs slave-decode
@@ -341,7 +425,21 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
                         FailureCategory.SLAVE_DECODE_FAILED
                     else -> FailureCategory.OTHER
                 }
-                recordAttempt(isSuccess = false, failureCategory = category)
+                // Derive attempted Nc from user's preferredColorMode. On
+                // auto-detect sessions (preferredColorMode == null), we
+                // can't attribute the failure to a specific Nc — it lands
+                // in the Nc=-1 bucket and surfaces under the "Nc=? (auto-detect)"
+                // row in the per-Nc failure breakdown. For the discriminator
+                // scan (council Session bc-2026-05-28-03), the user sets
+                // preferredColorMode per fixture so each failure gets
+                // attributed cleanly.
+                val attemptedNc = preferredColorMode?.let { COLOR_COUNT_TO_NC[it] } ?: -1
+                recordAttempt(
+                    isSuccess = false,
+                    decodeTimeMs = decodeTimeMs,
+                    nc = attemptedNc,
+                    failureCategory = category
+                )
             }
         )
     }
