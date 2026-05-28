@@ -97,12 +97,14 @@ fun SettingsScreen(
                     value = settings.preferredColorMode,
                     options = listOf(
                         null to "Auto-detect",
+                        2 to "2 colors",
                         4 to "4 colors",
                         8 to "8 colors",
                         16 to "16 colors",
                         32 to "32 colors",
                         64 to "64 colors",
-                        128 to "128 colors"
+                        128 to "128 colors",
+                        256 to "256 colors"
                     ),
                     onValueChange = { viewModel.updateColorMode(it) },
                     displayValue = { mode ->
