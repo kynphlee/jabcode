@@ -43,15 +43,23 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
     val llbState: StateFlow<Int> = _llbState.asStateFlow()
 
     // Rolling 30-second stats: each attempt records (timestamp, success, time,
-    // nc). Nc is the decoder's reported Nc value (0..7) for successes, or
-    // -1 for failures (we don't know which Nc the failed attempt would have
-    // been without verbose mode parsing the FAIL_ATTR markers).
+    // nc, failureCategory). Nc is the decoder's reported Nc value (0..7)
+    // for successes, or -1 for failures. failureCategory classifies the
+    // decoder's three error modes for failure attribution stats.
     private data class AttemptRecord(
         val timestampMs: Long,
         val isSuccess: Boolean,
         val decodeTimeMs: Long,
-        val nc: Int
+        val nc: Int,
+        val failureCategory: FailureCategory = FailureCategory.NONE
     )
+
+    enum class FailureCategory(val displayName: String) {
+        NONE("(none — success)"),
+        NO_FP_FOUND("status=0 no FP found"),
+        SLAVE_DECODE_FAILED("status=1 FP found, slave decode failed"),
+        OTHER("status=other unspecified")
+    }
     private val attemptLog = mutableListOf<AttemptRecord>()
     private val attemptWindowMs = 30_000L
     private val _recentStats = MutableStateFlow(ScanStats(0, 0))
@@ -108,9 +116,14 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
         _llbState.value = state
     }
 
-    private fun recordAttempt(isSuccess: Boolean, decodeTimeMs: Long = 0L, nc: Int = -1) {
+    private fun recordAttempt(
+        isSuccess: Boolean,
+        decodeTimeMs: Long = 0L,
+        nc: Int = -1,
+        failureCategory: FailureCategory = FailureCategory.NONE
+    ) {
         val now = System.currentTimeMillis()
-        attemptLog.add(AttemptRecord(now, isSuccess, decodeTimeMs, nc))
+        attemptLog.add(AttemptRecord(now, isSuccess, decodeTimeMs, nc, failureCategory))
         // Prune outside the rolling window
         val cutoff = now - attemptWindowMs
         attemptLog.removeAll { it.timestampMs < cutoff }
@@ -133,36 +146,61 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
         }
         _perNcStats.value = perNc
 
-        // Emit the stats to logcat. One header line for the overall summary,
-        // then 8 rows (Nc=0..7) — always all 8, so the absence of any Nc
-        // is visible. Greppable: DECODE_TIME_STATS.
+        // Per-category failure breakdown over the rolling window.
+        // Mapping mirrors the C-side FAIL_ATTR status codes so screen
+        // logs and decoder logs can be cross-referenced on the same axis.
+        val failByCategory = attemptLog
+            .filter { !it.isSuccess }
+            .groupingBy { it.failureCategory }
+            .eachCount()
+        val noFp = failByCategory[FailureCategory.NO_FP_FOUND] ?: 0
+        val slaveFail = failByCategory[FailureCategory.SLAVE_DECODE_FAILED] ?: 0
+        val otherFail = failByCategory[FailureCategory.OTHER] ?: 0
+        val totalIn30s = _recentStats.value.total
+
+        // Emit the stats to logcat unconditionally — silence on the failure
+        // side was the old gap: a "we're scanning but nothing succeeds"
+        // block is more diagnostically valuable than no block at all.
+        // Three sections: overall, 8 per-Nc rows, failure-category summary.
+        // Greppable: DECODE_TIME_STATS / DECODE_FAIL_STATS.
         if (overallStats != null) {
             Log.i(
                 "ScannerViewModel",
                 "DECODE_TIME_STATS overall: min=${overallStats.minMs}ms " +
                 "max=${overallStats.maxMs}ms avg=${overallStats.avgMs}ms " +
                 "Δ=${overallStats.deltaMs}ms n=${overallStats.sampleCount} " +
-                "ok=${_recentStats.value.okCount}/${_recentStats.value.total}_in_30s"
+                "ok=${_recentStats.value.okCount}/${totalIn30s}_in_30s"
             )
-            for (n in 0..7) {
-                val s = perNc[n]
-                if (s != null) {
-                    Log.i(
-                        "ScannerViewModel",
-                        "DECODE_TIME_STATS Nc=$n: n=${s.sampleCount} " +
-                        "min=${s.minMs}ms max=${s.maxMs}ms " +
-                        "avg=${s.avgMs}ms Δ=${s.deltaMs}ms"
-                    )
-                } else {
-                    val annotation = NC_ANNOTATIONS[n]
-                    val suffix = if (annotation != null) "  ($annotation)" else ""
-                    Log.i(
-                        "ScannerViewModel",
-                        "DECODE_TIME_STATS Nc=$n: n=0   no successes in window$suffix"
-                    )
-                }
+        } else {
+            Log.i(
+                "ScannerViewModel",
+                "DECODE_TIME_STATS overall: n=0 no successes in window " +
+                "ok=0/${totalIn30s}_in_30s"
+            )
+        }
+        for (n in 0..7) {
+            val s = perNc[n]
+            if (s != null) {
+                Log.i(
+                    "ScannerViewModel",
+                    "DECODE_TIME_STATS Nc=$n: n=${s.sampleCount} " +
+                    "min=${s.minMs}ms max=${s.maxMs}ms " +
+                    "avg=${s.avgMs}ms Δ=${s.deltaMs}ms"
+                )
+            } else {
+                val annotation = NC_ANNOTATIONS[n]
+                val suffix = if (annotation != null) "  ($annotation)" else ""
+                Log.i(
+                    "ScannerViewModel",
+                    "DECODE_TIME_STATS Nc=$n: n=0   no successes in window$suffix"
+                )
             }
         }
+        Log.i(
+            "ScannerViewModel",
+            "DECODE_FAIL_STATS overall: fail=${_recentStats.value.failCount}/${totalIn30s}_in_30s " +
+            "status0=$noFp status1=$slaveFail other=$otherFail"
+        )
     }
 
     private fun statsFor(times: List<Long>): DecodeTimeStats? {
@@ -292,7 +330,18 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
                 Log.e("ScannerViewModel", "❌ Decode FAILURE: $error")
                 logger.dSync("Decode FAILURE: $error", isDebugEnabled)
                 _scanError.value = error
-                recordAttempt(isSuccess = false)
+                // Classify the decoder's failure mode so the rolling stats
+                // can attribute attempts to FP-detection vs slave-decode
+                // failure. This is the screen-side mirror of the C-side
+                // FAIL_ATTR status codes — same axis, different log source.
+                val category = when {
+                    error.contains("No JABCode found", ignoreCase = true) ->
+                        FailureCategory.NO_FP_FOUND
+                    error.contains("not decodable", ignoreCase = true) ->
+                        FailureCategory.SLAVE_DECODE_FAILED
+                    else -> FailureCategory.OTHER
+                }
+                recordAttempt(isSuccess = false, failureCategory = category)
             }
         )
     }
