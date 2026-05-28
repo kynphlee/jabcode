@@ -45,6 +45,8 @@ private fun ScannerScreenContent(
     val llbSupported by viewModel.llbSupported.collectAsState()
     val llbState by viewModel.llbState.collectAsState()
     val recentStats by viewModel.recentStats.collectAsState()
+    val decodeTimeStats by viewModel.decodeTimeStats.collectAsState()
+    val perNcStats by viewModel.perNcStats.collectAsState()
     val decodeHistory by viewModel.decodeHistory.collectAsState()
     val settings by viewModel.settings.collectAsState(
         initial = com.jabauth.diagnostic.data.SettingsRepository.Settings()
@@ -113,6 +115,8 @@ private fun ScannerScreenContent(
                 lastResult = scanResult,
                 lastError = scanError,
                 decodeHistory = decodeHistory,
+                decodeTimeStats = decodeTimeStats,
+                perNcStats = perNcStats,
                 expanded = detailExpanded,
                 onToggleExpanded = { detailExpanded = !detailExpanded },
                 modifier = Modifier
@@ -244,6 +248,8 @@ private fun BottomPanel(
     lastResult: DecodeResult?,
     lastError: String?,
     decodeHistory: List<DecodeResult>,
+    decodeTimeStats: ScannerViewModel.DecodeTimeStats?,
+    perNcStats: Map<Int, ScannerViewModel.DecodeTimeStats>,
     expanded: Boolean,
     onToggleExpanded: () -> Unit,
     modifier: Modifier = Modifier
@@ -266,6 +272,17 @@ private fun BottomPanel(
                             text = "✓ ${lastResult.colorMode} · ${decodeSummary(lastResult)} · ${lastResult.decodeTimeMs}ms",
                             style = MaterialTheme.typography.bodyMedium
                         )
+                        // Show rolling-window stats if we have at least 2 samples.
+                        // A single sample isn't informative — min/max/avg/Δ all
+                        // equal the current decode time.
+                        decodeTimeStats?.takeIf { it.sampleCount >= 2 }?.let { s ->
+                            Text(
+                                text = "ms: min ${s.minMs} · max ${s.maxMs} · avg ${s.avgMs} · Δ${s.deltaMs} (n=${s.sampleCount})",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
                     } else {
                         Text(
                             text = "Searching…",
@@ -304,8 +321,21 @@ private fun BottomPanel(
                     ) {
                         DiagnosticRow("Color Mode", result.colorMode.toString())
                         DiagnosticRow("Decode Time", "${result.decodeTimeMs}ms")
+                        decodeTimeStats?.takeIf { it.sampleCount >= 2 }?.let { s ->
+                            DiagnosticRow("ms (30s) min/max", "${s.minMs} / ${s.maxMs}")
+                            DiagnosticRow("ms (30s) avg / Δ", "${s.avgMs} / ${s.deltaMs}  (n=${s.sampleCount})")
+                        }
                         DiagnosticRow("Position", "${result.position.width()}×${result.position.height()}px")
                         DiagnosticRow("Data Size", "${result.data.size} bytes")
+
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "DECODE-TIME BY Nc (30s window)",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        PerNcStatsTable(perNcStats = perNcStats)
 
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
@@ -401,6 +431,96 @@ private fun HistoryStrip(history: List<DecodeResult>) {
                         text = item.colorMode.toString().removePrefix("COLOR_"),
                         style = MaterialTheme.typography.labelSmall,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Annotations for n=0 Nc rows that reference the relevant open hypothesis
+ * in docs/cassandra-register/. When an Nc has zero successes in the
+ * rolling window, the annotation explains why — turning silent absence
+ * into actionable signal cross-referenced against the bug register.
+ *
+ * Keep in sync with ScannerViewModel.NC_ANNOTATIONS.
+ */
+private val NC_ANNOTATIONS = mapOf(
+    0 to "Mode 0 — H_mode0_partI_decode_failure",
+    2 to "8-color — H_nc2_decode_failure",
+    6 to "128-color — print gamut-limited",
+    7 to "256-color — slave-decode + gamut"
+)
+
+private val NC_COLOR_LABELS = mapOf(
+    0 to "2c", 1 to "4c", 2 to "8c", 3 to "16c",
+    4 to "32c", 5 to "64c", 6 to "128c", 7 to "256c"
+)
+
+@Composable
+private fun PerNcStatsTable(
+    perNcStats: Map<Int, ScannerViewModel.DecodeTimeStats>
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // Header
+        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+            Text(
+                text = "Nc",
+                modifier = Modifier.weight(0.6f),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = "n",
+                modifier = Modifier.weight(0.4f),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = "min / max / avg / Δ ms",
+                modifier = Modifier.weight(2.0f),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        // 8 rows — one per Nc, always present
+        for (nc in 0..7) {
+            val s = perNcStats[nc]
+            val colorLabel = NC_COLOR_LABELS[nc] ?: ""
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 1.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "$nc ($colorLabel)",
+                    modifier = Modifier.weight(0.6f),
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = FontFamily.Monospace,
+                    color = if (s != null) MaterialTheme.colorScheme.onSurface
+                            else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = (s?.sampleCount ?: 0).toString(),
+                    modifier = Modifier.weight(0.4f),
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = FontFamily.Monospace,
+                    color = if (s != null) MaterialTheme.colorScheme.onSurface
+                            else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (s != null) {
+                    Text(
+                        text = "${s.minMs} / ${s.maxMs} / ${s.avgMs} / ${s.deltaMs}",
+                        modifier = Modifier.weight(2.0f),
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = FontFamily.Monospace
+                    )
+                } else {
+                    Text(
+                        text = NC_ANNOTATIONS[nc] ?: "no successes in window",
+                        modifier = Modifier.weight(2.0f),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
