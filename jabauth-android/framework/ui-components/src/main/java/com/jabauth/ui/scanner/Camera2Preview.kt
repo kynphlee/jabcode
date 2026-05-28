@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.ImageFormat
+import android.graphics.Rect
 import android.graphics.SurfaceTexture
 import android.hardware.camera2.*
 import android.hardware.camera2.params.OutputConfiguration
@@ -14,8 +15,11 @@ import android.os.Handler
 import android.os.HandlerThread
 import java.util.concurrent.Executor
 import android.util.Log
+import android.view.MotionEvent
+import android.view.ScaleGestureDetector
 import android.view.Surface
 import android.view.TextureView
+import android.view.View
 import android.view.WindowManager
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -143,6 +147,20 @@ private class Camera2Controller(
     private var lowLightBoostSupported: Boolean = false
     @Volatile
     private var lastReportedLlbState: Int = -1  // -1 = no observation yet
+
+    // WS-camera-PR1 pinch-zoom verification (ROI implementation plan §1).
+    // The plan's empirical decision gate: does manually zooming the camera
+    // unlock high-Nc and Mode 0 decoding that fails at 1x? Pinch gesture
+    // drives SCALER_CROP_REGION on every change; the trace correlates
+    // decode rate to current zoom level so we can answer the gate question.
+    // See docs/roi-detection-implementation-plan.md §1.4 and §1.6.1.
+    @Volatile
+    private var currentZoomRatio: Float = 1.0f
+    private var maxDigitalZoom: Float = 1.0f
+    private var activeArraySize: Rect? = null
+    @Volatile
+    private var cachedCropRegion: Rect? = null
+    private lateinit var scaleGestureDetector: ScaleGestureDetector
     
     @Volatile
     private var autoFocusEnabled: Boolean = initialAutoFocus
@@ -153,6 +171,34 @@ private class Camera2Controller(
     private val backgroundThread = HandlerThread("Camera2Background").apply { start() }
     private val backgroundHandler = Handler(backgroundThread.looper)
     
+    /**
+     * WS-camera-PR1: apply a SCALER_CROP_REGION computed from the
+     * given zoom ratio, centered on the sensor's active array.
+     * Triggered by the pinch-zoom gesture listener.
+     *
+     * @param zoomRatio The desired zoom (1.0 = no zoom; clamped to
+     *                  the device's reported max digital zoom)
+     */
+    private fun applyCropRegion(zoomRatio: Float) {
+        val active = activeArraySize ?: run {
+            Log.w(TAG, "applyCropRegion: no active array size; ignoring")
+            return
+        }
+        // Compute centered crop. Half-width and half-height scale with
+        // 1/zoomRatio. Align to 4-pixel boundaries to avoid HAL rounding
+        // (Camera2 best practice).
+        val centerX = active.centerX()
+        val centerY = active.centerY()
+        val halfW = ((active.width()  / (2.0f * zoomRatio)).toInt() / 4) * 4
+        val halfH = ((active.height() / (2.0f * zoomRatio)).toInt() / 4) * 4
+        val crop = Rect(centerX - halfW, centerY - halfH,
+                        centerX + halfW, centerY + halfH)
+        cachedCropRegion = crop
+        Log.i(TAG, "PinchZoom: Zoom -> ${"%.2f".format(zoomRatio)}x, crop=$crop")
+        // Re-issue the repeating request with the new crop applied.
+        previewSurface?.let { startRepeatingRequest(it) }
+    }
+
     /**
      * Update auto-focus setting and restart capture request if active
      */
@@ -218,6 +264,38 @@ private class Camera2Controller(
                 false
             }
             Log.i(TAG, "Low Light Boost AE Mode supported: $lowLightBoostSupported (API ${Build.VERSION.SDK_INT})")
+
+            // WS-camera-PR1: capture the sensor's active array (the coordinate
+            // space for SCALER_CROP_REGION) and the device's max digital zoom
+            // ratio. On LEGACY hardware level, max zoom may be 1.0 (no zoom
+            // support); the gesture detector will then clamp at 1.0 and no
+            // crop is ever applied — clean no-op fallback.
+            activeArraySize = characteristics
+                .get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)
+            maxDigitalZoom = characteristics
+                .get(CameraCharacteristics.SCALER_AVAILABLE_MAX_DIGITAL_ZOOM) ?: 1.0f
+            Log.i(TAG, "PinchZoom: activeArraySize=$activeArraySize maxDigitalZoom=${maxDigitalZoom}x")
+
+            // ScaleGestureDetector for pinch-to-zoom. The listener updates
+            // currentZoomRatio (clamped to [1.0, maxDigitalZoom]) and calls
+            // applyCropRegion(), which re-issues the repeating request with
+            // a new SCALER_CROP_REGION computed from the active array.
+            scaleGestureDetector = ScaleGestureDetector(context,
+                object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+                    override fun onScale(detector: ScaleGestureDetector): Boolean {
+                        val newZoom = (currentZoomRatio * detector.scaleFactor)
+                            .coerceIn(1.0f, maxDigitalZoom)
+                        if (newZoom != currentZoomRatio) {
+                            currentZoomRatio = newZoom
+                            applyCropRegion(newZoom)
+                        }
+                        return true
+                    }
+                })
+            textureView.setOnTouchListener(View.OnTouchListener { _, event: MotionEvent ->
+                scaleGestureDetector.onTouchEvent(event)
+                true
+            })
             
             // Preview surface buffer sized to the preview resolution.
             val texture = textureView.surfaceTexture
@@ -392,6 +470,15 @@ private class Camera2Controller(
                 CaptureRequest.CONTROL_AWB_MODE,
                 CaptureRequest.CONTROL_AWB_MODE_AUTO
             )
+
+            // WS-camera-PR1: apply the pinch-zoom crop region if set. The
+            // gesture detector caches this between zoom events; we honor
+            // it on every request rebuild so subsequent autofocus / AE
+            // changes (which also call startRepeatingRequest) preserve
+            // the zoom state.
+            cachedCropRegion?.let { crop ->
+                requestBuilder.set(CaptureRequest.SCALER_CROP_REGION, crop)
+            }
             
             // WS-camera-3: capture callback that observes the LLB state
             // transitions. Only logs on state CHANGE (debounced via
