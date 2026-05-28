@@ -30,9 +30,63 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
     
     private val _scanCount = MutableStateFlow(0)
     val scanCount: StateFlow<Int> = _scanCount.asStateFlow()
-    
+
+    // Tier-1 HUD state — exposed to the UI as Compose-friendly StateFlows.
+    // The Camera2Preview callbacks push values in via the setters below.
+    private val _currentZoom = MutableStateFlow(1.0f)
+    val currentZoom: StateFlow<Float> = _currentZoom.asStateFlow()
+
+    private val _llbSupported = MutableStateFlow(false)
+    val llbSupported: StateFlow<Boolean> = _llbSupported.asStateFlow()
+
+    private val _llbState = MutableStateFlow(-1)  // -1 unknown, 0 inactive, 1 active
+    val llbState: StateFlow<Int> = _llbState.asStateFlow()
+
+    // Rolling 30-second stats: a list of (timestampMs, isSuccess) pairs,
+    // pruned on read to the last 30 seconds. Cheap data structure since
+    // the volume is bounded by ~10-20 attempts/sec at most.
+    private data class AttemptRecord(val timestampMs: Long, val isSuccess: Boolean)
+    private val attemptLog = mutableListOf<AttemptRecord>()
+    private val attemptWindowMs = 30_000L
+    private val _recentStats = MutableStateFlow(ScanStats(0, 0))
+    val recentStats: StateFlow<ScanStats> = _recentStats.asStateFlow()
+
+    // History of last 5 successful decodes, newest first.
+    private val _decodeHistory = MutableStateFlow<List<DecodeResult>>(emptyList())
+    val decodeHistory: StateFlow<List<DecodeResult>> = _decodeHistory.asStateFlow()
+    private val historyMaxSize = 5
+
     // Expose settings for UI consumption (auto-focus, color mode, etc.)
     val settings = settingsRepository.settingsFlow
+
+    // --- Tier-1 HUD setters (called from ScannerScreen via Camera2Preview callbacks) ---
+    fun onZoomChanged(zoomRatio: Float) {
+        _currentZoom.value = zoomRatio
+    }
+
+    fun onLowLightBoostSupported(supported: Boolean) {
+        _llbSupported.value = supported
+    }
+
+    fun onLowLightBoostStateChanged(state: Int) {
+        _llbState.value = state
+    }
+
+    private fun recordAttempt(isSuccess: Boolean) {
+        val now = System.currentTimeMillis()
+        attemptLog.add(AttemptRecord(now, isSuccess))
+        // Prune outside the rolling window
+        val cutoff = now - attemptWindowMs
+        attemptLog.removeAll { it.timestampMs < cutoff }
+        val ok = attemptLog.count { it.isSuccess }
+        val fail = attemptLog.size - ok
+        _recentStats.value = ScanStats(okCount = ok, failCount = fail)
+    }
+
+    data class ScanStats(val okCount: Int, val failCount: Int) {
+        val total: Int get() = okCount + failCount
+        val successRate: Float get() = if (total == 0) 0f else okCount.toFloat() / total
+    }
     
     // Track debug logging state for synchronous logging
     private var isDebugEnabled = false
@@ -112,11 +166,16 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
                 _scanResult.value = result
                 _scanError.value = null
                 _scanCount.value++
+                // Tier-1 HUD: record success + prepend to history (last 5).
+                recordAttempt(isSuccess = true)
+                val updated = (listOf(result) + _decodeHistory.value).take(historyMaxSize)
+                _decodeHistory.value = updated
             },
             onDecodeFailure = { error ->
                 Log.e("ScannerViewModel", "❌ Decode FAILURE: $error")
                 logger.dSync("Decode FAILURE: $error", isDebugEnabled)
                 _scanError.value = error
+                recordAttempt(isSuccess = false)
             }
         )
     }
