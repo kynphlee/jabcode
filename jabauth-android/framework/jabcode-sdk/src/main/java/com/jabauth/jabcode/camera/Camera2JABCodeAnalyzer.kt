@@ -134,9 +134,16 @@ class Camera2JABCodeAnalyzer(
                                "colorMode=${result.colorMode}, decodeTime=${decodeTime}ms")
                     onDecodeSuccess(result)
                 } else {
-                    Log.v(TAG, "Frame $frameCount: No JABCode found (decode took ${decodeTime}ms)")
+                    // Null result is a real failure outcome — surface it via the
+                    // failure callback so the upstream ViewModel can categorize
+                    // by status (status=0 "No JABCode found" vs status=1 "JABCode
+                    // found but not decodable"). Without this, the rolling
+                    // failure stats see only exceptions and the FAIL_ATTR axis
+                    // can't be cross-referenced against ScannerViewModel telemetry.
+                    val errorMsg = decoder.getLastError() ?: "No JABCode found"
+                    Log.v(TAG, "Frame $frameCount: $errorMsg (decode took ${decodeTime}ms)")
+                    onDecodeFailure(errorMsg)
                 }
-                // No else - null result is normal during scanning
                 
             } finally {
                 bitmap.recycle()

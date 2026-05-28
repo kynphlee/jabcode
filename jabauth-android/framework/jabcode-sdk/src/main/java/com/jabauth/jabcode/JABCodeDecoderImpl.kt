@@ -24,6 +24,14 @@ class JABCodeDecoderImpl(
     private val nativeBridge = JABCodeMobile()
     private var decodeCount = 0
 
+    // Last error message from a failed decode attempt. Cleared on
+    // success. @Volatile so the analyzer thread reads the post-decode
+    // value rather than a cached one — critical for failure-category
+    // attribution in the rolling stats.
+    @Volatile private var lastError: String? = null
+
+    override fun getLastError(): String? = lastError
+
     override fun decode(image: Bitmap, options: DecodeOptions): DecodeResult? {
         decodeCount++
         val startTime = System.currentTimeMillis()
@@ -51,12 +59,14 @@ class JABCodeDecoderImpl(
 
             if (decodedData == null) {
                 val errorMsg = nativeBridge.nativeGetLastError() ?: "Unknown error"
+                lastError = errorMsg
                 Log.e(TAG, "❌ Native decode FAILED: $errorMsg")
                 logger?.error("Native decode failed: $errorMsg", null, mapOf(
                     "imageSize" to "${image.width}x${image.height}"
                 ))
                 return null
             }
+            lastError = null
 
             Log.d(TAG, "✅ Native decode SUCCESS: ${decodedData.size} bytes received, " +
                        "colorNumber=${outColorNumber[0]}")
@@ -94,9 +104,10 @@ class JABCodeDecoderImpl(
             return result
         } catch (e: Exception) {
             val decodeTime = System.currentTimeMillis() - startTime
+            lastError = "Decode exception: ${e.message}"
             Log.e(TAG, "--- Decode #$decodeCount EXCEPTION (${decodeTime}ms) ---", e)
             Log.e(TAG, "Exception: ${e.javaClass.simpleName}: ${e.message}")
-            
+
             logger?.error("JABCode decoding failed", e, mapOf(
                 "imageSize" to "${image.width}x${image.height}"
             ))
