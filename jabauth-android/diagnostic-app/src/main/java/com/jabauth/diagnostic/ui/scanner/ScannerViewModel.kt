@@ -30,9 +30,211 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
     
     private val _scanCount = MutableStateFlow(0)
     val scanCount: StateFlow<Int> = _scanCount.asStateFlow()
-    
+
+    // Tier-1 HUD state — exposed to the UI as Compose-friendly StateFlows.
+    // The Camera2Preview callbacks push values in via the setters below.
+    private val _currentZoom = MutableStateFlow(1.0f)
+    val currentZoom: StateFlow<Float> = _currentZoom.asStateFlow()
+
+    private val _llbSupported = MutableStateFlow(false)
+    val llbSupported: StateFlow<Boolean> = _llbSupported.asStateFlow()
+
+    private val _llbState = MutableStateFlow(-1)  // -1 unknown, 0 inactive, 1 active
+    val llbState: StateFlow<Int> = _llbState.asStateFlow()
+
+    // Rolling 30-second stats: each attempt records (timestamp, success, time,
+    // nc, failureCategory). Nc is the decoder's reported Nc value (0..7)
+    // for successes, or -1 for failures. failureCategory classifies the
+    // decoder's three error modes for failure attribution stats.
+    private data class AttemptRecord(
+        val timestampMs: Long,
+        val isSuccess: Boolean,
+        val decodeTimeMs: Long,
+        val nc: Int,
+        val failureCategory: FailureCategory = FailureCategory.NONE
+    )
+
+    enum class FailureCategory(val displayName: String) {
+        NONE("(none — success)"),
+        NO_FP_FOUND("status=0 no FP found"),
+        SLAVE_DECODE_FAILED("status=1 FP found, slave decode failed"),
+        OTHER("status=other unspecified")
+    }
+    private val attemptLog = mutableListOf<AttemptRecord>()
+    private val attemptWindowMs = 30_000L
+    private val _recentStats = MutableStateFlow(ScanStats(0, 0))
+    val recentStats: StateFlow<ScanStats> = _recentStats.asStateFlow()
+
+    // Decode-time statistics across the rolling window — both overall
+    // and broken down per-Nc. Per-Nc breakdown reveals card-mix
+    // contamination (e.g., user thought they were scanning Nc=3 but
+    // the trace shows Nc=1/4/5 too) and surfaces which modes are
+    // contributing to the overall distribution shape.
+    private val _decodeTimeStats = MutableStateFlow<DecodeTimeStats?>(null)
+    val decodeTimeStats: StateFlow<DecodeTimeStats?> = _decodeTimeStats.asStateFlow()
+
+    private val _perNcStats = MutableStateFlow<Map<Int, DecodeTimeStats>>(emptyMap())
+    val perNcStats: StateFlow<Map<Int, DecodeTimeStats>> = _perNcStats.asStateFlow()
+
+    companion object {
+        // Annotations for n=0 Nc rows that reference the relevant open
+        // hypothesis. When a row stays empty, the annotation tells the
+        // reader of the trace why — converting silent absence into
+        // actionable signal cross-referenced against the bug register.
+        // Cross-references: docs/cassandra-register/*.md
+        private val NC_ANNOTATIONS = mapOf(
+            0 to "Mode 0 monochrome — H_mode0_partI_decode_failure",
+            2 to "8-color — H_nc2_decode_failure",
+            6 to "128-color — print gamut-limited, screen works at zoom",
+            7 to "256-color — slave-decode + gamut compound bottleneck"
+        )
+        // ColorMode.value (color count) → Nc index (0..7).
+        private val COLOR_COUNT_TO_NC = mapOf(
+            2 to 0, 4 to 1, 8 to 2, 16 to 3,
+            32 to 4, 64 to 5, 128 to 6, 256 to 7
+        )
+    }
+
+    // History of last 5 successful decodes, newest first.
+    private val _decodeHistory = MutableStateFlow<List<DecodeResult>>(emptyList())
+    val decodeHistory: StateFlow<List<DecodeResult>> = _decodeHistory.asStateFlow()
+    private val historyMaxSize = 5
+
     // Expose settings for UI consumption (auto-focus, color mode, etc.)
     val settings = settingsRepository.settingsFlow
+
+    // --- Tier-1 HUD setters (called from ScannerScreen via Camera2Preview callbacks) ---
+    fun onZoomChanged(zoomRatio: Float) {
+        _currentZoom.value = zoomRatio
+    }
+
+    fun onLowLightBoostSupported(supported: Boolean) {
+        _llbSupported.value = supported
+    }
+
+    fun onLowLightBoostStateChanged(state: Int) {
+        _llbState.value = state
+    }
+
+    private fun recordAttempt(
+        isSuccess: Boolean,
+        decodeTimeMs: Long = 0L,
+        nc: Int = -1,
+        failureCategory: FailureCategory = FailureCategory.NONE
+    ) {
+        val now = System.currentTimeMillis()
+        attemptLog.add(AttemptRecord(now, isSuccess, decodeTimeMs, nc, failureCategory))
+        // Prune outside the rolling window
+        val cutoff = now - attemptWindowMs
+        attemptLog.removeAll { it.timestampMs < cutoff }
+        val ok = attemptLog.count { it.isSuccess }
+        val fail = attemptLog.size - ok
+        _recentStats.value = ScanStats(okCount = ok, failCount = fail)
+
+        // Compute OVERALL decode-time stats over successes in the rolling window.
+        val successAttempts = attemptLog.filter { it.isSuccess }
+        val overallStats = statsFor(successAttempts.map { it.decodeTimeMs })
+        _decodeTimeStats.value = overallStats
+
+        // Compute PER-Nc decode-time stats; only emit a map entry when
+        // the Nc has at least one success in the window. The UI / log
+        // formatter inserts the "n=0" rows for absent Nc values.
+        val perNc = mutableMapOf<Int, DecodeTimeStats>()
+        for (n in 0..7) {
+            val timesForNc = successAttempts.filter { it.nc == n }.map { it.decodeTimeMs }
+            statsFor(timesForNc)?.let { perNc[n] = it }
+        }
+        _perNcStats.value = perNc
+
+        // Per-category failure breakdown over the rolling window.
+        // Mapping mirrors the C-side FAIL_ATTR status codes so screen
+        // logs and decoder logs can be cross-referenced on the same axis.
+        val failByCategory = attemptLog
+            .filter { !it.isSuccess }
+            .groupingBy { it.failureCategory }
+            .eachCount()
+        val noFp = failByCategory[FailureCategory.NO_FP_FOUND] ?: 0
+        val slaveFail = failByCategory[FailureCategory.SLAVE_DECODE_FAILED] ?: 0
+        val otherFail = failByCategory[FailureCategory.OTHER] ?: 0
+        val totalIn30s = _recentStats.value.total
+
+        // Emit the stats to logcat unconditionally — silence on the failure
+        // side was the old gap: a "we're scanning but nothing succeeds"
+        // block is more diagnostically valuable than no block at all.
+        // Three sections: overall, 8 per-Nc rows, failure-category summary.
+        // Greppable: DECODE_TIME_STATS / DECODE_FAIL_STATS.
+        if (overallStats != null) {
+            Log.i(
+                "ScannerViewModel",
+                "DECODE_TIME_STATS overall: min=${overallStats.minMs}ms " +
+                "max=${overallStats.maxMs}ms avg=${overallStats.avgMs}ms " +
+                "Δ=${overallStats.deltaMs}ms n=${overallStats.sampleCount} " +
+                "ok=${_recentStats.value.okCount}/${totalIn30s}_in_30s"
+            )
+        } else {
+            Log.i(
+                "ScannerViewModel",
+                "DECODE_TIME_STATS overall: n=0 no successes in window " +
+                "ok=0/${totalIn30s}_in_30s"
+            )
+        }
+        for (n in 0..7) {
+            val s = perNc[n]
+            if (s != null) {
+                Log.i(
+                    "ScannerViewModel",
+                    "DECODE_TIME_STATS Nc=$n: n=${s.sampleCount} " +
+                    "min=${s.minMs}ms max=${s.maxMs}ms " +
+                    "avg=${s.avgMs}ms Δ=${s.deltaMs}ms"
+                )
+            } else {
+                val annotation = NC_ANNOTATIONS[n]
+                val suffix = if (annotation != null) "  ($annotation)" else ""
+                Log.i(
+                    "ScannerViewModel",
+                    "DECODE_TIME_STATS Nc=$n: n=0   no successes in window$suffix"
+                )
+            }
+        }
+        Log.i(
+            "ScannerViewModel",
+            "DECODE_FAIL_STATS overall: fail=${_recentStats.value.failCount}/${totalIn30s}_in_30s " +
+            "status0=$noFp status1=$slaveFail other=$otherFail"
+        )
+    }
+
+    private fun statsFor(times: List<Long>): DecodeTimeStats? {
+        if (times.isEmpty()) return null
+        val min = times.min()
+        val max = times.max()
+        val avg = times.sum() / times.size
+        return DecodeTimeStats(
+            minMs = min,
+            maxMs = max,
+            avgMs = avg,
+            deltaMs = max - min,
+            sampleCount = times.size
+        )
+    }
+
+    data class ScanStats(val okCount: Int, val failCount: Int) {
+        val total: Int get() = okCount + failCount
+        val successRate: Float get() = if (total == 0) 0f else okCount.toFloat() / total
+    }
+
+    /**
+     * Decode-time spread statistics across the last 30 seconds of
+     * successful decodes. Reveals whether decodes are consistent
+     * (small Δ) or jittery (large Δ — usually means Nc_FALLBACK is
+     * exhausting all 8 iterations on most attempts).
+     */
+    data class DecodeTimeStats(
+        val minMs: Long,
+        val maxMs: Long,
+        val avgMs: Long,
+        val deltaMs: Long,
+        val sampleCount: Int
+    )
     
     // Track debug logging state for synchronous logging
     private var isDebugEnabled = false
@@ -112,11 +314,34 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
                 _scanResult.value = result
                 _scanError.value = null
                 _scanCount.value++
+                // Tier-1 HUD: record success + prepend to history (last 5).
+                // Map color count (2/4/8/...) to Nc index (0..7) for the
+                // per-Nc stats breakdown. Unknown values default to -1.
+                val ncIndex = COLOR_COUNT_TO_NC[result.colorMode.value] ?: -1
+                recordAttempt(
+                    isSuccess = true,
+                    decodeTimeMs = result.decodeTimeMs,
+                    nc = ncIndex
+                )
+                val updated = (listOf(result) + _decodeHistory.value).take(historyMaxSize)
+                _decodeHistory.value = updated
             },
             onDecodeFailure = { error ->
                 Log.e("ScannerViewModel", "❌ Decode FAILURE: $error")
                 logger.dSync("Decode FAILURE: $error", isDebugEnabled)
                 _scanError.value = error
+                // Classify the decoder's failure mode so the rolling stats
+                // can attribute attempts to FP-detection vs slave-decode
+                // failure. This is the screen-side mirror of the C-side
+                // FAIL_ATTR status codes — same axis, different log source.
+                val category = when {
+                    error.contains("No JABCode found", ignoreCase = true) ->
+                        FailureCategory.NO_FP_FOUND
+                    error.contains("not decodable", ignoreCase = true) ->
+                        FailureCategory.SLAVE_DECODE_FAILED
+                    else -> FailureCategory.OTHER
+                }
+                recordAttempt(isSuccess = false, failureCategory = category)
             }
         )
     }
