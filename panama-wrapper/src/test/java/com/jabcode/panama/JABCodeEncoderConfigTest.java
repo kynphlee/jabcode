@@ -38,9 +38,13 @@ class JABCodeEncoderConfigTest {
 
     @Test
     void allValidColorNumbersAccepted() {
-        // Note: 256-color mode excluded due to malloc corruption bug
-        // See encoder.c:2633 and memory-bank/documentation/full-spectrum/05-encoder-memory-architecture.md
-        int[] valid = {4, 8, 16, 32, 64, 128};
+        // 256-color mode (Nc=7) excluded due to malloc corruption bug
+        // See encoder.c:2633 and
+        // memory-bank/documentation/full-spectrum/05-encoder-memory-architecture.md
+        //
+        // 2-color mode (Nc=0 / monochrome) added per commit bb91db7
+        // "WS-6.5 accept color_number=2".
+        int[] valid = {2, 4, 8, 16, 32, 64, 128};
         for (int c : valid) {
             var config = JABCodeEncoder.Config.builder().colorNumber(c).build();
             assertEquals(c, config.getColorNumber());
@@ -49,7 +53,10 @@ class JABCodeEncoderConfigTest {
 
     @Test
     void invalidColorNumbersRejected() {
-        int[] invalid = {0, 1, 2, 3, 5, 6, 7, 9, 15, 100, 512};
+        // Note: `2` was moved out of this list per commit bb91db7
+        // "WS-6.5 accept color_number=2" — it is now a valid color
+        // number and is exercised by `allValidColorNumbersAccepted`.
+        int[] invalid = {0, 1, 3, 5, 6, 7, 9, 15, 100, 512};
         for (int c : invalid) {
             assertThrows(IllegalArgumentException.class,
                 () -> JABCodeEncoder.Config.builder().colorNumber(c),
