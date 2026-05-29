@@ -73,7 +73,7 @@ class CameraStartupBenchmark {
             pressHome()
         }
     ) {
-        startActivityAndWait()
+        startActivityViaShell(TARGET_PACKAGE)
         // Optionally drive into the Scanner tab to measure camera ready
         device.wait(Until.findObject(By.desc(SCANNER_TAB_DESC)), STARTUP_TIMEOUT_MS)
             ?.click()
@@ -91,7 +91,7 @@ class CameraStartupBenchmark {
             pressHome()
         }
     ) {
-        startActivityAndWait()
+        startActivityViaShell(TARGET_PACKAGE)
     }
 
     @Test
@@ -106,6 +106,6 @@ class CameraStartupBenchmark {
             pressHome()
         }
     ) {
-        startActivityAndWait()
+        startActivityViaShell(TARGET_PACKAGE)
     }
 }

@@ -1,11 +1,8 @@
 package com.jabauth.benchmark.macro
 
 import androidx.benchmark.macro.CompilationMode
-import androidx.benchmark.macro.ExperimentalMetricApi
 import androidx.benchmark.macro.FrameTimingMetric
-import androidx.benchmark.macro.MemoryUsageMetric
 import androidx.benchmark.macro.StartupMode
-import androidx.benchmark.macro.TraceSectionMetric
 import androidx.benchmark.macro.junit4.MacrobenchmarkRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.uiautomator.By
@@ -26,13 +23,16 @@ import org.junit.runner.RunWith
  * That one isolates the decoder; this one measures the full pipeline:
  * ImageReader → bitmap conversion → decode → result callback.
  *
- * Uses `TraceSectionMetric` looking for the analyzer's
- * `Camera2JABCodeAnalyzer.analyze` and `JABCodeDecoder.decode` trace
- * sections. To get those sections, the production code must emit
- * `Trace.beginSection("...")` / `Trace.endSection()` calls — that's
- * follow-on work tracked in `P4 PerformanceTracker production wiring`.
+ * Currently uses only `FrameTimingMetric` for end-to-end frame timing
+ * during scanning. The richer per-stage measurement (TraceSectionMetric
+ * for `Camera2JABCodeAnalyzer.analyze` and `JABCodeDecoder.decode`, plus
+ * `MemoryUsageMetric`) is deferred until `P4 PerformanceTracker
+ * production wiring` lands the `Trace.beginSection("...")` /
+ * `Trace.endSection()` calls in production code. Running all four
+ * metric collectors concurrently on Samsung's perfetto buffer produced
+ * `0 found for frameDurationCpuMs` because the buffer filled before
+ * frame events were recorded.
  */
-@OptIn(ExperimentalMetricApi::class)
 @RunWith(AndroidJUnit4::class)
 class JABCodeDecodeBenchmark {
 
@@ -50,13 +50,17 @@ class JABCodeDecodeBenchmark {
     fun decodeEndToEnd() = benchmarkRule.measureRepeated(
         packageName = TARGET_PACKAGE,
         metrics = listOf(
-            FrameTimingMetric(),
-            // Trace sections are emitted by Camera2JABCodeAnalyzer (wired
-            // up in P4 — `android.os.Trace.beginSection(...)` calls).
-            TraceSectionMetric("Camera2JABCodeAnalyzer.analyze"),
-            TraceSectionMetric("JABCodeDecoder.decode"),
-            // Memory profiling per phase5-performance.md § Memory Profiling.
-            MemoryUsageMetric(mode = MemoryUsageMetric.Mode.Max)
+            // Scoped to FrameTimingMetric until P4 PerformanceTracker
+            // production wiring emits `Trace.beginSection` calls for
+            // Camera2JABCodeAnalyzer.analyze and JABCodeDecoder.decode.
+            // Running all four metrics concurrently on Samsung's perfetto
+            // buffer produces "0 found for frameDurationCpuMs" errors —
+            // the buffer fills before frame events are recorded. Re-add
+            // TraceSectionMetric("Camera2JABCodeAnalyzer.analyze"),
+            // TraceSectionMetric("JABCodeDecoder.decode"), and
+            // MemoryUsageMetric(MemoryUsageMetric.Mode.Max) once the
+            // production trace sections exist.
+            FrameTimingMetric()
         ),
         compilationMode = CompilationMode.None(),
         iterations = 3,
@@ -68,7 +72,7 @@ class JABCodeDecodeBenchmark {
                 "pm grant $TARGET_PACKAGE android.permission.CAMERA"
             )
             pressHome()
-            startActivityAndWait()
+            startActivityViaShell(TARGET_PACKAGE)
             device.wait(Until.findObject(By.desc(SCANNER_TAB_DESC)), NAV_TIMEOUT_MS)
                 ?.click()
         }

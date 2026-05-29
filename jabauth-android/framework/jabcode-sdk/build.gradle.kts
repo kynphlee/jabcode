@@ -131,7 +131,7 @@ dependencies {
     // ImageQualityAnalysisBenchmark per BENCHMARK_TESTING_GUIDE.md.
     // The library provides BenchmarkRule + measureRepeated() with proper
     // warmup, GC suppression, and CPU-stable measurement.
-    androidTestImplementation("androidx.benchmark:benchmark-junit4:1.2.4")
+    androidTestImplementation("androidx.benchmark:benchmark-junit4:1.3.4")
 }
 
 // JaCoCo configuration
