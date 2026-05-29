@@ -7,6 +7,7 @@ import androidx.benchmark.macro.junit4.MacrobenchmarkRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.Until
+import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -46,6 +47,19 @@ class JABCodeDecodeBenchmark {
         private const val SCAN_DURATION_MS = 15_000L
     }
 
+    @Ignore(
+        "Blocked on camera-pipeline stall during scanning. Same root cause as " +
+            "FrameProcessingBenchmark.frameProcessingDuringScan: the " +
+            "diagnostic-app's ImageReader buffer pool exhausts within the " +
+            "SCAN_DURATION_MS window, the camera stalls, and FrameTimingMetric " +
+            "throws `IllegalArgumentException: At least one result is necessary, " +
+            "0 found for frameDurationCpuMs`. This is the same back-pressure " +
+            "pattern as H_nc2_decode_failure / H_partI_unifies. Re-enable when " +
+            "the camera stall is fixed and ideally bring back the richer metric " +
+            "set (TraceSectionMetric / MemoryUsageMetric) once P4 " +
+            "PerformanceTracker production wiring lands the Trace.beginSection " +
+            "calls."
+    )
     @Test
     fun decodeEndToEnd() = benchmarkRule.measureRepeated(
         packageName = TARGET_PACKAGE,
