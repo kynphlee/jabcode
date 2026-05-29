@@ -40,6 +40,25 @@ class CameraStartupBenchmark {
         private const val TARGET_PACKAGE = "com.jabauth.diagnostic"
         private const val SCANNER_TAB_DESC = "Scanner"
         private const val STARTUP_TIMEOUT_MS = 10_000L
+
+        /**
+         * Pre-grant CAMERA permission so the activity launch isn't
+         * blocked by the system permission dialog. Without this,
+         * Macrobenchmark's `startActivityAndWait()` times out with
+         * `Unable to confirm activity launch completion` because the
+         * activity never produces a measurable frame — it's stuck
+         * behind the permission UI.
+         *
+         * Safe to call regardless of current permission state:
+         * `pm grant` is idempotent.
+         */
+        private fun grantCameraPermission(
+            scope: androidx.benchmark.macro.MacrobenchmarkScope
+        ) {
+            scope.device.executeShellCommand(
+                "pm grant $TARGET_PACKAGE android.permission.CAMERA"
+            )
+        }
     }
 
     @Test
@@ -49,7 +68,10 @@ class CameraStartupBenchmark {
         compilationMode = CompilationMode.None(),
         iterations = 5,
         startupMode = StartupMode.COLD,
-        setupBlock = { pressHome() }
+        setupBlock = {
+            grantCameraPermission(this)
+            pressHome()
+        }
     ) {
         startActivityAndWait()
         // Optionally drive into the Scanner tab to measure camera ready
@@ -64,7 +86,10 @@ class CameraStartupBenchmark {
         compilationMode = CompilationMode.None(),
         iterations = 5,
         startupMode = StartupMode.WARM,
-        setupBlock = { pressHome() }
+        setupBlock = {
+            grantCameraPermission(this)
+            pressHome()
+        }
     ) {
         startActivityAndWait()
     }
@@ -76,7 +101,10 @@ class CameraStartupBenchmark {
         compilationMode = CompilationMode.None(),
         iterations = 5,
         startupMode = StartupMode.HOT,
-        setupBlock = { pressHome() }
+        setupBlock = {
+            grantCameraPermission(this)
+            pressHome()
+        }
     ) {
         startActivityAndWait()
     }
