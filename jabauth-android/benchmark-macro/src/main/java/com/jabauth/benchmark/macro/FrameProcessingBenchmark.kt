@@ -50,7 +50,7 @@ class FrameProcessingBenchmark {
                 "pm grant $TARGET_PACKAGE android.permission.CAMERA"
             )
             pressHome()
-            startActivityAndWait()
+            startActivityViaShell(TARGET_PACKAGE)
             // Drive into Scanner so frame processing is active.
             device.wait(Until.findObject(By.desc(SCANNER_TAB_DESC)), NAV_TIMEOUT_MS)
                 ?.click()

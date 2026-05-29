@@ -63,7 +63,16 @@ dependencies {
     implementation("androidx.test.uiautomator:uiautomator:2.2.0")
 
     // Jetpack Macrobenchmark library.
-    implementation("androidx.benchmark:benchmark-macro-junit4:1.2.4")
+    //
+    // Pinned to 1.3.4 (was 1.2.4) to pick up the Samsung-OneUI shell-capture
+    // fix: 1.2.4 uses UiAutomation.executeShellCommand to invoke `am start -W`
+    // and parse its stdout. On OneUI 7 / Android 16 (Galaxy S25), the parcel
+    // returned by that API drops multi-line shell output under certain quoting
+    // conditions, leaving Macrobenchmark with an empty buffer and producing
+    // `Unable to confirm activity launch completion []`. 1.3.0+ replaced this
+    // with a disk-roundtrip shell capture (writes a script to /data/local/tmp,
+    // reads back the output file) that sidesteps the parcel issue.
+    implementation("androidx.benchmark:benchmark-macro-junit4:1.3.4")
 }
 
 androidComponents {
