@@ -19,6 +19,21 @@ android {
         // etc.) still execute normally, they just go through a tiny
         // amount of additional setup overhead.
         testInstrumentationRunner = "androidx.benchmark.junit4.AndroidBenchmarkRunner"
+
+        // Allow Microbenchmark to run on debuggable builds for local
+        // `connectedCheck` workflows. The default Gradle test task
+        // (`connectedDebugAndroidTest`) targets the `debug` variant
+        // which is necessarily debuggable; rather than force users to
+        // switch to `connectedBenchmarkAndroidTest` (which doesn't auto-
+        // generate for library modules), we accept the DEBUGGABLE flag
+        // and the slight measurement noise it introduces in exchange
+        // for benchmarks that actually run.
+        //
+        // For production-grade measurements (regression CI, release
+        // tracking), use the `benchmark` build type defined below via
+        // `gradle :framework:jabcode-sdk:connectedBenchmarkAndroidTest`
+        // explicitly.
+        testInstrumentationRunnerArguments["androidx.benchmark.suppressErrors"] = "DEBUGGABLE"
         consumerProguardFiles("consumer-rules.pro")
         
         // NDK configuration
