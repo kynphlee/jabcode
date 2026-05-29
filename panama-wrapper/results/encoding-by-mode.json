@@ -1,0 +1,1236 @@
+[
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 3,
+        "jvm" : "/home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "-Djava.library.path=../lib",
+            "--enable-native-access=ALL-UNNAMED",
+            "-Djava.library.path=../lib"
+        ],
+        "jdkVersion" : "23.0.1",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "23.0.1+11-39",
+        "warmupIterations" : 5,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 10,
+        "measurementTime" : "2 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "colorMode" : "4",
+            "messageSize" : "100"
+        },
+        "primaryMetric" : {
+            "score" : 8.078749506053079,
+            "scoreError" : 0.6779668464124811,
+            "scoreConfidence" : [
+                7.400782659640598,
+                8.75671635246556
+            ],
+            "scorePercentiles" : {
+                "0.0" : 7.5129442846441945,
+                "50.0" : 7.804205613337893,
+                "90.0" : 8.47515777730226,
+                "95.0" : 10.618468209634251,
+                "99.0" : 13.211825881578948,
+                "99.9" : 13.211825881578948,
+                "99.99" : 13.211825881578948,
+                "99.999" : 13.211825881578948,
+                "99.9999" : 13.211825881578948,
+                "100.0" : 13.211825881578948
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    8.105025141700406,
+                    7.971427800796813,
+                    8.257323485596707,
+                    8.48902979237288,
+                    8.15811225203252,
+                    8.197259856557377,
+                    8.071848806451612,
+                    8.350309641666666,
+                    8.496630114406779,
+                    8.30850287966805
+                ],
+                [
+                    7.8656529215686275,
+                    7.553670633962264,
+                    7.725479490347491,
+                    7.731884521235521,
+                    7.716304119230769,
+                    7.596446776515151,
+                    7.668415068965517,
+                    7.669889593869732,
+                    7.6416718091603055,
+                    7.6128881064638785
+                ],
+                [
+                    13.211825881578948,
+                    8.29470582231405,
+                    7.99165322310757,
+                    7.606385155893536,
+                    7.755716732558139,
+                    7.5129442846441945,
+                    7.6527874580152675,
+                    7.646001503816794,
+                    7.852694494117647,
+                    7.649997812977099
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 3,
+        "jvm" : "/home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "-Djava.library.path=../lib",
+            "--enable-native-access=ALL-UNNAMED",
+            "-Djava.library.path=../lib"
+        ],
+        "jdkVersion" : "23.0.1",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "23.0.1+11-39",
+        "warmupIterations" : 5,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 10,
+        "measurementTime" : "2 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "colorMode" : "4",
+            "messageSize" : "1000"
+        },
+        "primaryMetric" : {
+            "score" : 47.45731914146116,
+            "scoreError" : 0.3618268328177793,
+            "scoreConfidence" : [
+                47.09549230864339,
+                47.81914597427894
+            ],
+            "scorePercentiles" : {
+                "0.0" : 46.699069860465116,
+                "50.0" : 47.416678255813956,
+                "90.0" : 48.068423240476186,
+                "95.0" : 48.80364377398374,
+                "99.0" : 49.20408668292683,
+                "99.9" : 49.20408668292683,
+                "99.99" : 49.20408668292683,
+                "99.999" : 49.20408668292683,
+                "99.9999" : 49.20408668292683,
+                "100.0" : 49.20408668292683
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    48.07837026190476,
+                    48.476008666666665,
+                    49.20408668292683,
+                    47.86124983333333,
+                    47.49173469767442,
+                    47.267159023255815,
+                    47.54836934883721,
+                    46.856267093023256,
+                    47.15137730232558,
+                    47.75954519047619
+                ],
+                [
+                    47.60884055813953,
+                    47.541917372093025,
+                    47.97890004761905,
+                    47.74786959523809,
+                    47.076863139534886,
+                    47.30704865116279,
+                    47.84521880952381,
+                    47.00638576744186,
+                    47.2169551627907,
+                    46.73478769767442
+                ],
+                [
+                    47.78576771428571,
+                    47.42375504651163,
+                    47.40960146511628,
+                    46.96097225581396,
+                    47.56849006976744,
+                    46.981710279069766,
+                    47.008330604651164,
+                    46.699069860465116,
+                    47.28749386046512,
+                    46.835428186046514
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 3,
+        "jvm" : "/home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "-Djava.library.path=../lib",
+            "--enable-native-access=ALL-UNNAMED",
+            "-Djava.library.path=../lib"
+        ],
+        "jdkVersion" : "23.0.1",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "23.0.1+11-39",
+        "warmupIterations" : 5,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 10,
+        "measurementTime" : "2 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "colorMode" : "8",
+            "messageSize" : "100"
+        },
+        "primaryMetric" : {
+            "score" : 7.556945109644577,
+            "scoreError" : 0.11159041915476255,
+            "scoreConfidence" : [
+                7.445354690489814,
+                7.66853552879934
+            ],
+            "scorePercentiles" : {
+                "0.0" : 7.38695378597786,
+                "50.0" : 7.526143872842217,
+                "90.0" : 7.664523123808897,
+                "95.0" : 8.008821283483394,
+                "99.0" : 8.329945082987551,
+                "99.9" : 8.329945082987551,
+                "99.99" : 8.329945082987551,
+                "99.999" : 8.329945082987551,
+                "99.9999" : 8.329945082987551,
+                "100.0" : 8.329945082987551
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    7.537332097744361,
+                    7.5149556479400745,
+                    7.6174370228136885,
+                    7.586284280303031,
+                    7.443786464684015,
+                    7.461387992565056,
+                    7.38695378597786,
+                    7.574617766037736,
+                    7.6660937088122605,
+                    7.559580218867924
+                ],
+                [
+                    7.489672354477612,
+                    7.501358,
+                    7.550207162264151,
+                    7.4682955895522385,
+                    7.466057194029851,
+                    7.568224818867924,
+                    7.397087169741697,
+                    7.507033456928839,
+                    7.43693043866171,
+                    7.543749131578948
+                ],
+                [
+                    7.565345928301887,
+                    7.631580631178707,
+                    8.329945082987551,
+                    7.746083629343629,
+                    7.503124127340824,
+                    7.581221587121212,
+                    7.476304824626865,
+                    7.650387858778626,
+                    7.498200745318352,
+                    7.449114572490706
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 3,
+        "jvm" : "/home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "-Djava.library.path=../lib",
+            "--enable-native-access=ALL-UNNAMED",
+            "-Djava.library.path=../lib"
+        ],
+        "jdkVersion" : "23.0.1",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "23.0.1+11-39",
+        "warmupIterations" : 5,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 10,
+        "measurementTime" : "2 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "colorMode" : "8",
+            "messageSize" : "1000"
+        },
+        "primaryMetric" : {
+            "score" : 40.93755226886904,
+            "scoreError" : 0.20674991691255656,
+            "scoreConfidence" : [
+                40.730802351956484,
+                41.1443021857816
+            ],
+            "scorePercentiles" : {
+                "0.0" : 40.30370524,
+                "50.0" : 40.96320302040816,
+                "90.0" : 41.163105085714285,
+                "95.0" : 41.63619931932398,
+                "99.0" : 42.0313294375,
+                "99.9" : 42.0313294375,
+                "99.99" : 42.0313294375,
+                "99.999" : 42.0313294375,
+                "99.9999" : 42.0313294375,
+                "100.0" : 42.0313294375
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    40.957296346938776,
+                    41.10808634693878,
+                    41.01022524489796,
+                    41.01456295918367,
+                    40.96910969387755,
+                    40.57033824,
+                    40.77256124,
+                    40.49220268,
+                    40.94990824489796,
+                    41.05452016326531
+                ],
+                [
+                    40.905981326530615,
+                    40.982325918367344,
+                    42.0313294375,
+                    40.7271466,
+                    40.72103208,
+                    40.61650276,
+                    41.055566285714285,
+                    40.72874924,
+                    40.65190036,
+                    41.09256551020408
+                ],
+                [
+                    40.8277767755102,
+                    41.16373281632653,
+                    41.15561610204082,
+                    40.30370524,
+                    41.04937620408163,
+                    40.83415542857143,
+                    41.15353851020408,
+                    40.75638976,
+                    41.312911040816324,
+                    41.15745551020408
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 3,
+        "jvm" : "/home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "-Djava.library.path=../lib",
+            "--enable-native-access=ALL-UNNAMED",
+            "-Djava.library.path=../lib"
+        ],
+        "jdkVersion" : "23.0.1",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "23.0.1+11-39",
+        "warmupIterations" : 5,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 10,
+        "measurementTime" : "2 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "colorMode" : "16",
+            "messageSize" : "100"
+        },
+        "primaryMetric" : {
+            "score" : 3.918422558392378,
+            "scoreError" : 0.04051591605303629,
+            "scoreConfidence" : [
+                3.877906642339342,
+                3.9589384744454144
+            ],
+            "scorePercentiles" : {
+                "0.0" : 3.8375871570881226,
+                "50.0" : 3.911355469726563,
+                "90.0" : 4.035751476659677,
+                "95.0" : 4.053071030084579,
+                "99.0" : 4.068550678861788,
+                "99.9" : 4.068550678861788,
+                "99.99" : 4.068550678861788,
+                "99.999" : 4.068550678861788,
+                "99.9999" : 4.068550678861788,
+                "100.0" : 4.068550678861788
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    4.039179647177419,
+                    3.953681233201581,
+                    3.8375871570881226,
+                    3.919070772994129,
+                    3.9373438937007874,
+                    3.901768306042885,
+                    3.891445667315175,
+                    3.970508492063492,
+                    3.8489970057692307,
+                    3.839788460652591
+                ],
+                [
+                    3.9233970392156863,
+                    4.068550678861788,
+                    4.040405862903226,
+                    3.9466281873767257,
+                    3.8540448096153845,
+                    3.8622124613899613,
+                    3.9068812578125,
+                    3.9262822588235293,
+                    3.8562132408477843,
+                    3.898438120622568
+                ],
+                [
+                    3.9677449346534654,
+                    3.8656644903474904,
+                    3.847677323076923,
+                    3.913612755859375,
+                    3.8930448774319064,
+                    3.914013935546875,
+                    3.891783387159533,
+                    3.90909818359375,
+                    3.922714368627451,
+                    4.004897942
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 3,
+        "jvm" : "/home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "-Djava.library.path=../lib",
+            "--enable-native-access=ALL-UNNAMED",
+            "-Djava.library.path=../lib"
+        ],
+        "jdkVersion" : "23.0.1",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "23.0.1+11-39",
+        "warmupIterations" : 5,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 10,
+        "measurementTime" : "2 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "colorMode" : "16",
+            "messageSize" : "1000"
+        },
+        "primaryMetric" : {
+            "score" : 40.24130299178524,
+            "scoreError" : 0.24602926794633034,
+            "scoreConfidence" : [
+                39.995273723838906,
+                40.48733225973157
+            ],
+            "scorePercentiles" : {
+                "0.0" : 39.548976137254904,
+                "50.0" : 40.18053104,
+                "90.0" : 40.732562306,
+                "95.0" : 40.975938270408164,
+                "99.0" : 41.146695367346936,
+                "99.9" : 41.146695367346936,
+                "99.99" : 41.146695367346936,
+                "99.999" : 41.146695367346936,
+                "99.9999" : 41.146695367346936,
+                "100.0" : 41.146695367346936
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    40.30587598,
+                    40.29499842,
+                    40.1774552,
+                    39.90226211764706,
+                    40.6203364,
+                    39.97509176470588,
+                    40.69400348,
+                    41.146695367346936,
+                    40.56541214,
+                    40.3322033
+                ],
+                [
+                    40.59338122,
+                    40.73684662,
+                    40.00541018,
+                    40.3517538,
+                    40.12490832,
+                    40.58328696,
+                    40.18360688,
+                    40.07358004,
+                    39.761940764705884,
+                    40.00889874
+                ],
+                [
+                    40.10713114,
+                    40.53873844,
+                    39.9879738627451,
+                    39.981548960784316,
+                    39.548976137254904,
+                    39.71119582352941,
+                    40.83622791836735,
+                    39.93989066666666,
+                    39.88488950980392,
+                    40.2645696
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 3,
+        "jvm" : "/home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "-Djava.library.path=../lib",
+            "--enable-native-access=ALL-UNNAMED",
+            "-Djava.library.path=../lib"
+        ],
+        "jdkVersion" : "23.0.1",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "23.0.1+11-39",
+        "warmupIterations" : 5,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 10,
+        "measurementTime" : "2 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "colorMode" : "32",
+            "messageSize" : "100"
+        },
+        "primaryMetric" : {
+            "score" : 7.147164642023534,
+            "scoreError" : 0.13390687184133176,
+            "scoreConfidence" : [
+                7.013257770182202,
+                7.281071513864866
+            ],
+            "scorePercentiles" : {
+                "0.0" : 6.94874146875,
+                "50.0" : 7.087089818021202,
+                "90.0" : 7.222694387828222,
+                "95.0" : 7.795791339418251,
+                "99.0" : 8.02254502,
+                "99.9" : 8.02254502,
+                "99.99" : 8.02254502,
+                "99.999" : 8.02254502,
+                "99.9999" : 8.02254502,
+                "100.0" : 8.02254502
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    8.02254502,
+                    7.064666517605634,
+                    7.2095723884892084,
+                    7.094945372340425,
+                    7.6102656007604566,
+                    7.2140217158273385,
+                    7.069548777385159,
+                    7.053687316901408,
+                    7.050394482394366,
+                    7.161968914285715
+                ],
+                [
+                    7.065321633802817,
+                    7.071198844522968,
+                    7.050860883802817,
+                    7.078156268551237,
+                    7.185913437275985,
+                    7.122635964412812,
+                    7.084591148409894,
+                    6.9825254634146345,
+                    7.039675459649123,
+                    7.109797429078014
+                ],
+                [
+                    7.201158082733813,
+                    7.078721883392226,
+                    7.131865149466192,
+                    7.119997462633452,
+                    7.060192,
+                    6.94874146875,
+                    7.13962778291815,
+                    7.089588487632509,
+                    7.079096286219081,
+                    7.223658018050542
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 3,
+        "jvm" : "/home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "-Djava.library.path=../lib",
+            "--enable-native-access=ALL-UNNAMED",
+            "-Djava.library.path=../lib"
+        ],
+        "jdkVersion" : "23.0.1",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "23.0.1+11-39",
+        "warmupIterations" : 5,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 10,
+        "measurementTime" : "2 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "colorMode" : "32",
+            "messageSize" : "1000"
+        },
+        "primaryMetric" : {
+            "score" : 25.311582396138682,
+            "scoreError" : 0.1537553975213504,
+            "scoreConfidence" : [
+                25.15782699861733,
+                25.465337793660034
+            ],
+            "scorePercentiles" : {
+                "0.0" : 24.927894716049384,
+                "50.0" : 25.3093018625,
+                "90.0" : 25.64721958076923,
+                "95.0" : 25.70742823663583,
+                "99.0" : 25.778442653846152,
+                "99.9" : 25.778442653846152,
+                "99.99" : 25.778442653846152,
+                "99.999" : 25.778442653846152,
+                "99.9999" : 25.778442653846152,
+                "100.0" : 25.778442653846152
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    25.647399653846154,
+                    25.5553652278481,
+                    25.36597264556962,
+                    25.527138088607597,
+                    25.1684423125,
+                    25.645598923076925,
+                    25.1686369625,
+                    25.3004880625,
+                    25.366465962025316,
+                    25.64932553164557
+                ],
+                [
+                    25.414062721518988,
+                    25.008926375,
+                    25.430183594936707,
+                    25.488013037974685,
+                    25.778442653846152,
+                    25.0239845125,
+                    25.1314151125,
+                    25.38461206329114,
+                    25.2288002625,
+                    25.1364137
+                ],
+                [
+                    25.43040751898734,
+                    25.3181156625,
+                    25.138451325,
+                    25.03578495,
+                    25.1881832375,
+                    25.60243959493671,
+                    25.0325886875,
+                    25.1902667,
+                    25.0636520875,
+                    24.927894716049384
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 3,
+        "jvm" : "/home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "-Djava.library.path=../lib",
+            "--enable-native-access=ALL-UNNAMED",
+            "-Djava.library.path=../lib"
+        ],
+        "jdkVersion" : "23.0.1",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "23.0.1+11-39",
+        "warmupIterations" : 5,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 10,
+        "measurementTime" : "2 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "colorMode" : "64",
+            "messageSize" : "100"
+        },
+        "primaryMetric" : {
+            "score" : 6.331897791838688,
+            "scoreError" : 0.06764244957748708,
+            "scoreConfidence" : [
+                6.2642553422612,
+                6.399540241416175
+            ],
+            "scorePercentiles" : {
+                "0.0" : 6.187018546296296,
+                "50.0" : 6.314286407470785,
+                "90.0" : 6.440723816398713,
+                "95.0" : 6.548583352649517,
+                "99.0" : 6.67456452,
+                "99.9" : 6.67456452,
+                "99.99" : 6.67456452,
+                "99.999" : 6.67456452,
+                "99.9999" : 6.67456452,
+                "100.0" : 6.67456452
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    6.2354705732087226,
+                    6.187018546296296,
+                    6.235436579439252,
+                    6.202654424148607,
+                    6.229197034161491,
+                    6.19812246130031,
+                    6.299181144654088,
+                    6.445507852090032,
+                    6.365726031746032,
+                    6.23686599376947
+                ],
+                [
+                    6.291696075471698,
+                    6.275485310344828,
+                    6.405031594249201,
+                    6.381415133757962,
+                    6.382731977707007,
+                    6.297379842767295,
+                    6.3228561514195585,
+                    6.323107082018927,
+                    6.254311928125,
+                    6.67456452
+                ],
+                [
+                    6.401036376996805,
+                    6.305716663522013,
+                    6.292983588050315,
+                    6.408008092651757,
+                    6.335575268987342,
+                    6.29074512264151,
+                    6.373458324840764,
+                    6.424833092948718,
+                    6.440802649517685,
+                    6.440014318327974
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 3,
+        "jvm" : "/home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "-Djava.library.path=../lib",
+            "--enable-native-access=ALL-UNNAMED",
+            "-Djava.library.path=../lib"
+        ],
+        "jdkVersion" : "23.0.1",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "23.0.1+11-39",
+        "warmupIterations" : 5,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 10,
+        "measurementTime" : "2 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "colorMode" : "64",
+            "messageSize" : "1000"
+        },
+        "primaryMetric" : {
+            "score" : 24.380398702113673,
+            "scoreError" : 0.1090919155073973,
+            "scoreConfidence" : [
+                24.271306786606274,
+                24.489490617621072
+            ],
+            "scorePercentiles" : {
+                "0.0" : 24.091323785714287,
+                "50.0" : 24.381994987951806,
+                "90.0" : 24.608533308536586,
+                "95.0" : 24.656829573170732,
+                "99.0" : 24.662337085365852,
+                "99.9" : 24.662337085365852,
+                "99.99" : 24.662337085365852,
+                "99.999" : 24.662337085365852,
+                "99.9999" : 24.662337085365852,
+                "100.0" : 24.662337085365852
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    24.144131807228916,
+                    24.289333313253014,
+                    24.584952463414634,
+                    24.40343898780488,
+                    24.339897096385542,
+                    24.26674391566265,
+                    24.27542934939759,
+                    24.662337085365852,
+                    24.187621903614456,
+                    24.65232342682927
+                ],
+                [
+                    24.52073845121951,
+                    24.36351265060241,
+                    24.23691165060241,
+                    24.246244831325303,
+                    24.429195841463414,
+                    24.20320812048193,
+                    24.23049251807229,
+                    24.56119881707317,
+                    24.25824169879518,
+                    24.091323785714287
+                ],
+                [
+                    24.525770329268294,
+                    24.577856170731707,
+                    24.598982146341463,
+                    24.60959454878049,
+                    24.416274902439024,
+                    24.17536539759036,
+                    24.405059536585366,
+                    24.391790341463416,
+                    24.37788508433735,
+                    24.386104891566266
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 3,
+        "jvm" : "/home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "-Djava.library.path=../lib",
+            "--enable-native-access=ALL-UNNAMED",
+            "-Djava.library.path=../lib"
+        ],
+        "jdkVersion" : "23.0.1",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "23.0.1+11-39",
+        "warmupIterations" : 5,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 10,
+        "measurementTime" : "2 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "colorMode" : "64",
+            "messageSize" : "10000"
+        },
+        "primaryMetric" : {
+            "score" : 151.03699943058606,
+            "scoreError" : 0.6896232685350844,
+            "scoreConfidence" : [
+                150.34737616205098,
+                151.72662269912115
+            ],
+            "scorePercentiles" : {
+                "0.0" : 149.2602615,
+                "50.0" : 150.9630709642857,
+                "90.0" : 152.39149122857143,
+                "95.0" : 153.22821403076924,
+                "99.0" : 154.16334484615385,
+                "99.9" : 154.16334484615385,
+                "99.99" : 154.16334484615385,
+                "99.999" : 154.16334484615385,
+                "99.9999" : 154.16334484615385,
+                "100.0" : 154.16334484615385
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    151.98606992857142,
+                    151.49571485714284,
+                    150.86896285714286,
+                    151.51864792857143,
+                    150.71017521428573,
+                    150.47723257142857,
+                    151.61202528571428,
+                    149.60790885714286,
+                    150.87787614285713,
+                    150.19188235714284
+                ],
+                [
+                    150.46410092857144,
+                    150.6848432857143,
+                    152.02649185714284,
+                    151.83133678571429,
+                    151.2340025,
+                    149.85853407142858,
+                    151.04826578571428,
+                    151.804226,
+                    152.43204671428572,
+                    151.17760828571429
+                ],
+                [
+                    149.2602615,
+                    152.463107,
+                    150.57541007142856,
+                    151.0601252857143,
+                    151.1099377142857,
+                    154.16334484615385,
+                    149.27401492857143,
+                    149.82157985714286,
+                    150.73142307142857,
+                    150.74282642857142
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 3,
+        "jvm" : "/home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "-Djava.library.path=../lib",
+            "--enable-native-access=ALL-UNNAMED",
+            "-Djava.library.path=../lib"
+        ],
+        "jdkVersion" : "23.0.1",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "23.0.1+11-39",
+        "warmupIterations" : 5,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 10,
+        "measurementTime" : "2 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "colorMode" : "128",
+            "messageSize" : "100"
+        },
+        "primaryMetric" : {
+            "score" : 10.499173166678249,
+            "scoreError" : 0.14345000055422716,
+            "scoreConfidence" : [
+                10.355723166124022,
+                10.642623167232475
+            ],
+            "scorePercentiles" : {
+                "0.0" : 10.29115377948718,
+                "50.0" : 10.470440665630454,
+                "90.0" : 10.649727039536192,
+                "95.0" : 11.099230331811059,
+                "99.0" : 11.490620377142857,
+                "99.9" : 11.490620377142857,
+                "99.99" : 11.490620377142857,
+                "99.999" : 11.490620377142857,
+                "99.9999" : 11.490620377142857,
+                "100.0" : 11.490620377142857
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    10.506933554973822,
+                    10.29115377948718,
+                    10.365581689119171,
+                    10.403164538860104,
+                    10.358808206185566,
+                    10.345854206185567,
+                    10.412092424870467,
+                    10.523265523560209,
+                    10.52972492631579,
+                    10.524884659685863
+                ],
+                [
+                    10.371010233160622,
+                    10.468855729166666,
+                    10.406299673575129,
+                    10.485399293193717,
+                    10.52546964921466,
+                    10.392394113989637,
+                    10.39512670984456,
+                    10.386299093264249,
+                    10.383102523316062,
+                    10.428978328125
+                ],
+                [
+                    10.609513671957671,
+                    10.543643105263158,
+                    10.654195191489361,
+                    10.504928256544503,
+                    10.329140474226804,
+                    10.472025602094241,
+                    11.490620377142857,
+                    10.534204805263158,
+                    10.779002112903227,
+                    10.553522547368422
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 3,
+        "jvm" : "/home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "-Djava.library.path=../lib",
+            "--enable-native-access=ALL-UNNAMED",
+            "-Djava.library.path=../lib"
+        ],
+        "jdkVersion" : "23.0.1",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "23.0.1+11-39",
+        "warmupIterations" : 5,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 10,
+        "measurementTime" : "2 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "colorMode" : "128",
+            "messageSize" : "1000"
+        },
+        "primaryMetric" : {
+            "score" : 40.87618360553741,
+            "scoreError" : 0.22650299552414313,
+            "scoreConfidence" : [
+                40.64968061001327,
+                41.102686601061556
+            ],
+            "scorePercentiles" : {
+                "0.0" : 40.25030498,
+                "50.0" : 40.86037497959184,
+                "90.0" : 41.49613458775511,
+                "95.0" : 41.61616596632653,
+                "99.0" : 41.63437504081632,
+                "99.9" : 41.63437504081632,
+                "99.99" : 41.63437504081632,
+                "99.999" : 41.63437504081632,
+                "99.9999" : 41.63437504081632,
+                "100.0" : 41.63437504081632
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    40.4536173,
+                    40.84842330612245,
+                    40.84041963265306,
+                    40.87232665306122,
+                    41.63437504081632,
+                    40.75236646,
+                    40.37286686,
+                    40.90296220408163,
+                    40.97779057142857,
+                    40.71498968
+                ],
+                [
+                    40.54727568,
+                    40.91277263265306,
+                    40.57250204,
+                    40.82489248,
+                    40.75503356,
+                    40.4143287,
+                    41.04977081632653,
+                    41.08662781632653,
+                    41.535805387755104,
+                    40.25030498
+                ],
+                [
+                    41.11416879591837,
+                    40.825700142857144,
+                    41.04138146938776,
+                    41.02496442857143,
+                    41.60126763265306,
+                    41.02816951020408,
+                    40.95806887755102,
+                    40.42916118,
+                    40.80407694,
+                    41.1390973877551
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 3,
+        "jvm" : "/home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java",
+        "jvmArgs" : [
+            "--enable-native-access=ALL-UNNAMED",
+            "-Djava.library.path=../lib",
+            "--enable-native-access=ALL-UNNAMED",
+            "-Djava.library.path=../lib"
+        ],
+        "jdkVersion" : "23.0.1",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "23.0.1+11-39",
+        "warmupIterations" : 5,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 10,
+        "measurementTime" : "2 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "colorMode" : "128",
+            "messageSize" : "10000"
+        },
+        "primaryMetric" : {
+            "score" : 141.28289735015875,
+            "scoreError" : 0.7131449499308158,
+            "scoreConfidence" : [
+                140.56975240022794,
+                141.99604230008956
+            ],
+            "scorePercentiles" : {
+                "0.0" : 139.23879946666668,
+                "50.0" : 141.02299490000001,
+                "90.0" : 142.92999965380952,
+                "95.0" : 143.4198178002381,
+                "99.0" : 143.6315647857143,
+                "99.9" : 143.6315647857143,
+                "99.99" : 143.6315647857143,
+                "99.999" : 143.6315647857143,
+                "99.9999" : 143.6315647857143,
+                "100.0" : 143.6315647857143
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    140.8428752,
+                    141.9985072,
+                    141.33957873333333,
+                    142.83719946666668,
+                    143.24657026666668,
+                    141.81384093333332,
+                    140.98709006666667,
+                    142.66850253333334,
+                    140.7994962,
+                    141.5971598
+                ],
+                [
+                    141.40395966666668,
+                    140.74717926666668,
+                    140.69965466666667,
+                    141.40368006666668,
+                    139.23879946666668,
+                    140.7160826,
+                    141.56446673333335,
+                    139.77132273333334,
+                    140.5307396,
+                    139.98270326666668
+                ],
+                [
+                    140.639791,
+                    143.6315647857143,
+                    142.3011086,
+                    142.94031078571427,
+                    139.81569406666668,
+                    141.05889973333333,
+                    141.83475786666668,
+                    140.92082866666667,
+                    140.1809148,
+                    140.97364173333332
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    }
+]
+
+

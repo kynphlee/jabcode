@@ -1,0 +1,424 @@
+package com.jabcode.panama;
+
+import com.jabcode.panama.bindings.jabcode_h;
+
+import java.lang.foreign.*;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.Collections;
+
+/**
+ * High-level Java API for encoding JABCode barcodes using Panama FFM.
+ * 
+ * This class provides a clean, type-safe interface to the JABCode C library
+ * without requiring any C++ wrapper code.
+ * 
+ * Example usage:
+ * <pre>{@code
+ * var encoder = new JABCodeEncoder();
+ * byte[] encoded = encoder.encode("Hello World", 8, 5);
+ * }</pre>
+ */
+public class JABCodeEncoder {
+    
+    /**
+     * Configuration for JABCode encoding
+     */
+    public static class Config {
+        private final int colorNumber;
+        private final int eccLevel;
+        private final int symbolNumber;
+        private final int moduleSize;
+        private final int masterSymbolWidth;
+        private final int masterSymbolHeight;
+        private final List<SymbolVersion> symbolVersions;
+        
+        private Config(Builder builder) {
+            this.colorNumber = builder.colorNumber;
+            this.eccLevel = builder.eccLevel;
+            this.symbolNumber = builder.symbolNumber;
+            this.moduleSize = builder.moduleSize;
+            this.masterSymbolWidth = builder.masterSymbolWidth;
+            this.masterSymbolHeight = builder.masterSymbolHeight;
+            this.symbolVersions = builder.symbolVersions != null 
+                ? Collections.unmodifiableList(builder.symbolVersions)
+                : null;
+        }
+        
+        public int getColorNumber() { return colorNumber; }
+        public int getEccLevel() { return eccLevel; }
+        public int getSymbolNumber() { return symbolNumber; }
+        public int getModuleSize() { return moduleSize; }
+        public int getMasterSymbolWidth() { return masterSymbolWidth; }
+        public int getMasterSymbolHeight() { return masterSymbolHeight; }
+        public List<SymbolVersion> getSymbolVersions() { return symbolVersions; }
+        
+        public static Builder builder() {
+            return new Builder();
+        }
+        
+        public static Config defaults() {
+            return builder().build();
+        }
+        
+        public static class Builder {
+            private int colorNumber = 8;           // 8-color mode (default)
+            private int eccLevel = 5;              // ECC level 5 (medium)
+            private int symbolNumber = 1;          // Single symbol
+            private int moduleSize = 12;           // 12 pixel modules
+            private int masterSymbolWidth = 0;     // Auto width
+            private int masterSymbolHeight = 0;    // Auto height
+            private List<SymbolVersion> symbolVersions; // Symbol versions for cascade
+            
+            public Builder colorNumber(int colorNumber) {
+                // Allowed JABCode color modes (Nc=0..7 → 2,4,8,16,32,64,128,256).
+                // The historical Annex-G list above started at 4 (omitting 2-color/Mode 0),
+                // pre-dating the WS-0 (Mode 0 monochrome) library work. The C library
+                // accepts color_number=2 via createEncode (jabcode swift-java-poc commit
+                // 05a1acc / mode0-investigation). See WS-6.5 in
+                // docs/jabcode-all-nc-plan/00-CHECKLIST.md.
+                switch (colorNumber) {
+                    case 2, 4, 8, 16, 32, 64, 128, 256 -> this.colorNumber = colorNumber;
+                    default -> throw new IllegalArgumentException(
+                        "Color number must be one of 2,4,8,16,32,64,128,256");
+                }
+                return this;
+            }
+            
+            public Builder eccLevel(int eccLevel) {
+                if (eccLevel < 0 || eccLevel > 10) {
+                    throw new IllegalArgumentException("ECC level must be between 0 and 10");
+                }
+                this.eccLevel = eccLevel;
+                return this;
+            }
+            
+            public Builder symbolNumber(int symbolNumber) {
+                if (symbolNumber < 1 || symbolNumber > 61) {
+                    throw new IllegalArgumentException("Symbol number must be between 1 and 61");
+                }
+                this.symbolNumber = symbolNumber;
+                return this;
+            }
+            
+            public Builder moduleSize(int moduleSize) {
+                if (moduleSize < 1) {
+                    throw new IllegalArgumentException("Module size must be positive");
+                }
+                this.moduleSize = moduleSize;
+                return this;
+            }
+            
+            public Builder masterSymbolWidth(int width) {
+                this.masterSymbolWidth = width;
+                return this;
+            }
+            
+            public Builder masterSymbolHeight(int height) {
+                this.masterSymbolHeight = height;
+                return this;
+            }
+            
+            /**
+             * Set explicit symbol versions for cascaded multi-symbol encoding.
+             * 
+             * <p>When encoding with multiple symbols (symbolNumber > 1), you can optionally
+             * specify the exact version of each symbol. This is required when the encoder
+             * cannot automatically determine optimal sizes.</p>
+             * 
+             * @param versions List of symbol versions, one per symbol
+             * @return This builder instance
+             * @throws IllegalArgumentException if version count doesn't match symbol count
+             */
+            public Builder symbolVersions(List<SymbolVersion> versions) {
+                if (versions != null && !versions.isEmpty()) {
+                    if (versions.size() != symbolNumber) {
+                        throw new IllegalArgumentException(
+                            "Symbol version count (" + versions.size() + 
+                            ") must match symbol count (" + symbolNumber + ")");
+                    }
+                    this.symbolVersions = List.copyOf(versions);
+                } else {
+                    this.symbolVersions = null;
+                }
+                return this;
+            }
+            
+            public Config build() {
+                // Validate: if symbolNumber > 1, versions should be provided
+                if (symbolNumber > 1 && symbolVersions == null) {
+                    // Warning: Multi-symbol without explicit versions may fail
+                    // Native encoder requires version configuration for cascades
+                    System.err.println("[WARNING] Multi-symbol encoding without explicit " +
+                        "symbol versions may fail. Consider using symbolVersions().");
+                }
+                return new Config(this);
+            }
+        }
+    }
+    
+    /**
+     * Encode data into JABCode format with default settings (8-color, ECC level 5)
+     * 
+     * @param data The data to encode
+     * @return Encoded bitmap data as byte array, or null if encoding fails
+     */
+    public byte[] encode(String data) {
+        return encode(data, 8, 5);
+    }
+    
+    /**
+     * Encode data into JABCode format with specified parameters
+     * 
+     * @param data The data to encode
+     * @param colorNumber Number of colors (4,8,16,32,64,128,256)
+     * @param eccLevel Error correction level (0-10)
+     * @return Encoded bitmap data as byte array, or null if encoding fails
+     */
+    public byte[] encode(String data, int colorNumber, int eccLevel) {
+        var config = Config.builder()
+            .colorNumber(colorNumber)
+            .eccLevel(eccLevel)
+            .build();
+        return encodeWithConfig(data, config);
+    }
+    
+    /**
+     * Encode data with full configuration control
+     * 
+     * @param data The data to encode
+     * @param config Encoding configuration
+     * @return Encoded bitmap data as byte array, or null if encoding fails
+     */
+    public byte[] encodeWithConfig(String data, Config config) {
+        if (data == null || data.isEmpty()) {
+            throw new IllegalArgumentException("Data cannot be null or empty");
+        }
+        
+        try (Arena arena = Arena.ofConfined()) {
+            // Create encoder
+            MemorySegment enc = jabcode_h.createEncode(
+                config.getColorNumber(),
+                config.getSymbolNumber()
+            );
+            
+            if (enc == null || enc.address() == 0) {
+                return null;
+            }
+            
+            try {
+                // Prepare jab_data structure: { int32 length; char data[]; }
+                byte[] bytes = data.getBytes(StandardCharsets.UTF_8);
+                MemorySegment jabData = createJabData(arena, bytes);
+                
+                // Generate JABCode
+                int result = jabcode_h.generateJABCode(enc, jabData);
+                if (result != 1) { // JAB_SUCCESS = 1
+                    return null;
+                }
+                
+                // Bitmap extraction not yet implemented - use encodeToPNG() instead
+                return null;
+                
+            } finally {
+                jabcode_h.destroyEncode(enc);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Encoding failed", e);
+        }
+    }
+    
+    /**
+     * Encode data and save directly to PNG file
+     * 
+     * @param data The data to encode
+     * @param outputPath Path to output PNG file
+     * @param config Encoding configuration
+     * @return true if successful, false otherwise
+     */
+    public boolean encodeToPNG(String data, String outputPath, Config config) {
+        if (data == null || data.isEmpty()) {
+            throw new IllegalArgumentException("Data cannot be null or empty");
+        }
+        
+        try (Arena arena = Arena.ofConfined()) {
+            System.err.println("[ENCODER] Config: colorNumber=" + config.getColorNumber() + 
+                ", eccLevel=" + config.getEccLevel() + ", symbolNumber=" + config.getSymbolNumber());
+            
+            // Create encoder
+            MemorySegment enc = jabcode_h.createEncode(
+                config.getColorNumber(),
+                config.getSymbolNumber()
+            );
+            
+            if (enc == null || enc.address() == 0) {
+                return false;
+            }
+            
+            // Verify color_number was set correctly in struct (offset 0)
+            int actualColorNumber = enc.get(ValueLayout.JAVA_INT, 0);
+            System.err.println("[ENCODER] After createEncode: color_number in struct = " + actualColorNumber);
+            
+            try {
+                // Set symbol versions if provided (for multi-symbol cascades)
+                if (config.getSymbolVersions() != null) {
+                    setSymbolVersions(enc, config.getSymbolVersions());
+                }
+                
+                // Set ECC level in encoder struct
+                // struct layout: color_number(0), symbol_number(4), module_size(8), 
+                //                master_width(12), master_height(16), padding(20),
+                //                palette*(24), symbol_versions*(32), symbol_ecc_levels*(40)
+                long eccLevelsOffset = 40; // Offset to symbol_ecc_levels pointer on 64-bit
+                long eccLevelsAddress = enc.get(ValueLayout.ADDRESS, eccLevelsOffset).address();
+                if (eccLevelsAddress != 0) {
+                    // Create writable segment from pointer (size = symbol_number bytes)
+                    MemorySegment eccLevelsArray = MemorySegment.ofAddress(eccLevelsAddress)
+                        .reinterpret(config.getSymbolNumber());
+                    // Set first symbol's ECC level
+                    eccLevelsArray.set(ValueLayout.JAVA_BYTE, 0, (byte) config.getEccLevel());
+                    
+                    // Verify ECC level was set
+                    byte actualEccLevel = eccLevelsArray.get(ValueLayout.JAVA_BYTE, 0);
+                    System.err.println("[ENCODER] ECC level set: requested=" + config.getEccLevel() + 
+                        ", actual=" + actualEccLevel);
+                } else {
+                    System.err.println("[ENCODER] WARNING: ECC levels array is NULL!");
+                }
+                
+                // Prepare data
+                byte[] bytes = data.getBytes(StandardCharsets.UTF_8);
+                MemorySegment jabData = createJabData(arena, bytes);
+                
+                // Generate JABCode
+                int result = jabcode_h.generateJABCode(enc, jabData);
+                if (result != 0) {  // 0 = success, non-zero = error code
+                    return false;
+                }
+                
+                // Get bitmap from encoder (at offset 60 in jab_encode struct)
+                MemorySegment bitmapPtr = getBitmapFromEncoder(enc);
+                if (bitmapPtr == null || bitmapPtr.address() == 0) {
+                    return false;
+                }
+                
+                // Save to file
+                MemorySegment filenameSegment = arena.allocateFrom(outputPath);
+                byte saveResult = jabcode_h.saveImage(bitmapPtr, filenameSegment);
+                
+                return saveResult == 1; // JAB_SUCCESS = 1
+                
+            } finally {
+                jabcode_h.destroyEncode(enc);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Encoding to PNG failed", e);
+        }
+    }
+    
+    /**
+     * Create jab_data structure in native memory.
+     * The C struct is: { int32 length; char data[]; }
+     */
+    private MemorySegment createJabData(Arena arena, byte[] data) {
+        // Allocate: 4 bytes for length + data bytes
+        long size = 4 + data.length;
+        MemorySegment jabData = arena.allocate(size, 4); // 4-byte alignment
+        
+        // Set length field (first 4 bytes)
+        jabData.set(ValueLayout.JAVA_INT, 0, data.length);
+        
+        // Copy data (flexible array member starts at offset 4)
+        MemorySegment.copy(data, 0, jabData, ValueLayout.JAVA_BYTE, 4, data.length);
+        
+        return jabData;
+    }
+    
+    /**
+     * Get bitmap pointer from jab_encode struct.
+     * The bitmap field is at offset 64 (on 64-bit systems with 8-byte alignment).
+     */
+    private MemorySegment getBitmapFromEncoder(MemorySegment enc) {
+        // jab_encode layout (64-bit pointers with proper alignment):
+        // int32 color_number (0)
+        // int32 symbol_number (4)
+        // int32 module_size (8)
+        // int32 master_symbol_width (12)
+        // int32 master_symbol_height (16)
+        // [4 bytes padding for pointer alignment]
+        // byte* palette (24, 8 bytes)
+        // vector2d* symbol_versions (32, 8 bytes)
+        // byte* symbol_ecc_levels (40, 8 bytes)
+        // int32* symbol_positions (48, 8 bytes)
+        // symbol* symbols (56, 8 bytes)
+        // bitmap* bitmap (64, 8 bytes) <-- THIS
+        
+        long bitmapFieldOffset = 64;
+        long bitmapAddress = enc.get(ValueLayout.ADDRESS, bitmapFieldOffset).address();
+        
+        if (bitmapAddress == 0) {
+            return null;
+        }
+        
+        return MemorySegment.ofAddress(bitmapAddress);
+    }
+    
+    /**
+     * Set symbol versions in the native encoder structure.
+     * 
+     * Symbol versions are stored as an array of vector2d structs.
+     * Each vector2d is: { int32 x; int32 y; }
+     * 
+     * @param enc Native encoder memory segment
+     * @param versions List of symbol versions to configure
+     */
+    private void setSymbolVersions(MemorySegment enc, List<SymbolVersion> versions) {
+        // symbol_versions is at offset 32 (vector2d* pointer)
+        long versionsOffset = 32;
+        long versionsAddress = enc.get(ValueLayout.ADDRESS, versionsOffset).address();
+        
+        if (versionsAddress == 0) {
+            System.err.println("[ENCODER] WARNING: symbol_versions pointer is NULL!");
+            return;
+        }
+        
+        // Each vector2d is 8 bytes (2 int32s)
+        long structSize = 8;
+        MemorySegment versionsArray = MemorySegment.ofAddress(versionsAddress)
+            .reinterpret(structSize * versions.size());
+        
+        // Write each version
+        for (int i = 0; i < versions.size(); i++) {
+            SymbolVersion version = versions.get(i);
+            long offset = i * structSize;
+            
+            // Write x (width version)
+            versionsArray.set(ValueLayout.JAVA_INT, offset, version.getX());
+            // Write y (height version)
+            versionsArray.set(ValueLayout.JAVA_INT, offset + 4, version.getY());
+            
+            System.err.println("[ENCODER] Set symbol " + i + " version: " + 
+                version.getX() + "×" + version.getY());
+        }
+        
+        // Also initialize symbol_positions array (offset 48)
+        // This is required to avoid "Duplicate symbol position" error
+        long positionsOffset = 48;
+        long positionsAddress = enc.get(ValueLayout.ADDRESS, positionsOffset).address();
+        
+        if (positionsAddress == 0) {
+            System.err.println("[ENCODER] WARNING: symbol_positions pointer is NULL!");
+            return;
+        }
+        
+        // symbol_positions is int32 array
+        MemorySegment positionsArray = MemorySegment.ofAddress(positionsAddress)
+            .reinterpret(4 * versions.size());
+        
+        // Set sequential positions: 0, 1, 2, ...
+        for (int i = 0; i < versions.size(); i++) {
+            positionsArray.set(ValueLayout.JAVA_INT, i * 4, i);
+            System.err.println("[ENCODER] Set symbol " + i + " position: " + i);
+        }
+    }
+}
