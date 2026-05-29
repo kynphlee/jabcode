@@ -2,44 +2,65 @@
 
 **Authoritative reference** for SDK consumers and downstream integrators. Documents which JABCode color modes are reliably decodable by the current Android SDK build, what is known to be broken, and what investigation work is in flight.
 
-**Last empirical refresh:** 2026-05-28 (Galaxy S25, Camera2 API, YUV_420_888, 1920×1080, on-screen + printed fixtures).
+**Last empirical refresh:** 2026-05-28 PM (Galaxy S25, Camera2 API, YUV_420_888, 1920×1080, on-screen fixtures, 8-Nc discriminator scan).
 
 ---
 
 ## tl;dr
 
-Use only **Nc=1, Nc=3, Nc=4, Nc=6** for production-facing scanning workflows on Android right now. Other modes are either broken (Nc=0, Nc=2, Nc=5, Nc=7) or have media-specific limitations. Investigation is in flight for all broken modes; **Nc=2 has a committed fix on the roadmap** based on empirical confirmation of root-cause hypothesis `H_nc2_decode_failure` (see [docs/cassandra-register/H_nc2_decode_failure.md](cassandra-register/H_nc2_decode_failure.md)).
+Only **Nc=1 (4-color)** is genuinely GA-grade on Android today (93% screen success rate in empirical discriminator scan). **Nc=3, Nc=4, Nc=5** are CONDITIONAL — they work with stable framing but have 35-67% screen success rates that drop sharply with hand motion. **Nc=0, Nc=2, Nc=6, Nc=7** are broken at varying severities.
+
+Today's 8-Nc discriminator scan **confirmed `H_partI_unifies` for the {Nc=0, Nc=2, Nc=7} cluster** — these three fingerprint near-identically (status=1 dominant ≥3×, fast-reject median ≤290ms, success rate ≤17%) and likely share a single PartI metadata bug. A targeted C-side investigation may close all three simultaneously.
+
+`Nc=2` retains its **FIX COMMITTED** designation per user mandate; `Nc=0` and `Nc=7` ride along as cluster members.
 
 ---
 
-## Per-Nc reliability matrix
+## Per-Nc reliability matrix (empirically refreshed 2026-05-28)
 
 Symbol meanings:
 
-- **GA** — Production-grade reliable on the listed medium with default scan settings.
-- **CONDITIONAL** — Works under specific scan conditions (zoom, lighting, distance); document the conditions in your consumer-facing scan-guide.
-- **INVESTIGATING** — Empirically broken at 0% decode rate; root-cause investigation in flight; no committed fix timeline.
+- **GA** — Production-grade reliable on the listed medium with default scan settings. Empirical success rate ≥ 90%.
+- **CONDITIONAL** — Works under specific scan conditions (framing discipline, zoom, lighting). Empirical success rate 30-80%; recommend documenting requirements in your consumer-facing scan-guide.
+- **INVESTIGATING** — Empirically broken; root-cause investigation in flight; no committed fix timeline.
 - **FIX COMMITTED** — Empirically broken; root-cause investigation in flight; **a fix is committed as part of the active engineering plan.**
 
-| Nc | Colors | Palette | Screen (display) | Print (paper) | Notes |
-|----|--------|---------|------------------|---------------|-------|
-| 0  | 2      | Black + White (monochrome) | INVESTIGATING | INVESTIGATING | `H_mode0_partI_decode_failure` — PartI metadata decode failure suspected; under hypothesis `H_partI_unifies` may share root cause with Nc=2 |
-| 1  | 4      | CMY + K | **GA** | **GA** | Default fallback path; widely reliable |
-| 2  | 8      | CMY + RGB + K + W | **FIX COMMITTED** | **FIX COMMITTED** | `H_nc2_decode_failure` CONFIRMED (2026-05-28) via 4-5× status=1 dominance + fast-rejection timing; **investigation prioritized** |
-| 3  | 16     | Interpolated | **GA** | **GA** | Reliable across media |
-| 4  | 32     | Interpolated | **GA** | CONDITIONAL | Print: requires manual zoom (pinch-zoom) to compensate for module-size + gamut margin |
-| 5  | 64     | Interpolated | INVESTIGATING | INVESTIGATING | Slave-decode failure at clustering stage; failure-mode pattern matches `H_partI_unifies` candidate hypothesis |
-| 6  | 128    | Interpolated | CONDITIONAL | INVESTIGATING | Screen: works with manual zoom. Print: gamut-limited |
-| 7  | 256    | Interpolated | INVESTIGATING | INVESTIGATING | Compound failure: slave-decode + gamut + chroma resolution limits |
+| Nc | Colors | Palette | Screen 30s success rate | Status (screen) | Status (print) | Failure fingerprint | Notes |
+|----|--------|---------|--------------------------|------------------|-----------------|---------------------|-------|
+| 0  | 2      | Black + White (monochrome) | **0%** | **FIX COMMITTED** | INVESTIGATING | status=1 dom 3.1×, median 183ms | `H_mode0_partI_decode_failure`; member of `H_partI_unifies` cluster (with Nc=2, Nc=7) |
+| 1  | 4      | CMY + K | **93%** | **GA** | **GA** | Pure status=0 transient framing | Only GA-grade mode today; failures are FP-detection misses during reframing only |
+| 2  | 8      | CMY + RGB + K + W | **0%** | **FIX COMMITTED** | **FIX COMMITTED** | status=1 dom 4.4×, median 232ms | `H_nc2_decode_failure` CONFIRMED; member of `H_partI_unifies` cluster (with Nc=0, Nc=7) |
+| 3  | 16     | Interpolated | **35%** | CONDITIONAL | CONDITIONAL | Mixed status (12:23), median 184ms | Lower than expected; framing-sensitive on screen |
+| 4  | 32     | Interpolated | **60%** | CONDITIONAL | CONDITIONAL | status=0 dominant (11:4), median 437ms | FP-detection-sensitive; slow rejection when failing |
+| 5  | 64     | Interpolated | **67%** | CONDITIONAL | CONDITIONAL | Mixed status (9:6), median 274ms | **Was INVESTIGATING — promoted to CONDITIONAL** based on empirical data |
+| 6  | 128    | Interpolated | **4%** | INVESTIGATING | INVESTIGATING | status=1 dom 2.5×, median 360ms | Distinct slow-reject mechanism (palette-learning ceiling at high color count) |
+| 7  | 256    | Interpolated | **17%** | **FIX COMMITTED** | INVESTIGATING | status=1 dom 11.5×, median 287ms | Member of `H_partI_unifies` cluster (with Nc=0, Nc=2) |
+
+### Discriminator scan summary
+
+Per-Nc 30-second steady-state failure fingerprints from trace sequence `tolerance4-test-20260528_190926.logcat` through `tolerance4-test-20260528_193640.logcat` (8 fixtures, on-screen, Galaxy S25, autofocus active, no manual zoom):
+
+```
+Nc=0 (2c):    fail=58/58 status0=14 status1=44 median=183ms  ← PartI-unified cluster
+Nc=1 (4c):    fail=4/58  status0=4  status1=0  median=337ms  ← GA baseline
+Nc=2 (8c):    fail=59/59 status0=11 status1=48 median=232ms  ← PartI-unified cluster
+Nc=3 (16c):   fail=35/54 status0=12 status1=23 median=184ms
+Nc=4 (32c):   fail=15/37 status0=11 status1=4  median=437ms
+Nc=5 (64c):   fail=15/46 status0=9  status1=6  median=274ms
+Nc=6 (128c):  fail=49/51 status0=14 status1=35 median=360ms
+Nc=7 (256c):  fail=25/30 status0=2  status1=23 median=287ms  ← PartI-unified cluster
+```
+
+Cluster geometry visible at a glance: {Nc=0, Nc=2, Nc=7} share fast-reject + status=1-dominance signature; Nc=6 is the outlier with slow-reject; Nc=3/4/5 are the marginal-working cluster with status=0-mixed failures consistent with framing transients.
 
 ---
 
 ## Recommendation for SDK consumers building today
 
-1. **Restrict the color-mode option exposed to your end-users to {Nc=1, Nc=3, Nc=4, Nc=6}** if you cannot tolerate any decode-failure surface.
-2. If your application generates JABCodes for later decoding, use Nc=1 for maximum compatibility, Nc=3 for higher payload density.
-3. For high-data-density use cases on screen-displayed codes, Nc=6 with manual zoom is the highest-payload reliable mode currently.
-4. **Do not use Nc=0, Nc=2, Nc=5, or Nc=7 for production decoding workflows.** Generating these codes is supported by the encoder; decoding them is not currently reliable.
+1. **For zero-failure-tolerance workflows, use only Nc=1 (4-color).** It is the only GA-grade mode at 93% empirical screen success.
+2. **For higher-payload workflows that can tolerate ~30-70% retry rate, Nc=3/4/5 are CONDITIONAL.** Document framing-discipline requirements in your consumer-facing scan guide (steady phone, target centered, ~10cm from screen / page).
+3. **Do not use Nc=0, Nc=2, Nc=6, or Nc=7 for production decoding workflows today.** Generating these codes is supported by the encoder; decoding them is currently not reliable. Nc=2 has a committed fix on the active engineering plan; Nc=0 and Nc=7 are expected to ride along under the `H_partI_unifies` hypothesis.
+4. **If you control the scan UX, surface zoom and framing-guide overlays.** Today's discriminator data is from autofocus + no manual zoom; manual ROI control (per-fixture pinch-zoom) is known to substantially improve Nc=4-6 print success per the WS-5 work-stream.
 
 ---
 

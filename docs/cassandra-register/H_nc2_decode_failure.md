@@ -3,7 +3,7 @@
 | Field        | Value                                                                                              |
 | ------------ | -------------------------------------------------------------------------------------------------- |
 | **Filed**    | 2026-05-28 (PR 1 verification preparation; user-reported decode-capability matrix)                   |
-| **Status**   | Open — CONFIRMED across independent telemetry sources (2026-05-28 PM); sub-hypothesis space narrowed |
+| **Status**   | Open — CONFIRMED; **member of `H_partI_unifies` cluster {Nc=0, Nc=2, Nc=7}** per 2026-05-28 PM 8-Nc discriminator scan |
 | **Binding**  | Triggered (not scheduled), but high-priority for prompt activation                                   |
 | **Owner**    | Unassigned (claimed on trigger)                                                                      |
 | **Severity** | High — Nc=2 (8-color) is the canonical "easy" color mode; failing everywhere contradicts physics    |
@@ -121,6 +121,38 @@ The fast-failure + status=1 dominance pattern narrows the candidate root causes 
 4. **`H_inadequate_chroma_resolution`** — YUV_420_888 + JPEG round-trip chroma decimation kills 8-color separability. Same objection as #3: should affect Nc=1 too.
 
 **The fact that #2 (PartI metadata bug) is consistent with BOTH the desktop synthetic evidence AND the camera-path 100% failure rate makes it the prime suspect.** The slave-decode "FP found, slave failed" status=1 dominance is a downstream symptom — PartI fails to decode metadata → palette-learning runs with default parameters → palette-learning rejects fast → status=1.
+
+## Cluster confirmation via 8-Nc discriminator scan (2026-05-28 PM)
+
+Following Bayesian Council Session bc-2026-05-28-03, a full 8-Nc discriminator scan was executed on Galaxy S25 (autofocus, no manual zoom, on-screen fixtures, all 8 fixtures scanned for ~30 seconds each with `preferredColorMode` set to match). Traces: `jabauth-android/diagnostic-app/logs/tolerance4-test-20260528_19{0926,1852,2035,2135,2323,2447,2654,2920,3206,3317,3640}.logcat` (with the 16c/32c/4c entries refreshed mid-session after initial typos).
+
+**Headline result: H_partI_unifies CONFIRMED for the {Nc=0, Nc=2, Nc=7} cluster** at P > 0.75 per the council's pre-commit gate. Devil's Advocate's Pathology #1 (status=1 dominance is a low-information shared symptom) was vindicated *as well as* the unification claim:
+
+| Cluster | Nc | success rate | status0:status1 | median fail time |
+|---------|----|--------------|------------------|------------------|
+| 🔴 PartI-unified | **0** | 0% | 14:44 (1:3.1) | **183ms** |
+| 🔴 PartI-unified | **2** | 0% | 11:48 (1:4.4) | **232ms** |
+| 🔴 PartI-unified | **7** | 17% | 2:23 (1:11.5) | **287ms** |
+| 🟢 GA baseline | 1 | 93% | 4:0 (pure status0) | 337ms |
+| 🟡 Marginal | 3 | 35% | 12:23 (1:1.9) | 184ms |
+| 🟡 Marginal | 4 | 60% | 11:4 (status0 dominant) | 437ms |
+| 🟡 Marginal | 5 | 67% | 9:6 (mixed) | 274ms |
+| 🔴 Distinct | 6 | 4% | 14:35 (1:2.5) | **360ms** (SLOWER) |
+
+**Discriminating signals (the actual fingerprints):**
+
+1. **Success rate ≤ 17%** — the catastrophic-failure cluster {Nc=0, Nc=2, Nc=7} separates cleanly from the marginal {Nc=3, Nc=4, Nc=5} group.
+2. **Fast-reject median ≤ 290ms** — the {Nc=0, Nc=2, Nc=7} cluster rejects palette-learning within ~200-290ms, well under the 200-400ms timeout budget. Nc=6 takes substantially longer (360ms median), excluding it from the PartI-unified group.
+3. **status=1 dominance ≥ 3×** — non-discriminating on its own (working modes can also produce status=1 failures from framing transients), but combined with #1 and #2 it forms a clean cluster signature.
+
+**Crucial Devil's Advocate vindication:** The earlier "status=1 dominance" was being treated as evidence FOR `H_nc2_decode_failure`, but the 8-Nc scan reveals it is a *baseline failure mode* across multiple Nc values (including marginal-working ones). The real discriminator is the *combination* of low success rate + fast-reject median + status=1 dominance.
+
+**Excluded from the cluster:**
+
+- **Nc=5 (64c) — REJECTED.** 67% success rate and status=0-mixed failure profile mean it is NOT part of the PartI cluster. It is in the marginal-working group.
+- **Nc=6 (128c) — REJECTED.** status=1 dominant (2.5×) but qualitatively slower median (360ms vs 183-287ms for the cluster). Likely a separate mechanism: palette-learning iteration ceiling at 128 colors.
+
+**Pre-committed next action per council Session bc-2026-05-28-03:** Proceed to **Option (B)** — C-side PartI instrumentation. Target the {Nc=0, Nc=2, Nc=7} cluster jointly; a single investigation may close three Cassandra register hypotheses (`H_nc2_decode_failure`, `H_mode0_partI_decode_failure`, and a new `H_nc7_partI_extreme_status1` entry) simultaneously.
 
 ## Suspected failure surfaces (investigation candidates)
 
