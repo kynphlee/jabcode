@@ -44,6 +44,11 @@ class FrameProcessingBenchmark {
         iterations = 3,
         startupMode = StartupMode.WARM,
         setupBlock = {
+            // Pre-grant CAMERA permission — see CameraStartupBenchmark
+            // for why this is required for activity-launch detection.
+            device.executeShellCommand(
+                "pm grant $TARGET_PACKAGE android.permission.CAMERA"
+            )
             pressHome()
             startActivityAndWait()
             // Drive into Scanner so frame processing is active.

@@ -10,8 +10,15 @@ android {
     
     defaultConfig {
         minSdk = rootProject.property("MIN_SDK").toString().toInt()
-        
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Jetpack Microbenchmark requires its own runner — it manages
+        // activity setup, GC suppression, and CPU-stability checks that
+        // the default AndroidJUnitRunner does not. AndroidBenchmarkRunner
+        // is a drop-in superset: non-benchmark androidTest classes
+        // (CameraEnumeratorInstrumentedTest, JABCodeDecoderWithMetaInstrumentedTest,
+        // etc.) still execute normally, they just go through a tiny
+        // amount of additional setup overhead.
+        testInstrumentationRunner = "androidx.benchmark.junit4.AndroidBenchmarkRunner"
         consumerProguardFiles("consumer-rules.pro")
         
         // NDK configuration
@@ -37,6 +44,20 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+        }
+        // Microbenchmark refuses to run on debuggable builds (debug
+        // instrumentation skews measurements unreliably). Provide a
+        // dedicated non-debuggable variant so `connectedCheck` can
+        // pick it up without the user needing to pass
+        // `androidx.benchmark.suppressErrors=DEBUGGABLE`.
+        //
+        // Note: Android Library modules don't expose `isDebuggable`
+        // (it's an Application-only property). Inheriting from
+        // `release` is sufficient — release-flavored library
+        // variants are non-debuggable by default.
+        create("benchmark") {
+            initWith(buildTypes.getByName("release"))
+            matchingFallbacks += listOf("release")
         }
     }
     
