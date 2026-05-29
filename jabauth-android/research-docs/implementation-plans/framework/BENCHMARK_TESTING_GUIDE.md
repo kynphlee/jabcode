@@ -826,23 +826,45 @@ The trace sections `Camera2JABCodeAnalyzer.analyze` and `JABCodeDecoder.decode` 
 
 Previously the `PerformanceTracker` class existed but was used only in integration tests. It is now invoked from `ScannerViewModel`'s decode success and failure callbacks, providing cumulative session-lifetime aggregates that complement the rolling 30-second `DECODE_TIME_STATS` and `DECODE_FAIL_STATS` lines.
 
-### CI/CD wiring
+### CI/CD wiring — **compile validation only; benchmarks run locally**
 
 **Location:** `.github/workflows/benchmark.yml`
 
-Three jobs:
-- **microbenchmark** — runs on every PR (fast)
-- **benchmark-suite** — runs on every PR (per-Nc decoder)
-- **macrobenchmark** — runs on main + nightly + manual dispatch (slow)
+CI does **not** execute the benchmarks — it only validates that benchmark sources still compile and that the benchmark-macro module + diagnostic-app benchmark variant still assemble. This is by design:
 
-Uses `reactivecircus/android-emulator-runner@v2` for KVM-accelerated emulator runs.
+- **Macrobenchmark explicitly warns against emulator runs** (the framework emits `androidx.benchmark.suppressErrors=EMULATOR` warnings even when the host enables KVM). Results are noisy and not comparable to device measurements.
+- **Microbenchmark needs CPU clock locking** which only works on real devices with USB-debugging + benchmark mode unlocked.
+- **GitHub Actions emulators are flaky for ADB-dependent workloads** — empirically, `connectedCheck` and `connectedBenchmarkAndroidTest` fail with "no devices found via adb" even with `reactivecircus/android-emulator-runner` configured for KVM acceleration.
 
-### Execution time estimate
+The single CI job (`compile-benchmark-sources`) catches code regressions that would break the benchmark builds without paying the cost of running an unreliable execution environment.
 
-| Profile | Microbench | BenchmarkSuite | Macrobench | Total |
-|---|---|---|---|---|
-| CI emulator | ~3 min | ~3 min | ~15 min | **~20-25 min** |
-| Pixel 6 + benchmark mode (USB-connected) | ~1 min | ~1 min | ~5 min | **~7 min** |
+### Local execution (the canonical run path)
+
+Connect a real Android device (Galaxy S25 in your case), enable USB debugging, and run:
+
+```bash
+# Layer 1: BenchmarkSuite per-Nc decoder benchmarks (~3 min)
+./gradlew :framework:diagnostic-engine:connectedAndroidTest \
+  -Pandroid.testInstrumentationRunnerArguments.class=\
+  com.jabauth.diagnostic.benchmark.JABCodeDecodeBenchmark
+
+# Layer 2: Jetpack Microbenchmark (~1 min)
+./gradlew :framework:jabcode-sdk:connectedCheck
+
+# Layer 3: Jetpack Macrobenchmark (~5 min)
+./gradlew :benchmark-macro:connectedBenchmarkAndroidTest
+```
+
+**Results stay local** on the dev machine — captured to logcat (Layer 1) and `build/outputs/connected_android_test_additional_output/` (Layers 2 & 3, as JSON). For long-term tracking, commit baseline JSON files to the repository at meaningful checkpoints (e.g., before/after Option B C-side instrumentation lands).
+
+### Execution time estimate (local, Pixel 6 / Galaxy S25 USB-connected)
+
+| Layer | Time |
+|---|---|
+| Microbenchmark | ~1 min |
+| BenchmarkSuite per-Nc | ~3 min |
+| Macrobenchmark | ~5 min |
+| **Total** | **~9 min** |
 
 ### Open follow-up work
 
