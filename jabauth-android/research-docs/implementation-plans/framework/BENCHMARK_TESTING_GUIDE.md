@@ -760,3 +760,93 @@ if __name__ == '__main__':
 ---
 
 **Ready to integrate this into the framework plan, sir?**
+
+---
+
+## Implementation Status (2026-05-28)
+
+The benchmark infrastructure described above has been **implemented end-to-end**. Three layers landed in a single feature push on `claude/ws-diagnostic-ui-tier1`; all build clean against the existing module graph.
+
+### Layer 1 — Custom `BenchmarkSuite` per-Nc decoder benchmarks
+
+**Location:** `framework/diagnostic-engine/src/androidTest/java/com/jabauth/diagnostic/benchmark/JABCodeDecodeBenchmark.kt`
+
+8 benchmark methods — one per Nc value (Nc=0..7). Uses the bundled per-Nc PNG fixtures (`androidTest/assets/nc0-2c.png` through `nc7-256c.png`) and the existing `BenchmarkSuite` scaffolding (now activated for the first time).
+
+**Run:**
+```bash
+./gradlew :framework:diagnostic-engine:connectedAndroidTest \
+  -Pandroid.testInstrumentationRunnerArguments.class=\
+  com.jabauth.diagnostic.benchmark.JABCodeDecodeBenchmark
+```
+
+Results emit as `BENCHMARK_RESULT` lines to logcat. Greppable.
+
+### Layer 2 — Jetpack Microbenchmark (component-level)
+
+**Library:** `androidx.benchmark:benchmark-junit4:1.2.4` (wired in `framework/jabcode-sdk/build.gradle.kts`)
+
+**Location:** `framework/jabcode-sdk/src/androidTest/java/com/jabauth/jabcode/benchmark/`
+
+| Benchmark | Target | Implementation |
+|---|---|---|
+| `CameraEnumerationBenchmark.getAllCameras` | <10ms | Implemented |
+| `CameraEnumerationBenchmark.findCameraByFacing_back` | <5ms | Implemented |
+| `CameraEnumerationBenchmark.findCameraByFacing_front` | <5ms | Implemented |
+| `StreamValidationBenchmark.validate_previewPlusAnalysisConfig` | <2ms | Implemented |
+| `ImageQualityAnalysisBenchmark.analyze` | <5ms | Implemented |
+
+**Run:**
+```bash
+./gradlew :framework:jabcode-sdk:connectedCheck
+```
+
+Results emit as JSON to `build/outputs/connected_android_test_additional_output/`.
+
+### Layer 3 — Jetpack Macrobenchmark (end-to-end)
+
+**Library:** `androidx.benchmark:benchmark-macro-junit4:1.2.4`
+**Module:** `:benchmark-macro` (new; see `benchmark-macro/build.gradle.kts`)
+**Target:** `:diagnostic-app` with `profileable` `benchmark` build variant
+
+| Benchmark | Target | Metrics |
+|---|---|---|
+| `CameraStartupBenchmark.startupCold/Warm/Hot` | <50ms/<30ms | `StartupTimingMetric` |
+| `FrameProcessingBenchmark.frameProcessingDuringScan` | 60 FPS / 16ms | `FrameTimingMetric` |
+| `JABCodeDecodeBenchmark.decodeEndToEnd` | <200ms | `FrameTimingMetric`, `TraceSectionMetric`, `MemoryUsageMetric` |
+
+The trace sections `Camera2JABCodeAnalyzer.analyze` and `JABCodeDecoder.decode` are emitted by `android.os.Trace.beginSection/endSection` calls wired into the analyzer.
+
+**Run:**
+```bash
+./gradlew :benchmark-macro:connectedBenchmarkAndroidTest
+```
+
+### PerformanceTracker (runtime instrumentation, production-wired)
+
+Previously the `PerformanceTracker` class existed but was used only in integration tests. It is now invoked from `ScannerViewModel`'s decode success and failure callbacks, providing cumulative session-lifetime aggregates that complement the rolling 30-second `DECODE_TIME_STATS` and `DECODE_FAIL_STATS` lines.
+
+### CI/CD wiring
+
+**Location:** `.github/workflows/benchmark.yml`
+
+Three jobs:
+- **microbenchmark** — runs on every PR (fast)
+- **benchmark-suite** — runs on every PR (per-Nc decoder)
+- **macrobenchmark** — runs on main + nightly + manual dispatch (slow)
+
+Uses `reactivecircus/android-emulator-runner@v2` for KVM-accelerated emulator runs.
+
+### Execution time estimate
+
+| Profile | Microbench | BenchmarkSuite | Macrobench | Total |
+|---|---|---|---|---|
+| CI emulator | ~3 min | ~3 min | ~15 min | **~20-25 min** |
+| Pixel 6 + benchmark mode (USB-connected) | ~1 min | ~1 min | ~5 min | **~7 min** |
+
+### Open follow-up work
+
+- Wire **runtime perf disclosure HUD** in diagnostic-app to surface PerformanceTracker rolling-aggregate stats live during scanning
+- Recover **panama-wrapper JMH source files** from git history (last committed sources are missing from working tree)
+- Add **regression-detection script** that compares current run to baseline JSON and fails CI if any metric regresses by >20%
+- Promote `MacrobenchmarkRule` results into a **per-PR comment** via GitHub Actions

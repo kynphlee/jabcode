@@ -23,6 +23,9 @@ include(":framework:ui-components")
 // Application modules
 include(":diagnostic-app")
 
+// Benchmark modules (on-device performance measurement)
+include(":benchmark-macro")
+
 // Dependency resolution management
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)

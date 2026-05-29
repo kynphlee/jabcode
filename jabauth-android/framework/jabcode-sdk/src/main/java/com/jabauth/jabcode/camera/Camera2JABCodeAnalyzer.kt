@@ -68,6 +68,9 @@ class Camera2JABCodeAnalyzer(
      */
     fun analyze(imageReader: ImageReader) {
         var image: Image? = null
+        // Trace section for Jetpack Macrobenchmark TraceSectionMetric.
+        // Captures the full analyze() span for end-to-end frame timing.
+        android.os.Trace.beginSection("Camera2JABCodeAnalyzer.analyze")
         try {
             frameCount++
             
@@ -125,7 +128,12 @@ class Camera2JABCodeAnalyzer(
                 Log.d(TAG, "Frame $frameCount: Starting decode attempt #$decodeAttempts (timeout=${options.timeout}ms)")
                 
                 val decodeStart = System.currentTimeMillis()
-                val result = decoder.decode(bitmap, options)
+                android.os.Trace.beginSection("JABCodeDecoder.decode")
+                val result = try {
+                    decoder.decode(bitmap, options)
+                } finally {
+                    android.os.Trace.endSection() // JABCodeDecoder.decode
+                }
                 val decodeTime = System.currentTimeMillis() - decodeStart
                 
                 if (result != null) {
@@ -159,6 +167,7 @@ class Camera2JABCodeAnalyzer(
             // CRITICAL: Close image to prevent buffer exhaustion
             image?.close()
             Log.v(TAG, "Frame $frameCount: Image closed")
+            android.os.Trace.endSection() // Camera2JABCodeAnalyzer.analyze
         }
     }
 }

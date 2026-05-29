@@ -10,6 +10,7 @@ import com.jabauth.diagnostic.util.DiagnosticLogger
 import com.jabauth.jabcode.DecodeOptions
 import com.jabauth.jabcode.DecodeResult
 import com.jabauth.jabcode.JABCodeDecoderImpl
+import com.jabauth.jabcode.PerformanceTracker
 import com.jabauth.jabcode.camera.Camera2JABCodeAnalyzer
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,6 +22,14 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
     private val decoder = JABCodeDecoderImpl()
     private val settingsRepository = SettingsRepository(application)
     private val logger = DiagnosticLogger.create("ScannerViewModel", settingsRepository)
+
+    // Production-side PerformanceTracker — records each decode attempt's
+    // duration and success across the session lifetime. Complements the
+    // rolling-window DECODE_TIME_STATS / DECODE_FAIL_STATS by providing
+    // a cumulative aggregate that Macrobenchmark's TraceSectionMetric
+    // can correlate against. Previously the tracker existed only in
+    // integration tests; this is its first production wire-up.
+    private val performanceTracker = PerformanceTracker()
     
     private val _scanResult = MutableStateFlow<DecodeResult?>(null)
     val scanResult: StateFlow<DecodeResult?> = _scanResult.asStateFlow()
@@ -398,6 +407,10 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
                 _scanResult.value = result
                 _scanError.value = null
                 _scanCount.value++
+                // Record into the production PerformanceTracker. Provides
+                // cumulative session-lifetime aggregates (avg, min, max,
+                // success rate) — complements the 30s rolling DECODE_*_STATS.
+                performanceTracker.recordDecode(result.decodeTimeMs, success = true)
                 // Tier-1 HUD: record success + prepend to history (last 5).
                 // Map color count (2/4/8/...) to Nc index (0..7) for the
                 // per-Nc stats breakdown. Unknown values default to -1.
@@ -414,6 +427,10 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
                 Log.e("ScannerViewModel", "❌ Decode FAILURE: $error (decodeTime=${decodeTimeMs}ms)")
                 logger.dSync("Decode FAILURE: $error (decodeTime=${decodeTimeMs}ms)", isDebugEnabled)
                 _scanError.value = error
+                // Record failure into the production PerformanceTracker. Note
+                // that exception-path failures pass decodeTimeMs=0 from the
+                // analyzer; the tracker handles them as zero-duration events.
+                performanceTracker.recordDecode(decodeTimeMs, success = false)
                 // Classify the decoder's failure mode so the rolling stats
                 // can attribute attempts to FP-detection vs slave-decode
                 // failure. This is the screen-side mirror of the C-side
