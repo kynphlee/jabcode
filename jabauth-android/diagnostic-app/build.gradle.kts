@@ -36,6 +36,21 @@ android {
             enableAndroidTestCoverage = true
             enableUnitTestCoverage = true
         }
+        // Build variant consumed by the `:benchmark-macro` module. Acts as
+        // a release-like build (no debug coverage instrumentation) but
+        // signed with the debug key so it can be installed by macro tests
+        // without keystore configuration.
+        create("benchmark") {
+            initWith(buildTypes.getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release")
+            isDebuggable = false
+            // Macrobenchmark explicitly requires the target app to be
+            // profileable. Granting profileable here lets macrobenchmark
+            // capture trace sections and frame timing without needing a
+            // signed release build.
+            isProfileable = true
+        }
     }
     
     buildFeatures {

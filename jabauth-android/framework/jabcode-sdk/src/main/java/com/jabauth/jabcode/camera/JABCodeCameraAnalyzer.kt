@@ -43,7 +43,7 @@ class JABCodeCameraAnalyzer(
     private val decoder: JABCodeDecoder,
     private val options: DecodeOptions = DecodeOptions(),
     private val onDecodeSuccess: (DecodeResult) -> Unit,
-    private val onDecodeFailure: (String) -> Unit,
+    private val onDecodeFailure: (String, Long) -> Unit,
     private val onQualityUpdate: ((ImageQualityAnalyzer.QualityMetrics) -> Unit)? = null
 ) : ImageAnalysis.Analyzer {
     
@@ -81,21 +81,27 @@ class JABCodeCameraAnalyzer(
                 }
                 
                 // Attempt JABCode decode
+                val decodeStart = System.currentTimeMillis()
                 val result = decoder.decode(bitmap, options)
-                
+                val decodeTime = System.currentTimeMillis() - decodeStart
+
                 if (result != null) {
                     // Success - found JABCode
                     onDecodeSuccess(result)
                 } else {
-                    // No JABCode found in frame (normal during scanning)
-                    // Don't call onDecodeFailure - continue scanning
+                    // Null result is a real failure outcome — surface it via
+                    // the failure callback so upstream telemetry can categorize.
+                    // Mirrors the Camera2 analyzer's fix (a873969).
+                    val errorMsg = decoder.getLastError() ?: "No JABCode found"
+                    onDecodeFailure(errorMsg, decodeTime)
                 }
             } finally {
                 bitmap.recycle()
             }
         } catch (e: Exception) {
-            // Decode error - report to callback
-            onDecodeFailure("Decode error: ${e.message}")
+            // Decode error - report to callback. Decode time unavailable;
+            // pass 0L so the stats path excludes it from timing aggregates.
+            onDecodeFailure("Decode error: ${e.message}", 0L)
         } finally {
             image.close()
         }

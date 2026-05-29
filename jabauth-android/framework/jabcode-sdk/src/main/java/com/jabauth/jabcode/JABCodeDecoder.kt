@@ -62,6 +62,20 @@ interface JABCodeDecoder {
      * @return true if JABCode likely present, false otherwise
      */
     fun containsJABCode(image: Bitmap): Boolean
+
+    /**
+     * Get the last decode error message, if any.
+     *
+     * Returns the error string from the most recent failed decode attempt
+     * (e.g. "No JABCode found in image" for status=0, "JABCode found but
+     * not decodable" for status=1). Cleared on successful decode.
+     *
+     * Used by callers that need to attribute failures by category — the
+     * analyzer layer uses this to surface failure mode through its
+     * onDecodeFailure callback. Default impl returns null so test stubs
+     * don't need to wire this; production impls should override.
+     */
+    fun getLastError(): String? = null
 }
 
 /**

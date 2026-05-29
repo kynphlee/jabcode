@@ -69,7 +69,7 @@ class Camera2JABCodeAnalyzerInstrumentedTest {
             decoder = testDecoder,
             options = DecodeOptions(analyzeIntervalMs = 100L),
             onDecodeSuccess = { },
-            onDecodeFailure = { }
+            onDecodeFailure = { _, _ -> }
         )
         
         // Should initialize without crashing
@@ -82,7 +82,7 @@ class Camera2JABCodeAnalyzerInstrumentedTest {
             decoder = testDecoder,
             options = DecodeOptions(analyzeIntervalMs = 100L),
             onDecodeSuccess = { },
-            onDecodeFailure = { }
+            onDecodeFailure = { _, _ -> }
         )
         
         // ImageReader with no available images - should not crash

@@ -44,7 +44,7 @@ class Camera2JABCodeAnalyzer(
     private val decoder: JABCodeDecoder,
     private val options: DecodeOptions = DecodeOptions(),
     private val onDecodeSuccess: (DecodeResult) -> Unit,
-    private val onDecodeFailure: (String) -> Unit,
+    private val onDecodeFailure: (String, Long) -> Unit,
     private val onQualityUpdate: ((ImageQualityAnalyzer.QualityMetrics) -> Unit)? = null
 ) {
     
@@ -68,6 +68,9 @@ class Camera2JABCodeAnalyzer(
      */
     fun analyze(imageReader: ImageReader) {
         var image: Image? = null
+        // Trace section for Jetpack Macrobenchmark TraceSectionMetric.
+        // Captures the full analyze() span for end-to-end frame timing.
+        android.os.Trace.beginSection("Camera2JABCodeAnalyzer.analyze")
         try {
             frameCount++
             
@@ -125,7 +128,12 @@ class Camera2JABCodeAnalyzer(
                 Log.d(TAG, "Frame $frameCount: Starting decode attempt #$decodeAttempts (timeout=${options.timeout}ms)")
                 
                 val decodeStart = System.currentTimeMillis()
-                val result = decoder.decode(bitmap, options)
+                android.os.Trace.beginSection("JABCodeDecoder.decode")
+                val result = try {
+                    decoder.decode(bitmap, options)
+                } finally {
+                    android.os.Trace.endSection() // JABCodeDecoder.decode
+                }
                 val decodeTime = System.currentTimeMillis() - decodeStart
                 
                 if (result != null) {
@@ -134,21 +142,32 @@ class Camera2JABCodeAnalyzer(
                                "colorMode=${result.colorMode}, decodeTime=${decodeTime}ms")
                     onDecodeSuccess(result)
                 } else {
-                    Log.v(TAG, "Frame $frameCount: No JABCode found (decode took ${decodeTime}ms)")
+                    // Null result is a real failure outcome — surface it via the
+                    // failure callback so the upstream ViewModel can categorize
+                    // by status (status=0 "No JABCode found" vs status=1 "JABCode
+                    // found but not decodable"). Without this, the rolling
+                    // failure stats see only exceptions and the FAIL_ATTR axis
+                    // can't be cross-referenced against ScannerViewModel telemetry.
+                    val errorMsg = decoder.getLastError() ?: "No JABCode found"
+                    Log.v(TAG, "Frame $frameCount: $errorMsg (decode took ${decodeTime}ms)")
+                    onDecodeFailure(errorMsg, decodeTime)
                 }
-                // No else - null result is normal during scanning
                 
             } finally {
                 bitmap.recycle()
             }
         } catch (e: Exception) {
-            // Decode error - report to callback
+            // Decode error - report to callback. Decode time isn't available
+            // here because the exception may fire before the decode-start
+            // timestamp is captured; report 0L so the stats path treats it as
+            // a no-timing-info sample (excluded from min/max/avg/median).
             Log.e(TAG, "Frame $frameCount: ❌ Decode exception: ${e.javaClass.simpleName}: ${e.message}", e)
-            onDecodeFailure("Decode error: ${e.message}")
+            onDecodeFailure("Decode error: ${e.message}", 0L)
         } finally {
             // CRITICAL: Close image to prevent buffer exhaustion
             image?.close()
             Log.v(TAG, "Frame $frameCount: Image closed")
+            android.os.Trace.endSection() // Camera2JABCodeAnalyzer.analyze
         }
     }
 }

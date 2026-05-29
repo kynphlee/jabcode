@@ -87,6 +87,15 @@ dependencies {
     
     androidTestImplementation("androidx.test.ext:junit:${rootProject.property("ANDROIDX_TEST_VERSION")}")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+    androidTestImplementation("androidx.test:runner:1.5.2")
+    androidTestImplementation("androidx.test:rules:1.5.0")
+
+    // Jetpack Microbenchmark (component-level on-device benchmarks).
+    // Used by CameraEnumerationBenchmark, StreamValidationBenchmark, and
+    // ImageQualityAnalysisBenchmark per BENCHMARK_TESTING_GUIDE.md.
+    // The library provides BenchmarkRule + measureRepeated() with proper
+    // warmup, GC suppression, and CPU-stable measurement.
+    androidTestImplementation("androidx.benchmark:benchmark-junit4:1.2.4")
 }
 
 // JaCoCo configuration

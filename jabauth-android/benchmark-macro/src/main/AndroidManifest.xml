@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Macrobenchmark needs READ_LOGS to capture some events.
+         Granted via `adb shell pm grant` at run-time on real devices. -->
+    <uses-permission android:name="android.permission.READ_LOGS" />
+
+</manifest>
