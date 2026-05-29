@@ -25,9 +25,15 @@ import java.nio.file.Path;
 public class EncodingBenchmark extends BenchmarkBase {
     
     /**
-     * Color modes to benchmark (skip Mode 7/256-color due to encoder malloc issue)
+     * Color modes to benchmark.
+     *
+     * Nc=0 (color_number=2 / monochrome) included per commit bb91db7
+     * "WS-6.5 accept color_number=2". Nc=7 (color_number=256) still
+     * excluded due to a documented encoder malloc issue (see
+     * `encoder.c:2633` and
+     * `memory-bank/documentation/full-spectrum/05-encoder-memory-architecture.md`).
      */
-    @Param({"4", "8", "16", "32", "64", "128"})
+    @Param({"2", "4", "8", "16", "32", "64", "128"})
     private int colorMode;
     
     /**

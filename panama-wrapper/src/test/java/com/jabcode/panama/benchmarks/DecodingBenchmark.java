@@ -24,7 +24,15 @@ import java.nio.file.Path;
 @Fork(BenchmarkConfig.FORK_COUNT)
 public class DecodingBenchmark extends BenchmarkBase {
     
-    @Param({"4", "8", "16", "32", "64", "128"})
+    // Full Nc=0..7 coverage including the H_partI_unifies cluster.
+    //
+    // Previously omitted Nc=0 (color_number=2) — accepted as of
+    // commit bb91db7 "WS-6.5 accept color_number=2" — and Nc=7
+    // (color_number=256). Including both closes the coverage gap
+    // and surfaces JVM-side timing data for the H_partI_unifies
+    // cluster {Nc=0, Nc=2, Nc=7} observed in Android empirical
+    // discriminator scans.
+    @Param({"2", "4", "8", "16", "32", "64", "128", "256"})
     private int colorMode;
     
     @Param({"100", "1000", "10000"})
