@@ -20,7 +20,26 @@ import java.util.Collections;
  * }</pre>
  */
 public class JABCodeEncoder {
-    
+
+    /**
+     * Verbose diagnostic logging.
+     *
+     * When true, the encoder emits per-encode trace lines on stderr
+     * (Config, ECC level set, symbol versions, etc.). Useful for
+     * debugging encoder behaviour, but creates substantial output
+     * when the encoder is called in a tight loop (e.g. JMH
+     * benchmarks, batch encode jobs).
+     *
+     * Defaults to false. WARNING-level messages (NULL pointer
+     * conditions, ECC array missing, etc.) are always emitted
+     * regardless of this flag, because they indicate genuine
+     * encoder problems that callers need to know about.
+     *
+     * Volatile so callers in one thread can flip the flag and
+     * have other encoding threads observe the change.
+     */
+    public static volatile boolean VERBOSE = false;
+
     /**
      * Configuration for JABCode encoding
      */
@@ -242,8 +261,10 @@ public class JABCodeEncoder {
         }
         
         try (Arena arena = Arena.ofConfined()) {
-            System.err.println("[ENCODER] Config: colorNumber=" + config.getColorNumber() + 
-                ", eccLevel=" + config.getEccLevel() + ", symbolNumber=" + config.getSymbolNumber());
+            if (VERBOSE) {
+                System.err.println("[ENCODER] Config: colorNumber=" + config.getColorNumber() +
+                    ", eccLevel=" + config.getEccLevel() + ", symbolNumber=" + config.getSymbolNumber());
+            }
             
             // Create encoder
             MemorySegment enc = jabcode_h.createEncode(
@@ -257,7 +278,9 @@ public class JABCodeEncoder {
             
             // Verify color_number was set correctly in struct (offset 0)
             int actualColorNumber = enc.get(ValueLayout.JAVA_INT, 0);
-            System.err.println("[ENCODER] After createEncode: color_number in struct = " + actualColorNumber);
+            if (VERBOSE) {
+                System.err.println("[ENCODER] After createEncode: color_number in struct = " + actualColorNumber);
+            }
             
             try {
                 // Set symbol versions if provided (for multi-symbol cascades)
@@ -280,8 +303,10 @@ public class JABCodeEncoder {
                     
                     // Verify ECC level was set
                     byte actualEccLevel = eccLevelsArray.get(ValueLayout.JAVA_BYTE, 0);
-                    System.err.println("[ENCODER] ECC level set: requested=" + config.getEccLevel() + 
-                        ", actual=" + actualEccLevel);
+                    if (VERBOSE) {
+                        System.err.println("[ENCODER] ECC level set: requested=" + config.getEccLevel() +
+                            ", actual=" + actualEccLevel);
+                    }
                 } else {
                     System.err.println("[ENCODER] WARNING: ECC levels array is NULL!");
                 }
@@ -397,8 +422,10 @@ public class JABCodeEncoder {
             // Write y (height version)
             versionsArray.set(ValueLayout.JAVA_INT, offset + 4, version.getY());
             
-            System.err.println("[ENCODER] Set symbol " + i + " version: " + 
-                version.getX() + "×" + version.getY());
+            if (VERBOSE) {
+                System.err.println("[ENCODER] Set symbol " + i + " version: " +
+                    version.getX() + "×" + version.getY());
+            }
         }
         
         // Also initialize symbol_positions array (offset 48)
@@ -418,7 +445,9 @@ public class JABCodeEncoder {
         // Set sequential positions: 0, 1, 2, ...
         for (int i = 0; i < versions.size(); i++) {
             positionsArray.set(ValueLayout.JAVA_INT, i * 4, i);
-            System.err.println("[ENCODER] Set symbol " + i + " position: " + i);
+            if (VERBOSE) {
+                System.err.println("[ENCODER] Set symbol " + i + " position: " + i);
+            }
         }
     }
 }
