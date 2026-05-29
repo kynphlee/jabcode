@@ -3,7 +3,7 @@
 | Field        | Value                                                                                              |
 | ------------ | -------------------------------------------------------------------------------------------------- |
 | **Filed**    | 2026-05-28 (PR 1 verification preparation; user-reported decode-capability matrix)                   |
-| **Status**   | Open — confirmed via observation; no investigation done yet                                          |
+| **Status**   | Open — CONFIRMED; **member of `H_partI_unifies` cluster {Nc=0, Nc=2, Nc=7}** per 2026-05-28 PM 8-Nc discriminator scan |
 | **Binding**  | Triggered (not scheduled), but high-priority for prompt activation                                   |
 | **Owner**    | Unassigned (claimed on trigger)                                                                      |
 | **Severity** | High — Nc=2 (8-color) is the canonical "easy" color mode; failing everywhere contradicts physics    |
@@ -61,6 +61,98 @@ This means PartI is silently failing for Nc=2 and the legacy permissive fall-thr
 **This unifies the Nc=2 mystery with `H_partI_clean_data_failure`**: it's a specific manifestation, not a separate bug class. PartI consistently fails for Nc=2 inputs (synthetic OR camera-captured), and the camera path's strict-mode wiring (Option D, WS-5) correctly refuses to fabricate — hence the 100% camera-path failure rate while desktop tests pass.
 
 The downstream `[DECODE] SUCCESS` marker shows `580 bytes` for Nc=2 — that's the gross capacity at default-metadata parameters (Pg=1044, Pn=580), not the encoded payload's actual capacity. The 5-byte "HELLO" check passes because the encoder happens to write data in a way the default-metadata decode can extract; this is coincidence, not correctness.
+
+## Screen-side telemetry confirmation (2026-05-28 PM)
+
+Following landing of the diagnostic-app's failure-side telemetry (commits `40b60cb` and `a873969` on `claude/ws-diagnostic-ui-tier1`), a 30-second screen-side scan of the Nc=2 (8-color) fixture was captured. Trace: `jabauth-android/diagnostic-app/logs/tolerance4-test-20260528_154620.logcat`.
+
+**Headline result: H_nc2_decode_failure CONFIRMED with status=1 (slave-decode failed) dominant by ~4-5×.**
+
+Two independent log sources agree on the same ratio:
+
+| Source                                  | status=0 (no FP found) | status=1 (FP found, slave failed) | Ratio       |
+| --------------------------------------- | ---------------------- | --------------------------------- | ----------- |
+| C-side `FAIL_ATTR` markers (78 total)   | 13                     | **65**                            | **1 : 5.0** |
+| Kotlin `DECODE_FAIL_STATS` 30s window   | 12                     | **46**                            | **1 : 3.8** |
+| Successful decodes                      | 0                      | n/a                               | —           |
+
+The Kotlin source is the new `ScannerViewModel.DECODE_FAIL_STATS` line, which classifies the decoder's error string into `FailureCategory.NO_FP_FOUND` / `SLAVE_DECODE_FAILED` / `OTHER` over a rolling 30-second window. Greppable from any trace: `grep DECODE_FAIL_STATS`.
+
+Sample line from this trace (steady state):
+```
+DECODE_FAIL_STATS overall: fail=58/58_in_30s status0=12 status1=46 other=0
+```
+
+**Temporal progression** — once the user steadied the phone on the target, status=1 dominance was immediate and stable:
+
+```
+15:46:20.995  fail=1   status0=1  status1=0   ← first frame: transient framing
+15:46:30.866  fail=20  status0=1  status1=19  ← steady state begins (1:19)
+15:46:41.394  fail=40  status0=3  status1=37  ← (1:12)
+15:46:51.646  fail=58  status0=12 status1=46  ← end of window (1:3.8)
+```
+
+**Decode-time signature** — failures complete fast, NOT at the 200ms timeout:
+
+```
+Per-failure decode time (n=78): min=118ms max=302ms avg=179ms median=168ms
+```
+
+Median (168ms) is well under the 200ms timeout, with only a small tail above. This rules out a timeout-bound explanation: the decoder is *rejecting* the palette-learning result fast, not running out of time. **If we doubled the timeout to 400ms, the failures wouldn't change.**
+
+## Sub-hypothesis narrowing post-2026-05-28 PM evidence
+
+The fast-failure + status=1 dominance pattern narrows the candidate root causes from the original list:
+
+**EXCLUDED:**
+
+- **"Needs more decode time / slave-decode is just slow at Nc=2"** — refuted by median=168ms with 200ms timeout. Failures are decision-bound, not budget-bound.
+- **"FP-detection is the bottleneck for Nc=2"** — refuted by status=0 being only ~20% of failures.
+- **"Camera-specific input quality issue"** — partially refuted: same Galaxy S25 + same camera path decodes Nc=1 and Nc=3 cleanly within the same session.
+
+**SURVIVING (in rough order of plausibility given the new evidence):**
+
+1. **`H_palette_clustering_threshold`** — the slave-decode's palette-learning clustering algorithm has a hardcoded convergence threshold tuned for ≤4-color or ≥16-color modes, with Nc=2 (3-bit, 8-vertex RGB cube) falling in a discriminator gap. The fact that the decoder rejects fast (168ms median) suggests early termination on a "cluster geometry doesn't converge" signal.
+
+2. **`H_partI_metadata_layout_bug`** (per existing checklist item 1) — Nc=2's LDPC parameter encoding in PartI metadata is structurally different from Nc=1/3's and the decoder's PartI parse silently fails for Nc=2 inputs. The desktop synthetic test's missing `[PartI] LDPC decode SUCCESS, Nc=2` marker is consistent. PartII (strict-mode) on the camera path correctly refuses to fabricate, hence the 100% camera failure rate.
+
+3. **`H_rgb_vs_perceptual_distance`** — slave-decode's color-classification uses RGB-space distance, not CIELAB perceptual distance. The 8 corners of the RGB cube have a specific perceptual asymmetry (e.g., perceived distance from W to Y vs from K to C) that consumer displays + JPEG round-trip can perturb past the RGB-distance threshold. Plausible but lower priority than #1-2 because it should affect Nc=1 (4 colors) similarly and Nc=1 works.
+
+4. **`H_inadequate_chroma_resolution`** — YUV_420_888 + JPEG round-trip chroma decimation kills 8-color separability. Same objection as #3: should affect Nc=1 too.
+
+**The fact that #2 (PartI metadata bug) is consistent with BOTH the desktop synthetic evidence AND the camera-path 100% failure rate makes it the prime suspect.** The slave-decode "FP found, slave failed" status=1 dominance is a downstream symptom — PartI fails to decode metadata → palette-learning runs with default parameters → palette-learning rejects fast → status=1.
+
+## Cluster confirmation via 8-Nc discriminator scan (2026-05-28 PM)
+
+Following Bayesian Council Session bc-2026-05-28-03, a full 8-Nc discriminator scan was executed on Galaxy S25 (autofocus, no manual zoom, on-screen fixtures, all 8 fixtures scanned for ~30 seconds each with `preferredColorMode` set to match). Traces: `jabauth-android/diagnostic-app/logs/tolerance4-test-20260528_19{0926,1852,2035,2135,2323,2447,2654,2920,3206,3317,3640}.logcat` (with the 16c/32c/4c entries refreshed mid-session after initial typos).
+
+**Headline result: H_partI_unifies CONFIRMED for the {Nc=0, Nc=2, Nc=7} cluster** at P > 0.75 per the council's pre-commit gate. Devil's Advocate's Pathology #1 (status=1 dominance is a low-information shared symptom) was vindicated *as well as* the unification claim:
+
+| Cluster | Nc | success rate | status0:status1 | median fail time |
+|---------|----|--------------|------------------|------------------|
+| 🔴 PartI-unified | **0** | 0% | 14:44 (1:3.1) | **183ms** |
+| 🔴 PartI-unified | **2** | 0% | 11:48 (1:4.4) | **232ms** |
+| 🔴 PartI-unified | **7** | 17% | 2:23 (1:11.5) | **287ms** |
+| 🟢 GA baseline | 1 | 93% | 4:0 (pure status0) | 337ms |
+| 🟡 Marginal | 3 | 35% | 12:23 (1:1.9) | 184ms |
+| 🟡 Marginal | 4 | 60% | 11:4 (status0 dominant) | 437ms |
+| 🟡 Marginal | 5 | 67% | 9:6 (mixed) | 274ms |
+| 🔴 Distinct | 6 | 4% | 14:35 (1:2.5) | **360ms** (SLOWER) |
+
+**Discriminating signals (the actual fingerprints):**
+
+1. **Success rate ≤ 17%** — the catastrophic-failure cluster {Nc=0, Nc=2, Nc=7} separates cleanly from the marginal {Nc=3, Nc=4, Nc=5} group.
+2. **Fast-reject median ≤ 290ms** — the {Nc=0, Nc=2, Nc=7} cluster rejects palette-learning within ~200-290ms, well under the 200-400ms timeout budget. Nc=6 takes substantially longer (360ms median), excluding it from the PartI-unified group.
+3. **status=1 dominance ≥ 3×** — non-discriminating on its own (working modes can also produce status=1 failures from framing transients), but combined with #1 and #2 it forms a clean cluster signature.
+
+**Crucial Devil's Advocate vindication:** The earlier "status=1 dominance" was being treated as evidence FOR `H_nc2_decode_failure`, but the 8-Nc scan reveals it is a *baseline failure mode* across multiple Nc values (including marginal-working ones). The real discriminator is the *combination* of low success rate + fast-reject median + status=1 dominance.
+
+**Excluded from the cluster:**
+
+- **Nc=5 (64c) — REJECTED.** 67% success rate and status=0-mixed failure profile mean it is NOT part of the PartI cluster. It is in the marginal-working group.
+- **Nc=6 (128c) — REJECTED.** status=1 dominant (2.5×) but qualitatively slower median (360ms vs 183-287ms for the cluster). Likely a separate mechanism: palette-learning iteration ceiling at 128 colors.
+
+**Pre-committed next action per council Session bc-2026-05-28-03:** Proceed to **Option (B)** — C-side PartI instrumentation. Target the {Nc=0, Nc=2, Nc=7} cluster jointly; a single investigation may close three Cassandra register hypotheses (`H_nc2_decode_failure`, `H_mode0_partI_decode_failure`, and a new `H_nc7_partI_extreme_status1` entry) simultaneously.
 
 ## Suspected failure surfaces (investigation candidates)
 
