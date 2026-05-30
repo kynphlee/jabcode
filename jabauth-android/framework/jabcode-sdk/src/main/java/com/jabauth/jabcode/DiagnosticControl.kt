@@ -1,5 +1,6 @@
 package com.jabauth.jabcode
 
+import android.util.Log
 import com.jabcode.JABCodeMobile
 
 /**
@@ -23,8 +24,13 @@ import com.jabcode.JABCodeMobile
  * Thread-safe: the underlying g_diag_verbose flag is __thread, so
  * concurrent decoders maintain independent verbosity.
  */
-private val mobile by lazy { JABCodeMobile() }
+private val mobile by lazy {
+    Log.i("DiagPropProbe", "[D] JABCodeMobile lazy-init firing (loadLibrary)")
+    JABCodeMobile()
+}
 
 fun setDiagVerbose(verbose: Boolean) {
+    Log.i("DiagPropProbe", "[E1] setDiagVerbose($verbose) entered; about to call nativeSetDiagVerbose")
     mobile.nativeSetDiagVerbose(verbose)
+    Log.i("DiagPropProbe", "[E2] nativeSetDiagVerbose($verbose) returned without exception")
 }
