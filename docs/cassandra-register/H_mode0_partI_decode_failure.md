@@ -3,7 +3,8 @@
 | Field        | Value                                                                                                            |
 | ------------ | ---------------------------------------------------------------------------------------------------------------- |
 | **Filed**    | 2026-05-27 (downstream of the Mode 0 chroma-tolerance trigger fix)                                                |
-| **Status**   | Open — newly surfaced once the trigger fix unblocked FP detection                                                 |
+| **Updated**  | 2026-05-30 — CONFIRMED at mechanism layer via PartI_DIAG instrumentation (PR #32, #34)                            |
+| **Status**   | Open — CONFIRMED; fix specification below; implementation pending encoder-side cross-reference                    |
 | **Binding**  | Triggered (not scheduled)                                                                                         |
 | **Owner**    | Unassigned (claimed on trigger)                                                                                   |
 | **Severity** | Medium — Mode 0 end-to-end decode does not work on real camera input, even after the trigger fix.                  |
@@ -46,6 +47,78 @@ DIAG_PARTII_RESULT for Nc=0 : all 'skipped Nc=0 ok=0 (strict)'
 ```
 
 The strict-skipped markers prove that for every frame where `g_mode0_decode=1` activated, PartI returned failure and Option D correctly refused to fabricate.
+
+## Mechanism confirmation (2026-05-30 PartI_DIAG trace)
+
+Following the C-side instrumentation in `decodeMasterMetadataPartI` (PR #32, with the `__thread g_diag_verbose` propagation fix in PR #34), a new 5-fixture capture session on Galaxy S25 collected per-stage PartI markers. Reference trace: `jabauth-android/diagnostic-app/logs/trace-20260530_033554.logcat`.
+
+**The PartI_DIAG distribution settles the failure mechanism unambiguously.** Across 95 PartI attempts on the nc0 fixture:
+
+| Stage | Failure count | % of attempts |
+| ----- | ------------- | ------------- |
+| `FAIL_STAGE=module_color` | **95** | **100%** |
+| `FAIL_STAGE=pair_bits` | 0 | 0% |
+| `FAIL_STAGE=ldpc` | 0 | 0% |
+| `DIAG_SUCCESS` | 0 | 0% |
+
+**Every single failure is at the module-color validity check** (`decoder.c:1020`: `if(rgb != 0 && rgb != 3 && rgb != 6)`). The downstream pair-bits decode and LDPC are unreached. This eliminates the two more-expensive hypotheses (pair-bits encoding bug, LDPC parameter mismatch) at zero ambiguity.
+
+**The RGB-channel pattern at failure exposes the specific mechanism:**
+
+| Module index | rgb=7 (W = white = R+G+B) failures | rgb=0 (K = black) successes |
+| ------------ | --------------------------------- | --------------------------- |
+| module[0] | 50 | — |
+| module[1] | 43 | — |
+| module[2] | 1 | — |
+| module[3] | 1 | — |
+| (all) | — | 48 valid reads |
+
+Every failure is `decodeModuleNc` returning `rgb=7`. The 48 valid reads (where rgb=0) confirm the metadata position sampling is correct — the modules ARE being read; it's just that monochrome metadata uses K (000) and W (111), and W (rgb=7) is rejected by a validity check hardcoded for the color-mode K/C/Y palette (rgb ∈ {0, 3, 6}).
+
+**Bimodal Mode 0 trigger behavior on the same trace:**
+
+```
+g_mode0_decode=1 firings : 126  (Mode 0 trigger correctly fires)
+g_mode0_decode=0 firings : 122  (trigger backs off — chroma noise > tol=30)
+max_chroma sample range  : 294..362  (mean_chroma ~150 at trigger-no-fire)
+```
+
+The trigger itself is firing on only ~51% of frames, and in those ~51% PartI fails 100% at the module_color stage. So even with a clean PartI Mode 0 short-circuit, ceiling end-to-end success is bounded by the trigger firing rate (~51% on this hardware, with current `tol=30` tuning). Improving the trigger threshold is orthogonal but compounds with the PartI fix.
+
+## Fix specification (cold-pickup ready)
+
+The fix is conceptually small but requires encoder-side cross-reference before implementation to avoid producing wrong LDPC inputs. Three coordinated changes:
+
+**1. Extend `decodeMasterMetadataPartI` to short-circuit on `g_mode0_decode`** (decoder.c:1008 onward):
+
+- At function entry, check `g_diag_verbose ? log("BEGIN mode0=%d", g_mode0_decode) : noop` (already present in part via PR #32)
+- If `g_mode0_decode == 1`, use the validity set `{0, 7}` (K, W) instead of `{0, 3, 6}` (K, C, Y)
+- For module-color reads in Mode 0, accept rgb ∈ {0, 7}; reject everything else
+- The pair-bits decode and LDPC logic downstream **may or may not need rewiring** depending on encoder-side metadata layout (see #2)
+
+**2. Verify encoder-side Mode 0 metadata layout** (cross-reference, not modify):
+
+- Read `src/jabcode/encoder.c` Mode 0 metadata write path (likely added in jabcode commit `05a1acc`, COA-crypto `3c083e9` per `project_ws0_mode0_status.md` memory)
+- Determine: are the 4 metadata modules in Mode 0 encoding the **same 6-bit Nc field** (just substituting K/W for K/C/Y) or a **different smaller bit field** (e.g., 4 bits encoding "Mode 0 + small Pg" since the search space is smaller)?
+- If same 6-bit field: extending validity in PartI plus mapping rgb=7 → bit value 1 (or 0 — see encoder) is sufficient
+- If different bit field: PartI needs a separate Mode 0 path with different LDPC parameters
+
+**3. Re-evaluate Mode 0 trigger threshold** (`detector.c:detectMaster`):
+
+- Current `tol=30` only fires Mode 0 trigger on ~51% of S25 frames pointed at the Mode 0 fixture
+- The 122 frames with `max_chroma=294-362` mean_chroma~150 are misdetected as color mode
+- Mean_chroma 150 IS substantial chroma — but for a printed/displayed monochrome fixture under indoor lighting, this comes from camera noise + JPEG-pipeline color noise, not from the JABCode itself
+- Tuning `tol` upward (e.g., `tol=80` or `tol=120`) on the basis of empirical max_chroma distributions from monochrome scans would raise trigger firing rate without false-positive on color modes (which should have max_chroma >> 300 at the FP cores)
+
+**Expected impact** if all three land:
+
+| Stage | Current | After fix #1 alone | After fixes #1+#3 |
+| ----- | ------- | ------------------ | ----------------- |
+| Mode 0 trigger firing rate | ~51% | ~51% | ~85-95% |
+| PartI success rate (when triggered) | 0% | ~95% | ~95% |
+| End-to-end nc0 scan success | 0% | ~48% | ~80-90% |
+
+Fix #1 alone is the minimum to validate; #3 is the multiplier. Fix #2 is the prerequisite cross-reference.
 
 ## Suspected failure surfaces (investigation candidates)
 
