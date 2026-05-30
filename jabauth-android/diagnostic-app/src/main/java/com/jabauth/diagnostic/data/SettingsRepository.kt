@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
+import com.jabauth.diagnostic.BuildConfig
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
@@ -31,7 +32,27 @@ class SettingsRepository(private val context: Context) {
         const val DEFAULT_DECODE_TIMEOUT = 200
         const val DEFAULT_ANALYZE_INTERVAL = 500
         const val DEFAULT_AUTO_FOCUS = true
-        const val DEFAULT_DEBUG_LOGGING = false
+
+        /**
+         * Default for the Settings "Debug Logging" toggle.
+         *
+         * Sourced from BuildConfig.DEFAULT_DEBUG_LOGGING_ENABLED so the
+         * default varies per build variant:
+         *
+         * - debug + release: FALSE (production-grade default; users opt in
+         *   via Settings if they need verbose markers)
+         * - benchmark: TRUE (diagnostic builds — installBenchmark
+         *   uninstalls + reinstalls the APK, wiping the DataStore each
+         *   time, so defaulting to FALSE forces a manual Settings toggle
+         *   flip after every build to see [PartI_DIAG] markers fire.
+         *   Stopping that recurring waste is the entire reason this
+         *   variant-specific default exists.)
+         *
+         * Not declared `const` because BuildConfig fields are not Kotlin
+         * compile-time constants — they're generated at build time by AGP.
+         */
+        val DEFAULT_DEBUG_LOGGING: Boolean = BuildConfig.DEFAULT_DEBUG_LOGGING_ENABLED
+
         const val DEFAULT_PREFERRED_COLOR_MODE = -1  // -1 = Auto
     }
     

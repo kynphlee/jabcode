@@ -35,6 +35,13 @@ android {
         debug {
             enableAndroidTestCoverage = true
             enableUnitTestCoverage = true
+            // Production/debug builds: verbose logging defaults OFF (user
+            // must explicitly opt in via Settings).
+            buildConfigField("boolean", "DEFAULT_DEBUG_LOGGING_ENABLED", "false")
+        }
+        release {
+            // Production builds: verbose logging defaults OFF.
+            buildConfigField("boolean", "DEFAULT_DEBUG_LOGGING_ENABLED", "false")
         }
         // Build variant consumed by the `:benchmark-macro` module. Acts as
         // a release-like build (no debug coverage instrumentation) but
@@ -50,11 +57,20 @@ android {
             // capture trace sections and frame timing without needing a
             // signed release build.
             isProfileable = true
+            // Diagnostic builds (installBenchmark wipes DataStore on every
+            // reinstall — see SettingsRepository comment). Default verbose
+            // logging ON so the first trace capture after a build doesn't
+            // need a manual Settings toggle flip to surface the [PartI_DIAG]
+            // markers.
+            buildConfigField("boolean", "DEFAULT_DEBUG_LOGGING_ENABLED", "true")
         }
     }
-    
+
     buildFeatures {
         compose = true
+        // Required for the per-variant DEFAULT_DEBUG_LOGGING_ENABLED constant
+        // generated above to be visible to SettingsRepository.
+        buildConfig = true
     }
     
     composeOptions {
