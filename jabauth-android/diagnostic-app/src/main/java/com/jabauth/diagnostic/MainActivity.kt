@@ -33,11 +33,33 @@ class MainActivity : ComponentActivity() {
             SettingsRepository(applicationContext).settingsFlow.collect { settings ->
                 Log.i("DiagPropProbe", "[C] settingsFlow emitted: debugLogging=${settings.debugLogging}")
                 setDiagVerbose(settings.debugLogging)
-                // Path β: bind permissive-color-classification to the same
-                // diagnostic toggle for now. Production SDK consumers will
-                // get their own opt-in API once empirical validation is done.
-                setPermissiveColorClassification(settings.debugLogging)
-                Log.i("DiagPropProbe", "[F] setDiagVerbose + setPermissive returned (caller side)")
+
+                /* Path β DECOUPLED 2026-05-30: previously tied to the
+                 * debugLogging Settings toggle. The 2026-05-30 14:44:13
+                 * trace (post-manual-WB-override PR #41) showed Path β
+                 * actively harmful when the AWB cast is gone: the rgb=5
+                 * (Y) → rgb=6 (M) remap was firing 164 times across 80
+                 * PartI attempts and producing 38 pair_bits failures
+                 * (FAIL_STAGE=pair_bits bits[0]=8 bits[1]=8) from the
+                 * (M, M) invalid metadata pair.
+                 *
+                 * Hardcoding to FALSE here lets the diagnostic-app run
+                 * with verbose markers ON (Settings → Debug Logging) AND
+                 * permissive remap OFF, isolating the manual-WB-override
+                 * effect from the Path β contamination. Expected outcome
+                 * on the next nc2 trace: PartI success rate rises from
+                 * 33.75% toward the 50-70% theoretical ceiling as the 38
+                 * pair_bits failures convert to successes.
+                 *
+                 * Permissive remap is preserved in the C decoder (PR #38)
+                 * for opt-in SDK consumer use; just not auto-enabled here.
+                 * Production SDK customers who want it call
+                 * `setPermissiveColorClassification(true)` explicitly
+                 * after evaluating their own decoder-vs-camera-stack
+                 * tradeoffs. */
+                setPermissiveColorClassification(false)
+
+                Log.i("DiagPropProbe", "[F] setDiagVerbose (β decoupled, hardcoded false) returned")
             }
         }
         setContent {
