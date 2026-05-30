@@ -1089,14 +1089,43 @@ jab_int32 decodeMasterMetadataPartI(jab_bitmap* matrix, jab_decoded_symbol* symb
 		 * with rgb=6 (Y = R+G) when the flag is set. Compensates for camera
 		 * green-channel under-capture observed empirically in the 2026-05-30
 		 * nc2 trace (77/78 PartI failures concentrated at module[0] rgb=5).
-		 * See decoder.c:80-127 for the global declaration and rationale. */
+		 * See decoder.c:80-127 for the global declaration and rationale.
+		 *
+		 * UPDATE 2026-05-30 (post-β empirical falsification): on the nc2
+		 * fixture the camera reads ALL FOUR metadata modules uniformly as
+		 * rgb=5, not just module[0]. Substituting to rgb=6 produces
+		 * (Y, Y) module-color pairs, which decodeNcModuleColor returns 8
+		 * for (the JABCode metadata pair lookup reserves (Y, Y) as
+		 * structurally invalid). The remap shifts the failure stage from
+		 * module_color to pair_bits without fixing the underlying camera
+		 * cast. The raw-byte instrumentation below is the next data point
+		 * needed to design the correct fix (camera-side Path α likely). */
 		if (g_permissive_color_classification && rgb == 5)
 		{
 			if (g_diag_verbose) DEBUG_LOG("[PartI_DIAG] permissive_remap module[%d] rgb=5->6 (green-undercapture compensation)", *module_count);
 			rgb = 6;
 		}
 
-		if (g_diag_verbose) DEBUG_LOG("[PartI_DIAG] module[%d] xy=(%d,%d) rgb=%d valid=%d", *module_count, *x, *y, rgb, (rgb==0 || rgb==3 || rgb==6));
+		if (g_diag_verbose)
+		{
+			/* Raw pixel-byte values at the module sample point. The pixel
+			 * format depends on the matrix's bits_per_pixel and the upstream
+			 * source (Android RGBA_8888 = R,G,B,A in little-endian memory;
+			 * other paths may use BGRA or grayscale). Logging the first
+			 * three bytes lets post-trace analysis identify the byte order
+			 * by cross-correlating against the classified rgb bucket. When
+			 * Path β's rgb=5 substitution fired, the raw bytes will tell us
+			 * whether the camera ACTUALLY undersaturated green (R high, G
+			 * low, B medium) or whether the classifier's thresholds simply
+			 * round-tripped a valid Y pattern to M. Critical for Path α
+			 * design — the green-boost matrix's coefficient must be tuned
+			 * against actual sensor response, not classifier output. */
+			jab_byte raw_b0 = matrix->pixel[mtx_offset + 0];
+			jab_byte raw_b1 = matrix->pixel[mtx_offset + 1];
+			jab_byte raw_b2 = matrix->pixel[mtx_offset + 2];
+			DEBUG_LOG("[PartI_DIAG] module[%d] xy=(%d,%d) raw_bytes=(%d,%d,%d) rgb=%d valid=%d",
+			          *module_count, *x, *y, raw_b0, raw_b1, raw_b2, rgb, (rgb==0 || rgb==3 || rgb==6));
+		}
 		if(rgb != 0 && rgb != 3 && rgb != 6)
 		{
 			if (g_diag_verbose) DEBUG_LOG("[PartI_DIAG] FAIL_STAGE=module_color module[%d] rgb=%d (must be 0,3,6)", *module_count, rgb);
