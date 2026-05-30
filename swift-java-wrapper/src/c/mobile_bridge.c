@@ -582,3 +582,12 @@ jab_boolean jabMobileHasCalibration(void) {
 void jabMobileSetDiagVerbose(jab_int32 verbose) {
     jabSetDiagVerbose(verbose ? 1 : 0);
 }
+
+/* Path β permissive color classification bridge.
+ * Forwards to jabSetPermissiveColorClassification. When set TRUE, the
+ * decoder's master metadata Part I module-color stage substitutes
+ * rgb=5 (M) with rgb=6 (Y) to compensate for camera green-channel
+ * under-capture observed in the 2026-05-30 nc2 trace. */
+void jabMobileSetPermissiveColorClassification(jab_int32 permissive) {
+    jabSetPermissiveColorClassification(permissive ? 1 : 0);
+}

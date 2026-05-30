@@ -95,4 +95,19 @@ internal class JABCodeMobile {
      * @param verbose true to emit chatty markers, false to suppress
      */
     external fun nativeSetDiagVerbose(verbose: Boolean)
+
+    /**
+     * Path β permissive color classification toggle.
+     *
+     * When TRUE, the C decoder's master metadata Part I module-color
+     * stage substitutes rgb=5 (Magenta) with rgb=6 (Yellow). Compensates
+     * for camera green-channel under-capture documented in the
+     * 2026-05-30 H_nc2 trace where 77/78 PartI failures concentrated at
+     * module[0] rgb=5 after the AWB/AE convergence-lock crushed
+     * rgb=7 (white-washout) failures from 104 to 1.
+     *
+     * @param permissive true to substitute rgb=5 → rgb=6 at metadata
+     *                   modules; false to enforce strict {0, 3, 6}
+     */
+    external fun nativeSetPermissiveColorClassification(permissive: Boolean)
 }

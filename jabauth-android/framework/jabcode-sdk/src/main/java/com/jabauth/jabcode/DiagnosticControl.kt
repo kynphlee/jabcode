@@ -34,3 +34,18 @@ fun setDiagVerbose(verbose: Boolean) {
     mobile.nativeSetDiagVerbose(verbose)
     Log.i("DiagPropProbe", "[E2] nativeSetDiagVerbose($verbose) returned without exception")
 }
+
+/**
+ * Path β permissive color classification public facade.
+ *
+ * Toggles the decoder's master-metadata Part I rgb=5 → rgb=6 substitution.
+ * Compensates for camera green-channel under-capture (the residual nc2
+ * failure mechanism after the AWB/AE convergence-lock in PR #36).
+ *
+ * @see com.jabcode.JABCodeMobile.nativeSetPermissiveColorClassification
+ */
+fun setPermissiveColorClassification(permissive: Boolean) {
+    Log.i("DiagPropProbe", "[E1-β] setPermissiveColorClassification($permissive) entered")
+    mobile.nativeSetPermissiveColorClassification(permissive)
+    Log.i("DiagPropProbe", "[E2-β] nativeSetPermissiveColorClassification($permissive) returned")
+}
