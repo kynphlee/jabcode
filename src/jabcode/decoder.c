@@ -1007,18 +1007,34 @@ jab_byte decodeNcModuleColor(jab_byte module1_color, jab_byte module2_color)
 */
 jab_int32 decodeMasterMetadataPartI(jab_bitmap* matrix, jab_decoded_symbol* symbol, jab_byte* data_map, jab_int32* module_count, jab_int32* x, jab_int32* y)
 {
+	/* WS-5 Option (B): per-stage PartI diagnostic markers, gated by
+	 * g_diag_verbose. Targets the H_partI_unifies {Nc=0, Nc=2, Nc=7}
+	 * cluster — when failures cluster at specific Nc values, the
+	 * granular markers below let an investigator localize the failure
+	 * to module-color read / pair-bits decode / LDPC stage / post-LDPC
+	 * Nc parse. All [PartI_DIAG] lines are zero-cost when verbose mode
+	 * is off (the boolean check short-circuits before sprintf/binder).
+	 * See: docs/cassandra-register/H_nc2_decode_failure.md,
+	 *      H_partI_clean_data_failure.md, H_mode0_partI_decode_failure.md
+	 */
+
 	//decode Nc module color
 	jab_byte module_color[MASTER_METADATA_PART1_MODULE_NUMBER];
 	jab_int32 mtx_bytes_per_pixel = matrix->bits_per_pixel / 8;
     jab_int32 mtx_bytes_per_row = matrix->width * mtx_bytes_per_pixel;
     jab_int32 mtx_offset;
+
+	if (g_diag_verbose) DEBUG_LOG("[PartI_DIAG] BEGIN module_count_in=%d start_xy=(%d,%d)", *module_count, *x, *y);
+
 	while((*module_count) < MASTER_METADATA_PART1_MODULE_NUMBER)
 	{
 		//decode bit out of the module at (x,y)
 		mtx_offset = (*y) * mtx_bytes_per_row + (*x) * mtx_bytes_per_pixel;
 		jab_byte rgb =  decodeModuleNc(&matrix->pixel[mtx_offset]);
+		if (g_diag_verbose) DEBUG_LOG("[PartI_DIAG] module[%d] xy=(%d,%d) rgb=%d valid=%d", *module_count, *x, *y, rgb, (rgb==0 || rgb==3 || rgb==6));
 		if(rgb != 0 && rgb != 3 && rgb != 6)
 		{
+			if (g_diag_verbose) DEBUG_LOG("[PartI_DIAG] FAIL_STAGE=module_color module[%d] rgb=%d (must be 0,3,6)", *module_count, rgb);
 #if TEST_MODE
 		reportError("Invalid module color in primary metadata part 1 found");
 #endif
@@ -1032,12 +1048,18 @@ jab_int32 decodeMasterMetadataPartI(jab_bitmap* matrix, jab_decoded_symbol* symb
 		getNextMetadataModuleInMaster(matrix->height, matrix->width, (*module_count), x, y);
 	}
 
+	if (g_diag_verbose) DEBUG_LOG("[PartI_DIAG] module_colors=[%d,%d,%d,%d]", module_color[0], module_color[1], module_color[2], module_color[3]);
+
 	//decode encoded Nc
 	jab_byte bits[2];
 	bits[0] = decodeNcModuleColor(module_color[0], module_color[1]);	//the first 3 bits
 	bits[1] = decodeNcModuleColor(module_color[2], module_color[3]);	//the last 3 bits
+
+	if (g_diag_verbose) DEBUG_LOG("[PartI_DIAG] paired_bits bits[0]=%d bits[1]=%d", bits[0], bits[1]);
+
 	if(bits[0] > 7 || bits[1] > 7)
 	{
+		if (g_diag_verbose) DEBUG_LOG("[PartI_DIAG] FAIL_STAGE=pair_bits bits[0]=%d bits[1]=%d (max valid=7)", bits[0], bits[1]);
 #if TEST_MODE
 		reportError("Invalid color combination in primary metadata part 1 found");
 #endif
@@ -1056,17 +1078,29 @@ jab_int32 decodeMasterMetadataPartI(jab_bitmap* matrix, jab_decoded_symbol* symb
 		}
 	}
 
+	if (g_diag_verbose) DEBUG_LOG("[PartI_DIAG] pre_ldpc part1=[%d,%d,%d,%d,%d,%d]", part1[0], part1[1], part1[2], part1[3], part1[4], part1[5]);
+
 	//decode ldpc for part1
-	if( !decodeLDPChd(part1, MASTER_METADATA_PART1_LENGTH, 2, 0) )
+	jab_int32 ldpc_ret = decodeLDPChd(part1, MASTER_METADATA_PART1_LENGTH, 2, 0);
+
+	if (g_diag_verbose) DEBUG_LOG("[PartI_DIAG] ldpc_ret=%d (nonzero=success)", ldpc_ret);
+
+	if( !ldpc_ret )
 	{
+		if (g_diag_verbose) DEBUG_LOG("[PartI_DIAG] FAIL_STAGE=ldpc pre_ldpc=[%d,%d,%d,%d,%d,%d]", part1[0], part1[1], part1[2], part1[3], part1[4], part1[5]);
 #if TEST_MODE
 		reportError("LDPC decoding for master metadata part 1 failed");
 #endif
 		return JAB_FAILURE;
 	}
+
+	if (g_diag_verbose) DEBUG_LOG("[PartI_DIAG] post_ldpc part1=[%d,%d,%d,%d,%d,%d]", part1[0], part1[1], part1[2], part1[3], part1[4], part1[5]);
+
 	DEBUG_LOG("[PartI] LDPC decode SUCCESS, Nc=%d", (part1[0] << 2) + (part1[1] << 1) + part1[2]);
 	//parse part1
 	symbol->metadata.Nc = (part1[0] << 2) + (part1[1] << 1) + part1[2];
+
+	if (g_diag_verbose) DEBUG_LOG("[PartI_DIAG] SUCCESS Nc=%d", symbol->metadata.Nc);
 
 	return JAB_SUCCESS;
 }
