@@ -37,11 +37,38 @@ class CameraEnumerator(private val context: Context) {
     }
     
     /**
-     * Find camera by facing direction
-     * 
+     * Find camera by facing direction, preferring the highest available
+     * hardware level.
+     *
+     * **Hardware-level preference rationale.** Android Camera2 classifies
+     * camera devices into four capability tiers
+     * (`INFO_SUPPORTED_HARDWARE_LEVEL_*`): LEGACY < LIMITED < FULL <
+     * LEVEL_3. Higher tiers add per-frame manual control (exposure, ISO,
+     * AWB lock, AE region targeting) and ISP reprocessing capabilities
+     * that materially affect color and exposure stability — which in turn
+     * directly affect JABCode metadata reads (see the H_nc2 cluster
+     * investigation in `docs/cassandra-register/H_nc2_decode_failure.md`).
+     *
+     * `maxByOrNull { it.hardwareLevel }` in the implementation below means
+     * that when multiple back-facing cameras exist (e.g., wide + tele),
+     * the camera with the highest hardware level is selected even if
+     * lower-tier alternatives also pass the `minHardwareLevel` filter.
+     * On the reference Galaxy S25, this selects camera 0 (LEVEL_3) over
+     * camera 2 (LIMITED) by default.
+     *
+     * Consumer apps integrating the jabcode-sdk SHOULD use this method
+     * (or equivalent preference logic) rather than enumerating cameras
+     * manually and picking the first match — the latter produces
+     * unstable color/exposure behavior on devices with mixed-tier
+     * back-camera arrays.
+     *
      * @param facing Desired facing (LENS_FACING_BACK, LENS_FACING_FRONT)
-     * @param minHardwareLevel Minimum hardware level required
-     * @return CameraInfo or null if not found
+     * @param minHardwareLevel Minimum acceptable hardware level. Default
+     *   is LIMITED for broad device compatibility; the selection still
+     *   prefers higher tiers when available. Set to FULL or LEVEL_3 to
+     *   explicitly exclude lower-tier devices.
+     * @return CameraInfo for the highest-tier camera matching facing,
+     *   or null if no camera meets the threshold.
      */
     fun findCameraByFacing(
         facing: Int,
@@ -50,6 +77,10 @@ class CameraEnumerator(private val context: Context) {
         return getAllCameras()
             .filter { it.facing == facing }
             .filter { it.hardwareLevel >= minHardwareLevel }
+            // LEVEL_3 > FULL > LIMITED > LEGACY in the Camera2 hardware-level
+            // integer encoding, so maxByOrNull naturally implements the
+            // preference. See: developer.android.com docs for
+            // INFO_SUPPORTED_HARDWARE_LEVEL constants.
             .maxByOrNull { it.hardwareLevel }
     }
     

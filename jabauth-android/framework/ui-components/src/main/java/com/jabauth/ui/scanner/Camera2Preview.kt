@@ -145,6 +145,24 @@ private class Camera2Controller(
     
     private var cameraDevice: CameraDevice? = null
     private var captureSession: CameraCaptureSession? = null
+
+    // Convergence-lock state. Tracks whether the auto-white-balance (AWB)
+    // and auto-exposure (AE) algorithms have converged at least once on
+    // their target values. Once BOTH have converged, the repeating request
+    // is reissued with CONTROL_AWB_LOCK + CONTROL_AE_LOCK set, freezing
+    // the camera's color and brightness response for the rest of the
+    // session. This is the load-bearing change for color stability during
+    // JABCode metadata decoding — the H_nc2 cluster's green-channel
+    // under-capture is fundamentally an AWB-drift problem, and locking
+    // post-convergence is the cleanest Camera2-side fix that doesn't
+    // require touching the decoder.
+    //
+    // See: docs/cassandra-register/H_nc2_decode_failure.md,
+    //      framework/jabcode-sdk/docs/CAMERA_CONFIGURATION_GUIDE.md
+    private var awbHasConverged: Boolean = false
+    private var aeHasConverged: Boolean = false
+    private var convergenceLocksApplied: Boolean = false
+    private var activeRepeatingSurface: Surface? = null
     private var imageReader: ImageReader? = null
     private var previewSurface: Surface? = null
     private var sensorOrientation: Int = 0
@@ -439,10 +457,11 @@ private class Camera2Controller(
         }
     }
     
-    private fun startRepeatingRequest(surface: Surface) {
+    private fun startRepeatingRequest(surface: Surface, applyConvergenceLocks: Boolean = false) {
         val camera = cameraDevice ?: return
         val session = captureSession ?: return
         val reader = imageReader ?: return
+        activeRepeatingSurface = surface
         
         try {
             val requestBuilder = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
@@ -488,6 +507,27 @@ private class Camera2Controller(
                 CaptureRequest.CONTROL_AWB_MODE_AUTO
             )
 
+            // Convergence-lock pass: once AWB and AE have both reached
+            // CONVERGED state at least once (observed in the capture
+            // callback below and used to recursively reissue this method
+            // with applyConvergenceLocks=true), freeze them for the rest
+            // of the session.
+            //
+            // Per Camera2 docs: CONTROL_AWB_LOCK is "only meaningful when
+            // android.control.awbMode is in the AUTO mode" — which we set
+            // immediately above, so the lock is well-defined here. Same
+            // for CONTROL_AE_LOCK with CONTROL_AE_MODE_ON.
+            //
+            // The lock pattern stabilizes the ISP's color-correction
+            // matrix and exposure values frame-to-frame, eliminating the
+            // green-channel drift that makes JABCode metadata reads
+            // misclassify rgb=5 (Magenta) where rgb=6 (Yellow) was
+            // physically displayed. See 2026-05-30 nc2 PartI_DIAG trace.
+            if (applyConvergenceLocks) {
+                requestBuilder.set(CaptureRequest.CONTROL_AWB_LOCK, true)
+                requestBuilder.set(CaptureRequest.CONTROL_AE_LOCK, true)
+            }
+
             // WS-camera-PR1: apply the pinch-zoom crop region if set. The
             // gesture detector caches this between zoom events; we honor
             // it on every request rebuild so subsequent autofocus / AE
@@ -522,6 +562,44 @@ private class Camera2Controller(
                             onLowLightBoostStateChanged?.invoke(state)
                         }
                     }
+
+                    // Convergence-lock observation: latch AWB/AE convergence
+                    // as one-way state, then reissue the repeating request
+                    // with the locks applied once both have settled. This
+                    // freezes the ISP's color-correction matrix and
+                    // exposure values for the rest of the session,
+                    // eliminating frame-to-frame drift that perturbs
+                    // JABCode metadata color classification.
+                    if (!convergenceLocksApplied) {
+                        val awbState = result.get(CaptureResult.CONTROL_AWB_STATE)
+                        val aeState = result.get(CaptureResult.CONTROL_AE_STATE)
+                        if (awbState == CameraMetadata.CONTROL_AWB_STATE_CONVERGED) {
+                            awbHasConverged = true
+                        }
+                        if (aeState == CameraMetadata.CONTROL_AE_STATE_CONVERGED ||
+                            aeState == CameraMetadata.CONTROL_AE_STATE_FLASH_REQUIRED) {
+                            // FLASH_REQUIRED also counts as "AE has decided"
+                            // — the algorithm has converged on its best
+                            // estimate, it just thinks flash would help.
+                            // For locked diagnostic capture we accept the
+                            // converged-without-flash decision.
+                            aeHasConverged = true
+                        }
+                        if (awbHasConverged && aeHasConverged) {
+                            convergenceLocksApplied = true
+                            Log.i(TAG, "AWB+AE converged -> reissuing repeating request with CONTROL_AWB_LOCK and CONTROL_AE_LOCK enabled")
+                            // Post to the background handler so we don't
+                            // re-enter setRepeatingRequest from inside the
+                            // capture callback path. The surface is
+                            // captured at startRepeatingRequest entry.
+                            val lockedSurface = activeRepeatingSurface
+                            if (lockedSurface != null) {
+                                backgroundHandler?.post {
+                                    startRepeatingRequest(lockedSurface, applyConvergenceLocks = true)
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -531,7 +609,7 @@ private class Camera2Controller(
                 backgroundHandler
             )
 
-            Log.d(TAG, "Camera2 preview started: AF=${if (autoFocusEnabled) "ON" else "OFF"}, AE=${if (aeMode == CameraMetadata.CONTROL_AE_MODE_ON_LOW_LIGHT_BOOST_BRIGHTNESS_PRIORITY) "ON_LLB" else "ON"} (EV=${exposureCompensationValue}), AWB=AUTO")
+            Log.d(TAG, "Camera2 preview started: AF=${if (autoFocusEnabled) "ON" else "OFF"}, AE=${if (aeMode == CameraMetadata.CONTROL_AE_MODE_ON_LOW_LIGHT_BOOST_BRIGHTNESS_PRIORITY) "ON_LLB" else "ON"} (EV=${exposureCompensationValue}), AWB=AUTO, ConvergenceLocks=${if (applyConvergenceLocks) "LOCKED" else "waiting-for-convergence"}")
             
         } catch (e: CameraAccessException) {
             Log.e(TAG, "Start repeating request failed", e)
