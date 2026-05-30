@@ -8,6 +8,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.lifecycle.lifecycleScope
 import com.jabauth.diagnostic.data.SettingsRepository
 import com.jabauth.jabcode.setDiagVerbose
+import com.jabauth.jabcode.setPermissiveColorClassification
 import kotlinx.coroutines.launch
 
 /**
@@ -32,7 +33,11 @@ class MainActivity : ComponentActivity() {
             SettingsRepository(applicationContext).settingsFlow.collect { settings ->
                 Log.i("DiagPropProbe", "[C] settingsFlow emitted: debugLogging=${settings.debugLogging}")
                 setDiagVerbose(settings.debugLogging)
-                Log.i("DiagPropProbe", "[F] setDiagVerbose returned (caller side)")
+                // Path β: bind permissive-color-classification to the same
+                // diagnostic toggle for now. Production SDK consumers will
+                // get their own opt-in API once empirical validation is done.
+                setPermissiveColorClassification(settings.debugLogging)
+                Log.i("DiagPropProbe", "[F] setDiagVerbose + setPermissive returned (caller side)")
             }
         }
         setContent {

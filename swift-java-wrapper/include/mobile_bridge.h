@@ -257,6 +257,19 @@ void jabMobileClearCalibration(void);
 void jabMobileSetDiagVerbose(jab_int32 verbose);
 
 /**
+ * @brief Toggle permissive color classification at the master-metadata
+ *        Part I module-color stage.
+ *
+ * Forwards to jabSetPermissiveColorClassification. When set TRUE, the
+ * decoder substitutes rgb=5 (Magenta) with rgb=6 (Yellow) before the
+ * {0, 3, 6} validity check. Compensates for camera green-channel
+ * under-capture observed empirically in the 2026-05-30 nc2 trace.
+ *
+ * @param permissive 1 to enable, 0 to disable
+ */
+void jabMobileSetPermissiveColorClassification(jab_int32 permissive);
+
+/**
  * @brief Check if calibration is active
  * 
  * @return TRUE if calibration loaded, FALSE otherwise

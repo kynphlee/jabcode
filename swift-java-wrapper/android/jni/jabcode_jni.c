@@ -366,3 +366,16 @@ Java_com_jabcode_JABCodeMobile_nativeSetDiagVerbose(
 {
     jabMobileSetDiagVerbose(verbose ? 1 : 0);
 }
+
+/* Path β permissive color classification JNI export.
+ *
+ * Java signature: external fun nativeSetPermissiveColorClassification(permissive: Boolean)
+ */
+JNIEXPORT void JNICALL
+Java_com_jabcode_JABCodeMobile_nativeSetPermissiveColorClassification(
+    JNIEnv *env,
+    jclass clazz,
+    jboolean permissive)
+{
+    jabMobileSetPermissiveColorClassification(permissive ? 1 : 0);
+}

@@ -84,6 +84,47 @@ void jabSetDiagVerbose(jab_boolean verbose)
 	g_diag_verbose = verbose;
 }
 
+/* Path β: permissive color classification for master metadata reads.
+ *
+ * When TRUE, decodeMasterMetadataPartI's module-color stage substitutes
+ * rgb=5 (Magenta = R+B) with rgb=6 (Yellow = R+G) before the validity
+ * check {0, 3, 6}.
+ *
+ * Empirical basis: 2026-05-30 nc2 trace post-AWB/AE-lock shows 77/78
+ * PartI failures concentrated at module[0] rgb=5, with white-washout
+ * (rgb=7) already crushed to 1/78 by the camera-side convergence-lock
+ * (PR #36). The residual failure mechanism is camera green-channel
+ * under-capture: when the sensor or ISP undersaturates the green
+ * channel, what should classify as Y (R+G) reads as M (R+B) from
+ * residual chroma noise. Per the JABCode master-metadata spec, only
+ * {K=0, C=3, Y=6} are legitimately encoded at metadata positions, so
+ * any rgb=5 read at a metadata module is unambiguously a misclassified
+ * Y under camera noise. Substituting rgb=5 → rgb=6 is safe at the
+ * metadata stage; no other call site is affected.
+ *
+ * Mode 0 (monochrome) metadata only produces rgb ∈ {0, 7}, never
+ * rgb=5, so this remap is mechanically a no-op in Mode 0 — no
+ * additional gating needed.
+ *
+ * Default OFF — production SDK consumers explicitly opt in via
+ * jabSetPermissiveColorClassification(1). Diagnostic-app currently
+ * follows the same Settings toggle as g_diag_verbose for now.
+ *
+ * See: docs/cassandra-register/H_nc2_decode_failure.md and the
+ * 2026-05-30 SWOT/TOWS analysis for the rationale and rejected
+ * alternatives. */
+jab_boolean g_permissive_color_classification = 0;
+
+void jabSetPermissiveColorClassification(jab_boolean permissive)
+{
+	g_permissive_color_classification = permissive;
+}
+
+jab_boolean jabIsPermissiveColorClassification(void)
+{
+	return g_permissive_color_classification;
+}
+
 jab_boolean jabIsDiagVerbose(void)
 {
 	return g_diag_verbose;
@@ -1043,6 +1084,18 @@ jab_int32 decodeMasterMetadataPartI(jab_bitmap* matrix, jab_decoded_symbol* symb
 		//decode bit out of the module at (x,y)
 		mtx_offset = (*y) * mtx_bytes_per_row + (*x) * mtx_bytes_per_pixel;
 		jab_byte rgb =  decodeModuleNc(&matrix->pixel[mtx_offset]);
+
+		/* Path β permissive color classification: substitute rgb=5 (M = R+B)
+		 * with rgb=6 (Y = R+G) when the flag is set. Compensates for camera
+		 * green-channel under-capture observed empirically in the 2026-05-30
+		 * nc2 trace (77/78 PartI failures concentrated at module[0] rgb=5).
+		 * See decoder.c:80-127 for the global declaration and rationale. */
+		if (g_permissive_color_classification && rgb == 5)
+		{
+			if (g_diag_verbose) DEBUG_LOG("[PartI_DIAG] permissive_remap module[%d] rgb=5->6 (green-undercapture compensation)", *module_count);
+			rgb = 6;
+		}
+
 		if (g_diag_verbose) DEBUG_LOG("[PartI_DIAG] module[%d] xy=(%d,%d) rgb=%d valid=%d", *module_count, *x, *y, rgb, (rgb==0 || rgb==3 || rgb==6));
 		if(rgb != 0 && rgb != 3 && rgb != 6)
 		{

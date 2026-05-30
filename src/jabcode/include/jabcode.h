@@ -89,6 +89,13 @@ typedef unsigned char 		jab_byte;
  * this header. */
 extern unsigned char g_diag_verbose;
 #define JAB_DIAG_INFO(x) do { if (g_diag_verbose) JAB_REPORT_INFO(x); } while (0)
+
+/* Path β permissive color classification flag — see decoder.c:80-127 for
+ * full rationale. When TRUE, decodeMasterMetadataPartI substitutes
+ * rgb=5 (Magenta) with rgb=6 (Yellow) at the module_color stage to
+ * compensate for camera green-channel under-capture observed in the
+ * H_nc2 investigation. Process-global, default OFF. */
+extern unsigned char g_permissive_color_classification;
 typedef char 				jab_char;
 typedef unsigned char 		jab_boolean;
 typedef int 				jab_int32;
@@ -231,6 +238,12 @@ extern void jabSetStrictPartIIRequired(jab_boolean strict);
  * jabcode.h::JAB_DIAG_INFO and decoder.c for the macro and flag. */
 extern void jabSetDiagVerbose(jab_boolean verbose);
 extern jab_boolean jabIsDiagVerbose(void);
+
+/* Path β permissive color classification toggle — see decoder.c:80-127
+ * for the empirical basis and decoder.c:1086 for the call site that
+ * applies the rgb=5 → rgb=6 remap at the metadata module-color stage. */
+extern void jabSetPermissiveColorClassification(jab_boolean permissive);
+extern jab_boolean jabIsPermissiveColorClassification(void);
 
 extern jab_boolean saveImage(jab_bitmap* bitmap, jab_char* filename);
 extern jab_boolean saveImageCMYK(jab_bitmap* bitmap, jab_boolean isCMYK, jab_char* filename);
