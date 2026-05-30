@@ -7,7 +7,9 @@ import android.graphics.ImageFormat
 import android.graphics.Rect
 import android.graphics.SurfaceTexture
 import android.hardware.camera2.*
+import android.hardware.camera2.params.ColorSpaceTransform
 import android.hardware.camera2.params.OutputConfiguration
+import android.hardware.camera2.params.RggbChannelVector
 import android.hardware.camera2.params.SessionConfiguration
 import android.media.ImageReader
 import android.os.Build
@@ -501,31 +503,81 @@ private class Camera2Controller(
                 Log.w(TAG, "Exposure compensation ${exposureCompensationValue} out of range: ${aeCompensationRange?.lower}..${aeCompensationRange?.upper}")
             }
             
-            // Enable auto white balance
-            requestBuilder.set(
-                CaptureRequest.CONTROL_AWB_MODE,
-                CaptureRequest.CONTROL_AWB_MODE_AUTO
-            )
-
-            // Convergence-lock pass: once AWB and AE have both reached
-            // CONVERGED state at least once (observed in the capture
-            // callback below and used to recursively reissue this method
-            // with applyConvergenceLocks=true), freeze them for the rest
-            // of the session.
-            //
-            // Per Camera2 docs: CONTROL_AWB_LOCK is "only meaningful when
-            // android.control.awbMode is in the AUTO mode" — which we set
-            // immediately above, so the lock is well-defined here. Same
-            // for CONTROL_AE_LOCK with CONTROL_AE_MODE_ON.
-            //
-            // The lock pattern stabilizes the ISP's color-correction
-            // matrix and exposure values frame-to-frame, eliminating the
-            // green-channel drift that makes JABCode metadata reads
-            // misclassify rgb=5 (Magenta) where rgb=6 (Yellow) was
-            // physically displayed. See 2026-05-30 nc2 PartI_DIAG trace.
-            if (applyConvergenceLocks) {
-                requestBuilder.set(CaptureRequest.CONTROL_AWB_LOCK, true)
-                requestBuilder.set(CaptureRequest.CONTROL_AE_LOCK, true)
+            /* Path α revised — Manual white balance override (experimental
+             * 2026-05-30): bypasses the existing AUTO + convergence-lock
+             * AWB behavior from PR #36 entirely, in favor of disabling AWB
+             * and applying neutral RGGB gains + identity color-correction
+             * matrix.
+             *
+             * Empirical motivation: the post-AWB-convergence-lock raw-byte
+             * trace (06:56:25) showed metadata-position samples consistently
+             * read as raw_bytes=(254, 125, 254) — R saturated, G mid-range,
+             * B saturated. For a fixture's Y modules (R+G, B=0), B should
+             * read NEAR ZERO, not 254. The pattern points at the AWB
+             * convergence having locked to a non-neutral scene white-point
+             * and the resulting color-correction matrix then applying a
+             * spurious R+B amplification to all subsequent frames.
+             *
+             * Disabling AWB + setting neutral gains + identity transform
+             * bypasses the ISP's color manipulation entirely. The sensor's
+             * raw Bayer signal passes through with only the inherent CFA
+             * characteristics. If the next nc2 trace shows B drop near 0
+             * for previously-rgb=5 modules, the AWB-lock-to-wrong-point
+             * hypothesis is empirically confirmed and this override
+             * should be productized as a Settings opt-in.
+             *
+             * Note: AE (auto-exposure) lock behavior is INTENTIONALLY
+             * preserved unchanged. The AWB-vs-AE separation is the test —
+             * we're isolating the white-balance variable. If decoding
+             * improves with manual WB + AE-auto-lock, the WB is the cause.
+             *
+             * To revert (e.g., if the experiment fails or is otherwise
+             * unwanted), flip useManualWhiteBalance to false.
+             */
+            val useManualWhiteBalance = true
+            if (useManualWhiteBalance) {
+                requestBuilder.set(
+                    CaptureRequest.CONTROL_AWB_MODE,
+                    CaptureRequest.CONTROL_AWB_MODE_OFF
+                )
+                requestBuilder.set(
+                    CaptureRequest.COLOR_CORRECTION_MODE,
+                    CaptureRequest.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX
+                )
+                // Neutral RGGB gains — no per-channel multiplier.
+                requestBuilder.set(
+                    CaptureRequest.COLOR_CORRECTION_GAINS,
+                    RggbChannelVector(1.0f, 1.0f, 1.0f, 1.0f)
+                )
+                // Identity 3×3 color-correction matrix as 9 rationals.
+                // Each rational is (numerator, denominator). The diagonal
+                // is 1/1, off-diagonal 0/1.
+                val identityTransform = ColorSpaceTransform(
+                    intArrayOf(
+                        1, 1, 0, 1, 0, 1,   // row 0: [1, 0, 0]
+                        0, 1, 1, 1, 0, 1,   // row 1: [0, 1, 0]
+                        0, 1, 0, 1, 1, 1    // row 2: [0, 0, 1]
+                    )
+                )
+                requestBuilder.set(
+                    CaptureRequest.COLOR_CORRECTION_TRANSFORM,
+                    identityTransform
+                )
+                // AE lock behavior preserved — applyConvergenceLocks still
+                // controls CONTROL_AE_LOCK independently of WB.
+                if (applyConvergenceLocks) {
+                    requestBuilder.set(CaptureRequest.CONTROL_AE_LOCK, true)
+                }
+            } else {
+                // Original AUTO + convergence-lock path from PR #36.
+                requestBuilder.set(
+                    CaptureRequest.CONTROL_AWB_MODE,
+                    CaptureRequest.CONTROL_AWB_MODE_AUTO
+                )
+                if (applyConvergenceLocks) {
+                    requestBuilder.set(CaptureRequest.CONTROL_AWB_LOCK, true)
+                    requestBuilder.set(CaptureRequest.CONTROL_AE_LOCK, true)
+                }
             }
 
             // WS-camera-PR1: apply the pinch-zoom crop region if set. The
