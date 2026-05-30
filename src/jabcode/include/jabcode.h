@@ -87,7 +87,7 @@ typedef unsigned char 		jab_byte;
  * jab_boolean, which is typedef'd further down this file) so the macro
  * remains usable from sites that include only the early portion of
  * this header. */
-extern __thread unsigned char g_diag_verbose;
+extern unsigned char g_diag_verbose;
 #define JAB_DIAG_INFO(x) do { if (g_diag_verbose) JAB_REPORT_INFO(x); } while (0)
 typedef char 				jab_char;
 typedef unsigned char 		jab_boolean;

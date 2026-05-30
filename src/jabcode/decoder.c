@@ -60,12 +60,24 @@ void jabSetStrictPartIIRequired(jab_boolean strict)
  * result) fire. Diagnostic tools can call jabSetDiagVerbose(1) to
  * enable the full marker stream for a specific capture window.
  *
- * Thread-local so concurrent decoders can independently choose verbosity.
+ * Process-global (no __thread). The 2026-05-30 H_partI_unifies trace
+ * capture exposed the previous __thread design as broken in practice:
+ * setDiagVerbose is called by the diagnostic-app from the UI thread
+ * (observing SettingsRepository.settingsFlow in MainActivity.onCreate)
+ * while the decoder runs on the CameraX analyzer thread. Thread-local
+ * isolation meant the analyzer thread's flag stayed FALSE no matter
+ * how the UI toggle was set, so [PartI_DIAG] markers never fired across
+ * a 5-fixture (nc0/nc1/nc2/nc3/nc7) capture session. Concurrent-decoder
+ * independent verbosity was a theoretical property we never used; a
+ * process-global flag is what diagnostic tools actually need. Worst-case
+ * race (read-during-write) is benign for a single boolean flag — torn
+ * reads collapse to "verbose state momentarily wrong by one frame",
+ * which doesn't affect correctness of any non-diagnostic code path.
  *
  * See: docs/cassandra-register/H_partI_clean_data_failure.md for the
  * underlying investigation that motivated keeping the markers available
  * but gated. */
-__thread jab_boolean g_diag_verbose = 0;
+jab_boolean g_diag_verbose = 0;
 
 void jabSetDiagVerbose(jab_boolean verbose)
 {
