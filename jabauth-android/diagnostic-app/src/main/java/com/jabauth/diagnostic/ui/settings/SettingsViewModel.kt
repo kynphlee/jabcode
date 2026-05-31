@@ -54,7 +54,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             repository.updatePreferredColorMode(mode)
         }
     }
-    
+
+    fun updateHapticFeedback(enabled: Boolean) {
+        viewModelScope.launch {
+            repository.updateHapticFeedback(enabled)
+        }
+    }
+
     fun resetToDefaults() {
         viewModelScope.launch {
             repository.resetToDefaults()

@@ -38,10 +38,14 @@ android {
             // Production/debug builds: verbose logging defaults OFF (user
             // must explicitly opt in via Settings).
             buildConfigField("boolean", "DEFAULT_DEBUG_LOGGING_ENABLED", "false")
+            // Haptic-on-decode-success defaults ON — standard scan UX.
+            buildConfigField("boolean", "DEFAULT_HAPTIC_ENABLED", "true")
         }
         release {
             // Production builds: verbose logging defaults OFF.
             buildConfigField("boolean", "DEFAULT_DEBUG_LOGGING_ENABLED", "false")
+            // Haptic-on-decode-success defaults ON — standard scan UX.
+            buildConfigField("boolean", "DEFAULT_HAPTIC_ENABLED", "true")
         }
         // Build variant consumed by the `:benchmark-macro` module. Acts as
         // a release-like build (no debug coverage instrumentation) but
@@ -63,6 +67,9 @@ android {
             // need a manual Settings toggle flip to surface the [PartI_DIAG]
             // markers.
             buildConfigField("boolean", "DEFAULT_DEBUG_LOGGING_ENABLED", "true")
+            // Haptic-on-decode-success defaults ON — confirms haptic
+            // wiring fires during validation scans without manual toggle.
+            buildConfigField("boolean", "DEFAULT_HAPTIC_ENABLED", "true")
         }
     }
 

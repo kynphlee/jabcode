@@ -89,6 +89,16 @@ fun SettingsScreen(
                     onCheckedChange = { viewModel.updateDebugLogging(it) }
                 )
             }
+
+            // Feedback
+            SettingsSection(title = "Feedback") {
+                SwitchSetting(
+                    label = "Haptic Feedback",
+                    description = "Vibrate briefly on each successful decode",
+                    checked = settings.hapticFeedback,
+                    onCheckedChange = { viewModel.updateHapticFeedback(it) }
+                )
+            }
             
             // JABCode Preferences
             SettingsSection(title = "JABCode Preferences") {

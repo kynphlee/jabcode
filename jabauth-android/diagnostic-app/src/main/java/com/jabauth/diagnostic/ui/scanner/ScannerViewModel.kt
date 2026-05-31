@@ -7,6 +7,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.jabauth.diagnostic.data.SettingsRepository
 import com.jabauth.diagnostic.util.DiagnosticLogger
+import com.jabauth.diagnostic.util.HapticFeedbackController
 import com.jabauth.jabcode.DecodeOptions
 import com.jabauth.jabcode.DecodeResult
 import com.jabauth.jabcode.JABCodeDecoderImpl
@@ -22,6 +23,7 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
     private val decoder = JABCodeDecoderImpl()
     private val settingsRepository = SettingsRepository(application)
     private val logger = DiagnosticLogger.create("ScannerViewModel", settingsRepository)
+    private val hapticController = HapticFeedbackController(application)
 
     // Production-side PerformanceTracker — records each decode attempt's
     // duration and success across the session lifetime. Complements the
@@ -331,9 +333,13 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
     
     // Track debug logging state for synchronous logging
     private var isDebugEnabled = false
-    
+
     // Track preferred color mode for result validation
     private var preferredColorMode: Int? = null
+
+    // Track haptic-feedback setting — checked in onDecodeSuccess to gate
+    // the vibration pulse without recreating the analyzer on every change.
+    private var hapticFeedbackEnabled = SettingsRepository.DEFAULT_HAPTIC_FEEDBACK
     
     // Mutable analyzer - recreated when settings change
     private var analyzer: Camera2JABCodeAnalyzer
@@ -350,6 +356,7 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
             settingsRepository.settingsFlow.collect { settings ->
                 isDebugEnabled = settings.debugLogging
                 preferredColorMode = settings.preferredColorMode
+                hapticFeedbackEnabled = settings.hapticFeedback
                 
                 val colorModeStr = settings.preferredColorMode?.let { "${it}-color" } ?: "auto-detect"
                 logger.dSync(
@@ -407,6 +414,10 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
                 _scanResult.value = result
                 _scanError.value = null
                 _scanCount.value++
+                // Fire haptic pulse on successful decode when the user
+                // has enabled the Settings "Haptic Feedback" toggle.
+                // Cheap to gate here — no analyzer recreation needed.
+                if (hapticFeedbackEnabled) hapticController.pulseSuccess()
                 // Record into the production PerformanceTracker. Provides
                 // cumulative session-lifetime aggregates (avg, min, max,
                 // success rate) — complements the 30s rolling DECODE_*_STATS.
