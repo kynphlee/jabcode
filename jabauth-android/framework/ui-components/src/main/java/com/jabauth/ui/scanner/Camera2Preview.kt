@@ -544,10 +544,28 @@ private class Camera2Controller(
                     CaptureRequest.COLOR_CORRECTION_MODE,
                     CaptureRequest.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX
                 )
-                // Neutral RGGB gains — no per-channel multiplier.
+                /* B-attenuated RGGB gains for the nc2-specific residual cast.
+                 *
+                 * 2026-05-31 eight-Nc re-baseline (H_nc2 register) showed
+                 * five of eight Nc values reach >=97% PartI success at
+                 * neutral (1.0, 1.0, 1.0, 1.0) gains — manual WB is a
+                 * universal fix for those. nc2 remained at 0% (regressed
+                 * from yesterday's 33.75%) because its specific metadata
+                 * color content interacts with the residual B-channel
+                 * cast that the neutral matrix doesn't suppress.
+                 *
+                 * Per the H_nc2 register's documented direction:
+                 * RggbChannelVector(R, Gr, Gb, B) = (1.0, 1.0, 1.0, 0.3).
+                 * Attenuate the B channel to 30% so saturated B reads
+                 * drop below the Y-match B-ceiling (tolerance=80 per
+                 * decoder.c:786). This is an experimental coefficient
+                 * — empirical validation on the next eight-Nc re-baseline
+                 * trace is the falsifier; if any of nc1/nc3/nc4/nc5/nc6
+                 * regresses from ~100%, the coefficient needs softening
+                 * back toward 0.5-0.7. */
                 requestBuilder.set(
                     CaptureRequest.COLOR_CORRECTION_GAINS,
-                    RggbChannelVector(1.0f, 1.0f, 1.0f, 1.0f)
+                    RggbChannelVector(1.0f, 1.0f, 1.0f, 0.3f)
                 )
                 // Identity 3×3 color-correction matrix as 9 rationals.
                 // Each rational is (numerator, denominator). The diagonal
