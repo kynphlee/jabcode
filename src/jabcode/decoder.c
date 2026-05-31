@@ -789,6 +789,28 @@ jab_byte decodeModuleHD(jab_bitmap* matrix, jab_byte* palette, jab_int32 color_n
 */
 jab_byte decodeModuleNc(jab_byte* rgb)
 {
+	/* Mode 0 (monochrome) classifier path. g_mode0_decode is set by the
+	 * detector's chroma-tolerance trigger when sampled pixel chroma indicates
+	 * a monochrome fixture. In Mode 0, the master-metadata palette is {K=0,
+	 * W=7} only — chroma discrimination is meaningless, only luminance.
+	 *
+	 * Without this branch, W pixels under residual camera cast read as e.g.
+	 * (244, 254, 243) and match the Y exact-check below (R>175 ∧ G>175 ∧
+	 * B<255), producing rgb=6 (Y) — which then fails the Mode 0 validity
+	 * set {0, 7} in decodeMasterMetadataPartI, yielding FAIL_STAGE=module_color
+	 * on every Mode 0 attempt. The classifier was previously not Mode 0-aware.
+	 *
+	 * Empirical anchor: 2026-05-31 v6 nc=0 trace
+	 * (trace-20260531_155439-nc0.logcat) showed 109/114 frames with
+	 * g_mode0_decode=1 and 0/68 PartI successes — every BEGIN failed at
+	 * module_color because of this misclassification. The hypothesis is
+	 * filed at docs/cassandra-register/H_mode0_decodeModuleNc_classifier.md. */
+	if(g_mode0_decode)
+	{
+		jab_int32 luminance = (rgb[0] + rgb[1] + rgb[2]) / 3;
+		return (luminance < 127) ? 0 : 7;
+	}
+
 	// FIX: For 16+ color modes, check for exact matches to base palette colors first
 	// Part I always uses black(0,0,0), cyan(0,255,255), yellow(255,255,0)
 	jab_int32 tolerance = 80; // Camera-captured blacks read up to ~(60,40,50) due to screen glow + ambient light
