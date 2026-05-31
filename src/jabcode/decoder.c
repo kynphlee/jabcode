@@ -815,7 +815,18 @@ jab_byte decodeModuleNc(jab_byte* rgb)
 	 * fallback was likely classifying these as M anyway (returning rgb=5,
 	 * which fails the validity check) — so this widening converts
 	 * previously-failing metadata reads into successful Y reads. */
-	jab_int32 y_b_tolerance = 200;
+	/* Bumped 200 → 255 per the 2026-05-31 14:37 trace: nc2 metadata-position
+	 * raw bytes consistently read as (R=221-239, G=177-205, B=235-254). The
+	 * prior ceiling of 200 failed to absorb the B=235-254 range, leaving
+	 * the fallback path (Path β remap rgb=5→rgb=6) as the only mechanism
+	 * — which then produced (Y,Y) invalid pair_bits 53 times in 68 attempts.
+	 *
+	 * y_b_tolerance = 255 effectively means "any B value" for the Y-match
+	 * exact-check. This is safe in color modes because W (R+G+B all high)
+	 * doesn't appear at master-metadata positions per spec, and the Mode 0
+	 * path uses a separate {K, W} validity set (PR #46 — see is_valid check
+	 * at decoder.c:1174 in decodeMasterMetadataPartI). */
+	jab_int32 y_b_tolerance = 255;
 
 	// Check for black (index 0)
 	if(rgb[0] < tolerance && rgb[1] < tolerance && rgb[2] < tolerance)
