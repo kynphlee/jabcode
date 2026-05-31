@@ -110,4 +110,19 @@ internal class JABCodeMobile {
      *                   modules; false to enforce strict {0, 3, 6}
      */
     external fun nativeSetPermissiveColorClassification(permissive: Boolean)
+
+    /**
+     * Path β preferred color count override.
+     *
+     * Pins the C decoder to a specific Nc by collapsing the Nc fallback
+     * ladder to a single deterministic attempt at the chosen Nc. Closes
+     * the Settings UI "Preferred Color Mode" dropdown wiring gap — the
+     * dropdown was previously cosmetic for decoder steering.
+     *
+     * Valid values: 0 (auto), 2, 4, 8, 16, 32, 64, 128, 256.
+     * Invalid values are clamped to no-op at the C layer (auto remains).
+     *
+     * @param count 0 for auto-detect, or the desired palette color count
+     */
+    external fun nativeSetPreferredColorCount(count: Int)
 }

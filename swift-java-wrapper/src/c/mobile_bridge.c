@@ -591,3 +591,12 @@ void jabMobileSetDiagVerbose(jab_int32 verbose) {
 void jabMobileSetPermissiveColorClassification(jab_int32 permissive) {
     jabSetPermissiveColorClassification(permissive ? 1 : 0);
 }
+
+/* Path β preferred color count bridge.
+ * Forwards to jabSetPreferredColorCount. When non-zero, the decoder
+ * collapses the Nc fallback ladder to a single deterministic attempt
+ * at the chosen Nc. Closes the Settings UI dropdown wiring gap
+ * surfaced by Bayesian Council Session bc-2026-05-31-04. */
+void jabMobileSetPreferredColorCount(jab_int32 count) {
+    jabSetPreferredColorCount(count);
+}
