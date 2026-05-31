@@ -115,6 +115,13 @@ void jabSetDiagVerbose(jab_boolean verbose)
  * alternatives. */
 jab_boolean g_permissive_color_classification = 0;
 
+/* Mode 0 (monochrome) decode flag, defined in detector.c. Read by
+ * decodeMasterMetadataPartI to switch the metadata module_color
+ * validity check between {K, C, Y} (color modes) and {K, W} (Mode 0).
+ * See H_mode0_partI_decode_failure register entry for the empirical
+ * record motivating the Mode 0 short-circuit. */
+extern jab_boolean g_mode0_decode;
+
 void jabSetPermissiveColorClassification(jab_boolean permissive)
 {
 	g_permissive_color_classification = permissive;
@@ -1123,12 +1130,30 @@ jab_int32 decodeMasterMetadataPartI(jab_bitmap* matrix, jab_decoded_symbol* symb
 			jab_byte raw_b0 = matrix->pixel[mtx_offset + 0];
 			jab_byte raw_b1 = matrix->pixel[mtx_offset + 1];
 			jab_byte raw_b2 = matrix->pixel[mtx_offset + 2];
-			DEBUG_LOG("[PartI_DIAG] module[%d] xy=(%d,%d) raw_bytes=(%d,%d,%d) rgb=%d valid=%d",
-			          *module_count, *x, *y, raw_b0, raw_b1, raw_b2, rgb, (rgb==0 || rgb==3 || rgb==6));
+			jab_boolean valid_for_log = g_mode0_decode
+				? (rgb == 0 || rgb == 7)
+				: (rgb == 0 || rgb == 3 || rgb == 6);
+			DEBUG_LOG("[PartI_DIAG] module[%d] xy=(%d,%d) raw_bytes=(%d,%d,%d) rgb=%d valid=%d mode0=%d",
+			          *module_count, *x, *y, raw_b0, raw_b1, raw_b2, rgb, valid_for_log, g_mode0_decode);
 		}
-		if(rgb != 0 && rgb != 3 && rgb != 6)
+
+		/* Mode 0 (monochrome) uses {K=0, W=7} metadata palette;
+		 * color modes use {K=0, C=3, Y=6}. Per the H_mode0_partI register
+		 * entry's Step 1 spec — extend the validity check to short-circuit
+		 * on g_mode0_decode set by the detector's chroma-tolerance trigger.
+		 *
+		 * Note: this fix unblocks the module_color stage for Mode 0
+		 * captures. The downstream pair_bits and LDPC decode stages may
+		 * still fail for Mode 0 because the bit-packing scheme differs
+		 * from color modes — that's tracked as Step 2 (encoder layout
+		 * cross-reference) in the H_mode0_partI register entry. */
+		jab_boolean is_valid = g_mode0_decode
+			? (rgb == 0 || rgb == 7)
+			: (rgb == 0 || rgb == 3 || rgb == 6);
+		if (!is_valid)
 		{
-			if (g_diag_verbose) DEBUG_LOG("[PartI_DIAG] FAIL_STAGE=module_color module[%d] rgb=%d (must be 0,3,6)", *module_count, rgb);
+			if (g_diag_verbose) DEBUG_LOG("[PartI_DIAG] FAIL_STAGE=module_color module[%d] rgb=%d (mode0=%d valid_set=%s)",
+				*module_count, rgb, g_mode0_decode, g_mode0_decode ? "{0,7}" : "{0,3,6}");
 #if TEST_MODE
 		reportError("Invalid module color in primary metadata part 1 found");
 #endif
