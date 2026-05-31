@@ -587,6 +587,15 @@ private class Camera2Controller(
             // the zoom state.
             cachedCropRegion?.let { crop ->
                 requestBuilder.set(CaptureRequest.SCALER_CROP_REGION, crop)
+                /* Log zoom state per repeating-request rebuild. Tagged
+                 * "JABCodeZoom" so traces can correlate session-to-session
+                 * fixture-distance variance with pixels-per-module (zoom
+                 * effectively increases the per-module sample count). Fires
+                 * only when crop region is set — pinch-zoom events and
+                 * AF/AE rebuilds. Does NOT fire per-frame. */
+                Log.i("JABCodeZoom", "SCALER_CROP_REGION=${crop.left},${crop.top},${crop.right},${crop.bottom} (w=${crop.width()}, h=${crop.height()})")
+            } ?: run {
+                Log.i("JABCodeZoom", "SCALER_CROP_REGION=null (no pinch-zoom; using sensor's active array)")
             }
             
             // WS-camera-3: capture callback that observes the LLB state
