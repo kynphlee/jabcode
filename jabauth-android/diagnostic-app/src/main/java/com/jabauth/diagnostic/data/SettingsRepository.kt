@@ -27,11 +27,21 @@ class SettingsRepository(private val context: Context) {
         private val AUTO_FOCUS = booleanPreferencesKey("auto_focus")
         private val DEBUG_LOGGING = booleanPreferencesKey("debug_logging")
         private val PREFERRED_COLOR_MODE = intPreferencesKey("preferred_color_mode")
-        
+        private val HAPTIC_FEEDBACK = booleanPreferencesKey("haptic_feedback")
+
         // Default values
         const val DEFAULT_DECODE_TIMEOUT = 200
         const val DEFAULT_ANALYZE_INTERVAL = 500
         const val DEFAULT_AUTO_FOCUS = true
+
+        /**
+         * Default for the Settings "Haptic Feedback" toggle.
+         *
+         * Sourced from BuildConfig.DEFAULT_HAPTIC_ENABLED. Currently TRUE
+         * across all variants — scan-success vibration is standard PoS
+         * scanner UX and end users expect it on by default.
+         */
+        val DEFAULT_HAPTIC_FEEDBACK: Boolean = BuildConfig.DEFAULT_HAPTIC_ENABLED
 
         /**
          * Default for the Settings "Debug Logging" toggle.
@@ -64,7 +74,8 @@ class SettingsRepository(private val context: Context) {
         val analyzeInterval: Int = DEFAULT_ANALYZE_INTERVAL,
         val autoFocus: Boolean = DEFAULT_AUTO_FOCUS,
         val debugLogging: Boolean = DEFAULT_DEBUG_LOGGING,
-        val preferredColorMode: Int? = null  // null = Auto
+        val preferredColorMode: Int? = null,  // null = Auto
+        val hapticFeedback: Boolean = DEFAULT_HAPTIC_FEEDBACK
     )
     
     /**
@@ -84,7 +95,8 @@ class SettingsRepository(private val context: Context) {
                 analyzeInterval = preferences[ANALYZE_INTERVAL] ?: DEFAULT_ANALYZE_INTERVAL,
                 autoFocus = preferences[AUTO_FOCUS] ?: DEFAULT_AUTO_FOCUS,
                 debugLogging = preferences[DEBUG_LOGGING] ?: DEFAULT_DEBUG_LOGGING,
-                preferredColorMode = preferences[PREFERRED_COLOR_MODE]?.takeIf { it != -1 }
+                preferredColorMode = preferences[PREFERRED_COLOR_MODE]?.takeIf { it != -1 },
+                hapticFeedback = preferences[HAPTIC_FEEDBACK] ?: DEFAULT_HAPTIC_FEEDBACK
             )
         }
     
@@ -130,6 +142,15 @@ class SettingsRepository(private val context: Context) {
     suspend fun updatePreferredColorMode(colorMode: Int?) {
         context.dataStore.edit { preferences ->
             preferences[PREFERRED_COLOR_MODE] = colorMode ?: -1
+        }
+    }
+
+    /**
+     * Update haptic feedback setting
+     */
+    suspend fun updateHapticFeedback(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[HAPTIC_FEEDBACK] = enabled
         }
     }
     
