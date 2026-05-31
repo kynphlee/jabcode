@@ -270,6 +270,18 @@ void jabMobileSetDiagVerbose(jab_int32 verbose);
 void jabMobileSetPermissiveColorClassification(jab_int32 permissive);
 
 /**
+ * @brief Pin the decoder to a specific color count (Path β).
+ *
+ * Forwards to jabSetPreferredColorCount. When non-zero, the decoder's
+ * Nc fallback ladder collapses to a single deterministic attempt at the
+ * chosen Nc. Useful for fixture-specific scans and discriminator
+ * experiments. 0 = auto (default; full 8-iteration fallback walk).
+ *
+ * @param count 0 (auto), 2, 4, 8, 16, 32, 64, 128, or 256
+ */
+void jabMobileSetPreferredColorCount(jab_int32 count);
+
+/**
  * @brief Check if calibration is active
  * 
  * @return TRUE if calibration loaded, FALSE otherwise
