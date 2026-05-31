@@ -253,8 +253,43 @@ Compare against `test_roundtrip_all_nc.c` desktop test (synthetic encode→decod
 
 Per the established Cassandra register pattern: scheduling commits us to investigation by a date; triggering activates when evidence demands it. Nc=2 may be product-irrelevant (if the SDK consumers don't use 8-color codes) or product-critical (if they do); the trigger pattern lets us discover which.
 
+## 2026-05-31 stacked-fix re-baseline — six-of-eight Nc modes deployable
+
+After PR #46 (Mode 0-aware metadata validity check in `decodeMasterMetadataPartI`) and PR #47 (Y-match `y_b_tolerance` widening in `decodeModuleNc`, 200 → 255) landed, the eight-Nc re-baseline trace (`trace-20260531_15{05..16}*-nc{0..7}.logcat`) produced:
+
+| Nc | v5 stacked rate | Production posture |
+|----|-----------------|---------------------|
+| nc0 | 0% | **Local maximum reached** — see new H_mode0_decodeModuleNc_classifier register entry |
+| nc1 | **100%** | Deployable |
+| nc2 | 0% | **Local maximum reached** — needs ISP-level color correction OR relative-color decoder approach |
+| nc3 | **100%** | Deployable |
+| nc4 | **100%** | Deployable |
+| nc5 | **100%** | Deployable |
+| nc6 | 96% | Deployable (noise-level regression from 100%) |
+| nc7 | **95%** | Deployable (Y-widening lifted from 90%) |
+
+**Six of eight Nc values (1, 3, 4, 5, 6, 7) are at >=95% PartI success** with manual WB override + Path β coupled to debugLogging + Mode 0 validity + Y-match B-tolerance widening. That's the production-deployable headline.
+
+### Why nc0 and nc2 hit local maxima
+
+- **nc0**: the Mode 0 PartI validity check now correctly accepts `{K=0, W=7}`. But the upstream `decodeModuleNc` classifier is misclassifying W pixels (R+G+B all high) as Y (rgb=6) under the residual camera cast. Mode 0 validity rejects rgb=6, producing FAIL_mc with `mode0=1 valid_set={0,7}`. **This is a separate bug, filed as `H_mode0_decodeModuleNc_classifier`** — needs a Mode 0-aware classifier path using luminance discrimination, not chroma.
+- **nc2**: 322 Path β remap firings + 83 FAIL_pb with `(Y, Y) → 8` invalid pairs. ALL four metadata modules collapse to Y (whether native or β-remapped), because the camera cast makes K/C/Y indistinguishable to the per-pixel absolute-threshold classifier. No PartI-stage classifier-tuning intervention can recover information the cast destroyed at sample time. **The remaining workstream is ISP-level (a 3×3 color-correction matrix that preserves K/C/Y discrimination) OR decoder-side relative-color discrimination using inter-module ratios.**
+
+### Productization implications
+
+- **Manual WB override**: graduates from opt-in to recommended-default. Six modes need it.
+- **Path β**: opt-in for SDK consumers; load-bearing for nc7's 95% rate but not strictly required for the 5 clean modes.
+- **nc0**: ship to customers as "Mode 0 partially supported" until H_mode0_decodeModuleNc_classifier ships.
+- **nc2**: ship to customers as "8-color mode not recommended on Galaxy S25 / SM-S938U-16; alternative platforms TBD".
+- **nc7**: ship at 95% with Path β coupled.
+
+### Open instrumentation gap
+
+The 2026-05-31 stacked-fix trace also surfaced a previously-undocumented capture gap: **zoom state was not logged in any PartI_DIAG marker**. Camera2Preview applies `SCALER_CROP_REGION` via `cachedCropRegion` (PR #36 pinch-zoom), but neither the captured request nor the analyzer thread emitted zoom state to logcat. Session-to-session variance in nc2 results (e.g., 33.75% yesterday vs 0% today) may be partially explainable by zoom-state differences. Resolved in this PR — `JABCodeZoom` tag emits `SCALER_CROP_REGION` whenever the repeating-request rebuilds.
+
 ## Cross-references
 
+- `H_mode0_decodeModuleNc_classifier.md` — sibling entry for the nc=0 classifier-side residual bug uncovered today
 - `docs/roi-detection-implementation-plan.md` §1.6.1 — PR 1's per-fixture decision rules; Nc=2 is implicitly part of the "should we proceed" determination
 - `H_partI_clean_data_failure.md` — sibling decoder hypothesis
 - `H_mode0_partI_decode_failure.md` — sibling decoder hypothesis
