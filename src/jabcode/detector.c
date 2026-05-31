@@ -85,7 +85,16 @@
  * crossCheckPattern skips the color-channel-specific cross-checks (which
  * assume Y/C cores at FP2/FP3).
  * See: docs/jabcode-all-nc-plan/00b-mode-0-monochrome.md Step 0.7 */
-static jab_boolean g_mode0_decode = 0;
+/* Mode 0 (monochrome) decode flag. Set by the chroma-tolerance trigger
+ * in detectMaster (or its equivalent) when the scene chroma profile
+ * indicates monochrome content. Read by decodeMasterMetadataPartI in
+ * decoder.c to switch the metadata module_color validity check from
+ * {K=0, C=3, Y=6} (color modes) to {K=0, W=7} (Mode 0 metadata uses
+ * K and W only, per the Mode 0 spec).
+ *
+ * Declared non-static (was `static` prior to PR #46 / H_mode0_partI
+ * fix landing) so decoder.c can read the flag at the call site. */
+jab_boolean g_mode0_decode = 0;
 
 #if TEST_MODE
 jab_bitmap* test_mode_bitmap = NULL;
