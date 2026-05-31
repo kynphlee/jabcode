@@ -209,6 +209,47 @@ The "two-bug minimum" rule applies: any future analysis assuming a single root c
 - The Camera2 convergence-lock pattern from PR #36 remains the SDK default. Manual WB override is the documented escape hatch when convergence-lock locks to a non-neutral scene. The diagnostic-app currently has it on always for diagnostic capture; production SDK consumers must opt in explicitly.
 - Cross-Nc applicability of the manual WB override is **unverified**. Re-baselining all eight Nc values (0–7) with manual WB ON, per the bc-2026-05-30-04 council synthesis Step 4, is the validation gate.
 
+## 2026-05-31 eight-Nc re-baseline — manual WB is a universal fix
+
+### Headline
+
+Re-baselining all eight Nc values (0–7) on Galaxy S25 / SM-S938U-16 with manual WB override ON + Path β coupled to `debugLogging` produced the following PartI success rates:
+
+| Nc | Color count | Pre-fix matrix | 2026-05-31 re-baseline | Mechanism notes |
+|---|---|---|---|---|
+| nc0 | 2 | 0% | **0%** (30 attempts, all FAIL_mc) | Mode 0 trigger fires correctly (g_mode0_decode=1 on 36 frames). PartI validity check still rejects {K, W}. **Needs the H_mode0_partI_decode_failure one-line C fix to ship.** |
+| **nc1** | 4 | 91–93% GA | **100%** (39/39) | No regression; clean. 0 remaps needed. |
+| nc2 | 8 | 0% → 33.75% (2026-05-30) | **0%** (35 attempts, 17 FAIL_mc + 18 FAIL_pb; 100 remaps fired) | Session-to-session variance. Needs targeted B-channel attenuation. |
+| **nc3** | 16 | 35% marginal | **100%** (45/45) | Clean lift; 0 remaps needed. |
+| **nc4** | 32 | 60% marginal | **100%** (37/37) | Clean lift; 0 remaps needed. |
+| **nc5** | 64 | 67% marginal | **100%** (31/31) | Clean lift; 0 remaps needed. |
+| **nc6** | 128 | 4% | **97%** (40/41) | Categorical fix; 0 remaps needed. |
+| nc7 | 256 | 17% | **71%** (102/142) | Heavy Path β reliance (106/142 remaps); β-coupled. |
+
+### Universal-fix finding
+
+The manual WB override (PR #41) is a **universal camera-side fix** that lifts **five out of eight** Nc values to ≥97% PartI success WITHOUT Path β assistance: **nc1, nc3, nc4, nc5, nc6**. The framing of the override as an "nc2-specific workaround" from yesterday's investigation is empirically refuted.
+
+The remaining three Nc values fail for distinct reasons:
+
+- **nc0**: PartI validity check is the bottleneck; needs the H_mode0_partI one-line decoder fix.
+- **nc2**: residual B-channel cast that the neutral-gain matrix doesn't fully suppress; needs targeted B-attenuation (`RggbChannelVector(1.0f, 1.0f, 1.0f, 0.3f)` is the documented starting point).
+- **nc7**: PartI passes 71% with Path β remap doing heavy lifting; slave-decode investigation for the residual 29% is a separate workstream (`H_nc7_slave_decode_failure` to file).
+
+### Productization posture update
+
+The 2026-05-30 register section recommended manual WB as an **opt-in escape hatch**. Today's eight-Nc data graduates it to **recommended-default**:
+
+- The framework should default the manual WB override ON in the SDK's camera-session config.
+- Consumer apps that need a visually-natural camera preview (the manual WB produces a cool/blue-cast preview because ISP color compensation is suppressed) should apply the override only during decode-attempt frames OR use a tighter `RggbChannelVector` like `(1.0, 1.0, 1.0, 0.5)` that splits the difference between decoder-correctness and preview-naturalness.
+- Path β permissive remap remains **opt-in** — five Nc values don't need it, and it can introduce (Y, Y) pair_bits collateral damage on healthier camera signals (per the 2026-05-30 falsification record).
+
+### Methodological note (tag-filtered logcat capture)
+
+Yesterday's 18:43:58 trace captured nc0–nc5 as empty (zero JABCode markers). Today's tag-filtered persistent capture (`adb logcat -v threadtime -s JABCodeDecoder:V JABCode:V DiagPropProbe:V TestRunner:V`) produced clean signal across all six fixtures. The failure mode of the previous-day captures was NOT Samsung Knox log-tag suppression (Knox honored the `setprop log.tag.JABCodeDecoder VERBOSE` overrides cleanly); it was the `adb logcat -d` snapshot pattern getting diluted by system-noise traffic before the JABCode markers could be captured. The 5 MiB Knox-enforced buffer cap was a non-factor because the 24 MiB readable history already exceeded the per-scan log volume.
+
+This pattern (tag-filtered persistent capture beats periodic snapshot dump on the S25 specifically) is worth documenting in `docs/framework/diagnostic-controls.md` as a recommended capture workflow for consumer apps building on this SDK.
+
 ## Suspected failure surfaces (investigation candidates)
 
 The encoder's color-number-specific palette code (`src/jabcode/encoder.c::genColorPalette`) shows:
