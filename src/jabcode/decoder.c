@@ -132,6 +132,37 @@ jab_boolean jabIsPermissiveColorClassification(void)
 	return g_permissive_color_classification;
 }
 
+/* Path β preferred color count override. When non-zero, the decoder
+ * collapses the Nc fallback ladder to a single iteration at the chosen
+ * Nc — turning auto-detect into deterministic pinned-Nc mode.
+ *
+ * Valid values: 2, 4, 8, 16, 32, 64, 128, 256 (= 2^(Nc+1) for Nc=0..7).
+ * 0 = auto (default; preserves original 8-iteration fallback walk).
+ *
+ * Rationale: the Settings UI "Preferred Color Mode" dropdown was
+ * previously cosmetic (only used for log labelling and post-decode
+ * validation). Bayesian Council Session bc-2026-05-31-04 audit
+ * exposed the wiring gap. This global plus the corresponding fallback
+ * ladder collapse closes the gap, turning one Settings flip into the
+ * equivalent of a deterministic Nc-specific scan — invaluable as a
+ * discriminator for H_partI_nc_extraction_bias and H_nc2_decode_failure
+ * investigations.
+ *
+ * Process-global rather than __thread because it's decoder-instance-wide
+ * configuration, not per-call. Matches the g_diag_verbose /
+ * g_permissive_color_classification idiom for consistency. */
+jab_int32 g_preferred_color_count = 0;
+
+void jabSetPreferredColorCount(jab_int32 count)
+{
+	g_preferred_color_count = count;
+}
+
+jab_int32 jabGetPreferredColorCount(void)
+{
+	return g_preferred_color_count;
+}
+
 jab_boolean jabIsDiagVerbose(void)
 {
 	return g_diag_verbose;
@@ -1859,6 +1890,36 @@ jab_int32 decodeMaster(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 	jab_byte original_Nc = symbol->metadata.Nc;
 	jab_byte nc_order[] = {original_Nc, 1, 0, 2, 3, 4, 5, 6};
 	jab_int32 nc_tries = 8;
+
+	/* Path β: pin the fallback ladder to the user-selected Nc when set.
+	 * Collapses the 8-iteration walk into a single deterministic attempt
+	 * at the chosen Nc. Mapping: count → Nc index where Nc = log2(count) - 1
+	 * (2→0, 4→1, 8→2, 16→3, 32→4, 64→5, 128→6, 256→7).
+	 * Invalid counts (anything not in the canonical set) fall through to
+	 * default auto-detect behaviour, preserving safety against bad input. */
+	if(g_preferred_color_count != 0)
+	{
+		jab_int32 pinned_Nc = -1;
+		switch(g_preferred_color_count)
+		{
+			case 2:   pinned_Nc = 0; break;
+			case 4:   pinned_Nc = 1; break;
+			case 8:   pinned_Nc = 2; break;
+			case 16:  pinned_Nc = 3; break;
+			case 32:  pinned_Nc = 4; break;
+			case 64:  pinned_Nc = 5; break;
+			case 128: pinned_Nc = 6; break;
+			case 256: pinned_Nc = 7; break;
+			default: break;
+		}
+		if(pinned_Nc >= 0)
+		{
+			nc_order[0] = (jab_byte)pinned_Nc;
+			nc_tries = 1;
+			JAB_DIAG_INFO(("Nc_PIN: preferred_color_count=%d pinned_Nc=%d (fallback ladder collapsed)",
+			               g_preferred_color_count, pinned_Nc));
+		}
+	}
 
 	for(jab_int32 nc_idx = 0; nc_idx < nc_tries; nc_idx++)
 	{

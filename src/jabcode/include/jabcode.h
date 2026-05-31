@@ -96,6 +96,13 @@ extern unsigned char g_diag_verbose;
  * compensate for camera green-channel under-capture observed in the
  * H_nc2 investigation. Process-global, default OFF. */
 extern unsigned char g_permissive_color_classification;
+
+/* Path β preferred color count override — see decoder.c for full
+ * rationale. When non-zero, the decoder collapses the Nc fallback ladder
+ * to a single iteration at the chosen Nc, turning auto-detect into
+ * pinned-Nc mode. Valid values: 2, 4, 8, 16, 32, 64, 128, 256 (= 2^(Nc+1)
+ * for Nc=0..7). 0 = auto (default). Process-global. */
+extern int g_preferred_color_count;
 typedef char 				jab_char;
 typedef unsigned char 		jab_boolean;
 typedef int 				jab_int32;
@@ -244,6 +251,15 @@ extern jab_boolean jabIsDiagVerbose(void);
  * applies the rgb=5 → rgb=6 remap at the metadata module-color stage. */
 extern void jabSetPermissiveColorClassification(jab_boolean permissive);
 extern jab_boolean jabIsPermissiveColorClassification(void);
+
+/* Path β preferred color count override — see decoder.c for full
+ * rationale and the Nc fallback ladder call site (decodeMaster). When
+ * set to a valid color count (2, 4, 8, 16, 32, 64, 128, 256), the
+ * decoder pins to the corresponding Nc and skips the 8-iteration
+ * fallback walk — turning the Settings UI dropdown into a deterministic
+ * scan-Nc selector. 0 = auto (default). */
+extern void jabSetPreferredColorCount(jab_int32 count);
+extern jab_int32 jabGetPreferredColorCount(void);
 
 extern jab_boolean saveImage(jab_bitmap* bitmap, jab_char* filename);
 extern jab_boolean saveImageCMYK(jab_bitmap* bitmap, jab_boolean isCMYK, jab_char* filename);

@@ -49,3 +49,34 @@ fun setPermissiveColorClassification(permissive: Boolean) {
     mobile.nativeSetPermissiveColorClassification(permissive)
     Log.i("DiagPropProbe", "[E2-β] nativeSetPermissiveColorClassification($permissive) returned")
 }
+
+/**
+ * Path β preferred color count public facade.
+ *
+ * Pins the decoder to a specific Nc (color count) by routing through
+ * JABCodeMobile.nativeSetPreferredColorCount to the C-side
+ * g_preferred_color_count global. When non-null, the decoder collapses
+ * the 8-iteration Nc fallback ladder to a single deterministic attempt
+ * at the chosen Nc. When null, restores auto-detect mode (the original
+ * full fallback walk).
+ *
+ * Closes the Settings UI dropdown wiring gap exposed by Bayesian Council
+ * Session bc-2026-05-31-04 — the "Preferred Color Mode" dropdown was
+ * previously cosmetic for decoder steering. This facade makes it
+ * functional: one Settings flip is now equivalent to a deterministic
+ * Nc-specific scan, invaluable as a discriminator for the
+ * H_partI_nc_extraction_bias and H_nc2_decode_failure investigations.
+ *
+ * Valid count values: 2, 4, 8, 16, 32, 64, 128, 256. Other values (or
+ * null) restore auto-detect mode. The C layer treats unknown counts as
+ * no-op for safety.
+ *
+ * @param count desired palette size, or null for auto-detect
+ * @see com.jabcode.JABCodeMobile.nativeSetPreferredColorCount
+ */
+fun setPreferredColorCount(count: Int?) {
+    val nativeCount = count ?: 0
+    Log.i("DiagPropProbe", "[E1-γ] setPreferredColorCount($count) entered → native=$nativeCount")
+    mobile.nativeSetPreferredColorCount(nativeCount)
+    Log.i("DiagPropProbe", "[E2-γ] nativeSetPreferredColorCount($nativeCount) returned")
+}

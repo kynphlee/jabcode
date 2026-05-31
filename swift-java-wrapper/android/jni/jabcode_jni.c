@@ -379,3 +379,19 @@ Java_com_jabcode_JABCodeMobile_nativeSetPermissiveColorClassification(
 {
     jabMobileSetPermissiveColorClassification(permissive ? 1 : 0);
 }
+
+/* Path β preferred color count JNI export.
+ *
+ * Pins the decoder to a specific Nc by collapsing the fallback ladder.
+ * Valid count values: 0 (auto), 2, 4, 8, 16, 32, 64, 128, 256.
+ *
+ * Java signature: external fun nativeSetPreferredColorCount(count: Int)
+ */
+JNIEXPORT void JNICALL
+Java_com_jabcode_JABCodeMobile_nativeSetPreferredColorCount(
+    JNIEnv *env,
+    jclass clazz,
+    jint count)
+{
+    jabMobileSetPreferredColorCount((jab_int32)count);
+}

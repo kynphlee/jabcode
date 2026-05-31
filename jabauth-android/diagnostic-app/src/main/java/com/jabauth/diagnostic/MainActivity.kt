@@ -9,6 +9,7 @@ import androidx.lifecycle.lifecycleScope
 import com.jabauth.diagnostic.data.SettingsRepository
 import com.jabauth.jabcode.setDiagVerbose
 import com.jabauth.jabcode.setPermissiveColorClassification
+import com.jabauth.jabcode.setPreferredColorCount
 import kotlinx.coroutines.launch
 
 /**
@@ -37,7 +38,12 @@ class MainActivity : ComponentActivity() {
                 // diagnostic toggle for now. Production SDK consumers will
                 // get their own opt-in API once empirical validation is done.
                 setPermissiveColorClassification(settings.debugLogging)
-                Log.i("DiagPropProbe", "[F] setDiagVerbose + setPermissive returned (caller side)")
+                // Path β preferred-color-count: route the Settings UI
+                // "Preferred Color Mode" dropdown through to the C decoder.
+                // Null (Auto-detect) → 0 (auto fallback ladder). Closes the
+                // wiring gap surfaced by Bayesian Council bc-2026-05-31-04.
+                setPreferredColorCount(settings.preferredColorMode)
+                Log.i("DiagPropProbe", "[F] setDiagVerbose + setPermissive + setPreferredColorCount returned (caller side)")
             }
         }
         setContent {
