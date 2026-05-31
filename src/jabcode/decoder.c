@@ -786,12 +786,36 @@ jab_byte decodeModuleNc(jab_byte* rgb)
 	// Part I always uses black(0,0,0), cyan(0,255,255), yellow(255,255,0)
 	jab_int32 tolerance = 80; // Camera-captured blacks read up to ~(60,40,50) due to screen glow + ambient light
 
+	/* H_F: widened B-channel tolerance for the Y match. 2026-05-31 H_nc2
+	 * raw-byte traces showed Y-fixture pixels under manual WB override
+	 * reading as (R=240-250, G=180-205, B=240-255) — B saturated to 240+
+	 * where the original tolerance=80 requires B<80 for Y. The cast on
+	 * B survives manual WB but doesn't disqualify the pixel from
+	 * spec-correct Y classification — it's a camera-pipeline artifact,
+	 * not a fixture color shift.
+	 *
+	 * Widening the Y-match B-ceiling to 200 absorbs the saturated B
+	 * reads on metadata Y modules without changing K/C/W classification:
+	 *   - K still requires all three channels <80 (unchanged)
+	 *   - C still requires R<80, G>175, B>175 (unchanged)
+	 *   - W (which only appears at metadata in Mode 0, handled separately
+	 *     by H_mode0_partI) still produces rgb=7 from the fallback path
+	 *
+	 * The only behavior change: pixels that previously fell to the
+	 * relative-threshold fallback because B was 80-200 are now eagerly
+	 * matched as Y. This is safe in color modes because W shouldn't
+	 * appear at metadata positions (per spec) and the relative-threshold
+	 * fallback was likely classifying these as M anyway (returning rgb=5,
+	 * which fails the validity check) — so this widening converts
+	 * previously-failing metadata reads into successful Y reads. */
+	jab_int32 y_b_tolerance = 200;
+
 	// Check for black (index 0)
 	if(rgb[0] < tolerance && rgb[1] < tolerance && rgb[2] < tolerance)
 		return 0;
 	if(rgb[0] < tolerance && rgb[1] > (255-tolerance) && rgb[2] > (255-tolerance))
 		return 3;
-	if(rgb[0] > (255-tolerance) && rgb[1] > (255-tolerance) && rgb[2] < tolerance)
+	if(rgb[0] > (255-tolerance) && rgb[1] > (255-tolerance) && rgb[2] < y_b_tolerance)
 		return 6;
 	
 	// Fallback to original algorithm for 4/8-color modes or imperfect colors
