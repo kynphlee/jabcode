@@ -154,6 +154,61 @@ Following Bayesian Council Session bc-2026-05-28-03, a full 8-Nc discriminator s
 
 **Pre-committed next action per council Session bc-2026-05-28-03:** Proceed to **Option (B)** — C-side PartI instrumentation. Target the {Nc=0, Nc=2, Nc=7} cluster jointly; a single investigation may close three Cassandra register hypotheses (`H_nc2_decode_failure`, `H_mode0_partI_decode_failure`, and a new `H_nc7_partI_extreme_status1` entry) simultaneously.
 
+## 2026-05-30/31 mechanism resolution and partial fix
+
+### Headline
+
+`Nc=2` PartI success rate on Galaxy S25 / SM-S938U-16: **0% → 33.75%** (and end-to-end DECODE_OK: 0 → 26 per ~80 attempts) via the combined `Path α revised` (Camera2 manual AWB override) + `Path β` (decoder permissive color classification) configuration. Five merged PRs delivered the lift (#37 propagation probes, #38 Path β, #39 raw-byte instrumentation, #40 benchmark-variant debugLogging default, #41 manual AWB override). One PR (#42 decouple-β-from-verbose) was empirically falsified within 30 minutes and remains unmerged as a documented falsified-experiment branch.
+
+### Mechanism (camera-side root cause)
+
+The AWB convergence-lock from PR #36 was locking to a non-neutral scene white-point, after which the locked color-correction matrix applied a residual **R+B amplification cast** to every subsequent frame. Camera signal at metadata-position pixels read consistently as `raw_bytes = (R≈245, G≈125, B≈254)` regardless of fixture content — R and B saturated, G mid-range.
+
+`decoder.c::decodeModuleNc` operates on RGB pixel bytes in `[R, G, B]` order (confirmed by inline comments at `decoder.c:786` documenting `Y = (255, 255, 0)` and `C = (0, 255, 255)`). The classifier uses a hybrid rule:
+
+```c
+jab_int32 tolerance = 80;
+if (rgb[0] < tol && rgb[1] < tol && rgb[2] < tol)             return 0;  // K
+if (rgb[0] < tol && rgb[1] > (255-tol) && rgb[2] > (255-tol)) return 3;  // C
+if (rgb[0] > (255-tol) && rgb[1] > (255-tol) && rgb[2] < tol) return 6;  // Y
+// ...fallback to relative-threshold (getMinMax + std) rule
+```
+
+For the post-manual-WB `(245, 201, 255)` samples, all three exact matches fail (B=255 fails the Y B-ceiling of `< 80`). Samples fall through to the relative-threshold fallback, which sets bits on the two highest channels (R and B) and produces `rgb=5` (M) for every metadata module.
+
+**The residual cast is on the B channel, not on the G channel.** The earlier framing of "green-channel under-capture" was incorrect — green is mid-range and recoverable; **blue is the false-positive driver**. Future Camera2 interventions should target B-suppression in the color-correction transform or RGGB gain matrix (e.g., `RggbChannelVector(1.0f, 1.0f, 1.0f, 0.3f)` to attenuate B), NOT G-boost.
+
+### Mechanism (decoder-side downstream)
+
+Path β (`g_permissive_color_classification`, PR #38) substitutes `rgb=5` (M) → `rgb=6` (Y) at the module_color stage. Empirically this generates pair_bits failures on `(Y, Y) → 8` invalid pairs (`decodeNcModuleColor` reserves `(Y, Y)` as the structurally invalid metadata pair, so when all 4 modules are remapped uniformly to Y, downstream LDPC cannot reach a valid Nc value).
+
+But Path β was load-bearing for the 33.75% baseline: PR #42's empirical test of "decouple β from the verbose toggle" reduced PartI success from 27/80 to 0/33. **The 27 successes required Path β's remap to even reach pair_bits**, where ~33% of cases coincidentally produced valid LDPC bits. The remaining 38 pair_bits failures and 15 module_color failures together with the 27 successes account for the 80 attempts.
+
+### H_partI_unifies hypothesis: partially refuted
+
+The 2026-05-30/31 raw-byte and stage-distribution data refutes the unified-mechanism prior from bc-2026-05-28-03. The three "broken cluster" Nc values have **three distinct mechanisms**:
+
+| Nc | Mechanism | Closure path |
+|----|-----------|--------------|
+| **Nc=0** | PartI module_color validity check hardcoded for `{K, C, Y}` but Mode 0 metadata uses `{K, W}` (rgb=7) | One-line C fix specified in `H_mode0_partI_decode_failure.md` (PR #35 register update) |
+| **Nc=2** | Camera AWB-locked R+B amplification cast → classifier returns rgb=5 → validity rejects | Manual WB override (PR #41) + Path β remap (PR #38) — both required for current 33.75% baseline. Production fix candidates: Camera2 B-suppression OR decoder Y-match B-tolerance widening (single-parameter changes either way). |
+| **Nc=7** | PartI succeeds 95% but slave-decode rejects 99% — distinct downstream issue, NOT a PartI mechanism | Separate workstream; file `H_nc7_slave_decode_failure` register entry |
+
+The "two-bug minimum" rule applies: any future analysis assuming a single root cause for the {Nc=0, Nc=2, Nc=7} cluster is overclaimed.
+
+### Empirical record gaps (Cassandra + Sherlock flags)
+
+- **N=1 device** (Galaxy S25 / SM-S938U-16). Cross-device validation is **completely absent**. The 33.75% baseline may be artifact of one ISP's specific AWB convergence behavior on one fixture content.
+- **N=1 fixture** (the user's 8-color JABCode on screen). Different physical media, lighting, or framing could move the residual cast in either direction.
+- **N=1 session** (today's six-hour cycle, all traces 03:35:54–18:43:58 UTC).
+- The 31 rgb=5 raw-byte samples in the falsified-decoupling trace 18:43:58 are sufficient to characterize the camera signal at the metadata position. **Insufficient** to characterize the variance across framing/distance/lighting conditions.
+
+### Production posture (current)
+
+- Manual WB override and Path β permissive remap both remain in the SDK as **opt-in** APIs (per the empirical falsification record). Default OFF for shipped SDK consumers; ON in the diagnostic-app's benchmark build variant via `BuildConfig.DEFAULT_DEBUG_LOGGING_ENABLED = true` (PR #40).
+- The Camera2 convergence-lock pattern from PR #36 remains the SDK default. Manual WB override is the documented escape hatch when convergence-lock locks to a non-neutral scene. The diagnostic-app currently has it on always for diagnostic capture; production SDK consumers must opt in explicitly.
+- Cross-Nc applicability of the manual WB override is **unverified**. Re-baselining all eight Nc values (0–7) with manual WB ON, per the bc-2026-05-30-04 council synthesis Step 4, is the validation gate.
+
 ## Suspected failure surfaces (investigation candidates)
 
 The encoder's color-number-specific palette code (`src/jabcode/encoder.c::genColorPalette`) shows:
