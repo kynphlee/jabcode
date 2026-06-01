@@ -7,7 +7,7 @@ package com.jabauth.jabcode
  *
  * @property width Desired width of the output image in pixels
  * @property height Desired height of the output image in pixels
- * @property colorMode Number of colors to use (2, 4, or 8)
+ * @property colorMode Number of colors to use (2, 4, 8, 16, 32, 64, 128, or 256)
  * @property errorCorrectionLevel Error correction level (0-10, higher = more redundancy)
  * @property moduleSize Size of each module (pixel) in the barcode (default: auto-calculated)
  */
@@ -51,13 +51,31 @@ enum class ColorMode(val value: Int) {
     /** 64-color mode - extreme density, requires professional camera */
     COLOR_64(64),
     
-    /** 128-color mode - maximum density, requires specialized equipment */
-    COLOR_128(128);
-    
+    /** 128-color mode - very high density, requires specialized equipment */
+    COLOR_128(128),
+
+    /** 256-color mode - maximum spec-defined density (Nc=7 in JABCode standard).
+     *  Decoded successfully on Galaxy S25 via the 2026-06-01 v7 validation
+     *  traces (22 native successes with colorNumber=256, text "HELLO-Nc-7").
+     *  Encoder-side support for Nc=7 has known issues — see
+     *  docs/cassandra-register/H_png_roundtrip_high_nc.md sub-hypothesis #2. */
+    COLOR_256(256);
+
     companion object {
         /**
-         * Get ColorMode from integer value
-         * Returns COLOR_8 as default if value is not recognized
+         * Get ColorMode from integer value.
+         *
+         * Returns COLOR_8 as default if value is not recognized — guards
+         * against forward-incompatible Nc values from native decoders that
+         * may add color modes beyond what this SDK knows about.
+         *
+         * Bayesian Council session bc-2026-06-01-04 caught the prior
+         * absence of COLOR_256: when the native bridge returned
+         * colorNumber=256 for successful Nc=7 decodes, this fallback
+         * silently mapped them to COLOR_8 — surfaced as the user's
+         * observation that "nc=7 decodes report COLOR_8 but return the
+         * 256-color text." The enum now includes COLOR_256 so the
+         * mapping is bijective for spec-defined Nc values 0..7.
          */
         fun fromValue(value: Int): ColorMode {
             return values().find { it.value == value } ?: COLOR_8
