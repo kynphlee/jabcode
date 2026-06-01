@@ -1,13 +1,28 @@
-# H_partI_clean_data_failure — Open root-cause hypothesis
+# H_partI_clean_data_failure — Resolved-by-bridge: deprecated legacy path mechanism preserved for re-activation triggers
 
 | Field | Value |
 |---|---|
 | **Filed**       | 2026-05-26 (WS-5 Council Session 5) |
-| **Status**      | Open — bridged, not resolved |
-| **Binding**     | Triggered (not scheduled) |
-| **Owner**       | Unassigned (claimed on trigger) |
-| **Severity**    | Medium — bridged by Option D, but underlies multiple downstream symptoms |
+| **Status**      | **Resolved-by-bridge 2026-06-01** — affected surface (`jabMobileDecodeCamera`) is deprecated; production WithMeta + Option D path is unaffected; legacy test path still exhibits the 23% grid-ref match, retained as a known limitation |
+| **Binding**     | Re-activates on Trigger A (legacy SDK consumer migration request) or Trigger B (WithMeta path showing the same pattern) |
+| **Owner**       | N/A — closed |
+| **Severity**    | Was Medium; now N/A under current routing — all production traffic uses the bridged WithMeta path |
 | **Related**     | `swift-java-wrapper/src/c/mobile_bridge.c::jabMobileDecodeCamera` (deprecated), `src/jabcode/decoder.c::decodeMaster` (PartI/PartII fall-through), `src/jabcode/test/test_multi_frame_decode.c` (Phase 1) |
+
+## Resolution (2026-06-01)
+
+The original symptom — HELLO-Nc-2 fabrications from Nc=3 prints via the legacy
+`jabMobileDecodeCamera` — is bridged by the strict-mode flag (`g_strict_partII_required`)
+that WS-5 introduced and that the production `jabMobileDecodeCameraWithMeta` path sets.
+
+The underlying 23% grid-ref match on synthetic clean input remains a known
+limitation of the legacy path. It does not affect the production WithMeta path
+(2026-06-01 v7 traces show 99-100% PartI success on camera-captured Nc=3-7
+fixtures via the WithMeta path).
+
+Resolution is **closure-by-bridge**, not closure-by-fix: the mechanism exists,
+but its impact is bounded by routing all production callers around it. The
+entry's investigation checklist remains valid in case Trigger A or B fires.
 
 ## The hypothesis
 

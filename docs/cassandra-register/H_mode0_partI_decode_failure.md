@@ -4,11 +4,31 @@
 | ------------ | ---------------------------------------------------------------------------------------------------------------- |
 | **Filed**    | 2026-05-27 (downstream of the Mode 0 chroma-tolerance trigger fix)                                                |
 | **Updated**  | 2026-05-30 — CONFIRMED at mechanism layer via PartI_DIAG instrumentation (PR #32, #34)                            |
-| **Status**   | Open — CONFIRMED; fix specification below; implementation pending encoder-side cross-reference                    |
-| **Binding**  | Triggered (not scheduled)                                                                                         |
-| **Owner**    | Unassigned (claimed on trigger)                                                                                   |
-| **Severity** | Medium — Mode 0 end-to-end decode does not work on real camera input, even after the trigger fix.                  |
-| **Related**  | `H_partI_clean_data_failure.md` (sibling); `src/jabcode/decoder.c::decodeMasterMetadataPartI`; WS-0 unfinished decoder work referenced in `docs/jabcode-all-nc-plan/00b-mode-0-monochrome.md` |
+| **Status**   | **Superseded 2026-06-01** — closed by `H_mode0_decodeModuleNc_classifier.md` (Resolved via PR #49). The PartI validity-check fix at this entry's surface shipped via PR #46 (2026-05-31); the residual upstream classifier bug was tracked under the successor entry and closed via the luminance-based discrimination branch in PR #49. |
+| **Binding**  | N/A — closed (supersession chain) |
+| **Owner**    | N/A — closed |
+| **Severity** | Was Medium; now N/A at this entry's surface — the classifier successor closed the empirical anchor |
+| **Related**  | **`H_mode0_decodeModuleNc_classifier.md`** (successor — Resolved); `H_partI_clean_data_failure.md` (sibling, Resolved-by-bridge); `src/jabcode/decoder.c::decodeMasterMetadataPartI`; WS-0 unfinished decoder work referenced in `docs/jabcode-all-nc-plan/00b-mode-0-monochrome.md` |
+
+## Supersession (2026-06-01)
+
+This entry was filed 2026-05-27 documenting that camera-path Mode 0 fixtures
+produced `result=skipped Nc=0 ok=0 (strict)` markers consistently — PartI
+metadata validity check was failing for Mode 0's `{K, W}` palette under the
+color-mode `{K, C, Y}` validity set.
+
+The PartI validity-check fix shipped via PR #46 (2026-05-31), making
+`decodeMasterMetadataPartI` Mode 0-aware. That fix surfaced the next
+upstream issue: the `decodeModuleNc` classifier was Mode 0-unaware and
+misclassified W pixels as Y under camera cast — captured in the successor
+entry `H_mode0_decodeModuleNc_classifier.md`, which was Resolved via PR #49
+(2026-05-31, validated 2026-06-01 v7 traces showing 174 rgb=7 reads where v6
+had 0).
+
+This entry is therefore closed by the *chain of supersession*: the original
+surface is resolved; the next downstream mechanism (Mode 0 pair_bits failure
+visible at 63/63 in the v7 nc=0 trace) is a separate workstream to be filed
+under its own entry when customer prioritization demands.
 
 ## The hypothesis
 

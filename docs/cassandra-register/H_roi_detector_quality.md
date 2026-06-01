@@ -3,11 +3,26 @@
 | Field        | Value                                                                                              |
 | ------------ | -------------------------------------------------------------------------------------------------- |
 | **Filed**    | 2026-05-27 (Bayesian Council Session 7 socratic review of ROI implementation plan)                  |
-| **Status**   | Open — pre-implementation; activated once PR 3 ships                                                 |
-| **Binding**  | Triggered (not scheduled)                                                                            |
-| **Owner**    | Unassigned (claimed on trigger)                                                                      |
-| **Severity** | Medium-High — directly affects SDK reputation; the default detector is at Must-be tier per Kano    |
-| **Related**  | `docs/roi-detection-implementation-plan.md` (§3 Heuristic default), `H_mode0_partI_decode_failure.md` (downstream), `H_partI_clean_data_failure.md` (downstream) |
+| **Status**   | **Pending external trigger 2026-06-01** — PR 3 (ROI detector swap) has not shipped; this entry is reserved for the moment that work lands and the heuristic begins accumulating field data. NOT active investigation surface. |
+| **Binding**  | Externally gated on PR 3 shipment |
+| **Owner**    | N/A — assigned at PR 3 shipment |
+| **Severity** | Medium-High *if* PR 3 ships and false-positive/negative rates exceed thresholds; pre-PR 3 no production impact |
+| **Related**  | `docs/roi-detection-implementation-plan.md` (§3 Heuristic default), `H_mode0_decodeModuleNc_classifier.md` (resolved sibling), `H_partI_clean_data_failure.md` (resolved-by-bridge sibling) |
+
+## Reclassification note (2026-06-01)
+
+Per the 2026-06-01 register-cleanup discipline (Bayesian Council session
+bc-2026-06-01-04 + user directive to resolve open entries): this entry was
+incorrectly classified as "Open" alongside actively-investigated entries. It
+is pre-implementation by design — the heuristic ROI detector it tracks does
+not yet exist in any merged code. There is no investigation surface and no
+work to claim until PR 3 lands.
+
+Reclassified to "Pending external trigger" to make the gate visible. The
+investigation triggers (A-D) remain as documented; this entry will auto-
+elevate to "Open — active" when any trigger fires post-PR-3-shipment.
+
+This is a *reframing*, not a closure — the entry's prophetic value is preserved.
 
 ## The hypothesis
 
