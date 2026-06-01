@@ -1335,11 +1335,22 @@ jab_int32 decodeMasterMetadataPartII(jab_bitmap* matrix, jab_decoded_symbol* sym
     // Calculate how many modules are needed for Part II metadata
     jab_int32 modules_needed = (MASTER_METADATA_PART2_LENGTH + bits_per_module - 1) / bits_per_module;
     jab_int32 total_bits = modules_needed * bits_per_module;  // Includes padding bits
-    
+
+    /* W2.3 H_nc6_partII investigation entry marker. Emitted per attempt so the
+     * trace shows exactly which Nc the decoder was attempting and what
+     * bit-pack layout it computed. Critical for the Nc=6 (bits_per_module=7)
+     * special-case hypothesis — every other Nc has a "round" bits_per_module
+     * (1, 2, 3, 4, 5, 6, 8); Nc=6 is the only odd value, and 7 doesn't divide
+     * MASTER_METADATA_PART2_LENGTH evenly.
+     * See: docs/cassandra-register/H_nc6_partII_palette_degeneracy.md */
+    JAB_DIAG_INFO(("[PartII_DIAG] BEGIN Nc=%d color_number=%d bits_per_module=%d modules_needed=%d total_bits=%d (metadata_len=%d)",
+                   symbol->metadata.Nc, color_number, bits_per_module, modules_needed, total_bits, MASTER_METADATA_PART2_LENGTH));
+
     // Allocate array for all bits including padding
     jab_byte* part2 = (jab_byte*)calloc(total_bits, sizeof(jab_byte));
     if(part2 == NULL) {
         reportError("Memory allocation for Part II metadata failed");
+        JAB_DIAG_INFO(("[PartII_DIAG] FAIL_STAGE=malloc Nc=%d", symbol->metadata.Nc));
         return FATAL_ERROR;
     }
 	jab_int32 part2_bit_count = 0;
@@ -1363,6 +1374,17 @@ jab_int32 decodeMasterMetadataPartII(jab_bitmap* matrix, jab_decoded_symbol* sym
 		getNextMetadataModuleInMaster(matrix->height, matrix->width, (*module_count), x, y);
     }
 
+	/* W2.3: Log first 16 raw bits before LDPC for cross-Nc comparison.
+	 * If Nc=6 has a bit-pack alignment issue at bits_per_module=7, the
+	 * first 16 bits should differ in a predictable way from Nc=5 (6 bits)
+	 * and Nc=7 (8 bits). */
+	JAB_DIAG_INFO(("[PartII_DIAG] BITS_COLLECTED Nc=%d bits[0..15]=%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d",
+	               symbol->metadata.Nc,
+	               part2[0], part2[1], part2[2], part2[3],
+	               part2[4], part2[5], part2[6], part2[7],
+	               part2[8], part2[9], part2[10], part2[11],
+	               part2[12], part2[13], part2[14], part2[15]));
+
 	//decode ldpc for part2 using EXACTLY 38 bits (encoder outputs 38, padding is only for module alignment)
 	if( !decodeLDPChd(part2, MASTER_METADATA_PART2_LENGTH, 2, 0) )
 	{
@@ -1370,8 +1392,11 @@ jab_int32 decodeMasterMetadataPartII(jab_bitmap* matrix, jab_decoded_symbol* sym
 #if TEST_MODE
 		reportError("LDPC decoding for master metadata part 2 failed");
 #endif
+		JAB_DIAG_INFO(("[PartII_DIAG] FAIL_STAGE=ldpc Nc=%d (bits_per_module=%d uncorrectable at LDPC layer)",
+		               symbol->metadata.Nc, bits_per_module));
 		return DECODE_METADATA_FAILED;
 	}
+	JAB_DIAG_INFO(("[PartII_DIAG] LDPC_OK Nc=%d", symbol->metadata.Nc));
 
     //parse part2
 	//read V
@@ -1419,6 +1444,11 @@ jab_int32 decodeMasterMetadataPartII(jab_bitmap* matrix, jab_decoded_symbol* sym
 	if(matrix->width != symbol->side_size.x || matrix->height != symbol->side_size.y)
 	{
 		reportError("Primary symbol matrix size does not match the metadata");
+		JAB_DIAG_INFO(("[PartII_DIAG] FAIL_STAGE=side_version Nc=%d decoded_V=(%d,%d) decoded_size=(%dx%d) matrix=(%dx%d)",
+		               symbol->metadata.Nc,
+		               symbol->metadata.side_version.x, symbol->metadata.side_version.y,
+		               symbol->side_size.x, symbol->side_size.y,
+		               matrix->width, matrix->height));
 		free(part2);
 		return JAB_FAILURE;
 	}
@@ -1428,9 +1458,15 @@ jab_int32 decodeMasterMetadataPartII(jab_bitmap* matrix, jab_decoded_symbol* sym
 	if(wc >= wr)
 	{
 		reportError("Incorrect error correction parameter in primary symbol metadata");
+		JAB_DIAG_INFO(("[PartII_DIAG] FAIL_STAGE=ec_params Nc=%d wc=%d wr=%d (invalid: wc>=wr)",
+		               symbol->metadata.Nc, wc, wr));
 		free(part2);
 		return DECODE_METADATA_FAILED;
 	}
+	JAB_DIAG_INFO(("[PartII_DIAG] SUCCESS Nc=%d V=(%d,%d) wc=%d wr=%d mask=%d",
+	               symbol->metadata.Nc,
+	               symbol->metadata.side_version.x, symbol->metadata.side_version.y,
+	               wc, wr, symbol->metadata.mask_type));
 	free(part2);
 	return JAB_SUCCESS;
 }
