@@ -1174,6 +1174,43 @@ jab_int32 decodeMasterMetadataPartI(jab_bitmap* matrix, jab_decoded_symbol* symb
 
 	if (g_diag_verbose) DEBUG_LOG("[PartI_DIAG] BEGIN module_count_in=%d start_xy=(%d,%d)", *module_count, *x, *y);
 
+	/* W2.8 Custom Mode 0 extension per ISO/IEC 23634:2022 Table 6 clause:
+	 * "These colour modes can also be used for user-defined colour modes."
+	 *
+	 * When g_mode0_decode=1 has been set by the detector's chroma-tolerance
+	 * probe, Nc is already known to be 0 — the chroma probe IS the Mode 0
+	 * detection mechanism for this implementation. The 4 PartI metadata
+	 * modules carry no new information in Mode 0 (the spec's PartI is just
+	 * the 3-bit Nc field per Table 5; Nc=0 is already determined).
+	 *
+	 * Furthermore, the standard PartI pair_bits decoding uses
+	 * decodeNcModuleColor which looks up module pairs in the {K=0, C=3, Y=6}
+	 * encoder table (see Table 7). Mode 0's {K, W} palette produces pairs
+	 * containing W (rgb=7), which is not in the table — every lookup returns
+	 * the invalid-sentinel 8, every pair_bits check fails. Empirical anchor:
+	 * 2026-06-01 v10 trace (trace-20260601_122526-nc0.logcat) — 34/34 PartI
+	 * attempts failed at FAIL_STAGE=pair_bits with all 4 modules correctly
+	 * read as W-W-W-K by the W1.2 classifier fix.
+	 *
+	 * Custom extension semantics: short-circuit PartI for Mode 0 — advance
+	 * the module cursor past the 4 PartI positions (so PartII starts at the
+	 * correct module), assert Nc=0 directly, return SUCCESS. PartII still
+	 * runs normally (with the W2.6 bits_per_module = Nc+1 = 1 logic).
+	 *
+	 * Resolution of: docs/cassandra-register/H_nc0_pair_bits.md */
+	if (g_mode0_decode)
+	{
+		for (jab_int32 mod = 0; mod < MASTER_METADATA_PART1_MODULE_NUMBER; mod++)
+		{
+			data_map[(*y) * matrix->width + (*x)] = 1;
+			(*module_count)++;
+			getNextMetadataModuleInMaster(matrix->height, matrix->width, (*module_count), x, y);
+		}
+		symbol->metadata.Nc = 0;
+		if (g_diag_verbose) DEBUG_LOG("[PartI_DIAG] SUCCESS Nc=0 (custom Mode 0 extension — chroma-probe short-circuit, no PartI bit decoding required)");
+		return JAB_SUCCESS;
+	}
+
 	while((*module_count) < MASTER_METADATA_PART1_MODULE_NUMBER)
 	{
 		//decode bit out of the module at (x,y)

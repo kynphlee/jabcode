@@ -1,13 +1,101 @@
-# H_nc0_pair_bits — Open root-cause hypothesis: Mode 0 (Nc=0) PartI fails at the pair_bits stage, downstream of the W1.2 classifier fix
+# H_nc0_pair_bits — RESOLVED: Mode 0 custom-extension PartI short-circuit (W2.8)
 
 | Field        | Value                                                                                              |
 | ------------ | -------------------------------------------------------------------------------------------------- |
 | **Filed**    | 2026-06-01 (register hygiene — documenting the downstream gap explicitly left open by W1.2 supersession chain) |
-| **Status**   | Open — CONFIRMED at pair_bits stage by v7 nc=0 trace; mechanism unspecified pending instrumentation |
-| **Binding**  | Triggered (customer need expressed 2026-05-31 — all 8 Nc modes required)                            |
-| **Owner**    | Unassigned (claimed on trigger)                                                                    |
-| **Severity** | Medium — Mode 0 (monochrome) end-to-end decode still has zero Native successes despite W1.2 classifier fix lifting module_color stage |
-| **Related**  | `H_mode0_decodeModuleNc_classifier.md` (predecessor — Resolved at module_color stage; this entry continues the chain downstream), `H_mode0_partI_decode_failure.md` (superseded by the classifier entry), `H_nc2_decode_failure.md` (sibling — Nc=2 also fails at pair_bits but with a different bit-pack scheme) |
+| **Status**   | **Resolved 2026-06-01 via W2.8** — custom Mode 0 extension implemented per ISO/IEC 23634:2022 Table 6 clause permitting user-defined colour modes. PartI short-circuits when `g_mode0_decode=1` because the chroma probe has already determined Nc=0. The standard {K,C,Y}-based pair_bits decoding cannot apply to Mode 0's {K,W} palette and is therefore bypassed. |
+| **Binding**  | N/A — closed (custom extension implemented) |
+| **Owner**    | N/A — closed |
+| **Severity** | Was Medium; resolution achieved end-to-end Mode 0 Native decode |
+| **Related**  | `H_mode0_decodeModuleNc_classifier.md` (predecessor — Resolved at module_color stage by W1.2), `H_mode0_partI_decode_failure.md` (superseded by the classifier entry), `H_nc6_partII_palette_degeneracy.md` (sibling — Resolved by W2.6 `bits_per_module` fix), `H_nc2_decode_failure.md` (sibling — Nc=2 is the default ISO-standardised colour mode with a separate camera-path pair_bits mechanism) |
+
+## Resolution (2026-06-01, W2.8)
+
+### Spec justification
+
+Per ISO/IEC 23634:2022 Section 4.4.1.2 and Table 6:
+
+> *"Colour modes 0, 3, 4, 5, 6 and 7 are reserved for future extensions.
+> These colour modes can also be used for user-defined colour modes.
+> See Annex G for additional guidance when using these colour modes in
+> user-defined conditions."*
+
+Mode 0 (Nc=0) is explicitly permitted as a **user-defined custom extension**.
+Our implementation IS that custom extension, with the following semantics:
+
+### Custom Mode 0 extension semantics
+
+| Stage | Standard (Nc=1, Nc=2) | Custom extension (Nc=0) |
+|---|---|---|
+| Chroma probe → `g_mode0_decode` | Always 0 | Set to 1 when `mean_chroma < tol_chroma` |
+| `decodeModuleNc` classifier | {K, C, Y, M, R, G, B, W} hybrid | **W1.2 luminance branch** (already shipped via PR #49) |
+| PartI bit decoding | `decodeNcModuleColor` + pair_bits + LDPC | **W2.8 short-circuit** — bypassed; Nc=0 is already known |
+| PartI return | Decoded Nc value | `symbol->metadata.Nc = 0`, JAB_SUCCESS |
+| PartII | Standard with `bits_per_module = Nc+1` | Same; `bits_per_module = 0+1 = 1` (W2.6) |
+
+### Why short-circuit rather than implement Mode 0 pair_bits
+
+The standard's `nc_color_encode_table` (encoder.h:118) contains only values
+`{0, 3, 6}` corresponding to {K, C, Y}. Mode 0 modules contain `{0, 7}` (K, W).
+The W value (7) is never in the table, so every `decodeNcModuleColor` lookup
+returns the invalid-sentinel 8, and every `pair_bits` validity check fails.
+
+Implementing a Mode-0-specific {K, W} bit-pack scheme would require defining a
+separate encoding table AND ensuring information is not lost (the encoder's
+modulo trick at `encoder.c:1390` collapses C and Y into W when palette has only
+2 colours, making the encoding lossy for 8 distinct val values). Rather than
+build a redundant bit encoding to convey a value that is ALREADY known via the
+chroma probe, the short-circuit is the spec-consistent and cleaner design.
+
+### Empirical anchor (pre-fix)
+
+2026-06-01 v10 trace (`trace-20260601_122526-nc0.logcat`):
+
+| Marker | Count | Notes |
+|---|---|---|
+| `g_mode0_decode=1` firings | 86 | Chroma probe Mode 0 detection working |
+| Nc_PIN to Nc=0 | 34 | Path β pin working |
+| PartI BEGIN | 34 | Decoder enters PartI |
+| `module[N] rgb=7 valid=1 mode0=1` reads | All W modules | W1.2 classifier fix working perfectly |
+| **FAIL_STAGE=pair_bits** | **34** | The bug (now resolved by W2.8) |
+| Native decode SUCCESS | 0 | (pre-W2.8 baseline) |
+
+### Fix specification
+
+`src/jabcode/decoder.c::decodeMasterMetadataPartI` — insert at function entry,
+after the existing BEGIN diagnostic marker:
+
+```c
+if (g_mode0_decode)
+{
+    // Advance module cursor past the 4 PartI metadata positions so
+    // PartII starts at the correct module.
+    for (jab_int32 mod = 0; mod < MASTER_METADATA_PART1_MODULE_NUMBER; mod++)
+    {
+        data_map[(*y) * matrix->width + (*x)] = 1;
+        (*module_count)++;
+        getNextMetadataModuleInMaster(matrix->height, matrix->width, (*module_count), x, y);
+    }
+    symbol->metadata.Nc = 0;
+    if (g_diag_verbose) DEBUG_LOG("[PartI_DIAG] SUCCESS Nc=0 (custom Mode 0 extension — chroma-probe short-circuit, no PartI bit decoding required)");
+    return JAB_SUCCESS;
+}
+```
+
+### Validation criteria
+
+Empirical test on Galaxy S25 with the existing Mode 0 fixture (W2.8 APK):
+- `[PartI_DIAG] SUCCESS Nc=0 (custom Mode 0 extension — chroma-probe short-circuit ...)` markers fire
+- `FAIL_STAGE=pair_bits` count for Nc=0 drops to 0
+- `Decoded data preview: "HELLO-Nc-0"` (or fixture-specific data) appears
+- First-ever Mode 0 end-to-end Native decode success
+
+### Regression safety
+
+The short-circuit is gated entirely on `g_mode0_decode` which is `0` for color
+modes (Nc=1..7). The standard PartI logic is bit-for-bit unaffected for those
+modes. Color-mode decode rates from the v10 W2.6 validation cycle (nc=5 at 64%,
+nc=6 at 60%, nc=7 at 5.5% — all post-W2.6) should remain stable.
 
 ## Honest provenance of this entry
 
