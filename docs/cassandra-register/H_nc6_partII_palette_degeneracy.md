@@ -1,13 +1,52 @@
-# H_nc6_partII_palette_degeneracy — Open root-cause hypothesis: `decodeMasterMetadataPartII` palette learning degenerates specifically at Nc=6, while Nc=5 and Nc=7 work
+# H_nc6_partII_palette_degeneracy — RESOLVED: floating-point truncation in `bits_per_module` computation, not palette degeneracy
 
 | Field        | Value                                                                                              |
 | ------------ | -------------------------------------------------------------------------------------------------- |
 | **Filed**    | 2026-06-01 (Wave 1 v7 validation traces under Path β pinning)                                       |
-| **Status**   | Open — CONFIRMED at PartII stage; mechanism unspecified pending instrumentation                     |
-| **Binding**  | Triggered (customer need expressed 2026-05-31 — all 8 Nc modes required)                            |
-| **Owner**    | Unassigned (claimed on trigger)                                                                    |
-| **Severity** | Medium — Nc=6 (128-color) is 100% broken at PartII while neighbours Nc=5 and Nc=7 sometimes work   |
-| **Related**  | `H_partI_nc_extraction_bias.md`, `H_nc2_decode_failure.md`, `H_png_roundtrip_high_nc.md` (orthogonal — JVM-side) |
+| **Status**   | **Resolved 2026-06-01** — actual mechanism was a floating-point off-by-one truncation at decoder.c:1333. The "palette degeneracy" framing was wrong; the bug was upstream of palette learning entirely. Fix: replace `(jab_int32)(log(color_number) / log(2))` with spec-direct `symbol->metadata.Nc + 1`. |
+| **Binding**  | N/A — closed |
+| **Owner**    | N/A — closed |
+| **Severity** | Was Medium; the actual scope was HIGHER than originally thought — same root cause closes a previously-unfiled `H_nc5_partII` (Nc=5 PartII also 100% LDPC fail) |
+| **Related**  | `H_partI_nc_extraction_bias.md` (refuted; was downstream observation of this same truncation bug at PartII), `H_nc2_decode_failure.md` (separate mechanism at pair_bits stage), `H_png_roundtrip_high_nc.md` (orthogonal — JVM-side) |
+
+## Resolution (2026-06-01)
+
+The v9 traces (`trace-20260601_112245-nc5`, `112413-nc6`, `112545-nc7`)
+with the W2.4 `[PartII_DIAG]` instrumentation revealed the actual
+mechanism:
+
+| Nc | color_number | `bits_per_module` reported | Spec value (Nc+1) | LDPC outcome |
+|---|---|---|---|---|
+| 5 | 64 | **5** (off by 1) | 6 | 0/56 successful (100% fail) |
+| 6 | 128 | **6** (off by 1) | 7 | 0/57 successful (100% fail) |
+| 7 | 256 | **8** (correct) | 8 | 40/127 successful (~31%) |
+
+The decoder.c:1333 line `(jab_int32)(log(color_number) / log(2))` was
+truncating due to ARM glibc floating-point imprecision: `log(64.0) /
+log(2.0)` evaluates to ~5.999 → truncates to 5, and `log(128.0) /
+log(2.0)` to ~6.999 → 6. For Nc=7, `log(256.0) / log(2.0)` happens to
+evaluate to exactly 8.0, which is why Nc=7 worked while Nc=5 and Nc=6
+did not.
+
+The encoder side uses `round()` at 3 of 5 sites (encoder.c:672, 1042,
+1349) but lacked `round()` at lines 923 and 1176 — defensive fix
+applied to those sites too in the same PR.
+
+The "palette degeneracy at Nc=6" framing was a downstream-symptom
+hypothesis. PartII palette learning was working correctly; the bit
+stream fed INTO LDPC was scrambled by reading 5 or 6 bits where the
+encoder wrote 6 or 7. Once aligned, LDPC succeeds and PartII parses
+correctly.
+
+This single one-line fix closes:
+1. `H_nc6_partII_palette_degeneracy` (this entry)
+2. A previously-unfiled `H_nc5_partII` symptom
+3. Retroactively confirms why `H_partI_nc_extraction_bias` was the
+   wrong framing — the v7 auto-detect drift was downstream of this
+   same truncation
+4. Likely contributes to the `H_png_roundtrip_high_nc` JVM-side pattern
+   if the same decoder is in play (worth re-running the JMH baseline
+   after this ships)
 
 ## The hypothesis
 
