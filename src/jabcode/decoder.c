@@ -2070,9 +2070,56 @@ jab_int32 decodeMaster(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 			continue;
 		}
 
+		/* W2.9 Custom Mode 0 palette synthesis per Bayesian Council session
+		 * bc-2026-06-01-06 (Option 2 — Heisenberg evidence: BITS_COLLECTED
+		 * variation in v11 nc=0 trace showed 8 distinct patterns across 22
+		 * attempts, the signature of palette-lookup-against-garbage).
+		 *
+		 * Mode 0 (Nc=0) custom extension per ISO/IEC 23634:2022 Table 6
+		 * clause permitting user-defined colour modes. Mode 0 symbols do
+		 * not embed a colour palette in the spec sense — the palette is
+		 * IMPLICIT in the custom extension (always {K=(0,0,0), W=(255,255,255)}).
+		 * readColorPaletteInMaster above wrote garbage palette values from
+		 * finder-pattern positions assuming a color mode; we OVERWRITE here
+		 * with the correct synthesized Mode 0 palette so the downstream
+		 * pipeline (normalizeColorPalette, getPaletteThreshold, decodeModuleHD,
+		 * decodeMasterMetadataPartII LDPC, readRawModuleData) sees a valid
+		 * palette and works without per-function Mode 0 awareness.
+		 *
+		 * Mode 0 cursor: readColorPaletteInMaster does NOT advance the
+		 * module_count cursor for Mode 0 because its metadata-palette loop
+		 * (color_counter=2 < MIN(color_number=2, 64)) is immediately false.
+		 * Therefore PartII starts at the correct module after this block.
+		 *
+		 * Palette layout: 4 panels × 2 colours × 3 RGB bytes = 24 bytes.
+		 * Each panel p stores RGB triplets at offset p * (color_number * 3):
+		 *   panel[p]: index 0 = K = (0,0,0), index 1 = W = (255,255,255)
+		 *
+		 * Resolution of: docs/cassandra-register/H_nc0_partII_ldpc.md */
+		if (g_mode0_decode)
+		{
+			const jab_int32 panel_stride = 2 * 3;  // color_number=2 × 3 channels
+			for (jab_int32 p = 0; p < COLOR_PALETTE_NUMBER; p++)
+			{
+				// Index 0: K (black)
+				symbol->palette[p * panel_stride + 0 * 3 + 0] = 0;
+				symbol->palette[p * panel_stride + 0 * 3 + 1] = 0;
+				symbol->palette[p * panel_stride + 0 * 3 + 2] = 0;
+				// Index 1: W (white)
+				symbol->palette[p * panel_stride + 1 * 3 + 0] = 255;
+				symbol->palette[p * panel_stride + 1 * 3 + 1] = 255;
+				symbol->palette[p * panel_stride + 1 * 3 + 2] = 255;
+			}
+			JAB_DIAG_INFO(("DIAG_MODE0_PALETTE_SYNTHESIZED Nc=0 panels=%d K=(0,0,0) W=(255,255,255) (W2.9 custom Mode 0 extension overwrite)",
+			               COLOR_PALETTE_NUMBER));
+		}
+
 		/* WS-2 Step 2.2: per-stage diagnostic marker — palette learning complete.
 		 * Captures Nc, color count, and a deterministic hash of the four palette
 		 * slots so trace comparison across decode attempts can detect divergence.
+		 * For Mode 0 post-W2.9: hash should be DETERMINISTIC across attempts
+		 * (signaling the palette synthesis succeeded — same hash every time
+		 * for the same fixture, vs the v11 noisy behavior).
 		 * See: docs/jabcode-all-nc-plan/02-diagnostic-instrumentation.md */
 		{
 			jab_int32 _palette_color_n = (jab_int32)pow(2, symbol->metadata.Nc + 1);
