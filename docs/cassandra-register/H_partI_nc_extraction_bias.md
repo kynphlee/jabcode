@@ -3,11 +3,41 @@
 | Field        | Value                                                                                              |
 | ------------ | -------------------------------------------------------------------------------------------------- |
 | **Filed**    | 2026-05-31 (v6 stacked-fix trace cross-Nc analysis)                                                 |
-| **Status**   | Open — CONFIRMED across two fixtures; mechanism unspecified pending instrumentation                 |
-| **Binding**  | Triggered (customer need expressed 2026-05-31 — all 8 Nc modes required)                            |
-| **Owner**    | Unassigned (claimed on trigger)                                                                    |
-| **Severity** | Medium — silent failure mode; Nc fallback ladder masks the bias from end-user observability        |
-| **Related**  | `H_nc2_decode_failure.md`, `H_mode0_decodeModuleNc_classifier.md`, `H_partI_clean_data_failure.md` |
+| **Status**   | **Refuted 2026-06-01** — v7 pinned-Nc traces prove PartI metadata-bit extraction is CORRECT; the auto-detect drift is a separate downstream mechanism (palette-fit, not bit-extraction). Superseded by `H_nc6_partII_palette_degeneracy.md` |
+| **Binding**  | N/A — refuted |
+| **Owner**    | N/A — closed |
+| **Severity** | Was Medium; now reclassified — the *symptom* is real but the *hypothesised mechanism* was wrong |
+| **Related**  | `H_nc6_partII_palette_degeneracy.md` (replaces this entry's investigation surface), `H_nc2_decode_failure.md` |
+
+## Resolution (2026-06-01)
+
+The v6 observation that motivated this entry — "nc=1 fixture's PartI reads `original=2`;
+nc=6 fixture's PartI reads `original=5`" — was real, but the inferred mechanism
+was wrong. The v7 Path β pin traces directly tested the hypothesis:
+
+| Fixture | Pin | PartI SUCCESS | Reported Nc |
+|---|---|---|---|
+| Nc=6 (128-color) | 128 (Nc=6) | 78/79 (99%) | **Nc=6** (correct) |
+| Nc=7 (256-color) | 256 (Nc=7) | 126/126 (100%) | **Nc=7** (correct) |
+
+When the decoder is pinned to attempt a specific Nc, PartI's metadata-bit
+extraction reads that Nc correctly. The bias observed in v6 was therefore NOT
+at the metadata-bit-extraction layer — it was downstream, in auto-detect's
+palette-fit heuristic that chooses which Nc to commit to before PartI even
+runs (or in PartII's palette-learning that determines whether the chosen Nc
+is viable).
+
+This refutes the four candidate mechanisms originally listed (Gray-code
+interpretation, bit-ordering, sampling offset, init off-by-one). The bits
+themselves are read correctly.
+
+That auto-detect drift is now captured by `H_nc6_partII_palette_degeneracy.md`
+which documents the more accurate mechanism (palette-learning at Nc=6
+degenerates, causing auto-detect to abandon Nc=6 in favour of Nc=5).
+
+This entry is closed as **refuted**, not as fixed. The symptom was real; the
+hypothesis was wrong. Filing the entry was nonetheless useful — it forced
+the v7 discriminator experiment that produced the corrective evidence.
 
 ## The hypothesis
 
