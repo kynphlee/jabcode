@@ -1330,7 +1330,24 @@ jab_int32 decodeMasterMetadataPartII(jab_bitmap* matrix, jab_decoded_symbol* sym
 	jab_uint32 V_length = 10, E_length = 6;
 
 	jab_int32 color_number = (jab_int32)pow(2, symbol->metadata.Nc + 1);
-	jab_int32 bits_per_module = (jab_int32)(log(color_number) / log(2));
+	/* Bits per module — spec-direct: log2(2^(Nc+1)) = Nc+1. The original
+	 * (jab_int32)(log(color_number) / log(2)) computation truncated due to
+	 * floating-point imprecision on ARM glibc: log(64)/log(2) evaluates to
+	 * ~5.999 → 5, and log(128)/log(2) to ~6.999 → 6, where Nc=5 and Nc=6
+	 * required 6 and 7 bits respectively. The truncation scrambled the
+	 * bit-pack alignment between encoder (which used round() correctly
+	 * at 3 of 5 sites and `Nc + 1`-equivalent semantics for metadata
+	 * encoding) and decoder, making LDPC uncorrectable at PartII for
+	 * Nc=5 and Nc=6 specifically.
+	 *
+	 * Empirical anchor: 2026-06-01 v9 traces (trace-20260601_112245-nc5,
+	 * 112413-nc6, 112545-nc7) showed PartII_DIAG BITS_COLLECTED with
+	 * bits_per_module=5 at Nc=5 and =6 at Nc=6 (off-by-one); LDPC failed
+	 * 100% at both Nc values while Nc=7 succeeded 31% because log(256)/
+	 * log(2) happens to evaluate to exactly 8.0.
+	 *
+	 * Resolution: docs/cassandra-register/H_nc6_partII_palette_degeneracy.md */
+	jab_int32 bits_per_module = symbol->metadata.Nc + 1;
 
     // Calculate how many modules are needed for Part II metadata
     jab_int32 modules_needed = (MASTER_METADATA_PART2_LENGTH + bits_per_module - 1) / bits_per_module;

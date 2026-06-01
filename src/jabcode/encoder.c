@@ -920,7 +920,11 @@ jab_boolean encodeMasterMetadata(jab_encode* enc)
 	jab_int32 E_length = 6;
 	jab_int32 MSK_length = 3;
 	//set master metadata variables
-	jab_int32 Nc = log(enc->color_number)/log(2.0) - 1;
+	// Defensive round() — sibling sites (672, 1042, 1349) already use round();
+	// without it, log()/log(2.0) truncates for non-power-of-2-precise math
+	// libraries (ARM glibc returns 5.999... for log2(64), 6.999... for log2(128)).
+	// See decoder.c:1333 commentary and H_nc6_partII_palette_degeneracy register entry.
+	jab_int32 Nc = (jab_int32)round(log(enc->color_number)/log(2.0)) - 1;
 	jab_int32 V = ((enc->symbol_versions[0].x -1) << 5) + (enc->symbol_versions[0].y - 1);
 	jab_int32 E1 = enc->symbols[0].wcwr[0] - 3;
 	jab_int32 E2 = enc->symbols[0].wcwr[1] - 4;
@@ -1173,7 +1177,10 @@ jab_boolean createMatrix(jab_encode* enc, jab_int32 index, jab_data* ecc_encoded
     memset(enc->symbols[index].data_map, 1, enc->symbols[index].side_size.x * enc->symbols[index].side_size.y * sizeof(jab_byte));
 
     //set alignment patterns
-    jab_int32 Nc = log(enc->color_number)/log(2.0) - 1;
+    // Defensive round() — see decoder.c:1333 commentary. Without round(),
+    // log()/log(2.0) - 1 truncates by 1 for color_number ∈ {64, 128} on
+    // ARM glibc, producing wrong Nc that indexes into apx_core_color_index.
+    jab_int32 Nc = (jab_int32)round(log(enc->color_number)/log(2.0)) - 1;
 	jab_byte apx_core_color = apx_core_color_index[Nc];
 	jab_byte apx_peri_color = apn_core_color_index[Nc];
 	jab_int32 side_ver_x_index = SIZE2VERSION(enc->symbols[index].side_size.x) - 1;
