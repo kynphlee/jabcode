@@ -27,6 +27,7 @@ class JABCodeEncoderImpl(
         private const val BYTES_PER_MODULE_COLOR_32 = 0.625  // 5 bits
         private const val BYTES_PER_MODULE_COLOR_64 = 0.75   // 6 bits
         private const val BYTES_PER_MODULE_COLOR_128 = 0.875 // 7 bits
+        private const val BYTES_PER_MODULE_COLOR_256 = 1.0   // 8 bits
         
         private const val TYPICAL_MODULES = 4096 // 64x64 symbol
     }
@@ -79,6 +80,7 @@ class JABCodeEncoderImpl(
             ColorMode.COLOR_32 -> BYTES_PER_MODULE_COLOR_32
             ColorMode.COLOR_64 -> BYTES_PER_MODULE_COLOR_64
             ColorMode.COLOR_128 -> BYTES_PER_MODULE_COLOR_128
+            ColorMode.COLOR_256 -> BYTES_PER_MODULE_COLOR_256
         }
         
         // Account for error correction overhead
