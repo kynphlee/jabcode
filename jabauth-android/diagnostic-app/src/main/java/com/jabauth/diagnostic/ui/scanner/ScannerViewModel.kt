@@ -258,6 +258,29 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
             }
         }
 
+        // Per-Nc end-to-end success counter. Mirrors DECODE_FAIL_STATS
+        // structure on the success side, giving the rolling-window pass
+        // rate per Nc. Filed per Bayesian Council session bc-2026-06-01-04
+        // (Prometheus + Robin Hood reframing): "build per-Nc end-to-end
+        // success-rate telemetry now, BEFORE specific investigations" so
+        // future anomalies surface in traces rather than via accidental
+        // user observation (as the nc=7 COLOR_8 mystery did). nc=0 will
+        // stay at successes=0 until the Mode 0 pair_bits/LDPC workstream
+        // ships — making nc=0 progress measurable from the moment any
+        // downstream fix lands.
+        // Greppable: END_TO_END_STATS.
+        for (n in 0..7) {
+            val nSuccessCount = successAttempts.count { it.nc == n }
+            val nAttempts = attemptLog.count { it.nc == n }
+            if (nAttempts > 0) {
+                val pct = if (nAttempts > 0) (nSuccessCount * 100) / nAttempts else 0
+                Log.i(
+                    "ScannerViewModel",
+                    "END_TO_END_STATS Nc=$n successes=$nSuccessCount/$nAttempts (${pct}%)"
+                )
+            }
+        }
+
         // Failures from auto-detect sessions where Nc isn't known. If this
         // bucket is non-empty, the user is scanning without setting
         // preferredColorMode — note for the discriminator-scan recipe.
@@ -400,6 +423,13 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
                 // Validate against preferred color mode if set
                 preferredColorMode?.let { preferred ->
                     if (decodedColorValue != preferred) {
+                        // Greppable INFO marker for regression telemetry — surfaces
+                        // mismatches automatically rather than via accidental user
+                        // observation. Filed per Bayesian Council session
+                        // bc-2026-06-01-04 after the user-reported nc=7→COLOR_8
+                        // mystery (caused by the missing COLOR_256 enum, fixed
+                        // separately in EncodeOptions.kt).
+                        Log.i("ScannerViewModel", "RESULT_NC_MISMATCH preferred=$preferred decoded=$decodedColorValue")
                         Log.w("ScannerViewModel", "⚠️ Color mode mismatch: expected ${preferred}-color, decoded ${decodedColorValue}-color")
                         logger.dSync(
                             "Color mode mismatch: expected ${preferred}-color, decoded ${decodedColorValue}-color (auto-detect found different mode)",
