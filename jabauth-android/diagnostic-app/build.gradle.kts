@@ -40,12 +40,20 @@ android {
             buildConfigField("boolean", "DEFAULT_DEBUG_LOGGING_ENABLED", "false")
             // Haptic-on-decode-success defaults ON — standard scan UX.
             buildConfigField("boolean", "DEFAULT_HAPTIC_ENABLED", "true")
+            // Motion telemetry + throttling default ON in debug — developer
+            // builds want full instrumentation visible.
+            buildConfigField("boolean", "DEFAULT_MOTION_TELEMETRY_ENABLED", "true")
+            buildConfigField("boolean", "DEFAULT_MOTION_THROTTLING_ENABLED", "true")
         }
         release {
             // Production builds: verbose logging defaults OFF.
             buildConfigField("boolean", "DEFAULT_DEBUG_LOGGING_ENABLED", "false")
             // Haptic-on-decode-success defaults ON — standard scan UX.
             buildConfigField("boolean", "DEFAULT_HAPTIC_ENABLED", "true")
+            // Motion telemetry default OFF in release (privacy / battery);
+            // motion throttling ON because it improves scan-success rate.
+            buildConfigField("boolean", "DEFAULT_MOTION_TELEMETRY_ENABLED", "false")
+            buildConfigField("boolean", "DEFAULT_MOTION_THROTTLING_ENABLED", "true")
         }
         // Build variant consumed by the `:benchmark-macro` module. Acts as
         // a release-like build (no debug coverage instrumentation) but
@@ -70,6 +78,11 @@ android {
             // Haptic-on-decode-success defaults ON — confirms haptic
             // wiring fires during validation scans without manual toggle.
             buildConfigField("boolean", "DEFAULT_HAPTIC_ENABLED", "true")
+            // Motion telemetry + throttling default ON in benchmark variant
+            // so SENSOR_SNAPSHOT markers fire and throttling improves
+            // validation-scan success rate from frame 1.
+            buildConfigField("boolean", "DEFAULT_MOTION_TELEMETRY_ENABLED", "true")
+            buildConfigField("boolean", "DEFAULT_MOTION_THROTTLING_ENABLED", "true")
         }
     }
 

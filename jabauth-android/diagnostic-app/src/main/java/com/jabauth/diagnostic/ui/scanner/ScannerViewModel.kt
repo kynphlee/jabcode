@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.jabauth.diagnostic.data.SettingsRepository
 import com.jabauth.diagnostic.util.DiagnosticLogger
 import com.jabauth.diagnostic.util.HapticFeedbackController
+import com.jabauth.diagnostic.util.motion.MotionTelemetryController
 import com.jabauth.jabcode.DecodeOptions
 import com.jabauth.jabcode.DecodeResult
 import com.jabauth.jabcode.JABCodeDecoderImpl
@@ -24,6 +25,7 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
     private val settingsRepository = SettingsRepository(application)
     private val logger = DiagnosticLogger.create("ScannerViewModel", settingsRepository)
     private val hapticController = HapticFeedbackController(application)
+    private val motionController = MotionTelemetryController(application)
 
     // Production-side PerformanceTracker — records each decode attempt's
     // duration and success across the session lifetime. Complements the
@@ -363,6 +365,13 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
     // Track haptic-feedback setting — checked in onDecodeSuccess to gate
     // the vibration pulse without recreating the analyzer on every change.
     private var hapticFeedbackEnabled = SettingsRepository.DEFAULT_HAPTIC_FEEDBACK
+
+    // Track motion telemetry + throttling settings. SENSOR_SNAPSHOT log
+    // markers fire per decode attempt when telemetry is enabled. Throttling
+    // skips analyzer.analyze() when StabilityGate reports motion above
+    // threshold (see MotionTelemetryController).
+    private var motionTelemetryEnabled = SettingsRepository.DEFAULT_MOTION_TELEMETRY
+    private var motionThrottlingEnabled = SettingsRepository.DEFAULT_MOTION_THROTTLING
     
     // Mutable analyzer - recreated when settings change
     private var analyzer: Camera2JABCodeAnalyzer
@@ -380,6 +389,8 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
                 isDebugEnabled = settings.debugLogging
                 preferredColorMode = settings.preferredColorMode
                 hapticFeedbackEnabled = settings.hapticFeedback
+                motionTelemetryEnabled = settings.motionTelemetryEnabled
+                motionThrottlingEnabled = settings.motionThrottlingEnabled
                 
                 val colorModeStr = settings.preferredColorMode?.let { "${it}-color" } ?: "auto-detect"
                 logger.dSync(
@@ -448,6 +459,15 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
                 // has enabled the Settings "Haptic Feedback" toggle.
                 // Cheap to gate here — no analyzer recreation needed.
                 if (hapticFeedbackEnabled) hapticController.pulseSuccess()
+                if (motionTelemetryEnabled) {
+                    val s = motionController.currentState()
+                    Log.i(
+                        "ScannerViewModel",
+                        "SENSOR_SNAPSHOT accel_mag=${"%.3f".format(s.accelMagnitude)} " +
+                        "gyro_mag=${"%.3f".format(s.gyroMagnitude)} " +
+                        "stable=${motionController.isStable()} (decode=success colors=${result.colorMode.value})"
+                    )
+                }
                 // Record into the production PerformanceTracker. Provides
                 // cumulative session-lifetime aggregates (avg, min, max,
                 // success rate) — complements the 30s rolling DECODE_*_STATS.
@@ -503,11 +523,30 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
     }
     
     fun analyzeFrame(reader: ImageReader) {
+        // Motion throttling: skip analyzer.analyze() entirely when the
+        // device is moving above the stability threshold. The ImageReader
+        // retains the latest frame, so the next stable frame is picked
+        // up immediately when motion settles. Filed per Bayesian Council
+        // session bc-2026-06-01-05 (Historian + Prometheus).
+        if (motionThrottlingEnabled && !motionController.isStable()) {
+            // Light log gated on motionTelemetryEnabled to avoid log spam
+            // when throttling is hot.
+            if (motionTelemetryEnabled) {
+                Log.v("ScannerViewModel", "FRAME_THROTTLED motion above threshold")
+            }
+            return
+        }
         analyzer.analyze(reader)
     }
-    
+
+    init {
+        // Start motion telemetry listeners. The controller no-ops on
+        // devices without sensors. Stopped in onCleared() below.
+        motionController.start()
+    }
+
     override fun onCleared() {
         super.onCleared()
-        // Cleanup if needed
+        motionController.stop()
     }
 }

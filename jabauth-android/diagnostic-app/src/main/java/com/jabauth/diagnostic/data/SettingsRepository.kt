@@ -28,6 +28,8 @@ class SettingsRepository(private val context: Context) {
         private val DEBUG_LOGGING = booleanPreferencesKey("debug_logging")
         private val PREFERRED_COLOR_MODE = intPreferencesKey("preferred_color_mode")
         private val HAPTIC_FEEDBACK = booleanPreferencesKey("haptic_feedback")
+        private val MOTION_TELEMETRY = booleanPreferencesKey("motion_telemetry")
+        private val MOTION_THROTTLING = booleanPreferencesKey("motion_throttling")
 
         // Default values
         const val DEFAULT_DECODE_TIMEOUT = 200
@@ -64,6 +66,26 @@ class SettingsRepository(private val context: Context) {
         val DEFAULT_DEBUG_LOGGING: Boolean = BuildConfig.DEFAULT_DEBUG_LOGGING_ENABLED
 
         const val DEFAULT_PREFERRED_COLOR_MODE = -1  // -1 = Auto
+
+        /**
+         * Default for the "Motion Telemetry" toggle. Sourced from
+         * BuildConfig.DEFAULT_MOTION_TELEMETRY_ENABLED — defaults ON in
+         * benchmark + test variants so SENSOR_SNAPSHOT markers surface
+         * automatically. Bayesian Council bc-2026-06-01-05 (Sherlock):
+         * sensor data is diagnostic-cheap when default-on; the marginal
+         * cost is two log lines per decode attempt.
+         */
+        val DEFAULT_MOTION_TELEMETRY: Boolean = BuildConfig.DEFAULT_MOTION_TELEMETRY_ENABLED
+
+        /**
+         * Default for the "Motion Throttling" toggle. When true, the
+         * camera analyzer skips decode attempts during motion above the
+         * stability threshold. Bayesian Council bc-2026-06-01-05
+         * (Historian): MLKit / VisionKit / Power Apps reader all use this
+         * pattern; the JABCode decoder is more expensive per attempt so
+         * the savings are larger.
+         */
+        val DEFAULT_MOTION_THROTTLING: Boolean = BuildConfig.DEFAULT_MOTION_THROTTLING_ENABLED
     }
     
     /**
@@ -75,7 +97,9 @@ class SettingsRepository(private val context: Context) {
         val autoFocus: Boolean = DEFAULT_AUTO_FOCUS,
         val debugLogging: Boolean = DEFAULT_DEBUG_LOGGING,
         val preferredColorMode: Int? = null,  // null = Auto
-        val hapticFeedback: Boolean = DEFAULT_HAPTIC_FEEDBACK
+        val hapticFeedback: Boolean = DEFAULT_HAPTIC_FEEDBACK,
+        val motionTelemetryEnabled: Boolean = DEFAULT_MOTION_TELEMETRY,
+        val motionThrottlingEnabled: Boolean = DEFAULT_MOTION_THROTTLING
     )
     
     /**
@@ -96,7 +120,9 @@ class SettingsRepository(private val context: Context) {
                 autoFocus = preferences[AUTO_FOCUS] ?: DEFAULT_AUTO_FOCUS,
                 debugLogging = preferences[DEBUG_LOGGING] ?: DEFAULT_DEBUG_LOGGING,
                 preferredColorMode = preferences[PREFERRED_COLOR_MODE]?.takeIf { it != -1 },
-                hapticFeedback = preferences[HAPTIC_FEEDBACK] ?: DEFAULT_HAPTIC_FEEDBACK
+                hapticFeedback = preferences[HAPTIC_FEEDBACK] ?: DEFAULT_HAPTIC_FEEDBACK,
+                motionTelemetryEnabled = preferences[MOTION_TELEMETRY] ?: DEFAULT_MOTION_TELEMETRY,
+                motionThrottlingEnabled = preferences[MOTION_THROTTLING] ?: DEFAULT_MOTION_THROTTLING
             )
         }
     
@@ -151,6 +177,26 @@ class SettingsRepository(private val context: Context) {
     suspend fun updateHapticFeedback(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[HAPTIC_FEEDBACK] = enabled
+        }
+    }
+
+    /**
+     * Update motion telemetry setting (SENSOR_SNAPSHOT log markers per
+     * decode attempt; diagnostic-only).
+     */
+    suspend fun updateMotionTelemetry(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[MOTION_TELEMETRY] = enabled
+        }
+    }
+
+    /**
+     * Update motion throttling setting (camera analyzer skips decode
+     * attempts during motion above stability threshold).
+     */
+    suspend fun updateMotionThrottling(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[MOTION_THROTTLING] = enabled
         }
     }
     
