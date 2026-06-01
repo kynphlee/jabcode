@@ -99,6 +99,22 @@ fun SettingsScreen(
                     onCheckedChange = { viewModel.updateHapticFeedback(it) }
                 )
             }
+
+            // Motion
+            SettingsSection(title = "Motion") {
+                SwitchSetting(
+                    label = "Motion Telemetry",
+                    description = "Log accelerometer + gyroscope magnitudes per decode (SENSOR_SNAPSHOT)",
+                    checked = settings.motionTelemetryEnabled,
+                    onCheckedChange = { viewModel.updateMotionTelemetry(it) }
+                )
+                SwitchSetting(
+                    label = "Motion Throttling",
+                    description = "Skip decode attempts during motion above stability threshold",
+                    checked = settings.motionThrottlingEnabled,
+                    onCheckedChange = { viewModel.updateMotionThrottling(it) }
+                )
+            }
             
             // JABCode Preferences
             SettingsSection(title = "JABCode Preferences") {

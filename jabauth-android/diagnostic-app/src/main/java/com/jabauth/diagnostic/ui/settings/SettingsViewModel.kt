@@ -61,6 +61,18 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun updateMotionTelemetry(enabled: Boolean) {
+        viewModelScope.launch {
+            repository.updateMotionTelemetry(enabled)
+        }
+    }
+
+    fun updateMotionThrottling(enabled: Boolean) {
+        viewModelScope.launch {
+            repository.updateMotionThrottling(enabled)
+        }
+    }
+
     fun resetToDefaults() {
         viewModelScope.launch {
             repository.resetToDefaults()
