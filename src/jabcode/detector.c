@@ -2416,6 +2416,16 @@ jab_float crossCheckPatternHorizontalAP(jab_byte* row, jab_int32 channel, jab_in
 			core_color = jab_default_palette[APX_CORE_COLOR * 3 + channel];
 			break;
     }
+    /* W2.10-b: Mode 0 docking APs are drawn K-centre / W-layer (encoder
+     * W2.10-enc), so EVERY colour channel sees a black core (value 0), not
+     * the cyan/yellow chroma core the default palette assumes. Without this
+     * override the B-channel horizontal check (channel=2: cyan B=255 != black
+     * 0) rejects valid Mode 0 docking APs and the slave never docks. Only the
+     * single centre-pixel gate needs the black expectation; the run-length
+     * state machine below is purely geometric and already handles the K/W
+     * bullseye. Gated on g_mode0_decode -> zero impact on colour modes. */
+    if(g_mode0_decode)
+        core_color = 0;
     if(row[centerx] != core_color)
         return -1;
 
@@ -2542,7 +2552,16 @@ jab_boolean crossCheckPatternAP(jab_bitmap* ch[], jab_int32 y, jab_int32 minx, j
 			core_color_in_green_channel = jab_default_palette[APX_CORE_COLOR * 3 + 1];
 			break;
     }
-	if(!crossCheckColor(ch[1], core_color_in_green_channel, (jab_int32)(*module_size), 3, (jab_int32)center.x, (jab_int32)center.y, 0))
+	/* W2.10-b: skip the green-channel chroma confirmation for Mode 0. Unlike
+	 * the single-pixel horizontal gate (which we retarget to black above),
+	 * crossCheckColor scans a 2-module run expecting a continuous band of one
+	 * colour. A Mode 0 AP has only a ~1-module black centre inside a white
+	 * ring, so no single expected colour (black or white) can satisfy the
+	 * run-length tolerance — the chroma check is structurally inapplicable to
+	 * monochrome. The R/B horizontal+vertical+diagonal geometric checks fully
+	 * validate the bullseye, so dropping the redundant green confirmation loses
+	 * no geometric assurance. Gated on g_mode0_decode -> colour modes unchanged. */
+	if(!g_mode0_decode && !crossCheckColor(ch[1], core_color_in_green_channel, (jab_int32)(*module_size), 3, (jab_int32)center.x, (jab_int32)center.y, 0))
 		return JAB_FAILURE;
 
 	//check r channel vertically
@@ -2569,14 +2588,16 @@ jab_boolean crossCheckPatternAP(jab_bitmap* ch[], jab_int32 y, jab_int32 minx, j
 	center.y = (*centery);
 
 	//check g channel vertically
-	if(!crossCheckColor(ch[1], core_color_in_green_channel, (jab_int32)(*module_size), 3, (jab_int32)center.x, (jab_int32)center.y, 1))
+	/* W2.10-b: see the horizontal green-check note above — skipped for Mode 0. */
+	if(!g_mode0_decode && !crossCheckColor(ch[1], core_color_in_green_channel, (jab_int32)(*module_size), 3, (jab_int32)center.x, (jab_int32)center.y, 1))
 		return JAB_FAILURE;
 
 	//diagonal check
 	jab_int32 l_dir[3] = {0};
 	if(crossCheckPatternDiagonalAP(ch[0], ap_type, (*module_size)*2, center, &l_dir[0]) < 0) return JAB_FAILURE;
 	if(crossCheckPatternDiagonalAP(ch[2], ap_type, (*module_size)*2, center, &l_dir[2]) < 0) return JAB_FAILURE;
-	if(!crossCheckColor(ch[1], core_color_in_green_channel, (jab_int32)(*module_size), 3, (jab_int32)center.x, (jab_int32)center.y, 2))
+	/* W2.10-b: see the horizontal green-check note above — skipped for Mode 0. */
+	if(!g_mode0_decode && !crossCheckColor(ch[1], core_color_in_green_channel, (jab_int32)(*module_size), 3, (jab_int32)center.x, (jab_int32)center.y, 2))
 		return JAB_FAILURE;
 	(*dir) = (l_dir[0] + l_dir[2]) > 0 ? 1 : -1;
 

@@ -1321,10 +1321,32 @@ jab_boolean createMatrix(jab_encode* enc, jab_int32 index, jab_data* ecc_encoded
                     if (i==k || j==k)
                     {
                     	jab_byte ap0_color_index, ap1_color_index, ap2_color_index, ap3_color_index;
-                        ap0_color_index =
-						ap1_color_index =
-						ap2_color_index =
-						ap3_color_index = (k%2) ? apx_core_color_index[Nc] : apn_core_color_index[Nc];
+                        if (Nc == 0)
+                        {
+                            /* W2.10-enc: Mode 0 (monochrome) slave docking APs.
+                             * For Nc=0 both apx_core_color_index[0] and
+                             * apn_core_color_index[0] are 0 (black), so the
+                             * standard expression below paints SOLID-BLACK corners
+                             * with zero K/W contrast — geometrically undetectable
+                             * by the slave-docking alignment search, breaking
+                             * master->slave cascade. Mirror the master FP Mode 0
+                             * fix (encoder.c ~1273): alternate K centre / W layer
+                             * so the docking AP presents a detectable bullseye.
+                             * Index convention matches the synthesized decode
+                             * palette: 0 = K = (0,0,0), 1 = W = (255,255,255). */
+                            jab_byte mode0_color = (k%2) ? 1 /*W*/ : 0 /*K*/;
+                            ap0_color_index =
+						    ap1_color_index =
+						    ap2_color_index =
+						    ap3_color_index = mode0_color;
+                        }
+                        else
+                        {
+                            ap0_color_index =
+						    ap1_color_index =
+						    ap2_color_index =
+						    ap3_color_index = (k%2) ? apx_core_color_index[Nc] : apn_core_color_index[Nc];
+                        }
                         //upper pattern
                         enc->symbols[index].matrix[(DISTANCE_TO_BORDER-(i+1))*enc->symbols[index].side_size.x+DISTANCE_TO_BORDER-j-1]=
                         enc->symbols[index].matrix[(DISTANCE_TO_BORDER+(i-1))*enc->symbols[index].side_size.x+DISTANCE_TO_BORDER+j-1]=ap0_color_index;
