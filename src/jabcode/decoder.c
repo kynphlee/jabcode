@@ -2239,6 +2239,41 @@ jab_int32 decodeSlave(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 		return FATAL_ERROR;
 	}
 
+	/* W2.10 Custom Mode 0 slave palette synthesis — the cascade counterpart of
+	 * the W2.9 master fix (decoder.c ~2099). readColorPaletteInSlave above
+	 * succeeds for Mode 0 (its metadata-palette while-loop is immediately
+	 * false because color_counter=2 is NOT < MIN(color_number=2,64)=2) but
+	 * writes GARBAGE palette values sampled from docking-AP positions under a
+	 * colour-mode assumption. Mode 0 carries no embedded palette — it is
+	 * IMPLICIT in the custom extension ({K=(0,0,0), W=(255,255,255)}). We
+	 * OVERWRITE the garbage here so the downstream slave decode pipeline
+	 * (normalizeColorPalette, getPaletteThreshold, decodeSymbol) sees a valid
+	 * palette without per-function Mode 0 awareness — identical strategy and
+	 * byte layout to the master.
+	 *
+	 * Palette layout: COLOR_PALETTE_NUMBER panels × 2 colours × 3 RGB bytes.
+	 * Each panel p stores RGB triplets at offset p*(color_number*3):
+	 *   panel[p]: index 0 = K = (0,0,0), index 1 = W = (255,255,255)
+	 *
+	 * Resolution of: docs/cassandra-register/H_nc0_slave_palette.md */
+	if (g_mode0_decode)
+	{
+		const jab_int32 panel_stride = 2 * 3;  // color_number=2 × 3 channels
+		for (jab_int32 p = 0; p < COLOR_PALETTE_NUMBER; p++)
+		{
+			// Index 0: K (black)
+			symbol->palette[p * panel_stride + 0 * 3 + 0] = 0;
+			symbol->palette[p * panel_stride + 0 * 3 + 1] = 0;
+			symbol->palette[p * panel_stride + 0 * 3 + 2] = 0;
+			// Index 1: W (white)
+			symbol->palette[p * panel_stride + 1 * 3 + 0] = 255;
+			symbol->palette[p * panel_stride + 1 * 3 + 1] = 255;
+			symbol->palette[p * panel_stride + 1 * 3 + 2] = 255;
+		}
+		JAB_DIAG_INFO(("DIAG_MODE0_SLAVE_PALETTE_SYNTHESIZED Nc=0 panels=%d K=(0,0,0) W=(255,255,255) (W2.10 custom Mode 0 cascade extension overwrite)",
+		               COLOR_PALETTE_NUMBER));
+	}
+
 	//normalize the RGB values in color palettes
 	jab_int32 color_number = (jab_int32)pow(2, symbol->metadata.Nc + 1);
 	jab_float norm_palette[color_number * 4 * COLOR_PALETTE_NUMBER];	//each color contains 4 normalized values, i.e. R, G, B and Luminance
