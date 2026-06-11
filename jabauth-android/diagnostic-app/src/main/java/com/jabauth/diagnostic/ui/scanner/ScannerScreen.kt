@@ -31,13 +31,18 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import com.jabauth.jabcode.DecodeResult
 import com.jabauth.ui.scanner.Camera2Preview
 import com.jabauth.diagnostic.ui.permissions.CameraPermissionHandler
@@ -86,10 +91,19 @@ private fun ScannerScreenContent(
     // Zoom slider is the source of truth for SETTING zoom; pinch updates
     // currentZoom which we fold back into the slider so the two stay in sync.
     var sliderZoom by remember { mutableStateOf(1f) }
+    // While the user is actively dragging the slider, don't let the camera's
+    // reported (quantized) zoom yank the thumb back — that fight is the jitter.
+    var sliderActive by remember { mutableStateOf(false) }
     LaunchedEffect(currentZoom) {
-        if (abs(currentZoom - sliderZoom) > 0.05f) sliderZoom = currentZoom.coerceIn(1f, MAX_ZOOM)
+        if (!sliderActive && abs(currentZoom - sliderZoom) > 0.05f) {
+            sliderZoom = currentZoom.coerceIn(1f, MAX_ZOOM)
+        }
     }
     var panelExpanded by remember { mutableStateOf(false) }
+    // True only while the user is actively long-press-resizing the reticle —
+    // gates the workload coach (reference-app behaviour: coach shows during
+    // resize only, never persistent).
+    var isResizing by remember { mutableStateOf(false) }
 
     // "Scan image" → pick a PNG and decode it camera-free (decoder isolation test).
     val imagePicker = rememberLauncherForActivityResult(
@@ -119,6 +133,7 @@ private fun ScannerScreenContent(
         RoiReticle(
             onRoiChange = { l, t, r, b, va -> viewModel.setRoi(l, t, r, b, va) },
             onResetZoom = { sliderZoom = 1f },
+            onResizingChange = { isResizing = it },
             modifier = Modifier.fillMaxSize()
         )
 
@@ -131,15 +146,20 @@ private fun ScannerScreenContent(
                 .padding(top = 8.dp)
         )
 
-        // Workload coach + zoom badge just under the toolbar.
-        WorkloadCoach(
-            workloadPct = workloadPct,
+        // Workload coach — appears ONLY while resizing the reticle (long-press
+        // the ⤡ handle), mirroring the reference QR app; never persistent.
+        AnimatedVisibility(
+            visible = isResizing,
+            enter = fadeIn(),
+            exit = fadeOut(),
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .padding(top = 84.dp)
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp)
-        )
+        ) {
+            WorkloadCoach(workloadPct = workloadPct)
+        }
 
         // Transient result chip (bottom-left) + rolling success badge (bottom-right).
         ResultChip(
@@ -162,7 +182,8 @@ private fun ScannerScreenContent(
         // Zoom slider pinned at the bottom (− ──●── +).
         ZoomSliderBar(
             value = sliderZoom,
-            onValueChange = { sliderZoom = it },
+            onValueChange = { sliderZoom = it; sliderActive = true },
+            onValueChangeFinished = { sliderActive = false },
             scanCount = scanCount,
             onTogglePanel = { panelExpanded = !panelExpanded },
             panelExpanded = panelExpanded,
@@ -204,12 +225,16 @@ private fun ScannerScreenContent(
 private fun RoiReticle(
     onRoiChange: (Float, Float, Float, Float, Float) -> Unit,
     onResetZoom: () -> Unit,
+    onResizingChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
     val minPx = with(density) { 110.dp.toPx() }
     var box by remember { mutableStateOf(IntSize.Zero) }
     var roi by remember { mutableStateOf<Rect?>(null) }
+    // Snapshot of the reticle's geometry when a resize starts — drawn as a faint
+    // "ghost" so the user can compare the new vs old size before releasing.
+    var ghostRoi by remember { mutableStateOf<Rect?>(null) }
 
     fun defaultRoi(size: IntSize): Rect {
         val w = size.width * 0.82f          // 82% of width, square (px)
@@ -234,28 +259,51 @@ private fun RoiReticle(
     }
 
     Box(modifier = modifier.onSizeChanged { box = it }) {
+        // Faint ghost of the pre-resize geometry — only present during a resize,
+        // drawn first (behind) so the live brackets read on top of it.
+        ghostRoi?.let { g ->
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                drawRect(
+                    color = Orange.copy(alpha = 0.10f),
+                    topLeft = Offset(g.left, g.top),
+                    size = Size(g.width, g.height)
+                )
+                drawRect(
+                    color = Orange.copy(alpha = 0.55f),
+                    topLeft = Offset(g.left, g.top),
+                    size = Size(g.width, g.height),
+                    style = Stroke(
+                        width = 3f,
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(14f, 12f))
+                    )
+                )
+            }
+        }
         val r = roi
         if (r != null) {
-            val handle = 46.dp
+            val handle = 56.dp
             val handlePx = with(density) { handle.toPx() }
 
-            // Reticle body — drag anywhere inside to MOVE.
+            // Centre-anchored resize helper: grow/shrink symmetrically about the
+            // box centre so the reticle stays put and only its w/h change.
+            fun resizeCentered(dHw: Float, dHh: Float) {
+                roi?.let { cur ->
+                    val cx = (cur.left + cur.right) / 2f
+                    val cy = (cur.top + cur.bottom) / 2f
+                    val maxHw = minOf(cx, box.width - cx)
+                    val maxHh = minOf(cy, box.height - cy)
+                    val hw = (cur.width / 2f + dHw).coerceIn(minPx / 2f, maxHw.coerceAtLeast(minPx / 2f))
+                    val hh = (cur.height / 2f + dHh).coerceIn(minPx / 2f, maxHh.coerceAtLeast(minPx / 2f))
+                    roi = Rect(cx - hw, cy - hh, cx + hw, cy + hh)
+                }
+            }
+
+            // Reticle body — corner brackets only (no move). Non-interactive so
+            // the camera shows through; the corner hit-areas below resize it.
             Box(
                 modifier = Modifier
                     .offset { IntOffset(r.left.roundToInt(), r.top.roundToInt()) }
                     .size(with(density) { r.width.toDp() }, with(density) { r.height.toDp() })
-                    .pointerInput(box) {
-                        detectDragGestures { change, drag ->
-                            change.consume()
-                            roi?.let { cur ->
-                                val w = cur.width
-                                val h = cur.height
-                                val nl = (cur.left + drag.x).coerceIn(0f, (box.width - w).coerceAtLeast(0f))
-                                val nt = (cur.top + drag.y).coerceIn(0f, (box.height - h).coerceAtLeast(0f))
-                                roi = Rect(nl, nt, nl + w, nt + h)
-                            }
-                        }
-                    }
             ) {
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     val len = size.minDimension * 0.16f
@@ -270,41 +318,58 @@ private fun RoiReticle(
                     drawLine(c, Offset(size.width, size.height), Offset(size.width - len, size.height), strokeWidth = sw, cap = StrokeCap.Round)
                     drawLine(c, Offset(size.width, size.height), Offset(size.width, size.height - len), strokeWidth = sw, cap = StrokeCap.Round)
                 }
-                // Reset (↺) bottom-left — resets the ROI to default + zoom to 1×.
-                IconButton(
-                    onClick = {
-                        onResetZoom()
-                        if (box != IntSize.Zero) roi = defaultRoi(box)
-                    },
-                    modifier = Modifier.align(Alignment.BottomStart)
-                ) {
-                    Icon(Icons.Default.Refresh, contentDescription = "Reset", tint = Orange)
-                }
             }
 
-            // Resize handle (⤡) at the bottom-right corner — drag to RESIZE.
-            // Declared after the body ⇒ on top, so its drags don't race MOVE.
-            Box(
-                modifier = Modifier
-                    .offset {
-                        IntOffset(
-                            (r.right - handlePx / 2f).roundToInt(),
-                            (r.bottom - handlePx / 2f).roundToInt()
-                        )
-                    }
-                    .size(handle)
-                    .pointerInput(box) {
-                        detectDragGestures { change, drag ->
-                            change.consume()
-                            roi?.let { cur ->
-                                val nr = (cur.right + drag.x).coerceIn(cur.left + minPx, box.width.toFloat())
-                                val nb = (cur.bottom + drag.y).coerceIn(cur.top + minPx, box.height.toFloat())
-                                roi = Rect(cur.left, cur.top, nr, nb)
-                            }
+            // Four corner resize handles — LONG-PRESS any corner, then drag to
+            // resize centre-anchored (dragging a corner away from centre grows
+            // the box). (signX, signY) maps each corner's drag direction.
+            listOf(
+                Triple(r.left,  r.top,    -1f to -1f),  // top-left
+                Triple(r.right, r.top,     1f to -1f),  // top-right
+                Triple(r.left,  r.bottom, -1f to  1f),  // bottom-left
+                Triple(r.right, r.bottom,  1f to  1f)   // bottom-right
+            ).forEach { (hx, hy, signs) ->
+                val (sx, sy) = signs
+                Box(
+                    modifier = Modifier
+                        .offset {
+                            IntOffset(
+                                (hx - handlePx / 2f).roundToInt(),
+                                (hy - handlePx / 2f).roundToInt()
+                            )
                         }
-                    }
+                        .size(handle)
+                        .pointerInput(box) {
+                            detectDragGesturesAfterLongPress(
+                                onDragStart = {
+                                    ghostRoi = roi          // snapshot pre-resize geometry
+                                    onResizingChange(true)  // reveal the workload coach
+                                },
+                                onDragEnd = { ghostRoi = null; onResizingChange(false) },
+                                onDragCancel = { ghostRoi = null; onResizingChange(false) },
+                                onDrag = { change, drag ->
+                                    change.consume()
+                                    resizeCentered(sx * drag.x, sy * drag.y)
+                                }
+                            )
+                        }
+                )
+            }
+
+            // Reset ↺ — centred just below the reticle, clear of the corners.
+            IconButton(
+                onClick = {
+                    onResetZoom()
+                    if (box != IntSize.Zero) roi = defaultRoi(box)
+                },
+                modifier = Modifier.offset {
+                    IntOffset(
+                        ((r.left + r.right) / 2f - handlePx / 2f).roundToInt(),
+                        (r.bottom + with(density) { 8.dp.toPx() }).roundToInt()
+                    )
+                }
             ) {
-                Text("⤡", color = Orange, fontSize = 24.sp, modifier = Modifier.align(Alignment.Center))
+                Icon(Icons.Default.Refresh, contentDescription = "Reset", tint = Orange)
             }
         }
     }
@@ -359,7 +424,7 @@ private fun WorkloadCoach(
             Text("$workloadPct%", color = pctColor, fontSize = 15.sp, fontWeight = FontWeight.Bold)
         }
         Text(hint, color = TextSecondary, fontSize = 13.sp)
-        Text("Drag the box to aim · ⤡ resize · ↺ reset.", color = TextSecondary, fontSize = 13.sp)
+        Text("Drag to aim · long-press ⤡ to resize · ↺ reset.", color = TextSecondary, fontSize = 13.sp)
     }
 }
 
@@ -407,6 +472,7 @@ private fun SuccessBadge(stats: ScannerViewModel.ScanStats, modifier: Modifier =
 private fun ZoomSliderBar(
     value: Float,
     onValueChange: (Float) -> Unit,
+    onValueChangeFinished: () -> Unit,
     scanCount: Int,
     onTogglePanel: () -> Unit,
     panelExpanded: Boolean,
@@ -443,6 +509,7 @@ private fun ZoomSliderBar(
             Slider(
                 value = value,
                 onValueChange = onValueChange,
+                onValueChangeFinished = onValueChangeFinished,
                 valueRange = 1f..MAX_ZOOM,
                 colors = SliderDefaults.colors(
                     thumbColor = Orange,
