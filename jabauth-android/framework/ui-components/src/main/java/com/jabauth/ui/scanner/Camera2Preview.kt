@@ -271,9 +271,19 @@ private class Camera2Controller(
         val halfH = ((active.height() / (2.0f * zoomRatio)).toInt() / 4) * 4
         val crop = Rect(centerX - halfW, centerY - halfH,
                         centerX + halfW, centerY + halfH)
+        // Idempotency guard: a whole range of requested zoom values map to the
+        // SAME 4-px crop bucket. Re-issuing the repeating request for an
+        // unchanged crop is what produced the slider/pinch jitter — skip it.
+        if (crop == cachedCropRegion) return
         cachedCropRegion = crop
-        Log.i(TAG, "PinchZoom: Zoom -> ${"%.2f".format(zoomRatio)}x, crop=$crop")
-        onZoomChanged?.invoke(zoomRatio)
+        // Report the ACTUAL (quantized) zoom the crop yields — not the request.
+        // Reporting the request let the HUD show a value the crop can't hit, so
+        // the slider-sync kept yanking the thumb at high zoom (where the bucket
+        // step exceeds the sync deadband). The real value is self-consistent.
+        val actualZoom = if (halfW > 0) active.width().toFloat() / (2f * halfW) else zoomRatio
+        currentZoomRatio = actualZoom
+        Log.i(TAG, "Zoom -> req ${"%.3f".format(zoomRatio)}x actual ${"%.3f".format(actualZoom)}x crop=$crop")
+        onZoomChanged?.invoke(actualZoom)
         // Re-issue the repeating request with the new crop applied.
         previewSurface?.let { startRepeatingRequest(it) }
     }
@@ -315,11 +325,9 @@ private class Camera2Controller(
      * and fires onZoomChanged so the HUD/slider stay in sync.
      */
     fun updateZoom(zoomRatio: Float) {
-        val clamped = zoomRatio.coerceIn(1.0f, maxDigitalZoom)
-        if (clamped != currentZoomRatio) {
-            currentZoomRatio = clamped
-            applyCropRegion(clamped)
-        }
+        // applyCropRegion now dedups the crop bucket and owns currentZoomRatio,
+        // so just forward the clamped request.
+        applyCropRegion(zoomRatio.coerceIn(1.0f, maxDigitalZoom))
     }
 
     fun openCamera(textureView: TextureView, viewWidth: Int, viewHeight: Int) {
@@ -378,12 +386,11 @@ private class Camera2Controller(
             scaleGestureDetector = ScaleGestureDetector(context,
                 object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
                     override fun onScale(detector: ScaleGestureDetector): Boolean {
-                        val newZoom = (currentZoomRatio * detector.scaleFactor)
-                            .coerceIn(1.0f, maxDigitalZoom)
-                        if (newZoom != currentZoomRatio) {
-                            currentZoomRatio = newZoom
-                            applyCropRegion(newZoom)
-                        }
+                        // applyCropRegion clamps the crop, dedups the bucket, and
+                        // updates currentZoomRatio to the actual applied zoom.
+                        applyCropRegion(
+                            (currentZoomRatio * detector.scaleFactor).coerceIn(1.0f, maxDigitalZoom)
+                        )
                         return true
                     }
                 })
