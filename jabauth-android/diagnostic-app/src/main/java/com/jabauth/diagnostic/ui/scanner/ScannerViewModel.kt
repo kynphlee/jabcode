@@ -539,7 +539,10 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
             // (roiInput) + the live sensor orientation. null ⇒ full-frame decode.
             roiProvider = {
                 roiInput?.let { RoiSpec(it.l, it.t, it.r, it.b, it.viewAspect, sensorOrientation) }
-            }
+            },
+            // nc2 anti-fabrication consensus (diagnostic-app opt-in): an 8-colour
+            // decode is trusted only once 2 frames agree byte-identically.
+            nc2ConsensusMinAgreement = 2
         )
     }
     

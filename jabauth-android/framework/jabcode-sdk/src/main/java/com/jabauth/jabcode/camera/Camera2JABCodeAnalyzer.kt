@@ -76,7 +76,20 @@ class Camera2JABCodeAnalyzer(
      * full frame. Queried once per analyzed frame so the reticle can move/resize
      * live without recreating the analyzer. See [RoiSpec] and [cropToRoi].
      */
-    private val roiProvider: (() -> RoiSpec?)? = null
+    private val roiProvider: (() -> RoiSpec?)? = null,
+    /**
+     * Anti-fabrication consensus for nc2 (COLOR_8). nc2 is the ONLY mode that can
+     * decode via the default-mode fall-through (it IS the default mode), so it is
+     * the only mode where a degraded non-nc2 code can fabricate a payload. A
+     * genuine nc2 reproduces the same bytes across frames; a fabrication does not.
+     * An nc2 decode is withheld until [nc2ConsensusMinAgreement] frames within
+     * [nc2ConsensusWindowMs] agree byte-identically; confirmed (real-Part-I)
+     * modes are reported immediately. Default M=1 DISABLES the gate (preserves
+     * single-frame behaviour for SDK consumers/tests); the diagnostic app opts in
+     * with M>=2. See docs/cassandra-register/H_nc2_decode_failure.md (2026-06-11).
+     */
+    private val nc2ConsensusMinAgreement: Int = 1,
+    private val nc2ConsensusWindowMs: Long = 1500L
 ) {
     
     companion object {
@@ -98,7 +111,11 @@ class Camera2JABCodeAnalyzer(
     private var lastAnalyzedTimestamp = 0L
     private var frameCount = 0
     private var decodeAttempts = 0
-    
+
+    // Rolling buffer of recent nc2 (COLOR_8) decodes for the consensus gate.
+    private class Nc2Record(val timestampMs: Long, val payload: ByteArray)
+    private val nc2Recent = ArrayDeque<Nc2Record>()
+
     /**
      * Analyze a frame from ImageReader
      * CRITICAL: Caller MUST close the Image after this returns
@@ -198,7 +215,28 @@ class Camera2JABCodeAnalyzer(
                     // Success - found JABCode
                     Log.i(TAG, "Frame $frameCount: ✅ JABCode DETECTED! Data size=${result.data.size} bytes, " +
                                "colorMode=${result.colorMode}, decodeTime=${decodeTime}ms")
-                    onDecodeSuccess(result)
+                    if (result.colorMode.value == 8 && nc2ConsensusMinAgreement > 1) {
+                        // nc2 reached decode via the default-mode fall-through — the
+                        // one path that can fabricate. Withhold until >= M recent nc2
+                        // frames agree byte-identically; a fabrication won't reproduce.
+                        val now = System.currentTimeMillis()
+                        while (nc2Recent.isNotEmpty() &&
+                               now - nc2Recent.first().timestampMs > nc2ConsensusWindowMs) {
+                            nc2Recent.removeFirst()
+                        }
+                        nc2Recent.addLast(Nc2Record(now, result.data))
+                        val agree = nc2Recent.count { it.payload.contentEquals(result.data) }
+                        if (agree >= nc2ConsensusMinAgreement) {
+                            Log.i(TAG, "Frame $frameCount: NC2_CONSENSUS reached $agree/$nc2ConsensusMinAgreement — accepting")
+                            onDecodeSuccess(result)
+                        } else {
+                            Log.i(TAG, "Frame $frameCount: NC2_CONSENSUS pending $agree/$nc2ConsensusMinAgreement — withholding (anti-fabrication)")
+                            onDecodeFailure("nc2 awaiting consensus ($agree/$nc2ConsensusMinAgreement)", decodeTime)
+                        }
+                    } else {
+                        // Confirmed-Part-I mode (or gate disabled): trust the frame.
+                        onDecodeSuccess(result)
+                    }
                 } else {
                     // Null result is a real failure outcome — surface it via the
                     // failure callback so the upstream ViewModel can categorize

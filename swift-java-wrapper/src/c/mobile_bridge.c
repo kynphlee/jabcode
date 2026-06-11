@@ -549,6 +549,97 @@ jab_data* jabMobileDecodeMultiFrame(
     return result;
 }
 
+/* Decode-CONSENSUS multi-frame: the anti-fabrication backstop for the d486388
+ * default-mode fall-through. Decodes each frame INDEPENDENTLY via the strict
+ * single-frame path and accepts the payload that the most frames agree on
+ * byte-for-byte, but only if that count reaches min_agreement. A genuine code
+ * reproduces the same payload across independently-degraded frames; a one-off
+ * fall-through fabrication (a degraded non-default code mis-decoding as the
+ * Nc=2 default) does not. NOTE: this deliberately does NOT pixel-average like
+ * jabMobileDecodeMultiFrame — averaging could make a fabrication *consistent*.
+ * See docs/cassandra-register/H_nc2_decode_failure.md (2026-06-11). */
+jab_data* jabMobileDecodeConsensus(
+    jab_byte** rgba_buffers,
+    jab_int32 width,
+    jab_int32 height,
+    jab_int32 frame_count,
+    jab_int32 min_agreement,
+    jab_int32* out_color_number
+) {
+    if (out_color_number) *out_color_number = 0;
+    jabMobileClearError();
+
+    if (!rgba_buffers) { setError("Invalid rgba_buffers array (null)"); return NULL; }
+    if (frame_count <= 0) { setError("Invalid frame_count (must be >= 1)"); return NULL; }
+    if (width <= 0 || height <= 0) { setError("Invalid image dimensions"); return NULL; }
+    for (jab_int32 f = 0; f < frame_count; f++) {
+        if (!rgba_buffers[f]) { setError("Null buffer in rgba_buffers array"); return NULL; }
+    }
+    /* Clamp the agreement threshold into [1, frame_count]. */
+    if (min_agreement < 1) min_agreement = 1;
+    if (min_agreement > frame_count) min_agreement = frame_count;
+
+    jab_data** results = (jab_data**)calloc((size_t)frame_count, sizeof(jab_data*));
+    jab_int32* colors  = (jab_int32*)calloc((size_t)frame_count, sizeof(jab_int32));
+    if (!results || !colors) {
+        free(results); free(colors);
+        setError("Memory allocation failed for consensus buffers");
+        return NULL;
+    }
+
+    /* Decode every frame INDEPENDENTLY (no pixel averaging) via the strict
+     * single-frame path, so each result is an honest per-frame decode. */
+    for (jab_int32 f = 0; f < frame_count; f++) {
+        jab_int32 c = 0;
+        results[f] = jabMobileDecodeCameraWithMeta(rgba_buffers[f], width, height, &c);
+        colors[f] = c;
+    }
+
+    /* Find the decoded payload that appears byte-identically in the most frames. */
+    jab_int32 best_idx = -1, best_count = 0, best_color = 0;
+    for (jab_int32 a = 0; a < frame_count; a++) {
+        if (!results[a]) continue;
+        jab_int32 count = 0;
+        for (jab_int32 b = 0; b < frame_count; b++) {
+            if (!results[b]) continue;
+            if (results[a]->length == results[b]->length &&
+                memcmp(results[a]->data, results[b]->data, (size_t)results[a]->length) == 0) {
+                count++;
+            }
+        }
+        if (count > best_count) { best_count = count; best_idx = a; best_color = colors[a]; }
+    }
+
+    /* Accept the winner only if enough frames independently agree. */
+    jab_data* consensus = NULL;
+    if (best_idx >= 0 && best_count >= min_agreement) {
+        jab_int32 len = results[best_idx]->length;
+        consensus = (jab_data*)malloc(sizeof(jab_data) + (size_t)len);
+        if (consensus) {
+            consensus->length = len;
+            memcpy(consensus->data, results[best_idx]->data, (size_t)len);
+            if (out_color_number) *out_color_number = best_color;
+        } else {
+            setError("Memory allocation failed for consensus result");
+        }
+    }
+
+    const jab_int32 reached = best_count;
+    for (jab_int32 f = 0; f < frame_count; f++) {
+        if (results[f]) free(results[f]);
+    }
+    free(results);
+    free(colors);
+
+    if (!consensus) {
+        setError(reached > 0
+            ? "No frame consensus: best agreement below min_agreement (degraded/ambiguous decode rejected)"
+            : "No JABCode decoded in any frame");
+        return NULL;
+    }
+    return consensus;
+}
+
 void jabMobileDataFree(jab_data* data) {
     if (data) {
         free(data);
