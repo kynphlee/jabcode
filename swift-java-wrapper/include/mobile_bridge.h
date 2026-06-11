@@ -188,6 +188,44 @@ jab_data* jabMobileDecodeMultiFrame(
 );
 
 /**
+ * @brief Decode JABCode from multiple camera frames by CONSENSUS (anti-fabrication).
+ *
+ * Decodes each frame INDEPENDENTLY via the strict single-frame path
+ * (jabMobileDecodeCameraWithMeta) and accepts the payload that decodes
+ * byte-identically in the most frames — but only if that count reaches
+ * min_agreement. Unlike jabMobileDecodeMultiFrame (which pixel-averages then
+ * decodes once), this does NOT merge frames before decoding, so a one-off
+ * fall-through fabrication — a degraded non-default code that fails Part-I,
+ * defaults to the Nc=2 colour mode, and happens to pass LDPC — cannot survive:
+ * such a fabrication does not reproduce byte-identically across independently
+ * degraded frames, whereas a genuine code does. This is the durable backstop
+ * for the d486388 default-mode fall-through; see
+ * docs/cassandra-register/H_nc2_decode_failure.md (2026-06-11 "Open caveat").
+ *
+ * @param rgba_buffers     Array of frame_count RGBA pixel buffers
+ * @param width            Image width in pixels (all frames same)
+ * @param height           Image height in pixels (all frames same)
+ * @param frame_count      Number of frames K (>= 1)
+ * @param min_agreement    Minimum frames M that must agree byte-identically,
+ *                         clamped to [1, frame_count]. Use M >= 2 with K >= 3
+ *                         for anti-fabrication; M == K == 1 is a plain decode.
+ * @param out_color_number Set to the decoded colour count (2..256) on success,
+ *                         else 0. May be NULL.
+ * @return Decoded data (caller frees with jabMobileDataFree) or NULL if no
+ *         payload reached min_agreement (check jabMobileGetLastError).
+ *
+ * @note Caller retains ownership of rgba_buffers; this function only reads them.
+ */
+jab_data* jabMobileDecodeConsensus(
+    jab_byte** rgba_buffers,
+    jab_int32 width,
+    jab_int32 height,
+    jab_int32 frame_count,
+    jab_int32 min_agreement,
+    jab_int32* out_color_number
+);
+
+/**
  * @brief Free decoded data
  *
  * @param data Data to free
