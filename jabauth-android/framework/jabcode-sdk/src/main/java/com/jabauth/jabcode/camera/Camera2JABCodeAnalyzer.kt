@@ -1,11 +1,36 @@
 package com.jabauth.jabcode.camera
 
+import android.graphics.Bitmap
+import android.graphics.Matrix
 import android.media.Image
 import android.media.ImageReader
 import android.util.Log
 import com.jabauth.jabcode.DecodeOptions
 import com.jabauth.jabcode.DecodeResult
 import com.jabauth.jabcode.JABCodeDecoder
+
+/**
+ * Decode region-of-interest. Expressed in the preview **view's** normalized
+ * coordinate space (0..1, portrait, origin top-left) — i.e. the same space the
+ * on-screen reticle lives in — plus the geometry needed to map it onto the
+ * sensor-orientation analysis bitmap:
+ *
+ *  - [viewAspect]       preview view width / height (e.g. 1080/2340)
+ *  - [sensorOrientation] CameraCharacteristics.SENSOR_ORIENTATION in degrees
+ *
+ * The analyzer rotates the landscape analysis frame by [sensorOrientation] to
+ * display orientation, centre-crops it to [viewAspect] (the preview is
+ * FILL_CENTER, so that centred crop **is** what the user sees), then crops to
+ * the normalized rect — making the reticle map 1:1 onto the decoder input.
+ */
+data class RoiSpec(
+    val left: Float,
+    val top: Float,
+    val right: Float,
+    val bottom: Float,
+    val viewAspect: Float,
+    val sensorOrientation: Int
+)
 
 /**
  * Camera2 analyzer for JABCode scanning
@@ -45,11 +70,23 @@ class Camera2JABCodeAnalyzer(
     private val options: DecodeOptions = DecodeOptions(),
     private val onDecodeSuccess: (DecodeResult) -> Unit,
     private val onDecodeFailure: (String, Long) -> Unit,
-    private val onQualityUpdate: ((ImageQualityAnalyzer.QualityMetrics) -> Unit)? = null
+    private val onQualityUpdate: ((ImageQualityAnalyzer.QualityMetrics) -> Unit)? = null,
+    /**
+     * Supplies the current decode region-of-interest, or null to decode the
+     * full frame. Queried once per analyzed frame so the reticle can move/resize
+     * live without recreating the analyzer. See [RoiSpec] and [cropToRoi].
+     */
+    private val roiProvider: (() -> RoiSpec?)? = null
 ) {
     
     companion object {
         private const val TAG = "Camera2JABCodeAnalyzer"
+        // Quiet-zone margin added around the reticle ROI before cropping, as a
+        // fraction of the ROI size per side. JABCode (like QR) needs a light
+        // border to lock the perspective transform; without it a tightly-drawn
+        // reticle yields "found but not decodable" — detection succeeds but the
+        // master symbol can't establish. 0.18 ≈ 3-4 modules on a typical symbol.
+        private const val ROI_QUIET_ZONE_PAD = 0.18f
     }
     
     private val qualityAnalyzer = if (options.includeQualityMetrics && onQualityUpdate != null) {
@@ -111,12 +148,33 @@ class Camera2JABCodeAnalyzer(
             val g = (firstPixel shr 8) and 0xFF
             val b = firstPixel and 0xFF
             Log.d(TAG, "Frame $frameCount: First pixel RGB=($r,$g,$b), center pixel RGB=(${(bitmap.getPixel(bitmap.width/2, bitmap.height/2) shr 16) and 0xFF},${(bitmap.getPixel(bitmap.width/2, bitmap.height/2) shr 8) and 0xFF},${bitmap.getPixel(bitmap.width/2, bitmap.height/2) and 0xFF})")
-            
+
+            // Decode region-of-interest: when the reticle is active, hand the
+            // decoder ONLY its region. This excludes the surrounding screen/desk
+            // that otherwise spawns false-positive finder patterns and skews the
+            // per-capture palette learning. Falls back to the full frame on any
+            // crop error so a bad ROI can never blank the scanner.
+            val roiSpec = roiProvider?.invoke()
+            val decodeBitmap: Bitmap = if (roiSpec != null) {
+                try {
+                    cropToRoi(bitmap, roiSpec).also {
+                        Log.d(TAG, "Frame $frameCount: ROI_CROP ${bitmap.width}x${bitmap.height} -> ${it.width}x${it.height} " +
+                                   "roi=[${roiSpec.left},${roiSpec.top},${roiSpec.right},${roiSpec.bottom}] " +
+                                   "viewAspect=${roiSpec.viewAspect} sensorOri=${roiSpec.sensorOrientation}")
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Frame $frameCount: ROI crop failed (${e.message}); decoding full frame")
+                    bitmap
+                }
+            } else {
+                bitmap
+            }
+
             try {
-                // Calculate quality metrics (if enabled)
+                // Calculate quality metrics (if enabled) on the region we decode.
                 if (qualityAnalyzer != null && onQualityUpdate != null) {
                     val qualityStart = System.currentTimeMillis()
-                    val metrics = qualityAnalyzer.analyze(bitmap)
+                    val metrics = qualityAnalyzer.analyze(decodeBitmap)
                     val qualityTime = System.currentTimeMillis() - qualityStart
                     Log.v(TAG, "Frame $frameCount: Quality metrics - brightness=${metrics.brightness}, " +
                                "contrast=${metrics.contrast}, focus=${metrics.focus} (${qualityTime}ms)")
@@ -130,7 +188,7 @@ class Camera2JABCodeAnalyzer(
                 val decodeStart = System.currentTimeMillis()
                 android.os.Trace.beginSection("JABCodeDecoder.decode")
                 val result = try {
-                    decoder.decode(bitmap, options)
+                    decoder.decode(decodeBitmap, options)
                 } finally {
                     android.os.Trace.endSection() // JABCodeDecoder.decode
                 }
@@ -154,6 +212,7 @@ class Camera2JABCodeAnalyzer(
                 }
                 
             } finally {
+                if (decodeBitmap !== bitmap) decodeBitmap.recycle()
                 bitmap.recycle()
             }
         } catch (e: Exception) {
@@ -169,5 +228,70 @@ class Camera2JABCodeAnalyzer(
             Log.v(TAG, "Frame $frameCount: Image closed")
             android.os.Trace.endSection() // Camera2JABCodeAnalyzer.analyze
         }
+    }
+
+    /**
+     * Crop [src] (a landscape, sensor-orientation analysis frame) to the decode
+     * region-of-interest described by [spec], returning an independent bitmap
+     * the caller owns. Three steps — rotate to display orientation, centre-crop
+     * to the preview's aspect ratio (matching its FILL_CENTER scaling), then
+     * crop to the normalized ROI — so the on-screen reticle maps 1:1.
+     */
+    private fun cropToRoi(src: Bitmap, spec: RoiSpec): Bitmap {
+        // 1) Rotate the sensor-orientation (landscape) frame to display/portrait.
+        val deg = ((spec.sensorOrientation % 360) + 360) % 360
+        val rotated: Bitmap = if (deg != 0) {
+            val m = Matrix().apply { postRotate(deg.toFloat()) }
+            Bitmap.createBitmap(src, 0, 0, src.width, src.height, m, true)
+        } else {
+            src
+        }
+
+        // 2) Centre-crop to the preview view's aspect ratio. The preview is
+        //    FILL_CENTER, so this centred crop is exactly the on-screen image.
+        val rw = rotated.width
+        val rh = rotated.height
+        val rotAspect = rw.toFloat() / rh.toFloat()
+        val viewAspect = if (spec.viewAspect > 0f) spec.viewAspect else rotAspect
+        val visW: Int
+        val visH: Int
+        if (rotAspect > viewAspect) {
+            visH = rh
+            visW = Math.round(rh * viewAspect)
+        } else {
+            visW = rw
+            visH = Math.round(rw / viewAspect)
+        }
+        val visLeft = (rw - visW) / 2
+        val visTop = (rh - visH) / 2
+
+        // 3) Apply the normalized ROI within that visible region, EXPANDED by a
+        //    quiet-zone margin (ROI_QUIET_ZONE_PAD per side). A reticle drawn
+        //    tight to the code clips the light border the master symbol needs,
+        //    so we pad outward; the surround re-admitted is a thin ring, not the
+        //    whole frame, so the false-positive rejection is mostly retained.
+        //    Clamp + floor a minimum so a degenerate reticle can't give a 0 crop.
+        val roiW = (spec.right - spec.left) * visW
+        val roiH = (spec.bottom - spec.top) * visH
+        val padX = roiW * ROI_QUIET_ZONE_PAD
+        val padY = roiH * ROI_QUIET_ZONE_PAD
+        var l = (visLeft + spec.left * visW - padX).toInt()
+        var t = (visTop + spec.top * visH - padY).toInt()
+        var r = (visLeft + spec.right * visW + padX).toInt()
+        var b = (visTop + spec.bottom * visH + padY).toInt()
+        l = l.coerceIn(0, rw - 2)
+        t = t.coerceIn(0, rh - 2)
+        r = r.coerceIn(l + 1, rw)
+        b = b.coerceIn(t + 1, rh)
+
+        var crop = Bitmap.createBitmap(rotated, l, t, r - l, b - t)
+        // createBitmap may return the source instance when the rect is the whole
+        // bitmap — copy so the crop is always independent of src/rotated and the
+        // recycle bookkeeping above stays correct.
+        if (crop === rotated || crop === src) {
+            crop = crop.copy(crop.config ?: Bitmap.Config.ARGB_8888, false)
+        }
+        if (rotated !== src) rotated.recycle()
+        return crop
     }
 }
