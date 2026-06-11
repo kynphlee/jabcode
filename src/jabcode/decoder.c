@@ -203,6 +203,14 @@ jab_boolean jabIsDiagVerbose(void)
 #define DEBUG_LOG(...) printf(__VA_ARGS__); printf("\n")
 #endif
 
+/* Experiment #3 (nc2 magenta-rescue): chroma (max-min channel spread) above
+ * which a module filed as white is treated as a saturated colour washed toward
+ * white and re-filed to the nearest non-white vertex. Washed magenta measured
+ * chroma ~35; true white ~8. Tune from DIAG_WHITE_DEMOTE logs. Defined
+ * unconditionally — the use site (decodeModuleHD) is not Android-gated, so a
+ * host/CI build (e.g. jabcodeReader) must see it too. */
+#define NC2_WHITE_DEMOTE_CHROMA 20
+
 /**
  * @brief Copy 16-color sub-blocks of 64-color palette into 32-color blocks of 256-color palette and interpolate into 32 colors
  * @param palette the color palette
@@ -782,6 +790,42 @@ jab_byte decodeModuleHD(jab_bitmap* matrix, jab_byte* palette, jab_int32 color_n
 			}
 		}
 		
+		/* Experiment #3 — nc2 magenta-rescue. White is the only achromatic bright
+		 * vertex of the 8-colour cube; a washed magenta (~255,220,255) — green is
+		 * the Bayer-oversampled, residually-lifted channel — lands nearer learned-
+		 * WHITE than learned-magenta, so the nearest-neighbour above mis-files it
+		 * as white (measured 2026-06-10: 0% clean magenta, 91% white). If a module
+		 * filed as white still carries real chroma, re-file it to the nearest
+		 * NON-white, NON-black vertex. The index drives the bitstream, so this is
+		 * correct even when learned-magenta is itself collapsed. color_number==8
+		 * only — nc1 (4) and nc3-7 (16+) are byte-for-byte untouched. */
+		if(color_number == 8 && index1 == white_index)
+		{
+			jab_int32 cmax = MAX(rgb[0], MAX(rgb[1], rgb[2]));
+			jab_int32 cmin = MIN(rgb[0], MIN(rgb[1], rgb[2]));
+			jab_int32 chroma = cmax - cmin;
+			if(chroma > NC2_WHITE_DEMOTE_CHROMA)
+			{
+				jab_float demote_best = 1e30f;
+				jab_byte  demote_idx  = index1;
+				for(jab_int32 ci=0; ci<color_number; ci++)
+				{
+					if(ci == 0 || ci == white_index) continue; /* skip black & white */
+					jab_float pr = palette[color_number*3*p_index + ci*3 + 0];
+					jab_float pg = palette[color_number*3*p_index + ci*3 + 1];
+					jab_float pb = palette[color_number*3*p_index + ci*3 + 2];
+					jab_float dd = (pr-rgb[0])*(pr-rgb[0]) + (pg-rgb[1])*(pg-rgb[1]) + (pb-rgb[2])*(pb-rgb[2]);
+					if(dd < demote_best) { demote_best = dd; demote_idx = (jab_byte)ci; }
+				}
+				if(g_diag_verbose)
+				{
+					JAB_DIAG_INFO(("DIAG_WHITE_DEMOTE rgb=(%d,%d,%d) chroma=%d %d->%d",
+						rgb[0], rgb[1], rgb[2], chroma, white_index, demote_idx));
+				}
+				index1 = demote_idx;
+			}
+		}
+
 		//if the minimum is close to the second minimum, do further match
 /*		if(min1 * 1.5 > min2)
 		{
@@ -2070,6 +2114,20 @@ jab_int32 decodeMaster(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 			continue;
 		}
 
+		/* Experiment #3 instrumentation: log the per-capture LEARNED palette
+		 * (slot 0) so we can see whether magenta is captured distinctly from
+		 * white. Gated by g_diag_verbose. */
+		if(g_diag_verbose)
+		{
+			jab_int32 cn_log = (jab_int32)pow(2, symbol->metadata.Nc + 1);
+			for(jab_int32 pl=0; pl<cn_log && pl<8; pl++)
+			{
+				JAB_DIAG_INFO(("DIAG_PALETTE_LEARNED Nc=%d idx=%d rgb=(%d,%d,%d)",
+					symbol->metadata.Nc, pl,
+					symbol->palette[pl*3+0], symbol->palette[pl*3+1], symbol->palette[pl*3+2]));
+			}
+		}
+
 		/* W2.9 Custom Mode 0 palette synthesis per Bayesian Council session
 		 * bc-2026-06-01-06 (Option 2 — Heisenberg evidence: BITS_COLLECTED
 		 * variation in v11 nc=0 trace showed 8 distinct patterns across 22
@@ -2175,10 +2233,36 @@ jab_int32 decodeMaster(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 		}
 		else if(g_strict_partII_required)
 		{
-			/* Strict mode: PartI failed → don't fabricate success.
-			 * partII_ok stays 0; loop will skip to next Nc_FALLBACK. */
-			JAB_DIAG_INFO(("DIAG_PARTII_RESULT result=skipped Nc=%d ok=0 (strict)",
-			                 symbol->metadata.Nc));
+			/* Strict mode (mobile camera path). PartI did not decode. The
+			 * original blanket-skip was over-broad: it also rejected GENUINE
+			 * default-mode (Nc=2) symbols, which OMIT PartI by design
+			 * (isDefaultMode in the encoder) — for them PartI is legitimately
+			 * ABSENT, not corrupted, so 8-colour codes were 100% undecodable on
+			 * the camera path while decoding cleanly from file/desktop.
+			 *
+			 * Permit the default-metadata fall-through, but ONLY for the genuine
+			 * default case — decode_partI_ret == DECODE_METADATA_FAILED (PartI
+			 * absent, defaults installed) AND this candidate IS the default
+			 * colour mode — and let decodeSymbol's LDPC be the integrity gate.
+			 * Non-default modes ALWAYS carry PartI, so a PartI-absent decode as
+			 * any other Nc is never legitimate and stays skipped. This is
+			 * strictly TIGHTER than the legacy non-strict fall-through (which
+			 * fires for every Nc candidate). A finder-pattern colour cross-check
+			 * is not viable here: WS-4.5.1 (color_calibration.c) documents
+			 * FP2/FP3 matrix sampling as unreliable, so it would false-reject
+			 * genuine nc2. See H_nc2_decode_failure.md. */
+			if(decode_partI_ret == DECODE_METADATA_FAILED &&
+			   symbol->metadata.Nc == DEFAULT_MODULE_COLOR_MODE)
+			{
+				partII_ok = 1;
+				JAB_DIAG_INFO(("DIAG_PARTII_RESULT result=default_fallthrough Nc=%d ok=1 (strict,default-mode)",
+				                 symbol->metadata.Nc));
+			}
+			else
+			{
+				JAB_DIAG_INFO(("DIAG_PARTII_RESULT result=skipped Nc=%d ok=0 (strict)",
+				                 symbol->metadata.Nc));
+			}
 		}
 		else
 		{
