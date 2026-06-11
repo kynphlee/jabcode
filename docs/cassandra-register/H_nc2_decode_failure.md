@@ -1,9 +1,9 @@
-# H_nc2_decode_failure — Open root-cause hypothesis: Nc=2 (8-color) fails on both media
+# H_nc2_decode_failure — RESOLVED (2026-06-11): Nc=2 (8-color) — decoder strict-PartII gate, fixed by in-gate default-mode fall-through
 
 | Field        | Value                                                                                              |
 | ------------ | -------------------------------------------------------------------------------------------------- |
 | **Filed**    | 2026-05-28 (PR 1 verification preparation; user-reported decode-capability matrix)                   |
-| **Status**   | Open — CONFIRMED; **member of `H_partI_unifies` cluster {Nc=0, Nc=2, Nc=7}** per 2026-05-28 PM 8-Nc discriminator scan |
+| **Status**   | **RESOLVED 2026-06-11** — in-gate default-mode fall-through (commit d486388, merged swift-java-poc); nc2 verified decoding on-device (64 live-camera COLOR_8 + scan-image colors=8). See "2026-06-11 — RESOLVED" at end. *(Was: Open — CONFIRMED; member of `H_partI_unifies` cluster {Nc=0, Nc=2, Nc=7}.)* |
 | **Binding**  | Triggered (not scheduled), but high-priority for prompt activation                                   |
 | **Owner**    | Unassigned (claimed on trigger)                                                                      |
 | **Severity** | High — Nc=2 (8-color) is the canonical "easy" color mode; failing everywhere contradicts physics    |
@@ -297,3 +297,19 @@ The 2026-05-31 stacked-fix trace also surfaced a previously-undocumented capture
 - `src/jabcode/encoder.h::jab_default_palette` — the 8-color palette being scrutinized
 - `src/jabcode/encoder.c::genColorPalette` — palette generation that differentiates Nc=2 from neighbors
 - `src/jabcode/test/test_roundtrip_all_nc.c` — existing synthetic roundtrip test that should be re-examined for Nc=2 specifically
+
+## 2026-06-11 — RESOLVED: in-gate default-mode fall-through
+
+The 2026-05-31 "0% local maximum / ship as not-recommended" verdict is **superseded**. nc2 now decodes from a pristine PNG *and* live off a handheld Galaxy S25 screen-scan.
+
+**What was actually wrong (confirmed by host reproduction):** nc2 is the DEFAULT colour mode (`DEFAULT_MODULE_COLOR_MODE = 2`), so the encoder omits master-metadata Part-I by design. The decoder's strict Part-II gate (`g_strict_partII_required`, set by `jabMobileDecodeCamera*` — the mobile single-frame path the diagnostic app actually calls) treated absent Part-I as a hard failure and skipped the default-metadata fall-through. So the one mode that legitimately has no Part-I was the only mode it rejected. nc1/nc3 carry a real Part-I → `JAB_SUCCESS` → never reach the gate → always worked. That is the deterministic-0%-between-working-neighbours fingerprint, finally explained.
+
+**Decisive isolation (checklist item 1, finally run):** a camera-free "Scan image" path runs `decoder.decode()` straight on the fixture PNG. `nc2-8c` → FAIL; `nc1-4c`/`nc3-16c` → OK ⇒ **pure decoder bug, not capture**. Then on host (`jabcodeReader`): `JAB_STRICT=0` decodes nc2 (`HELLO-Nc-2`, checksum 0x54596c24); `JAB_STRICT=1` fails. Exact device repro, off-device.
+
+**The fix (commit d486388 → merged swift-java-poc bd38a91; `decoder.c::decodeMaster` strict branch):** permit the default-metadata fall-through, but ONLY when `decode_partI_ret == DECODE_METADATA_FAILED` AND `symbol->metadata.Nc == DEFAULT_MODULE_COLOR_MODE`, with `decodeSymbol`'s LDPC as the final gate. Non-default modes always carry Part-I, so a Part-I-absent decode as any other Nc stays skipped — **strictly tighter than the legacy non-strict fall-through** (which fires for every Nc candidate). Bundled: a portability fix moving `NC2_WHITE_DEMOTE_CHROMA` out of `#ifdef __ANDROID__` (used unconditionally → it had silently broken every non-Android build).
+
+**Verification:** host `jabcodeReader` nc0–nc7, strict AND non-strict = all decode, zero regressions (nc2 FAIL→OK under strict). On-device (`trace-20260611_111424`): scan-image nc2 → `colors=8`; 64 live-camera `COLOR_8` decodes; gate firing `DIAG_PARTII_RESULT result=default_fallthrough Nc=2 ok=1 (strict,default-mode)` ×65.
+
+**Capture half (commit 2824fbe → merged 3007bad)** — necessary to deliver saturated bits to the decoder at all: resizable decode-ROI reticle (frame cropped to reticle before decode; ROI_CROP 1280×720→720×803), AE metering on the centre-third of the FOV + a −1.0-stop EV bias (converted to real device steps — the sensor step is ~1/10 stop, so the old raw "−1" did nothing), cloudy_d65 AWB, lifecycle release/reopen, and the scan-image path. This is why five modes already decoded through the pipeline before the gate fix landed.
+
+**Fabrication robustness — CLOSED 2026-06-11 (was an open caveat; NOT a security hole at current posture):** the in-gate fall-through re-opens the path the strict gate closed. A degraded NON-nc2 code whose Part-I fails also defaults to Nc=2 and hits the same fall-through; the default-mode scoping does not distinguish genuine-nc2 from a degraded-other-mode-defaulted-to-nc2 — only `decodeSymbol`'s LDPC (flagged leaky) + clean capture do. A finder-pattern colour cross-check (verify FP2=yellow/FP3=cyan) was designed but rejected (WS-4.5.1: FP2/FP3 matrix sampling unreliable → would false-reject genuine nc2). The **decode-consensus backstop** (decode K frames, accept iff ≥M agree byte-identical) is the durable anti-fabrication hardening — **BUILT & VERIFIED 2026-06-11** (branch `claude/ws-nc2-decode-consensus`): C core `jabMobileDecodeConsensus` (commit 1278fa0; host 6/6 incl. negative controls nc3/blank/noised-nc3) + a `Camera2JABCodeAnalyzer` nc2 result-consensus gate scoped to COLOR_8 (commit e94f56d, M=2 diagnostic-app opt-in, M=1 disables; device-verified trace-20260611_144003 — 54 NC2_CONSENSUS "reached" + 2 "pending"/withheld, correct `pending 1/2 → reached 2/2`). nc2 reproduces and decodes with no practical loss; a one-off fabrication sits at "pending" and is never accepted. The trust boundary still stays server-side (fail-closed; the diagnostic app renders no verdict), so this gate is defence-in-depth. Full record: memory `project_nc2_metadata_rootcause` (2026-06-11 status update).
