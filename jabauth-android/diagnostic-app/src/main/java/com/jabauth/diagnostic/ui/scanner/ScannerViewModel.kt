@@ -14,10 +14,14 @@ import com.jabauth.jabcode.DecodeResult
 import com.jabauth.jabcode.JABCodeDecoderImpl
 import com.jabauth.jabcode.PerformanceTracker
 import com.jabauth.jabcode.camera.Camera2JABCodeAnalyzer
+import com.jabauth.jabcode.camera.RoiSpec
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import android.net.Uri
 
 class ScannerViewModel(application: Application) : AndroidViewModel(application) {
     
@@ -54,6 +58,18 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
 
     private val _llbState = MutableStateFlow(-1)  // -1 unknown, 0 inactive, 1 active
     val llbState: StateFlow<Int> = _llbState.asStateFlow()
+
+    // Decode region-of-interest (the on-screen reticle). The UI pushes a
+    // normalized rect + view aspect via setRoi(); the analyzer's roiProvider
+    // reads it (combined with sensorOrientation) each frame and crops the
+    // analysis frame to it. workloadPct mirrors the reference app: the % is the
+    // ROI's area as a fraction of the frame — bigger reticle, more to process.
+    private data class RoiInput(val l: Float, val t: Float, val r: Float, val b: Float, val viewAspect: Float)
+    @Volatile private var roiInput: RoiInput? = null
+    @Volatile private var sensorOrientation: Int = 90  // back-camera default; set on camera open
+
+    private val _workloadPct = MutableStateFlow(0)
+    val workloadPct: StateFlow<Int> = _workloadPct.asStateFlow()
 
     // Rolling 30-second stats: each attempt records (timestamp, success, time,
     // nc, failureCategory). Nc is the decoder's reported Nc value (0..7)
@@ -518,10 +534,64 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
                     nc = attemptedNc,
                     failureCategory = category
                 )
+            },
+            // Decode region-of-interest: built fresh each frame from the reticle
+            // (roiInput) + the live sensor orientation. null ⇒ full-frame decode.
+            roiProvider = {
+                roiInput?.let { RoiSpec(it.l, it.t, it.r, it.b, it.viewAspect, sensorOrientation) }
             }
         )
     }
     
+    /**
+     * Decode a JABCode from a picked image file (the "Scan image" toolbar
+     * action). Routes the outcome through the same result/error/history state
+     * as camera frames, so it shows in the result chip, history strip and
+     * per-Nc table. This is the camera-free decoder test: a clean PNG fixture
+     * isolates decoder logic from the capture pipeline — if nc2 decodes from
+     * the file but not the camera, the problem is 100% capture.
+     */
+    fun decodeImage(uri: Uri) {
+        viewModelScope.launch {
+            val bitmap = withContext(Dispatchers.IO) {
+                runCatching {
+                    getApplication<Application>().contentResolver.openInputStream(uri)?.use { stream ->
+                        android.graphics.BitmapFactory.decodeStream(stream)
+                    }
+                }.getOrNull()
+            }
+            if (bitmap == null) {
+                _scanError.value = "Could not load image"
+                return@launch
+            }
+            val start = System.currentTimeMillis()
+            val result = withContext(Dispatchers.Default) {
+                decoder.decode(bitmap, DecodeOptions(timeout = 2000L))
+            }
+            val dt = System.currentTimeMillis() - start
+            if (result != null) {
+                _scanResult.value = result
+                _scanError.value = null
+                _scanCount.value++
+                performanceTracker.recordDecode(result.decodeTimeMs, success = true)
+                val ncIndex = COLOR_COUNT_TO_NC[result.colorMode.value] ?: -1
+                recordAttempt(isSuccess = true, decodeTimeMs = result.decodeTimeMs, nc = ncIndex)
+                _decodeHistory.value = (listOf(result) + _decodeHistory.value).take(historyMaxSize)
+                Log.i("ScannerViewModel", "SCAN_IMAGE decode OK colors=${result.colorMode.value} bytes=${result.data.size}")
+            } else {
+                val err = decoder.getLastError() ?: "No JABCode found in image"
+                _scanError.value = err
+                performanceTracker.recordDecode(dt, success = false)
+                recordAttempt(
+                    isSuccess = false,
+                    decodeTimeMs = dt,
+                    nc = preferredColorMode?.let { COLOR_COUNT_TO_NC[it] } ?: -1
+                )
+                Log.i("ScannerViewModel", "SCAN_IMAGE decode FAIL: $err")
+            }
+        }
+    }
+
     fun analyzeFrame(reader: ImageReader) {
         // Motion throttling: skip analyzer.analyze() entirely when the
         // device is moving above the stability threshold. The ImageReader
@@ -537,6 +607,25 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
             return
         }
         analyzer.analyze(reader)
+    }
+
+    /** Camera reports its sensor orientation once it opens; needed to map the
+     *  portrait reticle onto the landscape analysis frame. */
+    fun onSensorOrientation(deg: Int) {
+        sensorOrientation = deg
+        Log.i("ScannerViewModel", "ROI sensorOrientation=$deg")
+    }
+
+    /**
+     * Update the decode region-of-interest from the reticle. [left]/[top]/
+     * [right]/[bottom] are normalized (0..1) in the preview view; [viewAspect]
+     * is the view's width/height. Also refreshes the workload % shown by the
+     * coach (ROI area as a fraction of the frame).
+     */
+    fun setRoi(left: Float, top: Float, right: Float, bottom: Float, viewAspect: Float) {
+        roiInput = RoiInput(left, top, right, bottom, viewAspect)
+        val areaFrac = (right - left).coerceIn(0f, 1f) * (bottom - top).coerceIn(0f, 1f)
+        _workloadPct.value = (areaFrac * 100f).toInt().coerceIn(1, 100)
     }
 
     init {

@@ -10,6 +10,7 @@ import android.hardware.camera2.*
 import android.hardware.camera2.params.ColorSpaceTransform
 import android.hardware.camera2.params.OutputConfiguration
 import android.hardware.camera2.params.RggbChannelVector
+import android.hardware.camera2.params.MeteringRectangle
 import android.hardware.camera2.params.SessionConfiguration
 import android.media.ImageReader
 import android.os.Build
@@ -26,6 +27,9 @@ import android.view.WindowManager
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 
@@ -71,6 +75,13 @@ fun Camera2Preview(
     onLowLightBoostSupported: ((Boolean) -> Unit)? = null,
     /** Tier-1 HUD: LLB state transitions (0=INACTIVE, 1=ACTIVE). */
     onLowLightBoostStateChanged: ((Int) -> Unit)? = null,
+    /** Reports CameraCharacteristics.SENSOR_ORIENTATION (deg) once the camera
+     *  opens — needed to map the on-screen reticle onto the analysis frame. */
+    onSensorOrientation: ((Int) -> Unit)? = null,
+    /** External zoom control (e.g. the zoom slider). 1.0 = no zoom;
+     *  clamped to the device's max digital zoom. Pinch-to-zoom still works
+     *  independently and reports back via onZoomChanged. */
+    zoom: Float = 1.0f,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -79,7 +90,8 @@ fun Camera2Preview(
         Camera2Controller(
             context, windowManager,
             onFrameAvailable, autoFocus, exposureCompensation,
-            onZoomChanged, onLowLightBoostSupported, onLowLightBoostStateChanged
+            onZoomChanged, onLowLightBoostSupported, onLowLightBoostStateChanged,
+            onSensorOrientation
         )
     }
     
@@ -92,7 +104,29 @@ fun Camera2Preview(
     LaunchedEffect(exposureCompensation) {
         camera2Controller.updateExposureCompensation(exposureCompensation)
     }
+
+    // Drive zoom from an external control (the zoom slider). Pinch still works.
+    LaunchedEffect(zoom) {
+        camera2Controller.updateZoom(zoom)
+    }
     
+    // Release the camera on background (ON_STOP) and re-open on foreground
+    // (ON_START), so the session doesn't go stale and hang on return. This is
+    // the lifecycle handling the diagnostic app was missing vs. the reference
+    // scanner.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_STOP -> camera2Controller.releaseCamera()
+                Lifecycle.Event.ON_START -> camera2Controller.reopen()
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     DisposableEffect(Unit) {
         onDispose {
             camera2Controller.close()
@@ -127,7 +161,8 @@ private class Camera2Controller(
     initialExposureCompensation: Int,
     private val onZoomChanged: ((Float) -> Unit)? = null,
     private val onLowLightBoostSupported: ((Boolean) -> Unit)? = null,
-    private val onLowLightBoostStateChanged: ((Int) -> Unit)? = null
+    private val onLowLightBoostStateChanged: ((Int) -> Unit)? = null,
+    private val onSensorOrientation: ((Int) -> Unit)? = null
 ) {
     companion object {
         private const val TAG = "Camera2Controller"
@@ -202,7 +237,15 @@ private class Camera2Controller(
     
     @Volatile
     private var exposureCompensationValue: Int = initialExposureCompensation
-    
+
+    // WS-camera-ae-bias: deliberate NEGATIVE exposure bias, in EV *stops*,
+    // converted to device steps at request time. Biasing dark keeps the JABCode
+    // palette saturated (the decoder's brightness-normalised metric handles dim
+    // input); biasing bright collapses magenta into the white attractor — a
+    // deterministic decode failure. Too-dark is recoverable, too-bright is not.
+    // Tune here from one trace to the next; -1.0 = half exposure.
+    private val aeBiasStops: Float = -1.0f
+
     private val backgroundThread = HandlerThread("Camera2Background").apply { start() }
     private val backgroundHandler = Handler(backgroundThread.looper)
     
@@ -265,6 +308,20 @@ private class Camera2Controller(
         }
     }
     
+    /**
+     * WS-ui-scanrebuild: external zoom control (the zoom slider). Mirrors the
+     * pinch-zoom path — clamp to the device's max digital zoom and reuse
+     * applyCropRegion(), which sets the crop, re-issues the repeating request,
+     * and fires onZoomChanged so the HUD/slider stay in sync.
+     */
+    fun updateZoom(zoomRatio: Float) {
+        val clamped = zoomRatio.coerceIn(1.0f, maxDigitalZoom)
+        if (clamped != currentZoomRatio) {
+            currentZoomRatio = clamped
+            applyCropRegion(clamped)
+        }
+    }
+
     fun openCamera(textureView: TextureView, viewWidth: Int, viewHeight: Int) {
         currentTextureView = textureView
         
@@ -282,6 +339,7 @@ private class Camera2Controller(
             val characteristics = manager.getCameraCharacteristics(cameraId)
             cameraCharacteristics = characteristics
             sensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0
+            onSensorOrientation?.invoke(sensorOrientation)
 
             // WS-camera-3: detect Low Light Boost AE Mode capability (API 35+).
             // Google's own docs list "scanning QR codes in low light" as a
@@ -484,99 +542,143 @@ private class Camera2Controller(
             // conditions without breaking temporal continuity (no
             // multi-frame combining, no shutter delay). Detection state
             // observed via the captureCallback below; supported != active.
-            val aeMode = if (lowLightBoostSupported &&
-                             Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
-                CameraMetadata.CONTROL_AE_MODE_ON_LOW_LIGHT_BOOST_BRIGHTNESS_PRIORITY
-            } else {
-                CaptureRequest.CONTROL_AE_MODE_ON
-            }
+            // WS-camera-no-llb: plain AE, NOT Low-Light-Boost. LLB's "brightness
+            // priority" over-brightens an emissive screen — it holds exposure up
+            // and overrides the spot-meter, which is the residual wash that still
+            // collapses magenta->white (the reference scanner runs plain AE and
+            // captures vivid magenta off the same screen). LLB still helps dim
+            // *print* scanning; make it an adaptive per-medium setting later.
+            val aeMode = CaptureRequest.CONTROL_AE_MODE_ON
             requestBuilder.set(CaptureRequest.CONTROL_AE_MODE, aeMode)
-            
-            // Set exposure compensation (Tier 2: Improve binarization)
-            val aeCompensationRange = cameraCharacteristics?.get(CameraCharacteristics.CONTROL_AE_COMPENSATION_RANGE)
-            if (aeCompensationRange != null && exposureCompensationValue in aeCompensationRange.lower..aeCompensationRange.upper) {
-                requestBuilder.set(
-                    CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION,
-                    exposureCompensationValue
-                )
-            } else {
-                Log.w(TAG, "Exposure compensation ${exposureCompensationValue} out of range: ${aeCompensationRange?.lower}..${aeCompensationRange?.upper}")
+
+            // WS-camera-ae-spotmeter: meter AE on the central reticle region,
+            // not the whole frame. A JABCode on a dark surround makes full-frame
+            // AE over-expose (it brightens for the dark average) and the bright
+            // code washes toward white — saturated only when the code fills the
+            // frame. Spot-metering the centre keeps the code correctly exposed at
+            // any framing/zoom: the seamless saturation the reference scanner has.
+            // Meter AE on the centre THIRD of the *displayed* FOV — the crop
+            // region when zoomed, else the full active array. The previous
+            // centre-HALF box was wide enough that at normal scanning distance
+            // the dark surround fell inside it; the dark average then drove
+            // continuous AE to over-expose, washing the bright code toward white
+            // (the magenta->white collapse). The user's three "fixes" — zoom in,
+            // get closer, background-then-reframe — were one act: making the code
+            // fill the meter box. A centre-third box stays inside a reasonably
+            // framed code, so AE meters the modules themselves and the exposure
+            // stops depending on how much surround is in frame.
+            val meterBase = cachedCropRegion ?: activeArraySize
+            meterBase?.let { base ->
+                val maxAeRegions = cameraCharacteristics
+                    ?.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AE) ?: 0
+                if (maxAeRegions > 0) {
+                    val hw = base.width() / 6      // half-width: box spans the centre third
+                    val hh = base.height() / 6
+                    val centre = MeteringRectangle(
+                        base.centerX() - hw, base.centerY() - hh,
+                        hw * 2, hh * 2,
+                        MeteringRectangle.METERING_WEIGHT_MAX
+                    )
+                    requestBuilder.set(CaptureRequest.CONTROL_AE_REGIONS, arrayOf(centre))
+                    Log.i("JABCodeAE", "AE_REGION centre-third box=${hw * 2}x${hh * 2} @${base.centerX()},${base.centerY()} base=${base.width()}x${base.height()}")
+                }
             }
             
-            /* Path α revised — Manual white balance override (experimental
-             * 2026-05-30): bypasses the existing AUTO + convergence-lock
-             * AWB behavior from PR #36 entirely, in favor of disabling AWB
-             * and applying neutral RGGB gains + identity color-correction
-             * matrix.
-             *
-             * Empirical motivation: the post-AWB-convergence-lock raw-byte
-             * trace (06:56:25) showed metadata-position samples consistently
-             * read as raw_bytes=(254, 125, 254) — R saturated, G mid-range,
-             * B saturated. For a fixture's Y modules (R+G, B=0), B should
-             * read NEAR ZERO, not 254. The pattern points at the AWB
-             * convergence having locked to a non-neutral scene white-point
-             * and the resulting color-correction matrix then applying a
-             * spurious R+B amplification to all subsequent frames.
-             *
-             * Disabling AWB + setting neutral gains + identity transform
-             * bypasses the ISP's color manipulation entirely. The sensor's
-             * raw Bayer signal passes through with only the inherent CFA
-             * characteristics. If the next nc2 trace shows B drop near 0
-             * for previously-rgb=5 modules, the AWB-lock-to-wrong-point
-             * hypothesis is empirically confirmed and this override
-             * should be productized as a Settings opt-in.
-             *
-             * Note: AE (auto-exposure) lock behavior is INTENTIONALLY
-             * preserved unchanged. The AWB-vs-AE separation is the test —
-             * we're isolating the white-balance variable. If decoding
-             * improves with manual WB + AE-auto-lock, the WB is the cause.
-             *
-             * To revert (e.g., if the experiment fails or is otherwise
-             * unwanted), flip useManualWhiteBalance to false.
-             */
-            val useManualWhiteBalance = true
-            if (useManualWhiteBalance) {
-                requestBuilder.set(
-                    CaptureRequest.CONTROL_AWB_MODE,
-                    CaptureRequest.CONTROL_AWB_MODE_OFF
-                )
-                requestBuilder.set(
-                    CaptureRequest.COLOR_CORRECTION_MODE,
-                    CaptureRequest.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX
-                )
-                // Neutral RGGB gains — no per-channel multiplier.
-                requestBuilder.set(
-                    CaptureRequest.COLOR_CORRECTION_GAINS,
-                    RggbChannelVector(1.0f, 1.0f, 1.0f, 1.0f)
-                )
-                // Identity 3×3 color-correction matrix as 9 rationals.
-                // Each rational is (numerator, denominator). The diagonal
-                // is 1/1, off-diagonal 0/1.
-                val identityTransform = ColorSpaceTransform(
-                    intArrayOf(
-                        1, 1, 0, 1, 0, 1,   // row 0: [1, 0, 0]
-                        0, 1, 1, 1, 0, 1,   // row 1: [0, 1, 0]
-                        0, 1, 0, 1, 1, 1    // row 2: [0, 0, 1]
-                    )
-                )
-                requestBuilder.set(
-                    CaptureRequest.COLOR_CORRECTION_TRANSFORM,
-                    identityTransform
-                )
-                // AE lock behavior preserved — applyConvergenceLocks still
-                // controls CONTROL_AE_LOCK independently of WB.
-                if (applyConvergenceLocks) {
-                    requestBuilder.set(CaptureRequest.CONTROL_AE_LOCK, true)
-                }
+            // Set exposure compensation. The device expresses compensation in
+            // integer STEPS of CONTROL_AE_COMPENSATION_STEP EV each (commonly 1/6
+            // or 1/3 EV) — so a raw "-1" is a fraction of a stop and does almost
+            // nothing. Convert the desired bias in *stops* (aeBiasStops) to steps
+            // against the device's own step size, add any caller offset, clamp.
+            val aeCompensationRange = cameraCharacteristics?.get(CameraCharacteristics.CONTROL_AE_COMPENSATION_RANGE)
+            val aeCompensationStep = cameraCharacteristics?.get(CameraCharacteristics.CONTROL_AE_COMPENSATION_STEP)
+            if (aeCompensationRange != null && aeCompensationStep != null) {
+                val evPerStep = aeCompensationStep.toFloat().takeIf { it > 0f } ?: (1f / 6f)
+                val biasSteps = Math.round(aeBiasStops / evPerStep)
+                val totalSteps = (exposureCompensationValue + biasSteps)
+                    .coerceIn(aeCompensationRange.lower, aeCompensationRange.upper)
+                requestBuilder.set(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION, totalSteps)
+                Log.i("JABCodeAE", "EV bias=${aeBiasStops}stop evPerStep=$evPerStep -> $totalSteps steps (range ${aeCompensationRange.lower}..${aeCompensationRange.upper})")
             } else {
-                // Original AUTO + convergence-lock path from PR #36.
-                requestBuilder.set(
-                    CaptureRequest.CONTROL_AWB_MODE,
-                    CaptureRequest.CONTROL_AWB_MODE_AUTO
-                )
-                if (applyConvergenceLocks) {
-                    requestBuilder.set(CaptureRequest.CONTROL_AWB_LOCK, true)
-                    requestBuilder.set(CaptureRequest.CONTROL_AE_LOCK, true)
+                Log.w(TAG, "AE compensation range/step unavailable; leaving EV at device default")
+            }
+            
+            /* Experiment #1 — white-balance / colour-correction strategy.
+             *
+             * History (2026-05-30): a prior experiment suspected AWB had
+             * locked to a non-neutral white point and switched to
+             * CONTROL_AWB_MODE=OFF with an IDENTITY colour-correction matrix +
+             * unity RGGB gains, to bypass the ISP's colour pipeline. But the
+             * identity matrix also disables the sensor's channel de-mixing, so
+             * the raw broad-CFA spectral overlap passes through uncorrected.
+             * On-device (trace 2026-06-09) that reads as a systematic GREEN
+             * cast: pure-blue modules measured (38,136,225) over 232 samples
+             * where G should be ~0, while black stayed clean (7,10,13) —
+             * ruling out additive flare and pointing at the disabled CCM.
+             *
+             * CLOUDY_DAYLIGHT (~6500K) matches an sRGB-D65 screen's white
+             * point and lets the OEM's *calibrated* colour matrix apply,
+             * restoring the de-mixing the identity transform removed. In this
+             * mode we set NO COLOR_CORRECTION_* override — doing so would
+             * replace the preset's matrix with identity again.
+             *
+             * AE-lock behaviour is preserved unchanged across all strategies
+             * (one variable at a time). To A/B on-device, set wbStrategy to:
+             *   "cloudy_d65"      — experiment #1 (this build's default)
+             *   "auto_lock"       — OEM AUTO AWB, lock on convergence (PR #36)
+             *   "manual_identity" — the prior identity-CCM path (green cast)
+             */
+            val wbStrategy = "cloudy_d65"
+            Log.i(TAG, "JABCodeWB: wbStrategy=$wbStrategy")
+            when (wbStrategy) {
+                "auto_lock" -> {
+                    requestBuilder.set(
+                        CaptureRequest.CONTROL_AWB_MODE,
+                        CaptureRequest.CONTROL_AWB_MODE_AUTO
+                    )
+                    if (applyConvergenceLocks) {
+                        requestBuilder.set(CaptureRequest.CONTROL_AWB_LOCK, true)
+                        requestBuilder.set(CaptureRequest.CONTROL_AE_LOCK, true)
+                    }
+                }
+                "manual_identity" -> {
+                    requestBuilder.set(
+                        CaptureRequest.CONTROL_AWB_MODE,
+                        CaptureRequest.CONTROL_AWB_MODE_OFF
+                    )
+                    requestBuilder.set(
+                        CaptureRequest.COLOR_CORRECTION_MODE,
+                        CaptureRequest.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX
+                    )
+                    requestBuilder.set(
+                        CaptureRequest.COLOR_CORRECTION_GAINS,
+                        RggbChannelVector(1.0f, 1.0f, 1.0f, 1.0f)
+                    )
+                    // Identity 3×3 CCM (9 rationals; diagonal 1/1, off-diag 0/1).
+                    val identityTransform = ColorSpaceTransform(
+                        intArrayOf(
+                            1, 1, 0, 1, 0, 1,   // row 0: [1, 0, 0]
+                            0, 1, 1, 1, 0, 1,   // row 1: [0, 1, 0]
+                            0, 1, 0, 1, 1, 1    // row 2: [0, 0, 1]
+                        )
+                    )
+                    requestBuilder.set(
+                        CaptureRequest.COLOR_CORRECTION_TRANSFORM,
+                        identityTransform
+                    )
+                    if (applyConvergenceLocks) {
+                        requestBuilder.set(CaptureRequest.CONTROL_AE_LOCK, true)
+                    }
+                }
+                else -> {
+                    // "cloudy_d65" — experiment #1 default. Fixed ~D65 preset;
+                    // the OEM's calibrated CCM applies (no manual override).
+                    requestBuilder.set(
+                        CaptureRequest.CONTROL_AWB_MODE,
+                        CaptureRequest.CONTROL_AWB_MODE_CLOUDY_DAYLIGHT
+                    )
+                    if (applyConvergenceLocks) {
+                        requestBuilder.set(CaptureRequest.CONTROL_AE_LOCK, true)
+                    }
                 }
             }
 
@@ -670,13 +772,49 @@ private class Camera2Controller(
                 backgroundHandler
             )
 
-            Log.d(TAG, "Camera2 preview started: AF=${if (autoFocusEnabled) "ON" else "OFF"}, AE=${if (aeMode == CameraMetadata.CONTROL_AE_MODE_ON_LOW_LIGHT_BOOST_BRIGHTNESS_PRIORITY) "ON_LLB" else "ON"} (EV=${exposureCompensationValue}), AWB=AUTO, ConvergenceLocks=${if (applyConvergenceLocks) "LOCKED" else "waiting-for-convergence"}")
+            Log.d(TAG, "Camera2 preview started: AF=${if (autoFocusEnabled) "ON" else "OFF"}, AE=${if (aeMode == CameraMetadata.CONTROL_AE_MODE_ON_LOW_LIGHT_BOOST_BRIGHTNESS_PRIORITY) "ON_LLB" else "ON"} (EVbias=${aeBiasStops}stop), AWB=cloudy_d65, AE_meter=centre-third, ConvergenceLocks=${if (applyConvergenceLocks) "LOCKED" else "waiting-for-convergence"}")
             
         } catch (e: CameraAccessException) {
             Log.e(TAG, "Start repeating request failed", e)
         }
     }
     
+    /**
+     * WS-camera-lifecycle: release camera resources (session, device, reader)
+     * but KEEP the background thread alive, so the camera can be re-opened on
+     * foreground return. Used on ON_STOP (background). close() remains the full
+     * teardown (incl. background-thread quit) for final disposal — quitting the
+     * thread there is exactly why a naive close-on-background hung on return.
+     */
+    fun releaseCamera() {
+        try {
+            captureSession?.close()
+            captureSession = null
+            cameraDevice?.close()
+            cameraDevice = null
+            imageReader?.close()
+            imageReader = null
+            Log.d(TAG, "Camera2 released (thread kept)")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error releasing camera", e)
+        }
+    }
+
+    /**
+     * Re-open the camera on the retained TextureView after returning from the
+     * background (ON_START). TextureView keeps its SurfaceTexture across
+     * background, so onSurfaceTextureAvailable does NOT re-fire. Guards on
+     * cameraDevice != null so the first-launch ON_START doesn't double-open.
+     */
+    fun reopen() {
+        if (cameraDevice != null) return
+        val tv = currentTextureView ?: return
+        if (tv.isAvailable) {
+            Log.i(TAG, "Camera2 reopen on foreground")
+            openCamera(tv, tv.width, tv.height)
+        }
+    }
+
     fun close() {
         try {
             captureSession?.close()
