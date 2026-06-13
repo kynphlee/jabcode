@@ -4,7 +4,6 @@ import com.jabcode.panama.JABCodeDecoder;
 import com.jabcode.panama.JABCodeEncoder;
 import org.openjdk.jmh.annotations.*;
 
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Base64;
@@ -18,22 +17,28 @@ import java.util.concurrent.TimeUnit;
  * <ol>
  *   <li><b>Higher payloads per colour mode</b> — sweeps {@code sizeBytes} from 1&nbsp;KB to
  *       16&nbsp;KB. Cells that exceed a mode's single-symbol capacity fail in {@code @Setup}
- *       and JMH marks them errored — which cleanly <i>maps each mode's ceiling</i> (low-colour
- *       modes top out early; 256-colour reaches furthest).</li>
- *   <li><b>Realistic content</b> — unlike the rest of the suite (one repeating alphanumeric
- *       filler), this varies {@code payloadType} so the encoder's data-analysis picks different
- *       encoding modes: NUMERIC (densest), TEXT (mixed, the legacy shape), BASE64 (crypto /
- *       COA-shaped — keys and signatures are base64).</li>
+ *       and JMH marks them errored — cleanly <i>mapping each mode's ceiling</i> (mode- and
+ *       content-dependent: dense payloads reach further).</li>
+ *   <li><b>Framework-realistic content</b> — unlike the rest of the suite (one repeating
+ *       alphanumeric filler), this varies {@code payloadType} across the things the jab-auth /
+ *       COA framework actually encodes:
+ *       <ul>
+ *         <li>{@code NUMERIC} — GTIN / serial numbers (numeric mode, densest)</li>
+ *         <li>{@code LOREM} — lorem ipsum prose (mixed-mode text)</li>
+ *         <li>{@code JSON} — COA auth/product metadata, batch-manifest shaped</li>
+ *         <li>{@code JWT} — auth tokens (base64url header.claims.signature)</li>
+ *         <li>{@code SIGNATURE} — raw crypto signature / ABE ciphertext (binary → base64)</li>
+ *       </ul></li>
  * </ol>
  *
  * <p><b>Multithreaded-ready:</b> {@code @State(Scope.Thread)} gives every thread its own
  * encoder, decoder, and temp files — no shared native state, no file collisions — so it is
- * correct to run with {@code -t 1,2,4,8} to get the throughput-vs-threads curve that determines
- * server capacity. {@code Mode.Throughput} (ops/sec) is the metric that matters under concurrency.
+ * correct to run {@code -t 1,2,4,8} for the throughput-vs-threads curve that determines server
+ * capacity. {@code Mode.Throughput} (ops/sec) is the metric that matters under concurrency.
  *
  * <p>Run against the <b>swift-lineage</b> {@code libjabcode.so} (the production decoder), e.g.:
  * <pre>
- *   bash run-benchmark.sh PayloadScalingBenchmark "-t 4 -p colorMode=8,64,256 -p payloadType=BASE64"
+ *   bash run-benchmark.sh PayloadScalingBenchmark "-t 4 -p colorMode=8,64,256 -p payloadType=JWT"
  * </pre>
  */
 @BenchmarkMode(Mode.Throughput)
@@ -44,12 +49,12 @@ import java.util.concurrent.TimeUnit;
 @Measurement(iterations = 3, time = 1)
 public class PayloadScalingBenchmark {
 
-    public enum PayloadType { NUMERIC, TEXT, BASE64 }
+    public enum PayloadType { NUMERIC, LOREM, JSON, JWT, SIGNATURE }
 
     @Param({"4", "8", "16", "32", "64", "128", "256"})
     public int colorMode;
 
-    @Param({"NUMERIC", "TEXT", "BASE64"})
+    @Param({"NUMERIC", "LOREM", "JSON", "JWT", "SIGNATURE"})
     public PayloadType payloadType;
 
     /** Higher payloads. Over-capacity cells error in setup → they map the per-mode ceiling. */
@@ -109,21 +114,38 @@ public class PayloadScalingBenchmark {
         return decoder.decodeFromFile(encodedFixture);
     }
 
-    // --- deterministic, content-class-distinct payload generators ---
+    // --- framework-realistic, deterministic payload generators ---
+
+    private static final String LOREM =
+        "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor "
+        + "incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud "
+        + "exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. ";
+
+    /** COA auth/product metadata — repeats as a batch manifest. */
+    private static final String JSON_RECORD =
+        "{\"certId\":\"C-7f3a9b2e\",\"tokenId\":\"T-0042\",\"product\":\"LX-Handbag-2026\","
+        + "\"batch\":\"B-2026-0613\",\"serial\":\"SN-000123456\",\"issuer\":\"RHABI-COA\","
+        + "\"ts\":1781592000},";
+
+    /** Auth token: base64url header.claims.signature (ES256-shaped). */
+    private static final String JWT =
+        "eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9."
+        + "eyJzdWIiOiJjb2EtYXV0aCIsImNlcnRJZCI6IkMtN2YzYTliMmUiLCJpYXQiOjE3ODE1OTIwMDAsImV4cCI6MTc4MTY3ODQwMH0."
+        + "MEUCIQDx7Z3kq2bHsigStubBase64urlSignatureSegmentAbCdEf0123456789-_ \n";
 
     static String generatePayload(PayloadType type, int size) {
         switch (type) {
-            case NUMERIC:
-                return fill("0123456789", size);               // numeric encoding mode (densest)
-            case BASE64: {                                     // crypto / COA-shaped (keys, sigs)
+            case NUMERIC:   return fill("0123456789", size);   // GTIN / serial (numeric mode, densest)
+            case LOREM:     return fill(LOREM, size);          // prose text (mixed mode)
+            case JSON:      return fill(JSON_RECORD, size);    // COA metadata / batch manifest
+            case JWT:       return fill(JWT, size);            // auth tokens (base64url)
+            case SIGNATURE: {                                  // crypto sig / ABE ciphertext (binary)
                 byte[] raw = new byte[size];
                 new Random(0xBA5EL).nextBytes(raw);
                 String b64 = Base64.getEncoder().encodeToString(raw);
                 return b64.substring(0, Math.min(size, b64.length()));
             }
-            case TEXT:
-            default:
-                return fill("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789", size);
+            default:        return fill(LOREM, size);
         }
     }
 
