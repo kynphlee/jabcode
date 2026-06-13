@@ -5,6 +5,14 @@ Picking a JABCode color mode is like choosing the right tool for the job. Use a 
 
 ---
 
+> 📌 **2026 update — two facts that change the decision:**
+> 1. **Higher colour modes decode *faster* per payload**, not slower (measured): more
+>    colours pack more bits per module → a *smaller* symbol → fewer pixels to scan. Density
+>    and decode-speed pull the *same* way, not against each other.
+> 2. **The reliable range is path-dependent.** Synthetic/print round-trips 4→256 on the
+>    swift-lineage decoder; *camera* scanning is reliable at 4-colour and degrades with
+>    density (Nc 0/2/7 fail outright on-device). Choose by *medium*, not just by capacity.
+
 ## The Quick Decision Tree
 
 Start here if you just want an answer:

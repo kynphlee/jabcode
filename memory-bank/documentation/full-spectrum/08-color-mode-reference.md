@@ -5,6 +5,15 @@
 
 ---
 
+> 📌 **2026 addendum — specs to anchor this reference:**
+> - **Error correction (ISO/IEC 23634 §5.4.1):** levels are **1–10**, default **3**.
+>   Recovery rises 4%→14% as the code rate falls 0.63→0.14 (larger symbol).
+> - **The 8-colour seam:** the decoder switches from fast squared-RGB matching (≤8 colours)
+>   to perceptual-LAB + interpolated palettes (>8 colours). Every >8-colour quirk in this
+>   handbook lives on the far side of that seam.
+> - **Decode cost tracks symbol *area*, not colour count** — for fixed data, more colours
+>   means a smaller symbol and a *faster* decode.
+
 ## Overview
 
 JABCode supports 7 color modes (Nc = 0-6), each using a different number of colors to encode data. This reference provides complete technical specifications for each mode.

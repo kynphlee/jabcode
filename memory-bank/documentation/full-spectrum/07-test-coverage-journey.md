@@ -5,6 +5,12 @@
 
 ---
 
+> 📌 **2026 caveat — what "100% / 170 tests" means.** A green unit test is *not* the same
+> as a real `encode → PNG → decode` round-trip, let alone a camera scan. Some unit assertions
+> pass on modes that fail a true PNG round-trip on the older decoder. Read the coverage
+> numbers here as *unit*-level; for capability-by-path see the three decode realities in
+> [00-index.md](00-index.md).
+
 ## The Starting Point
 
 **October 2025**: The Panama wrapper was created with basic functionality. A few manual tests confirmed encoding worked. Time to get serious about quality.

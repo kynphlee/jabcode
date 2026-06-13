@@ -1,13 +1,19 @@
 # Encoder Memory Architecture
 **Palette Allocation and the 256-Color Mystery** 🧩
 
-*A technical investigation into JABCode's memory management, palette allocation strategies, and the unresolved malloc corruption in 256-color mode.*
+*A technical investigation into JABCode's memory management, palette allocation strategies, and the 256-color malloc corruption — diagnosed, fixed, and (June 2026) empirically confirmed resolved.*
 
 ---
 
 ## Overview
 
-JABCode's encoder manages complex memory structures for palettes, symbols, and metadata. For most color modes (4-128 colors), this works flawlessly. For 256-color mode, it crashes spectacularly. This document explores why.
+JABCode's encoder manages complex memory structures for palettes, symbols, and metadata. For most color modes this works flawlessly; 256-color mode once crashed on a palette-buffer overflow. This document explores why — and how it was fixed.
+
+> ✅ **UPDATE (June 2026): Resolved.** On the shipping (swift-lineage) library, 256-color
+> encoding is empirically crash-free — stress-tested round-trips succeed up to single-symbol
+> capacity (~8 KB), and over-capacity payloads fail *gracefully* (`generateJABCode` returns no
+> bitmap), never a segfault. The palette-allocation fix below (1 → 4 palettes) closed the
+> overflow. Read on for the original investigation, but treat the "crashes" framing as historical.
 
 ---
 
