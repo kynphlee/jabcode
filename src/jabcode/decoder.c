@@ -200,7 +200,7 @@ jab_boolean jabIsDiagVerbose(void)
 #include <android/log.h>
 #define DEBUG_LOG(...) __android_log_print(ANDROID_LOG_DEBUG, "JABCodeDecoder", __VA_ARGS__)
 #else
-#define DEBUG_LOG(...) printf(__VA_ARGS__); printf("\n")
+#define DEBUG_LOG(...) { if(g_diag_verbose){ printf(__VA_ARGS__); printf("\n"); } }
 #endif
 
 /* Experiment #3 (nc2 magenta-rescue): chroma (max-min channel spread) above

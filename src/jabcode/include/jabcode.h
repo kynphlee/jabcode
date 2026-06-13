@@ -64,7 +64,7 @@ extern "C" {
 #define JAB_REPORT_INFO(x)  { __JAB_ANDROID_LOG_INFO x; }
 #else
 #define JAB_REPORT_ERROR(x)	{ printf("JABCode Error: "); printf x; printf("\n"); }
-#define JAB_REPORT_INFO(x)	{ printf("JABCode Info: "); printf x; printf("\n"); }
+#define JAB_REPORT_INFO(x)	{ if(g_diag_verbose){ printf("JABCode Info: "); printf x; printf("\n"); } }
 #endif
 
 typedef unsigned char 		jab_byte;
