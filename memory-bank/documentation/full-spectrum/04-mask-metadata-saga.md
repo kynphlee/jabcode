@@ -5,6 +5,14 @@
 
 ---
 
+> 📌 **2026 epilogue — the saga had a second act.** The mask-metadata fix below was real,
+> but "all 4-128 modes work" turned out to be *branch- and decoder-specific*. On the mature
+> **swift-java-poc** decoder the full 4→256 round-trips; the older **panama-poc** decoder
+> caps at 32-colour on its own output (and reads only 4-8 of swift's). The committed
+> `reference-images/` for 16→256 are also corrupt — they fail on *every* decoder. Production
+> runs the swift lineage, so it gets the full range. Read on for the original hunt; just
+> hold "every mode works everywhere" lightly.
+
 ## The Mystery
 
 **December 2025**. All tests passing for 4-color through 32-color modes. Beautiful. Then we run ColorMode5Test (64-color mode):

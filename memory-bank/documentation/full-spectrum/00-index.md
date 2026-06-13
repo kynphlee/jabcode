@@ -1,9 +1,9 @@
 # JABCode Full-Spectrum Documentation
 **A Deep Dive Technical Narrative**
 
-Version: 2.0  
-Last Updated: January 2026  
-Coverage: Color Modes 4-128, Panama FFM Wrapper, Critical Bug Fixes
+Version: 3.0  
+Last Updated: June 2026  
+Coverage: Color Modes 0–256 (Nc 0–7), Panama FFM Wrapper, Round-Trip Reality Check
 
 ---
 
@@ -33,32 +33,74 @@ Deep technical narratives for engineers working on JABCode internals:
 - **[08-color-mode-reference.md](08-color-mode-reference.md)** - Complete specifications for all 7 modes
 - **[09-troubleshooting-guide.md](09-troubleshooting-guide.md)** - Common issues and solutions
 - **[10-future-enhancements.md](10-future-enhancements.md)** - Roadmap and planned improvements
+- **[11-iso-spec-conformance.md](11-iso-spec-conformance.md)** - Where we meet — and diverge from — ISO/IEC 23634:2022
 
 ---
 
-## 🎯 Current Status (January 2026)
+## 🎯 Current Status (June 2026)
 
-### ✅ What Works
+> 📌 **A word on "works" — read this first.** Earlier editions reported every mode
+> from 4 to 128 colours as ✅ 100%. That was true of the *unit tests* in December
+> 2025 — and it is still how those tests report. But a JAB Code lives or dies on a
+> **round-trip**, and a green unit test is not the same as a barcode that survives
+> `encode → PNG → decode`, let alone one a camera can read. Two more recent
+> measurements — the 2026-05-29 JMH baseline and a June 2026 scan of the
+> `reference-images/` corpus — tell a humbler story. This edition reports what the
+> *round-trip* does, not what the test runner says. 🧭
 
-| Feature | Status | Test Coverage | Notes |
-|---------|--------|---------------|-------|
-| 4-color encoding/decoding | ✅ Stable | 100% | Baseline mode |
-| 8-color encoding/decoding | ✅ Stable | 100% | Standard mode |
-| 16-color encoding/decoding | ✅ Stable | 100% | Enhanced palette |
-| 32-color encoding/decoding | ✅ Stable | 100% | Extended range |
-| 64-color encoding/decoding | ✅ **Fixed** | 100% | Adaptive palette, **mask metadata fix** |
-| 128-color encoding/decoding | ✅ **Fixed** | 100% | Interpolation, **mask metadata fix** |
-| Single-symbol codes | ✅ Stable | 100% | Fully functional |
-| Sample generation | ✅ New | 100% | Self-describing samples |
-| Panama FFM bindings | ✅ Stable | 75% instruction | Java 21+ Foreign Function & Memory API |
+### The three decode realities
 
-### ⚠️ Known Limitations
+The same symbol can pass on one path and fail on another. Always ask *which path*:
 
-| Issue | Severity | Workaround | ETA |
-|-------|----------|------------|-----|
-| 256-color malloc crash | High | Skip mode | Investigating |
-| Cascaded multi-symbol | Medium | API limitation | Q1 2026 |
-| Symbol version config | Low | Not exposed in API | Q1 2026 |
+| Path | What it means | Where it's measured |
+|------|---------------|---------------------|
+| 🧪 **Unit test** | In-suite assertions, short fixed payloads | `panama-wrapper` tests |
+| 🖼️ **Synthetic PNG round-trip** | `encodeToPNG` → file → `decodeFromFile` | JMH `DecodingBenchmark`, `baseline-benchmarks/` |
+| 📷 **Camera / screen scan** | A real lens reading a printed or on-screen symbol | Android diagnostic app |
+
+### ✅ What works — by colour mode and by path
+
+| Nc | Colours | 🧪 Unit | 🖼️ PNG round-trip | 📷 Camera | Notes |
+|----|---------|:------:|:-----------------:|:--------:|-------|
+| 0 | 2 (mono) | ✅ | ✅ | ❌ 0% | Accepted since `bb91db7`; screen-scan parked at metadata stage |
+| 1 | 4 | ✅ | ✅ | ✅ 93% | The one universally-reliable mode |
+| 2 | 8 | ✅ | ✅ | ❌ 0% | PNG fine; camera collapses at Part-I metadata |
+| 3 | 16 | ✅ | ❌ LDPC | ✅ 35–67% | 🧪 passes but 🖼️ **fails** — the contradiction this edition exists to fix |
+| 4 | 32 | ✅ | ❌ LDPC | ✅ 35–67% | as above |
+| 5 | 64 | ✅ | ❌ LDPC | ✅ 35–67% | "Fixed" via mask-metadata (ch04), yet fails PNG round-trip today |
+| 6 | 128 | ✅ | ❌ LDPC | ✅ 35–67% | as above |
+| 7 | 256 | ⛔ | ❌ LDPC | ❌ 17% | Encoder *historically* `malloc`-crashes — but see ⚠️ below |
+
+> 💡 **The "8-colour seam."** The cliff sits exactly between Nc=2 (8 colours) and
+> Nc=3 (16). That is no coincidence: it is the same boundary where the decoder
+> switches from fast squared-RGB colour matching (≤8) to perceptual-LAB plus
+> interpolated palettes (>8). Every >8-colour bug in this handbook lives on the far
+> side of that seam — you will meet it again in ch04 and ch08.
+
+> ⚠️ **The 256-colour story is no longer "always crashes."** A `jabcode_256.png`
+> sits in `reference-images/` (so *something* encoded it), and a recent server-side
+> sweep encoded 256 on the current `.so`. Treat the `malloc` crash as
+> *intermittent / build-dependent* and **re-verify on your build**. See
+> [05-encoder-memory-architecture.md](05-encoder-memory-architecture.md).
+
+### Beyond colour modes
+
+| Capability | Status | Notes |
+|------------|--------|-------|
+| Single-symbol codes | ✅ Stable | Fully functional |
+| Sample generation | ✅ Stable | Self-describing samples |
+| Panama FFM bindings | ✅ Stable | Java 21+ FFM; ~75% instruction coverage |
+| `JABCodeEncoder.VERBOSE` gate | ✅ New (`23a6570`) | Silences per-encode stderr in tight loops |
+
+### ⚠️ Known limitations
+
+| Issue | Severity | Reality | Tracking |
+|-------|----------|---------|----------|
+| **>8-colour PNG round-trip fails (LDPC)** | High | Nc≥3 don't survive `encode → PNG → decode` | Register entry pending |
+| 256-colour encoder `malloc` | Med–High | Intermittent; re-verify per build | ch05 |
+| Camera scan: Nc 0/2/7 fail | High (product) | Metadata-stage — *distinct* from the LDPC wall | Screen-scan track |
+| Decoder per-module file logging | Med (perf) | 81 un-gated `fprintf` to `/tmp/…` every decode | Gating task queued |
+| Cascaded multi-symbol | Medium | API limitation | — |
 
 ### 🔧 Recent Critical Fixes
 

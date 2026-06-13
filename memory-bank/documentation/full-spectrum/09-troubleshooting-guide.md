@@ -480,22 +480,29 @@ long duration = System.nanoTime() - start;
 
 ### Decoding is very slow
 
-**Expected times:** 2-3× encoding time (decoding is more complex).
+**Expected times:** decode is dominated by **symbol area (pixel count)**, not colour count.
 
-**If much slower:**
+**If decode is slow — a myth to retire first** 🪦: earlier editions claimed higher
+colour modes decode *slower* (64-colour "1.8× slower", 128-colour "2.2× slower").
+**Measured, that is backwards.** For a *fixed payload*, more colours pack more bits
+per module, so the symbol is **smaller** and decodes **faster**:
 
-**Check 1: Image size**
-
-Very large images take longer. Consider reducing module size when encoding.
-
-**Check 2: Color mode**
-
-Higher color modes require more color matching:
 ```
-4-color:   ~1.0× (baseline)
-64-color:  ~1.8× slower
-128-color: ~2.2× slower
+Same 2500-byte payload, measured (swift-lineage decoder):
+  4-color:   100 ms   (1356x1356 px)  <- slowest
+  16-color:   75 ms   ( 972x 972 px)
+  64-color:   57 ms   ( 828x 828 px)  <- fastest
+  256-color:  65 ms   ( 732x 732 px)
 ```
+
+So the lever for faster decode is **fewer pixels**, not fewer colours:
+
+**Check 1: Symbol / image size** — the dominant factor. A smaller module size and/or
+a *higher* colour mode both shrink the symbol and speed decode.
+
+**Check 2: Colour mode** — counter-intuitively, raising the colour count for the same
+data *reduces* decode time. The only case where more colours cost more is at a *fixed
+symbol size* — a rare configuration.
 
 ---
 
