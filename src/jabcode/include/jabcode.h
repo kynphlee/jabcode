@@ -264,6 +264,8 @@ extern jab_int32 jabGetPreferredColorCount(void);
 extern jab_boolean saveImage(jab_bitmap* bitmap, jab_char* filename);
 extern jab_boolean saveImageCMYK(jab_bitmap* bitmap, jab_boolean isCMYK, jab_char* filename);
 extern jab_bitmap* readImage(jab_char* filename);
+extern jab_byte* saveImageToMemory(jab_bitmap* bitmap, jab_int32* out_length);
+extern jab_bitmap* readImageFromMemory(jab_byte* buffer, jab_int32 length);
 extern void reportError(jab_char* message);
 
 #ifdef __cplusplus

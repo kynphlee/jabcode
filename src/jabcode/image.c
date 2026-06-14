@@ -229,3 +229,108 @@ jab_bitmap* readImage(jab_char* filename)
 	}
 	return bitmap;
 }
+
+/**
+ * @brief Encode a bitmap to a PNG held entirely in a memory buffer (no temp file).
+ *
+ * In-memory counterpart of saveImage(). Keeps the encoded JAB Code off disk, which
+ * for the auth/COA server means sensitive payloads (the PNG decodes back to the
+ * token/signature) never touch the filesystem. Caller owns the returned buffer (free()).
+ *
+ * @param bitmap     the bitmap to encode
+ * @param out_length receives the PNG byte length
+ * @return malloc'd PNG bytes | NULL on failure
+*/
+jab_byte* saveImageToMemory(jab_bitmap* bitmap, jab_int32* out_length)
+{
+	png_image image;
+	memset(&image, 0, sizeof(image));
+	image.version = PNG_IMAGE_VERSION;
+	if(bitmap->channel_count == 4)
+	{
+		image.format = PNG_FORMAT_RGBA;
+		image.flags  = PNG_FORMAT_FLAG_ALPHA | PNG_FORMAT_FLAG_COLOR;
+	}
+	else
+	{
+		image.format = PNG_FORMAT_GRAY;
+	}
+	image.width  = bitmap->width;
+	image.height = bitmap->height;
+
+	png_alloc_size_t png_size = 0;
+	/* pass 1: query the encoded size */
+	if(png_image_write_to_memory(&image, NULL, &png_size, 0, bitmap->pixel, 0, NULL) == 0)
+	{
+		reportError(image.message);
+		reportError("Sizing png-to-memory failed");
+		return NULL;
+	}
+	jab_byte* buf = (jab_byte*)malloc(png_size);
+	if(buf == NULL)
+	{
+		reportError("Memory allocation for png buffer failed");
+		return NULL;
+	}
+	/* pass 2: write the PNG into the buffer */
+	if(png_image_write_to_memory(&image, buf, &png_size, 0, bitmap->pixel, 0, NULL) == 0)
+	{
+		free(buf);
+		reportError(image.message);
+		reportError("Writing png-to-memory failed");
+		return NULL;
+	}
+	if(out_length) *out_length = (jab_int32)png_size;
+	return buf;
+}
+
+/**
+ * @brief Decode a PNG from a memory buffer into a bitmap (no temp file).
+ *
+ * In-memory counterpart of readImage().
+ *
+ * @param buffer the PNG bytes
+ * @param length the PNG byte length
+ * @return jab_bitmap (caller frees) | NULL on failure
+*/
+jab_bitmap* readImageFromMemory(jab_byte* buffer, jab_int32 length)
+{
+	png_image image;
+	memset(&image, 0, sizeof(image));
+	image.version = PNG_IMAGE_VERSION;
+
+	jab_bitmap* bitmap;
+
+	if(png_image_begin_read_from_memory(&image, buffer, (size_t)length))
+	{
+		image.format = PNG_FORMAT_RGBA;
+
+		bitmap = (jab_bitmap *)calloc(1, sizeof(jab_bitmap) + PNG_IMAGE_SIZE(image));
+		if(bitmap == NULL)
+		{
+			png_image_free(&image);
+			reportError("Memory allocation failed");
+			return NULL;
+		}
+		bitmap->width = image.width;
+		bitmap->height= image.height;
+		bitmap->bits_per_channel = BITMAP_BITS_PER_CHANNEL;
+		bitmap->bits_per_pixel = BITMAP_BITS_PER_PIXEL;
+		bitmap->channel_count = BITMAP_CHANNEL_COUNT;
+
+		if(png_image_finish_read(&image, NULL, bitmap->pixel, 0, NULL) == 0)
+		{
+			free(bitmap);
+			reportError(image.message);
+			reportError("Reading png from memory failed");
+			return NULL;
+		}
+	}
+	else
+	{
+		reportError(image.message);
+		reportError("Opening png from memory failed");
+		return NULL;
+	}
+	return bitmap;
+}
