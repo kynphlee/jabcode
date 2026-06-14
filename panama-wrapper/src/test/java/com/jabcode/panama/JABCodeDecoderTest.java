@@ -70,22 +70,10 @@ class JABCodeDecoderTest {
         );
     }
     
-    @Test
-    void testDecodeByteArrayThrowsUnsupported() {
-        byte[] dummyData = new byte[]{1, 2, 3};
-        assertThrows(UnsupportedOperationException.class, () -> 
-            decoder.decode(dummyData)
-        );
-    }
-    
-    @Test
-    void testDecodeExByteArrayThrowsUnsupported() {
-        byte[] dummyData = new byte[]{1, 2, 3};
-        assertThrows(UnsupportedOperationException.class, () -> 
-            decoder.decodeEx(dummyData)
-        );
-    }
-    
+    // Note: decode(byte[]) / decodeEx(byte[]) are now implemented (in-memory path).
+    // Their graceful-failure-on-non-PNG behaviour is covered by the native-gated
+    // InMemoryRoundTripIntegrationTest, which has the .so available.
+
     @Test
     void testDecodeResultConstructorAndGetters() {
         var result = new JABCodeDecoder.DecodedResult("test data", 2, true);

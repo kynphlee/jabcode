@@ -187,31 +187,34 @@ class JABCodeEncoderIntegrationTest {
 
     @Test
     void encodeWithConfigMethod(@TempDir Path tempDir) {
-        // This tests the encodeWithConfig method which currently returns null
+        // encodeWithConfig now returns the PNG bytes in memory (no temp file).
         byte[] result = encoder.encodeWithConfig(
             "Test data",
             JABCodeEncoder.Config.defaults()
         );
-        
-        // Currently expected to return null as bitmap extraction not implemented
-        assertNull(result, "encodeWithConfig currently returns null (bitmap extraction TODO)");
+
+        assertNotNull(result, "encodeWithConfig should return in-memory PNG bytes");
+        assertTrue(result.length > 0, "PNG byte[] must be non-empty");
+        assertEquals((byte) 0x89, result[0], "output must start with the PNG signature");
     }
 
     @Test
     void encodeMethodWithColorAndEcc(@TempDir Path tempDir) {
-        // This uses the convenience encode(data, colorNumber, eccLevel) method
+        // Convenience encode(data, colorNumber, eccLevel) -> in-memory PNG bytes.
         byte[] result = encoder.encode("Test", 8, 5);
-        
-        // Currently expected to return null
-        assertNull(result, "encode() currently returns null (bitmap extraction TODO)");
+
+        assertNotNull(result, "encode() should return in-memory PNG bytes");
+        assertTrue(result.length > 0, "PNG byte[] must be non-empty");
+        assertEquals((byte) 0x89, result[0], "output must start with the PNG signature");
     }
 
     @Test
     void encodeDefaultMethod() {
-        // This uses the encode(data) method with defaults
+        // encode(data) with defaults -> in-memory PNG bytes.
         byte[] result = encoder.encode("Test");
-        
-        // Currently expected to return null
-        assertNull(result, "encode() with defaults currently returns null");
+
+        assertNotNull(result, "encode() with defaults should return in-memory PNG bytes");
+        assertTrue(result.length > 0, "PNG byte[] must be non-empty");
+        assertEquals((byte) 0x89, result[0], "output must start with the PNG signature");
     }
 }

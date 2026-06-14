@@ -49,7 +49,8 @@ class JABCodeEncoderConfigTest {
 
     @Test
     void invalidColorNumbersRejected() {
-        int[] invalid = {0, 1, 2, 3, 5, 6, 7, 9, 15, 100, 512};
+        // 2 (Mode 0 / 2-colour) is valid since the WS-0 work; not listed here.
+        int[] invalid = {0, 1, 3, 5, 6, 7, 9, 15, 100, 512};
         for (int c : invalid) {
             assertThrows(IllegalArgumentException.class,
                 () -> JABCodeEncoder.Config.builder().colorNumber(c),

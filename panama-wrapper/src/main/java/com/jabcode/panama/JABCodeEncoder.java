@@ -207,19 +207,53 @@ public class JABCodeEncoder {
             }
             
             try {
+                // Configure multi-symbol cascade versions when provided
+                if (config.getSymbolVersions() != null) {
+                    setSymbolVersions(enc, config.getSymbolVersions());
+                }
+
+                // Set ECC level (symbol_ecc_levels pointer at offset 40 in jab_encode)
+                long eccLevelsAddress = enc.get(ValueLayout.ADDRESS, 40).address();
+                if (eccLevelsAddress != 0) {
+                    MemorySegment.ofAddress(eccLevelsAddress)
+                        .reinterpret(config.getSymbolNumber())
+                        .set(ValueLayout.JAVA_BYTE, 0, (byte) config.getEccLevel());
+                }
+
                 // Prepare jab_data structure: { int32 length; char data[]; }
                 byte[] bytes = data.getBytes(StandardCharsets.UTF_8);
                 MemorySegment jabData = createJabData(arena, bytes);
-                
-                // Generate JABCode
+
+                // Generate JABCode (0 = success per generateJABCode contract)
                 int result = jabcode_h.generateJABCode(enc, jabData);
-                if (result != 1) { // JAB_SUCCESS = 1
+                if (result != 0) {
                     return null;
                 }
-                
-                // Bitmap extraction not yet implemented - use encodeToPNG() instead
-                return null;
-                
+
+                // Encode the bitmap to a PNG held entirely in memory (no temp file).
+                // This keeps sensitive auth/COA payloads off the filesystem -- the PNG
+                // decodes straight back to the token/signature.
+                MemorySegment bitmapPtr = getBitmapFromEncoder(enc);
+                if (bitmapPtr == null || bitmapPtr.address() == 0) {
+                    return null;
+                }
+
+                MemorySegment outLen = arena.allocate(ValueLayout.JAVA_INT);
+                MemorySegment pngPtr = jabcode_h.saveImageToMemory(bitmapPtr, outLen);
+                if (pngPtr == null || pngPtr.address() == 0) {
+                    return null;
+                }
+                try {
+                    int pngLen = outLen.get(ValueLayout.JAVA_INT, 0);
+                    if (pngLen <= 0) {
+                        return null;
+                    }
+                    // Copy the native PNG bytes into a Java-owned array.
+                    return pngPtr.reinterpret(pngLen).toArray(ValueLayout.JAVA_BYTE);
+                } finally {
+                    // saveImageToMemory malloc's the buffer; the caller owns it.
+                    NativeMemory.free(pngPtr);
+                }
             } finally {
                 jabcode_h.destroyEncode(enc);
             }

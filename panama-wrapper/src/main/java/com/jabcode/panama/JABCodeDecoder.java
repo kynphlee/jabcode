@@ -164,41 +164,76 @@ public class JABCodeDecoder {
     }
     
     /**
-     * Decode JABCode from image byte array.
-     * Note: Direct byte array decoding requires creating a temporary file.
-     * For better performance, use decodeFromFile() directly.
-     * 
-     * @param imageData Raw image data (PNG, JPG, etc.)
+     * Decode a JABCode directly from PNG bytes held in memory (no temporary file).
+     *
+     * <p>The bytes are decoded via the native {@code readImageFromMemory} path, so
+     * sensitive auth/COA payloads never touch the filesystem.</p>
+     *
+     * @param imageData Raw PNG image bytes
      * @return Decoded data as string, or null if decoding fails
      */
     public String decode(byte[] imageData) {
         DecodedResult result = decodeEx(imageData);
         return result.isSuccess() ? result.getData() : null;
     }
-    
+
     /**
-     * Decode JABCode with extended information.
-     * Note: Not yet implemented - requires bitmap creation from bytes.
-     * Use decodeFromFile() instead.
-     * 
-     * @param imageData Raw image data
+     * Decode a JABCode from in-memory PNG bytes with extended information.
+     *
+     * <p>Mirror of {@link #decodeFromFileEx(Path, int)} that loads the bitmap from a
+     * memory buffer ({@code readImageFromMemory}) instead of a file ({@code readImage}),
+     * keeping the image off disk. Unlike the file path, the bitmap is freed here.</p>
+     *
+     * @param imageData Raw PNG image bytes
      * @return DecodedResult with data and metadata
      */
     public DecodedResult decodeEx(byte[] imageData) {
         if (imageData == null || imageData.length == 0) {
             throw new IllegalArgumentException("Image data cannot be null or empty");
         }
-        
-        // TODO: Implement bitmap creation from byte array
-        // This would require either:
-        // 1. Writing to temp file and using readImage()
-        // 2. Using libpng directly to create jab_bitmap from memory
-        // For now, use decodeFromFile() instead
-        
-        throw new UnsupportedOperationException(
-            "Decoding from byte array not yet implemented. " +
-            "Use decodeFromFile(Path) instead."
-        );
+
+        try (Arena arena = Arena.ofConfined()) {
+            // Marshal the PNG bytes into native memory (no temp file)
+            MemorySegment buffer = arena.allocate(imageData.length);
+            MemorySegment.copy(imageData, 0, buffer, ValueLayout.JAVA_BYTE, 0, imageData.length);
+
+            // Decode the PNG from memory into a bitmap
+            MemorySegment bitmap = jabcode_h.readImageFromMemory(buffer, imageData.length);
+            if (bitmap == null || bitmap.address() == 0) {
+                return new DecodedResult(null, 0, false);
+            }
+
+            try {
+                // Allocate status parameter (init to error value)
+                MemorySegment status = arena.allocate(ValueLayout.JAVA_INT);
+                status.set(ValueLayout.JAVA_INT, 0, -1);
+
+                // Decode
+                MemorySegment result = jabcode_h.decodeJABCode(bitmap, MODE_NORMAL, status);
+                if (result == null || result.address() == 0) {
+                    return new DecodedResult(null, 0, false);
+                }
+
+                // Extract decoded data — jab_data struct: { int32 length; char data[]; }
+                int dataLength = result.get(ValueLayout.JAVA_INT, 0);
+                if (dataLength <= 0) {
+                    return new DecodedResult("", 1, true);
+                }
+
+                byte[] decodedBytes = new byte[dataLength];
+                MemorySegment.copy(result, ValueLayout.JAVA_BYTE, 4, decodedBytes, 0, dataLength);
+                String decodedString = new String(decodedBytes, StandardCharsets.UTF_8);
+
+                return new DecodedResult(decodedString, 1, true);
+
+            } finally {
+                // readImageFromMemory calloc's the bitmap as a single block we own.
+                // (The file-based readImage path leaks its bitmap; this one does not.)
+                NativeMemory.free(bitmap);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Decoding from byte array failed", e);
+        }
     }
     
     /**
