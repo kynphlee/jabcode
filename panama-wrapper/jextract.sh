@@ -84,6 +84,8 @@ jextract \
     --include-function saveImage \
     --include-function saveImageCMYK \
     --include-function readImage \
+    --include-function saveImageToMemory \
+    --include-function readImageFromMemory \
     --include-function reportError \
     --include-struct jab_encode \
     --include-struct jab_data \

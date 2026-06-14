@@ -250,7 +250,13 @@
                                 
                                 <argument>--include-function</argument>
                                 <argument>readImage</argument>
-                                
+
+                                <argument>--include-function</argument>
+                                <argument>saveImageToMemory</argument>
+
+                                <argument>--include-function</argument>
+                                <argument>readImageFromMemory</argument>
+
                                 <argument>--include-function</argument>
                                 <argument>reportError</argument>
                                 
