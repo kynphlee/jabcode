@@ -371,6 +371,118 @@ jab_int32 *createGeneratorMatrix(jab_int32* matrixA, jab_int32 capacity, jab_int
     return G;
 }
 
+/* ===================== LDPC matrix memoization (performance) =====================
+ * createMatrixA + GaussJordan (+ createGeneratorMatrix) are deterministic functions of
+ * (wc, wr, capacity): fixed seeds (LPDC_MESSAGE_SEED) + a deterministic LCG, so they
+ * produce byte-identical matrices on every call -- yet the original code rebuilt them on
+ * every encode and every decode. GaussJordan is ~O(nb_pcb^2 * capacity/32) and dominates
+ * codec time for colour modes with color_number > 8 (the 8->16 throughput cliff). We
+ * memoize the built matrices per (wc, wr, capacity) and hand each caller a fresh malloc'd
+ * COPY, so callers keep their existing ownership/free semantics and can never corrupt the
+ * cache. The cache is thread-local: no locking, and each worker thread warms its own small
+ * cache once per colour mode (a deployment uses a handful of keys). Only the dense message
+ * path (wr > 3) is cached; the small metadata path is built as before. */
+#define LDPC_CACHE_SIZE 16
+typedef struct {
+    jab_boolean valid;
+    jab_int32   wc, wr, capacity;   /* key */
+    jab_int32   rank;               /* GaussJordan matrix_rank for this key */
+    jab_int32   n_ints;             /* length of matrix[] in jab_int32 words */
+    jab_int32*  matrix;             /* cached generator G (encode) or post-GJ A (decode) */
+} ldpc_cache_entry;
+
+static _Thread_local ldpc_cache_entry g_ldpc_enc_cache[LDPC_CACHE_SIZE];
+static _Thread_local ldpc_cache_entry g_ldpc_dec_cache[LDPC_CACHE_SIZE];
+
+/* Return a fresh copy of the cached matrix for (wc,wr,capacity), or NULL on miss. */
+static jab_int32* ldpcCacheGet(ldpc_cache_entry* cache, jab_int32 wc, jab_int32 wr, jab_int32 capacity, jab_int32* out_rank)
+{
+    for(jab_int32 i=0; i<LDPC_CACHE_SIZE; i++)
+    {
+        ldpc_cache_entry* e = &cache[i];
+        if(e->valid && e->wc==wc && e->wr==wr && e->capacity==capacity)
+        {
+            jab_int32* copy = (jab_int32*)malloc((size_t)e->n_ints * sizeof(jab_int32));
+            if(copy == NULL) return NULL;
+            memcpy(copy, e->matrix, (size_t)e->n_ints * sizeof(jab_int32));
+            *out_rank = e->rank;
+            return copy;
+        }
+    }
+    return NULL;
+}
+
+/* Store a copy of a freshly built matrix. Best-effort: if full or OOM, skip caching. */
+static void ldpcCachePut(ldpc_cache_entry* cache, jab_int32 wc, jab_int32 wr, jab_int32 capacity,
+                         jab_int32 rank, const jab_int32* matrix, jab_int32 n_ints)
+{
+    for(jab_int32 i=0; i<LDPC_CACHE_SIZE; i++)
+    {
+        if(!cache[i].valid)
+        {
+            jab_int32* stored = (jab_int32*)malloc((size_t)n_ints * sizeof(jab_int32));
+            if(stored == NULL) return;
+            memcpy(stored, matrix, (size_t)n_ints * sizeof(jab_int32));
+            cache[i].wc=wc; cache[i].wr=wr; cache[i].capacity=capacity;
+            cache[i].rank=rank; cache[i].n_ints=n_ints; cache[i].matrix=stored;
+            cache[i].valid=1;
+            return;
+        }
+    }
+}
+
+/* Generator matrix for the LDPC encoder, memoized for the dense message path (wr>3).
+ * Returns a heap matrix the caller owns and frees (as before); *out_rank gets the rank.
+ * Mirrors encodeLDPC's original build: createMatrixA/createMetadataMatrixA -> GaussJordan
+ * (encode) -> createGeneratorMatrix. */
+static jab_int32* buildOrCacheGenerator(jab_int32 wc, jab_int32 wr, jab_int32 capacity, jab_int32* out_rank)
+{
+    jab_boolean cacheable = (wr > 3);
+    if(cacheable)
+    {
+        jab_int32* hit = ldpcCacheGet(g_ldpc_enc_cache, wc, wr, capacity, out_rank);
+        if(hit) return hit;
+    }
+    jab_int32* matrixA = (wr > 0) ? createMatrixA(wc, wr, capacity) : createMetadataMatrixA(wc, capacity);
+    if(matrixA == NULL) return NULL;
+    jab_int32 rank = 0;
+    if(GaussJordan(matrixA, wc, wr, capacity, &rank, 1)) { free(matrixA); return NULL; }
+    jab_int32* G = createGeneratorMatrix(matrixA, capacity, capacity - rank);
+    free(matrixA);
+    if(G == NULL) return NULL;
+    if(cacheable)
+    {
+        jab_int32 offset = (jab_int32)ceil((capacity - rank)/(jab_float)32);
+        ldpcCachePut(g_ldpc_enc_cache, wc, wr, capacity, rank, G, offset * capacity);
+    }
+    *out_rank = rank;
+    return G;
+}
+
+/* Post-GaussJordan parity-check matrix for the LDPC decoder, memoized for wr>3.
+ * Returns a heap matrix the caller owns and frees (as before); *out_rank gets the rank. */
+static jab_int32* buildOrCacheDecodeMatrix(jab_int32 wc, jab_int32 wr, jab_int32 capacity, jab_int32* out_rank)
+{
+    jab_boolean cacheable = (wr > 3);
+    if(cacheable)
+    {
+        jab_int32* hit = ldpcCacheGet(g_ldpc_dec_cache, wc, wr, capacity, out_rank);
+        if(hit) return hit;
+    }
+    jab_int32* matrixA = (wr > 0) ? createMatrixA(wc, wr, capacity) : createMetadataMatrixA(wc, capacity);
+    if(matrixA == NULL) return NULL;
+    jab_int32 rank = 0;
+    if(GaussJordan(matrixA, wc, wr, capacity, &rank, 0)) { free(matrixA); return NULL; }
+    if(cacheable)
+    {
+        jab_int32 nb_pcb = capacity/wr*wc;   /* wr>3 => same formula as createMatrixA */
+        jab_int32 offset = (jab_int32)ceil(capacity/(jab_float)32);
+        ldpcCachePut(g_ldpc_dec_cache, wc, wr, capacity, rank, matrixA, offset * nb_pcb);
+    }
+    *out_rank = rank;
+    return matrixA;
+}
+
 /**
  * @brief LDPC encoding
  * @param data the data to be encoded
@@ -421,33 +533,13 @@ jab_data *encodeLDPC(jab_data* data, jab_int32* coderate_params)
     jab_int32 encoding_iterations=nb_sub_blocks=Pg / Pg_sub_block;//nb_sub_blocks;
     if(Pn_sub_block * nb_sub_blocks < Pn)
         encoding_iterations--;
-    jab_int32* matrixA;
-    //Matrix A
-    if(wr > 0)
-        matrixA = createMatrixA(wc, wr, Pg_sub_block);
-    else
-        matrixA = createMetadataMatrixA(wc, Pg_sub_block);
-    if(matrixA == NULL)
-    {
-        reportError("Generator matrix could not be created in LDPC encoder.");
-        return NULL;
-    }
-    jab_boolean encode=1;
-    if(GaussJordan(matrixA, wc, wr, Pg_sub_block, &matrix_rank,encode))
-    {
-        reportError("Gauss Jordan Elimination in LDPC encoder failed.");
-        free(matrixA);
-        return NULL;
-    }
-    //Generator Matrix
-    jab_int32* G = createGeneratorMatrix(matrixA, Pg_sub_block, Pg_sub_block - matrix_rank);
+    //Generator matrix (memoized for the dense message path; see buildOrCacheGenerator)
+    jab_int32* G = buildOrCacheGenerator(wc, wr, Pg_sub_block, &matrix_rank);
     if(G == NULL)
     {
         reportError("Generator matrix could not be created in LDPC encoder.");
-        free(matrixA);
         return NULL;
     }
-    free(matrixA);
 
     jab_data* ecc_encoded_data = (jab_data *)malloc(sizeof(jab_data) + Pg*sizeof(jab_char));
     if(ecc_encoded_data == NULL)
@@ -490,7 +582,7 @@ jab_data *encodeLDPC(jab_data* data, jab_int32* coderate_params)
             reportError("Generator matrix could not be created in LDPC encoder.");
             return NULL;
         }
-        if(GaussJordan(matrixA, wc, wr, Pg_sub_block, &matrix_rank,encode))
+        if(GaussJordan(matrixA, wc, wr, Pg_sub_block, &matrix_rank,1))   /* encode=1 (partial sub-block) */
         {
             reportError("Gauss Jordan Elimination in LDPC encoder failed.");
             free(matrixA);
@@ -705,22 +797,11 @@ jab_int32 decodeLDPChd(jab_byte* data, jab_int32 length, jab_int32 wc, jab_int32
     if(Pn_sub_block * nb_sub_blocks < Pn)
         decoding_iterations--;
 
-    //parity check matrix
-    jab_int32* matrixA;
-    if(wr > 0)
-        matrixA = createMatrixA(wc, wr,Pg_sub_block);
-    else
-        matrixA = createMetadataMatrixA(wc, Pg_sub_block);
+    //parity check matrix (memoized for the dense message path; see buildOrCacheDecodeMatrix)
+    jab_int32* matrixA = buildOrCacheDecodeMatrix(wc, wr, Pg_sub_block, &matrix_rank);
     if(matrixA == NULL)
     {
         reportError("LDPC matrix could not be created in decoder.");
-        return 0;
-    }
-    jab_boolean encode=0;
-    if(GaussJordan(matrixA, wc, wr, Pg_sub_block, &matrix_rank,encode))
-    {
-        reportError("Gauss Jordan Elimination in LDPC encoder failed.");
-        free(matrixA);
         return 0;
     }
 
@@ -1224,23 +1305,11 @@ jab_int32 decodeLDPC(jab_float* enc, jab_int32 length, jab_int32 wc, jab_int32 w
     if(Pn_sub_block * nb_sub_blocks < Pn)
         decoding_iterations--;
 
-    //parity check matrix
-    jab_int32* matrixA;
-    if(wr > 0)
-        matrixA = createMatrixA(wc, wr,Pg_sub_block);
-    else
-        matrixA = createMetadataMatrixA(wc, Pg_sub_block);
+    //parity check matrix (memoized for the dense message path; see buildOrCacheDecodeMatrix)
+    jab_int32* matrixA = buildOrCacheDecodeMatrix(wc, wr, Pg_sub_block, &matrix_rank);
     if(matrixA == NULL)
     {
         reportError("LDPC matrix could not be created in decoder.");
-        return 0;
-    }
-
-    jab_boolean encode=0;
-    if(GaussJordan(matrixA, wc, wr, Pg_sub_block, &matrix_rank,encode))
-    {
-        reportError("Gauss Jordan Elimination in LDPC encoder failed.");
-        free(matrixA);
         return 0;
     }
 #if TEST_MODE
