@@ -258,21 +258,17 @@ jab_byte* saveImageToMemory(jab_bitmap* bitmap, jab_int32* out_length)
 	image.width  = bitmap->width;
 	image.height = bitmap->height;
 
-	png_alloc_size_t png_size = 0;
-	/* pass 1: query the encoded size */
-	if(png_image_write_to_memory(&image, NULL, &png_size, 0, bitmap->pixel, 0, NULL) == 0)
-	{
-		reportError(image.message);
-		reportError("Sizing png-to-memory failed");
-		return NULL;
-	}
+	/* Single-pass write. PNG_IMAGE_PNG_SIZE_MAX is libpng's guaranteed upper bound
+	 * for the encoded PNG, so one write into a buffer of that size always fits --
+	 * avoiding the NULL-buffer sizing pass, which also compresses the image (the
+	 * old two-pass path compressed every frame twice). */
+	png_alloc_size_t png_size = PNG_IMAGE_PNG_SIZE_MAX(image);
 	jab_byte* buf = (jab_byte*)malloc(png_size);
 	if(buf == NULL)
 	{
 		reportError("Memory allocation for png buffer failed");
 		return NULL;
 	}
-	/* pass 2: write the PNG into the buffer */
 	if(png_image_write_to_memory(&image, buf, &png_size, 0, bitmap->pixel, 0, NULL) == 0)
 	{
 		free(buf);
@@ -280,8 +276,10 @@ jab_byte* saveImageToMemory(jab_bitmap* bitmap, jab_int32* out_length)
 		reportError("Writing png-to-memory failed");
 		return NULL;
 	}
+	/* png_size now holds the actual encoded length; release the upper-bound slack. */
+	jab_byte* shrunk = (jab_byte*)realloc(buf, png_size);
 	if(out_length) *out_length = (jab_int32)png_size;
-	return buf;
+	return shrunk ? shrunk : buf;
 }
 
 /**
