@@ -23,6 +23,10 @@ build/
 lib/
 libs/
 !javacpp-wrapper/libs/.gitkeep
+# lib/ is ignored, but lib/libjabcode.so is intentionally tracked: the
+# panama-wrapper tests load it via -Djava.library.path=../lib, and
+# run-integration-tests.sh requires it to pre-exist (it does not run `make`).
+!lib/libjabcode.so
 CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
