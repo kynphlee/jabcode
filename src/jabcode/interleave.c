@@ -28,7 +28,7 @@ void interleaveData(jab_data* data)
     setSeed(INTERLEAVE_SEED);
     for (jab_int32 i=0; i<data->length; i++)
     {
-        jab_int32 pos = (jab_int32)( (jab_float)lcg64_temper() / (jab_float)UINT32_MAX * (data->length - i) );
+        jab_int32 pos = pn_index(lcg64_temper(), data->length - i);
         jab_char  tmp = data->data[data->length - 1 -i];
         data->data[data->length - 1 - i] = data->data[pos];
         data->data[pos] = tmp;
@@ -55,7 +55,7 @@ void deinterleaveData(jab_data* data)
     setSeed(INTERLEAVE_SEED);
     for(jab_int32 i=0; i<data->length; i++)
     {
-		jab_int32 pos = (jab_int32)( (jab_float)lcg64_temper() / (jab_float)UINT32_MAX * (data->length - i) );
+		jab_int32 pos = pn_index(lcg64_temper(), data->length - i);
 		jab_int32 tmp = index[data->length - 1 - i];
 		index[data->length - 1 -i] = index[pos];
 		index[pos] = tmp;

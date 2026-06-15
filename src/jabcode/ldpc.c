@@ -69,7 +69,7 @@ jab_int32 *createMatrixA(jab_int32 wc, jab_int32 wr, jab_int32 capacity)
         jab_int32 off_index=i*(capacity/wr);
         for (jab_int32 j=0;j<capacity;j++)
         {
-            jab_int32 pos = (jab_int32)( (jab_float)lcg64_temper() / (jab_float)UINT32_MAX * (capacity - j) );
+            jab_int32 pos = pn_index(lcg64_temper(), capacity - j);
             for (jab_int32 k=0;k<capacity/wr;k++)
                 matrixA[(off_index+k)*offset+j/32] |= ((matrixA[(permutation[pos]/32+k*offset)] >> (31-permutation[pos]%32)) & 1) << (31-j%32);
             jab_int32  tmp = permutation[capacity - 1 -j];
@@ -314,7 +314,7 @@ jab_int32 *createMetadataMatrixA(jab_int32 wc, jab_int32 capacity)
     {
         for (jab_int32 j=0; j< nb_once; j++)
         {
-            jab_int32 pos = (jab_int32)( (jab_float)lcg64_temper() / (jab_float)UINT32_MAX * (capacity-j) );
+            jab_int32 pos = pn_index(lcg64_temper(), capacity-j);
             matrixA[i*offset+permutation[pos]/32] |= 1 << (31-permutation[pos]%32);
             jab_int32  tmp = permutation[capacity - 1 -j];
             permutation[capacity - 1 -j] = permutation[pos];
@@ -711,7 +711,7 @@ jab_int32 decodeMessage(jab_byte* data, jab_int32* matrix, jab_int32 length, jab
                  * Using lcg64_temper() (returns full uint32_t range)
                  * preserves the same statistical distribution. */
                 uint32_t r = lcg64_temper();
-                jab_int32 rand_tmp = (jab_int32)((jab_float)r / (jab_float)UINT32_MAX * counter);
+                jab_int32 rand_tmp = pn_index(r, counter);
                 prev_index[0]=start_pos+equal_max[rand_tmp];
                 data[start_pos+equal_max[rand_tmp]]=(data[start_pos+equal_max[rand_tmp]]+1)%2;
             }
