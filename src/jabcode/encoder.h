@@ -16,6 +16,12 @@
 
 /**
  * @brief Default color palette in RGB format
+ *
+ * Order [K,B,G,C,R,M,Y,W] = ISO/IEC 23634 Table 21 (the Fraunhofer reference).
+ * JAB_PROFILE seam: a future JAB_PROFILE_BSI would reorder this (and encoder.c
+ * setDefaultPalette) to BSI TR-03137 Table 19 [K,M,Y,C,R,G,B,W]. This palette is
+ * the first real profile axis -- see CONFORMANCE_PROFILE.md. (PRNG is NOT an axis:
+ * ISO Annex F is informative; both profiles keep lcg64_temper.)
 */
 static const jab_byte jab_default_palette[] = {0, 	0, 		0, 		//0: black
 											   0, 	0, 		255, 	//1: blue
