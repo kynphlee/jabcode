@@ -38,17 +38,14 @@ class FrameProcessingBenchmark {
     }
 
     @Ignore(
-        "Blocked on camera-pipeline stall during scanning. The diagnostic-app's " +
-            "ImageReader exhausts its buffer pool within the SCAN_DURATION_MS " +
-            "window — failed decodes hold image buffers longer than the camera " +
-            "produces them — so the camera stalls partway through the measurement " +
-            "and FrameTimingMetric throws " +
-            "`IllegalArgumentException: At least one result is necessary, " +
-            "0 found for frameDurationCpuMs`. Same back-pressure pattern as " +
-            "H_nc2_decode_failure / H_partI_unifies. Re-enable once either: " +
-            "(a) the upstream camera stall is fixed, or (b) measureBlock is " +
-            "changed to drive synthetic UI activity (e.g., periodic taps) that " +
-            "keeps frames flowing independent of the camera pipeline."
+        "FrameTimingMetric finds 0 Choreographer frames on the camera-preview scanner " +
+            "screen — the preview renders via a dedicated Surface that doesn't drive UI " +
+            "frames, so this metric aborts with `0 found for frameDurationCpuMs`. " +
+            "(StartupTimingMetric benchmarks pass on this app; FrameTiming ones don't, and " +
+            "the camera-buffer fix in Camera2JABCodeAnalyzer didn't change that — it's a " +
+            "metric/surface mismatch, not the stall.) End-to-end per-stage latency is " +
+            "covered by JABCodeDecodeBenchmark via TraceSectionMetric; a true frame-rate " +
+            "benchmark here needs a different signal (e.g. analyze-loop throughput)."
     )
     @Test
     fun frameProcessingDuringScan() = benchmarkRule.measureRepeated(
