@@ -22,7 +22,7 @@ extern "C" {
  * @brief Mobile-specific encode parameters
  */
 typedef struct {
-    jab_int32 color_number;      ///< 4, 8, 16, 32, 64, 128 (NOT 256 - broken)
+    jab_int32 color_number;      ///< 2, 4, 8, 16, 32, 64, 128, 256 (all Nc=0..7 modes; 256 fixed in WS-3)
     jab_int32 symbol_number;     ///< Default: 1, Max: 4 (mobile limit)
     jab_int32 ecc_level;         ///< Error correction level 0-7 (default: 3)
     jab_int32 module_size;       ///< Pixels per module (default: 12)

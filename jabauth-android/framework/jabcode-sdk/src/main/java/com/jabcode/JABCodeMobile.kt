@@ -63,7 +63,33 @@ internal class JABCodeMobile {
         timeout: Long,
         outColorNumber: IntArray
     ): ByteArray?
-    
+
+    /**
+     * Encode bytes into a JABCode and return it directly as a Bitmap.
+     *
+     * The exact mirror of [nativeDecodeFromBitmap]: backed by `jabMobileEncode`
+     * in mobile_bridge.c (the image.c-free encode path), the native side copies
+     * the encoder's RGBA buffer straight into a freshly created ARGB_8888 Bitmap.
+     * No native pointer is returned and none must be freed — unlike the
+     * desktop-roundtrip `EncodeResult` path, the native function owns the encode
+     * result's full lifecycle and frees it before returning.
+     *
+     * @param data         Bytes to encode
+     * @param colorNumber  Palette colour count: 2, 4, 8, 16, 32, 64, 128, or 256
+     * @param eccLevel     Error correction level (0–7; encoder default 3)
+     * @param symbolNumber Symbol count (mobile: 1, max 4)
+     * @param moduleSize   Pixels per module in the native bitmap (default 12)
+     * @return the encoded JABCode as an ARGB_8888 Bitmap, or null on failure
+     *         (call [nativeGetLastError] for the reason)
+     */
+    external fun nativeEncodeToBitmap(
+        data: ByteArray,
+        colorNumber: Int,
+        eccLevel: Int,
+        symbolNumber: Int,
+        moduleSize: Int
+    ): Bitmap?
+
     /**
      * Get library version
      */

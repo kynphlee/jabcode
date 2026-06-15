@@ -64,9 +64,11 @@ int test_color_mode(int color_number, const char* message) {
 int main(void) {
     printf("\n=== JABCode Color Mode Tests ===\n\n");
     
-    // Test working color modes (4, 8, 16, 32, 64, 128)
-    // 256-color mode is a known issue (malloc corruption) - tested separately
-    int working_modes[] = {4, 8, 16, 32, 64, 128};
+    // Test working color modes (4, 8, 16, 32, 64, 128, 256).
+    // 256-color was historically broken (malloc corruption), but the WS-3
+    // Nc=7 library work fixed it: it now encodes and round-trips cleanly
+    // (verified under ASAN). Nc=0 / 2-color is covered by the WS-0 tests.
+    int working_modes[] = {4, 8, 16, 32, 64, 128, 256};
     int num_working = sizeof(working_modes) / sizeof(working_modes[0]);
     
     const char* test_message = "Color mode test!";
@@ -84,27 +86,8 @@ int main(void) {
         }
     }
     
-    // Verify 256-color mode fails as expected (known issue)
-    printf("\n   256-color: ");
-    jabMobileClearError();
-    jab_mobile_encode_params params = {
-        .color_number = 256,
-        .symbol_number = 1,
-        .ecc_level = 3,
-        .module_size = 12
-    };
-    jab_mobile_encode_result* enc = jabMobileEncode(
-        (jab_char*)test_message, strlen(test_message), &params);
-    if (enc == NULL) {
-        printf("correctly rejected (known issue)\n");
-    } else {
-        printf("WARNING: 256-color unexpectedly succeeded\n");
-        jabMobileEncodeResultFree(enc);
-    }
-    
     printf("\n=================================\n");
     printf("Results: %d/%d working color modes passed\n", passed, num_working);
-    printf("(256-color mode is a known issue)\n");
     printf("=================================\n\n");
     
     // Pass if all working modes pass
