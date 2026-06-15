@@ -104,6 +104,126 @@ Java_com_jabcode_JABCodeMobile_nativeEncode(
 }
 
 /**
+ * Encode straight to an android.graphics.Bitmap (mobile, image.c-free).
+ *
+ * The exact inverse of nativeDecodeFromBitmap. Runs the mobile encode bridge
+ * (jabMobileEncode — no libpng/libtiff), then copies the result's RGBA buffer
+ * 1:1 into a freshly created ARGB_8888 Bitmap via AndroidBitmap_lockPixels.
+ * Because jab_mobile_encode_result.rgba_buffer is already R,G,B,A byte order
+ * and an ARGB_8888 Bitmap's native format IS ANDROID_BITMAP_FORMAT_RGBA_8888
+ * (also R,G,B,A in memory), no per-pixel channel shuffle is needed and there
+ * is no little-endian packing hazard — we never assemble ARGB ints.
+ *
+ * Unlike the EncodeResult-returning nativeEncode (a desktop-roundtrip API that
+ * hands back a native pointer for nativeDecode), this owns the result's whole
+ * lifecycle: it frees the encode result before returning, so there is no native
+ * memory to reclaim on the Java side.
+ *
+ * Java signature: external fun nativeEncodeToBitmap(
+ *     data: ByteArray, colorNumber: Int, eccLevel: Int,
+ *     symbolNumber: Int, moduleSize: Int): Bitmap?
+ *
+ * @return a new ARGB_8888 Bitmap on success, or NULL on failure
+ *         (check nativeGetLastError).
+ */
+JNIEXPORT jobject JNICALL
+Java_com_jabcode_JABCodeMobile_nativeEncodeToBitmap(
+    JNIEnv *env,
+    jobject thiz,
+    jbyteArray data,
+    jint colorNumber,
+    jint eccLevel,
+    jint symbolNumber,
+    jint moduleSize)
+{
+    (void)thiz;
+
+    jsize length = (*env)->GetArrayLength(env, data);
+    jbyte *dataBytes = (*env)->GetByteArrayElements(env, data, NULL);
+    if (dataBytes == NULL) {
+        LOGE("nativeEncodeToBitmap: failed to get data bytes");
+        return NULL;
+    }
+
+    jab_mobile_encode_params params = {
+        .color_number = colorNumber,
+        .symbol_number = symbolNumber,
+        .ecc_level = eccLevel,
+        .module_size = moduleSize
+    };
+
+    jab_mobile_encode_result *result =
+        jabMobileEncode((jab_char *)dataBytes, length, &params);
+
+    (*env)->ReleaseByteArrayElements(env, data, dataBytes, JNI_ABORT);
+
+    if (result == NULL) {
+        const char *error = jabMobileGetLastError();
+        LOGE("nativeEncodeToBitmap: encode failed: %s", error ? error : "unknown error");
+        return NULL;
+    }
+
+    // Create an ARGB_8888 Bitmap (native format RGBA_8888) sized to the encode.
+    jclass bitmapClass = (*env)->FindClass(env, "android/graphics/Bitmap");
+    jclass configClass = (*env)->FindClass(env, "android/graphics/Bitmap$Config");
+    if (bitmapClass == NULL || configClass == NULL) {
+        LOGE("nativeEncodeToBitmap: Bitmap/Config class not found");
+        jabMobileEncodeResultFree(result);
+        return NULL;
+    }
+
+    jmethodID createBitmap = (*env)->GetStaticMethodID(
+        env, bitmapClass, "createBitmap",
+        "(IILandroid/graphics/Bitmap$Config;)Landroid/graphics/Bitmap;");
+    jfieldID argb8888Field = (*env)->GetStaticFieldID(
+        env, configClass, "ARGB_8888", "Landroid/graphics/Bitmap$Config;");
+    if (createBitmap == NULL || argb8888Field == NULL) {
+        LOGE("nativeEncodeToBitmap: createBitmap/ARGB_8888 lookup failed");
+        jabMobileEncodeResultFree(result);
+        return NULL;
+    }
+
+    jobject argb8888 = (*env)->GetStaticObjectField(env, configClass, argb8888Field);
+    jobject bitmap = (*env)->CallStaticObjectMethod(
+        env, bitmapClass, createBitmap, result->width, result->height, argb8888);
+    if (bitmap == NULL) {
+        LOGE("nativeEncodeToBitmap: Bitmap.createBitmap returned null");
+        jabMobileEncodeResultFree(result);
+        return NULL;
+    }
+
+    // Copy RGBA bytes into the locked Bitmap buffer, row by row so any
+    // allocator-added row padding (info.stride > width*4) is honored.
+    AndroidBitmapInfo info;
+    void *pixels;
+    int ret;
+    if ((ret = AndroidBitmap_getInfo(env, bitmap, &info)) < 0) {
+        LOGE("nativeEncodeToBitmap: AndroidBitmap_getInfo failed, error=%d", ret);
+        jabMobileEncodeResultFree(result);
+        return NULL;
+    }
+    if ((ret = AndroidBitmap_lockPixels(env, bitmap, &pixels)) < 0) {
+        LOGE("nativeEncodeToBitmap: AndroidBitmap_lockPixels failed, error=%d", ret);
+        jabMobileEncodeResultFree(result);
+        return NULL;
+    }
+
+    const size_t row_bytes = (size_t)result->width * 4;
+    const jab_byte *src = result->rgba_buffer;
+    jab_byte *dst = (jab_byte *)pixels;
+    for (jint y = 0; y < result->height; y++) {
+        memcpy(dst + (size_t)y * info.stride, src + (size_t)y * row_bytes, row_bytes);
+    }
+
+    AndroidBitmap_unlockPixels(env, bitmap);
+
+    LOGI("nativeEncodeToBitmap: encoded %dx%d bitmap", result->width, result->height);
+
+    jabMobileEncodeResultFree(result);
+    return bitmap;
+}
+
+/**
  * Native decode implementation
  * 
  * Java signature: private static native byte[] nativeDecode(long encodeResultPtr, int colorNumber, int eccLevel);
