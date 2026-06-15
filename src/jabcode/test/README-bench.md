@@ -63,6 +63,29 @@ The LDPC cache shows here: decode rises ~3.7× across the *whole* 2→256 range
 (8→16 is ~2.4×) instead of the ~10× cliff seen without the cache; encode is flat.
 These track the server JMH (decode 8c≈2.7 ms, 16c≈6 ms), validating the harness.
 
+## On-device baseline (arm64, Galaxy S25 Ultra, cache build, warmup 10 / iters 50)
+
+| Nc (colours) | encode median (ms) | decode median (ms) |
+|---|---|---|
+| 2   | 0.45 | 2.13 |
+| 4   | 0.24 | 2.52 |
+| 8   | 0.36 | 2.58 |
+| 16  | 0.41 | 6.79 |
+| 32  | 0.45 | 7.58 |
+| 64  | 0.40 | 6.25 |
+| 128 | 0.45 | 7.39 |
+| 256 | 0.49 | 8.73 |
+
+Same shape as host — the cache flattens the cliff (8→16 ≈ 2.6×) — and ~1.2–1.3×
+slower than the x86 desktop, as expected for a mobile SoC.
+
+**The decisive cross-check:** the *isolated* codec decodes in **2–9 ms** on-device,
+yet the *camera-path* decode (diagnostic-app traces) is **45–449 ms**. So the
+camera/detection pipeline — finding, perspective-correcting, sampling and
+classifying a noisy frame — is **~95–98% of on-device decode**, and the cached
+codec is only a ~3% slice. The LDPC cache is an isolated-codec / server win; the
+on-device lever for high-Nc latency is the **capture pipeline**, not the ECC math.
+
 ## Criteria (parity with server rigor)
 
 - sub-ms timing (`clock_gettime(CLOCK_MONOTONIC)`), warmup + N measurement iters, p95 + stddev
