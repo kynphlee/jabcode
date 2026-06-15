@@ -156,7 +156,16 @@ class Camera2JABCodeAnalyzer(
                 Log.e(TAG, "Frame $frameCount: Bitmap conversion failed")
                 return
             }
-            
+
+            // Release the camera buffer NOW. imageToBitmap() above produced a fully
+            // independent copy, so the Image is no longer needed; nothing below reads
+            // it. Holding it across the long (45-449ms) decode blocks the ImageReader's
+            // callback thread and exhausts its 4-slot buffer pool, stalling the camera
+            // (the root cause that @Ignore'd the Suite C macrobenchmarks). Closing here
+            // keeps the pool drained so acquireLatestImage()'s drop-stale logic works.
+            image?.close()
+            image = null
+
             Log.d(TAG, "Frame $frameCount: Bitmap created ${bitmap.width}x${bitmap.height} (${bitmapTime}ms)")
             
             // Pixel validation (Priority 2 diagnostic)
