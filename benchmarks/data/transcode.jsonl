@@ -1,0 +1,49 @@
+{"transform": "JPEG q75", "colors": 4, "survival": 1.0, "control": 1}
+{"transform": "JPEG q50", "colors": 4, "survival": 1.0, "control": 1}
+{"transform": "JPEG q30", "colors": 4, "survival": 1.0, "control": 1}
+{"transform": "downscale 0.5", "colors": 4, "survival": 1.0, "control": 1}
+{"transform": "downscale 0.3", "colors": 4, "survival": 0.0, "control": 1}
+{"transform": "chroma 4:2:0", "colors": 4, "survival": 1.0, "control": 1}
+{"transform": "JPEG30 + ds0.5", "colors": 4, "survival": 1.0, "control": 1}
+{"transform": "JPEG q75", "colors": 8, "survival": 1.0, "control": 1}
+{"transform": "JPEG q50", "colors": 8, "survival": 1.0, "control": 1}
+{"transform": "JPEG q30", "colors": 8, "survival": 1.0, "control": 1}
+{"transform": "downscale 0.5", "colors": 8, "survival": 1.0, "control": 1}
+{"transform": "downscale 0.3", "colors": 8, "survival": 1.0, "control": 1}
+{"transform": "chroma 4:2:0", "colors": 8, "survival": 1.0, "control": 1}
+{"transform": "JPEG30 + ds0.5", "colors": 8, "survival": 1.0, "control": 1}
+{"transform": "JPEG q75", "colors": 16, "survival": 1.0, "control": 1}
+{"transform": "JPEG q50", "colors": 16, "survival": 1.0, "control": 1}
+{"transform": "JPEG q30", "colors": 16, "survival": 1.0, "control": 1}
+{"transform": "downscale 0.5", "colors": 16, "survival": 1.0, "control": 1}
+{"transform": "downscale 0.3", "colors": 16, "survival": 1.0, "control": 1}
+{"transform": "chroma 4:2:0", "colors": 16, "survival": 1.0, "control": 1}
+{"transform": "JPEG30 + ds0.5", "colors": 16, "survival": 1.0, "control": 1}
+{"transform": "JPEG q75", "colors": 32, "survival": 1.0, "control": 1}
+{"transform": "JPEG q50", "colors": 32, "survival": 1.0, "control": 1}
+{"transform": "JPEG q30", "colors": 32, "survival": 1.0, "control": 1}
+{"transform": "downscale 0.5", "colors": 32, "survival": 1.0, "control": 1}
+{"transform": "downscale 0.3", "colors": 32, "survival": 1.0, "control": 1}
+{"transform": "chroma 4:2:0", "colors": 32, "survival": 1.0, "control": 1}
+{"transform": "JPEG30 + ds0.5", "colors": 32, "survival": 1.0, "control": 1}
+{"transform": "JPEG q75", "colors": 64, "survival": 1.0, "control": 1}
+{"transform": "JPEG q50", "colors": 64, "survival": 1.0, "control": 1}
+{"transform": "JPEG q30", "colors": 64, "survival": 1.0, "control": 1}
+{"transform": "downscale 0.5", "colors": 64, "survival": 1.0, "control": 1}
+{"transform": "downscale 0.3", "colors": 64, "survival": 1.0, "control": 1}
+{"transform": "chroma 4:2:0", "colors": 64, "survival": 1.0, "control": 1}
+{"transform": "JPEG30 + ds0.5", "colors": 64, "survival": 1.0, "control": 1}
+{"transform": "JPEG q75", "colors": 128, "survival": 1.0, "control": 1}
+{"transform": "JPEG q50", "colors": 128, "survival": 1.0, "control": 1}
+{"transform": "JPEG q30", "colors": 128, "survival": 1.0, "control": 1}
+{"transform": "downscale 0.5", "colors": 128, "survival": 1.0, "control": 1}
+{"transform": "downscale 0.3", "colors": 128, "survival": 1.0, "control": 1}
+{"transform": "chroma 4:2:0", "colors": 128, "survival": 1.0, "control": 1}
+{"transform": "JPEG30 + ds0.5", "colors": 128, "survival": 1.0, "control": 1}
+{"transform": "JPEG q75", "colors": 256, "survival": 1.0, "control": 1}
+{"transform": "JPEG q50", "colors": 256, "survival": 1.0, "control": 1}
+{"transform": "JPEG q30", "colors": 256, "survival": 0.0, "control": 1}
+{"transform": "downscale 0.5", "colors": 256, "survival": 1.0, "control": 1}
+{"transform": "downscale 0.3", "colors": 256, "survival": 1.0, "control": 1}
+{"transform": "chroma 4:2:0", "colors": 256, "survival": 1.0, "control": 1}
+{"transform": "JPEG30 + ds0.5", "colors": 256, "survival": 0.0, "control": 1}
