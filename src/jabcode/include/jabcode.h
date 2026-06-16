@@ -270,6 +270,20 @@ extern jab_boolean jabIsPermissiveColorClassification(void);
 extern void jabSetPreferredColorCount(jab_int32 count);
 extern jab_int32 jabGetPreferredColorCount(void);
 
+/* Opt-in per-stage decode profiling. When enabled, decodeJABCode accumulates
+ * CLOCK_MONOTONIC microseconds into a process-global per-stage struct so decode
+ * latency can be attributed to the major pipeline stages (DETECT, PALETTE,
+ * COLOR_CLASSIFY, DEINTERLEAVE, LDPC, DATA_DECODE) across colour modes. Default
+ * OFF — when disabled the timing call sites short-circuit on a single global
+ * read, so decode behaviour and timing are unchanged. The accumulator type
+ * (jab_decode_profile) and stage enum (jab_decode_stage) live in
+ * decode_profile.h; include it to read the struct fields. Mirrors the
+ * jabSetDiagVerbose / jabGetPreferredColorCount process-global idiom. */
+extern void jabSetProfileStages(jab_boolean profile);
+extern jab_boolean jabIsProfileStages(void);
+extern const struct jab_decode_profile* jabGetDecodeProfile(void);
+extern void jabResetDecodeProfile(void);
+
 extern jab_boolean saveImage(jab_bitmap* bitmap, jab_char* filename);
 extern jab_boolean saveImageCMYK(jab_bitmap* bitmap, jab_boolean isCMYK, jab_char* filename);
 extern jab_bitmap* readImage(jab_char* filename);

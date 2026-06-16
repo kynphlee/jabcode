@@ -19,6 +19,7 @@
 #include "detector.h"
 #include "decoder.h"
 #include "encoder.h"
+#include "decode_profile.h"
 
 /* WS-5 round-4 failure-attribution diagnostic (Bayesian Council convened
  * 2026-05-24). Emits one log line per decodeJABCodeEx call indicating which
@@ -3727,7 +3728,10 @@ jab_boolean detectMaster(jab_bitmap* bitmap, jab_bitmap* ch[], jab_decoded_symbo
     //find master symbol
     jab_finder_pattern* fps;
     jab_int32 status;
+    /* DETECT stage (part 2/3): finder-pattern search (pass 1, default binarizer). */
+    JAB_PROF_BEGIN(detect_find1);
     fps = findMasterSymbol(bitmap, ch, INTENSIVE_DETECT, &status);
+    JAB_PROF_END(detect_find1, JAB_STAGE_DETECT);
     if(status == FATAL_ERROR) return JAB_FAILURE;
     else if(status == JAB_FAILURE)
     {
@@ -3746,12 +3750,18 @@ jab_boolean detectMaster(jab_bitmap* bitmap, jab_bitmap* ch[], jab_decoded_symbo
         free(fps);
         //binarize the bitmap using the average pixel values as thresholds
         for(jab_int32 i=0; i<3; free(ch[i++]));
-        if(!binarizerRGB(bitmap, ch, rgb_ave))
+        /* DETECT stage (part 3/3): adaptive re-binarize + finder-pattern search
+         * (pass 2), reached only when pass 1 finds no usable pattern. */
+        JAB_PROF_BEGIN(detect_find2);
+        jab_boolean binarize2_ok = binarizerRGB(bitmap, ch, rgb_ave);
+        if(!binarize2_ok)
         {
+            JAB_PROF_END(detect_find2, JAB_STAGE_DETECT);
             return JAB_FAILURE;
         }
         //find master symbol
         fps = findMasterSymbol(bitmap, ch, INTENSIVE_DETECT, &status);
+        JAB_PROF_END(detect_find2, JAB_STAGE_DETECT);
         if(status == JAB_FAILURE || status == FATAL_ERROR)
         {
 #if JABCODE_DIAG
@@ -4027,10 +4037,22 @@ jab_data* decodeJABCodeEx(jab_bitmap* bitmap, jab_int32 mode, jab_int32* status,
 		return NULL;
 	}
 
-	//binarize r, g, b channels
+	/* Count this decode call so per-stage totals can be averaged per decode.
+	 * Counted up front (not on the success path) so the denominator matches the
+	 * number of decodeJABCode invocations across a profiled window, including
+	 * any that fail mid-pipeline. No-op when profiling is OFF. */
+	if(g_profile_stages) g_decode_profile.decode_count++;
+
+	/* DETECT stage (part 1/3): RGB channel balance + binarization. The finder-
+	 * pattern search inside detectMaster is timed separately (also DETECT), and
+	 * the symbol-decode stages it triggers are timed at their own call sites, so
+	 * the per-stage totals stay additive with no double counting. */
 	jab_bitmap* ch[3];
+	JAB_PROF_BEGIN(detect_binarize);
 	balanceRGB(bitmap);
-    if(!binarizerRGB(bitmap, ch, 0))
+    jab_boolean binarize_ok = binarizerRGB(bitmap, ch, 0);
+	JAB_PROF_END(detect_binarize, JAB_STAGE_DETECT);
+    if(!binarize_ok)
 	{
 		return NULL;
 	}
@@ -4125,7 +4147,11 @@ jab_data* decodeJABCodeEx(jab_bitmap* bitmap, jab_int32 mode, jab_int32* status,
     }
     decoded_bits->length = total_data_length;
     //decode data
+    /* DATA_DECODE stage: final byte/encode-mode decode of the concatenated
+     * symbol payloads (decodeData). */
+    JAB_PROF_BEGIN(data_decode);
     jab_data* decoded_data = decodeData(decoded_bits);
+    JAB_PROF_END(data_decode, JAB_STAGE_DATA_DECODE);
     if(decoded_data == NULL)
 	{
 		reportError("Decoding data failed");

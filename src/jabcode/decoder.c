@@ -21,6 +21,7 @@
 #include "ldpc.h"
 #include "encoder.h"
 #include "symbology_id.h"
+#include "decode_profile.h"
 
 /* WS-5 round-6: caller-strict mode flag for decodeMaster's PartII fall-through.
  *
@@ -1604,6 +1605,10 @@ jab_data* readRawModuleData(jab_bitmap* matrix, jab_decoded_symbol* symbol, jab_
 	jab_byte decoded_module_color_index[matrix->height * matrix->width];
 #endif
 
+	/* COLOR_CLASSIFY stage: per-module colour classification (decodeModuleHD)
+	 * over every data module of the symbol. This is the loop whose cost scales
+	 * with the colour palette size, so it is the prime suspect at high Nc. */
+	JAB_PROF_BEGIN(color_classify);
 	for(jab_int32 j=0; j<matrix->width; j++)
 	{
 		for(jab_int32 i=0; i<matrix->height; i++)
@@ -1627,6 +1632,7 @@ jab_data* readRawModuleData(jab_bitmap* matrix, jab_decoded_symbol* symbol, jab_
 			}
 		}
 	}
+	JAB_PROF_END(color_classify, JAB_STAGE_COLOR_CLASSIFY);
 	data->length = module_count;
 
 #if TEST_MODE
@@ -1907,7 +1913,9 @@ jab_int32 decodeSymbol(jab_bitmap* matrix, jab_decoded_symbol* symbol, jab_byte*
 
 	//deinterleave data
 	raw_data->length = Pg;	//drop the padding bits
+	JAB_PROF_BEGIN(deinterleave);
     deinterleaveData(raw_data);
+	JAB_PROF_END(deinterleave, JAB_STAGE_DEINTERLEAVE);
 
 #if TEST_MODE
 	JAB_REPORT_INFO(("wc:%d, wr:%d, Pg:%d, Pn: %d", wc, wr, Pg, Pn))
@@ -1917,7 +1925,10 @@ jab_int32 decodeSymbol(jab_bitmap* matrix, jab_decoded_symbol* symbol, jab_byte*
 #endif // TEST_MODE
 
 	//decode ldpc
-    if(decodeLDPChd((jab_byte*)raw_data->data, Pg, symbol->metadata.ecl.x, symbol->metadata.ecl.y) != Pn)
+	JAB_PROF_BEGIN(ldpc_data);
+	jab_int32 ldpc_decoded = decodeLDPChd((jab_byte*)raw_data->data, Pg, symbol->metadata.ecl.x, symbol->metadata.ecl.y);
+	JAB_PROF_END(ldpc_data, JAB_STAGE_LDPC);
+    if(ldpc_decoded != Pn)
     {
 		/* WS-2 Step 2.2: symbol decode failed in LDPC stage. */
 		JAB_REPORT_INFO(("DIAG_SYMBOL_DECODE result=ldpc_fail Nc=%d Pg=%d Pn=%d",
@@ -2120,7 +2131,10 @@ jab_int32 decodeMaster(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 		}
 
 		//read color palettes
-		if(readColorPaletteInMaster(matrix, symbol, data_map, &module_count, &x, &y) < 0)
+		JAB_PROF_BEGIN(palette_master);
+		jab_int32 palette_master_rc = readColorPaletteInMaster(matrix, symbol, data_map, &module_count, &x, &y);
+		JAB_PROF_END(palette_master, JAB_STAGE_PALETTE);
+		if(palette_master_rc < 0)
 		{
 			continue;
 		}
@@ -2327,7 +2341,10 @@ jab_int32 decodeSlave(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 	}
 
 	//read color palettes
-	if(readColorPaletteInSlave(matrix, symbol, data_map) < 0)
+	JAB_PROF_BEGIN(palette_slave);
+	jab_int32 palette_slave_rc = readColorPaletteInSlave(matrix, symbol, data_map);
+	JAB_PROF_END(palette_slave, JAB_STAGE_PALETTE);
+	if(palette_slave_rc < 0)
 	{
 		reportError("Reading color palettes in slave symbol failed");
 		free(data_map);
