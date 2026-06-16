@@ -20,6 +20,7 @@
 #include "decoder.h"
 #include "ldpc.h"
 #include "encoder.h"
+#include "symbology_id.h"
 
 /* WS-5 round-6: caller-strict mode flag for decodeMaster's PartII fall-through.
  *
@@ -161,6 +162,16 @@ void jabSetPreferredColorCount(jab_int32 count)
 jab_int32 jabGetPreferredColorCount(void)
 {
 	return g_preferred_color_count;
+}
+
+/* ISO/IEC 23634 Annex H symbology identifier of the most recent successful
+ * decode (set in decodeData). Process-global, matching the
+ * g_preferred_color_count idiom above. "" until the first successful decode. */
+jab_char g_symbology_identifier[4] = "";
+
+jab_char* jabGetSymbologyIdentifier(void)
+{
+	return g_symbology_identifier;
 }
 
 jab_boolean jabIsDiagVerbose(void)
@@ -2411,6 +2422,13 @@ jab_data* decodeData(jab_data* bits)
 
 	jab_encode_mode mode = Upper;
 	jab_encode_mode pre_mode = None;
+
+	/* ISO/IEC 23634 Annex H symbology identifier state. Reset per decode and
+	 * populated on success below; ECI/FNC1 are not yet decoded (see their cases)
+	 * so these stay at defaults -> modifier 0 -> "]j0". */
+	g_symbology_identifier[0] = '\0';
+	jab_boolean eci_used = 0;
+	jab_int32   fnc1_mode = JAB_FNC1_NONE;
 	jab_int32 index = 0;	//index of input bits
 	jab_int32 count = 0;	//index of decoded bytes
 
@@ -2754,11 +2772,13 @@ jab_data* decodeData(jab_data* bits)
 				break;
 			}
 			case ECI:
-				//TODO: not implemented
+				//TODO: not implemented. When implemented, set eci_used = 1 here so the
+				//Annex H symbology-identifier modifier becomes 1/4/5 (Table H.1).
 				index += bits->length;
 				break;
 			case FNC1:
-				//TODO: not implemented
+				//TODO: not implemented. When implemented, set fnc1_mode to
+				//JAB_FNC1_PRECEDING/FOLLOWING (7.2) so the modifier becomes 2/3/4/5.
 				index += bits->length;
 				break;
 			case None:
@@ -2779,6 +2799,13 @@ jab_data* decodeData(jab_data* bits)
     memcpy(decoded_data->data, decoded_bytes, count);
 
 	free(decoded_bytes);
+
+	/* Decode succeeded: publish the Annex H symbology identifier for the host
+	 * (queryable via jabGetSymbologyIdentifier). The jab_data payload is left
+	 * untouched -- per ISO/IEC 23634 7.4 the identifier is a transmission-layer
+	 * preamble the host prepends, never part of the decoded message, so payload
+	 * hashing/verification is unaffected. */
+	jab_format_symbology_identifier(eci_used, fnc1_mode, g_symbology_identifier);
 	return decoded_data;
 }
 
