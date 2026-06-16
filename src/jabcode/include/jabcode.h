@@ -220,6 +220,15 @@ extern jab_int32 generateJABCode(jab_encode* enc, jab_data* data);
 extern jab_data* decodeJABCode(jab_bitmap* bitmap, jab_int32 mode, jab_int32* status);
 extern jab_data* decodeJABCodeEx(jab_bitmap* bitmap, jab_int32 mode, jab_int32* status, jab_decoded_symbol* symbols, jab_int32 max_symbol_number);
 extern jab_data* decodeJABCodeSynthetic(jab_bitmap* bitmap, jab_int32 color_number, jab_int32 ecc_level, jab_int32 module_size, jab_int32 symbol_width, jab_int32 symbol_height, jab_int32 mask_type, jab_byte* encoder_data_map, jab_int32* encoder_wcwr, jab_int32 encoder_Pg, jab_int32 mode, jab_int32* status);
+
+/* ISO/IEC 23634:2022 Annex H (normative) symbology identifier.
+ * Returns the identifier of the most recent successful decode -- "]jm" where m is
+ * the Table H.1 modifier (currently always "]j0"; ECI/FNC1 are not yet decoded).
+ * Returns an empty string if the last decode produced no data. The identifier is
+ * metadata ABOUT the decode: per 7.4 it is a transmission preamble the host may
+ * prepend -- the decoded jab_data payload is left unmodified so payload
+ * hashing/verification is unaffected. */
+extern jab_char* jabGetSymbologyIdentifier(void);
 /* WS-6 Option F ABI-compat stub: kept for Panama JAR symbol-lookup compatibility
  * with the panama-poc fork (which uses this for thread-local observation-context
  * cleanup). On swift-java-poc no such context exists, so this is a documented
