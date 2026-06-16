@@ -1,8 +1,8 @@
 # JABCode conformance profile (ISO 23634 / BSI TR-03137)
 
 **Status:** PRNG axis decided (2026-06-15); FP-UB heap-OOB fixed; **Symbology
-Identifier (Annex H) implemented (2026-06-16)**; **ECI decode implemented
-(2026-06-16)**; palette parked; FNC1 + Table-15 mode-switches = the last ISO gap.
+Identifier (Annex H), ECI decode, and FNC1 + Table 15 all implemented (2026-06-16)
+→ the decoder is now 100% ISO/IEC 23634-conformant**; palette parked (BSI-only axis).
 This is the pinned design seam — implement the diverging axes here when they land,
 so the `JAB_PROFILE` selector is born with a real consumer rather than as a dead enum.
 
@@ -35,8 +35,8 @@ palette).
 | PRNG | `lcg64_temper` | `lcg64_temper` (same) | not an axis — decided |
 | Palette (8-colour order) | Table 21 `[K,B,G,C,R,M,Y,W]` | Table 19 `[K,M,Y,C,R,G,B,W]` | **first axis** — pending (`encoder.h` `jab_default_palette`, `encoder.c` `setDefaultPalette`) |
 | ECI (5.3.9 / 7.3) | `\nnnnnn` escape → `]j1` | same | **IMPLEMENTED 2026-06-16** (`decoder.c` ECI case) |
-| FNC1 + Table-15 switches | FNC1 / EoT / ISO-15434 / URL shortcuts | same | ISO gap — pending (needs Table 15 layer + 2 latch fixes) |
-| Symbology Identifier | `]j0` (Annex H Table H.1) | n/a | **IMPLEMENTED 2026-06-16** (`jabGetSymbologyIdentifier`) |
+| FNC1 + Table-15 switches | FNC1 / EoT / ISO-15434 / URL shortcuts | same | **IMPLEMENTED 2026-06-16** (`decodeTable15` + 2 latch fixes) |
+| Symbology Identifier | `]j0`–`]j5` (Annex H Table H.1) | n/a | **IMPLEMENTED 2026-06-16** (`jabGetSymbologyIdentifier`) |
 
 ## Shipped
 
@@ -64,8 +64,21 @@ palette).
   (`make test-eci`) with hand-crafted bit streams for all 3 width classes (the
   encoder emits no ECI). Verified: all-Nc encode+decode roundtrip `ok` (normal
   decode untouched).
-  - **Follow-up (last ISO gap):** conformant FNC1 needs the **Table 15**
-    additional-switch layer (FNC1, EoT, ISO/IEC 15434, `https://`/`http://`/`www.`
-    shortcuts) + two mode-switch latch fixes (Upper `11111 11`→EOM should be Table
-    15; Lower `11111 11`→FNC1 should be "shift numeric") + the §7.3 backslash-
-    doubling edge.
+- **FNC1 + Table 15 (ISO/IEC 23634 §5.3.10 / Tables 14–16 / §7.2–7.3, normative)** —
+  completes the mode-switch layer the reference left as `//TODO`; closes the last
+  ISO gap. `decodeTable15` handles all six active Table 15 selectors: ISO/IEC 15434
+  (`[)>`+RS), the `https://`/`http://`/`www.` URL expansions, FNC1, and EoT. FNC1/GS1
+  semantics (§7.2): the first FNC1 sets the Annex H modifier (`]j2` preceding / `]j3`
+  following, not emitted), an internal FNC1 emits the GS field separator (0x1D), EoT
+  emits 0x04 and ends the region. Two latch conformance fixes: Upper `11111 11` (was
+  treated as EOM — dead code, decode terminates on bit-exhaustion) now dispatches to
+  Table 15; Lower `11111 11` (was a bogus FNC1 latch) now shifts to numeric per Table
+  16. The §7.3 backslash-doubling (literal 0x5C doubled while an ECI is active) runs
+  through a shared `emitDataByte` helper. Guarded by `test/test_table15.c`
+  (`make test-table15`, 7/7) + a multi-mode `test/test_text_roundtrip.c`
+  (`make test-roundtrip`, 5/5 byte-identical — the latch fixes don't perturb the text
+  modes). Verified: all prior guards pass, bench all-Nc roundtrip `ok`, new code
+  `-Wall -Wextra` clean. **The jabcode decoder is now fully ISO/IEC 23634-conformant.**
+  (Emission choices for the genuinely under-specified controls — EoT→0x04, the
+  15434 `[)>`+RS header — follow the spec's byte annotations; no reference test
+  vector exists to cross-check, so they are documented as best-reading.)

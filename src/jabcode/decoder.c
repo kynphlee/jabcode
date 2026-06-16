@@ -2406,6 +2406,63 @@ jab_int32 readData(jab_data* data, jab_int32 start, jab_int32 length, jab_int32*
 	return (i - start);
 }
 
+/* ISO/IEC 23634 7.3: emit one decoded data byte, doubling a literal backslash
+ * (0x5C) while an ECI is active so the host can distinguish it from the
+ * "\nnnnnn" ECI escape. Only the Punct/Mixed/Byte decode paths can emit 0x5C
+ * (Table 13), so this is applied there. */
+static void emitDataByte(jab_byte* buf, jab_int32* count, jab_byte b, jab_boolean eci_active)
+{
+	buf[(*count)++] = b;
+	if(eci_active && b == 0x5C)
+		buf[(*count)++] = b;
+}
+
+/* ISO/IEC 23634 Table 15 (additional switches in uppercase mode): the encoder
+ * has emitted Upper "11111 11"; read the 3 selector bits at `index` and apply
+ * the switch -- URL expansions, the ISO/IEC 15434 header, or the FNC1/EoT GS1
+ * controls. Emits literal/expansion bytes into buf and updates the FNC1 region
+ * state. Returns the number of selector bits consumed (3), or -1 if the stream
+ * is exhausted. */
+static jab_int32 decodeTable15(jab_data* bits, jab_int32 index, jab_byte* buf,
+                               jab_int32* count, jab_int32* fnc1_mode, jab_boolean* fnc1_active)
+{
+	jab_int32 sel = 0;
+	if(readData(bits, index, 3, &sel) < 3)
+		return -1;
+	switch(sel)
+	{
+		case 0:	//ISO/IEC 15434 structured data: emit "[)>" + RS (0x1E); data runs until EoT
+			buf[(*count)++] = '[';
+			buf[(*count)++] = ')';
+			buf[(*count)++] = '>';
+			buf[(*count)++] = (jab_byte)0x1E;
+			break;
+		case 1:	{ const char* s = "https://"; while(*s) buf[(*count)++] = (jab_byte)*s++; break; }
+		case 2:	{ const char* s = "http://";  while(*s) buf[(*count)++] = (jab_byte)*s++; break; }
+		case 3:	{ const char* s = "www.";     while(*s) buf[(*count)++] = (jab_byte)*s++; break; }
+		case 4:	//FNC1
+			if(*fnc1_mode == JAB_FNC1_NONE && !*fnc1_active)
+			{
+				//7.2: the first FNC1 signals the format and is NOT emitted; its
+				//presence is reported via the Annex H modifier. count==0 => it
+				//precedes the first message char (GS1, modifier 2); otherwise it
+				//follows an initial letter/digit-pair (industry, modifier 3).
+				*fnc1_mode = (*count == 0) ? JAB_FNC1_PRECEDING : JAB_FNC1_FOLLOWING;
+				*fnc1_active = 1;
+			}
+			else
+				buf[(*count)++] = (jab_byte)0x1D;	//FNC1 within the region = field separator (GS)
+			break;
+		case 5:	//EoT: ends an FNC1 / ISO 15434 region (5.3.10)
+			buf[(*count)++] = (jab_byte)0x04;
+			*fnc1_active = 0;
+			break;
+		default:	//6, 7 reserved -- forward-compatible no-op
+			break;
+	}
+	return 3;
+}
+
 /**
  * @brief Interpret decoded bits
  * @param bits the input bits
@@ -2428,7 +2485,9 @@ jab_data* decodeData(jab_data* bits)
 	 * so these stay at defaults -> modifier 0 -> "]j0". */
 	g_symbology_identifier[0] = '\0';
 	jab_boolean eci_used = 0;
+	jab_boolean eci_active = 0;		//7.3: double literal backslashes once an ECI is seen
 	jab_int32   fnc1_mode = JAB_FNC1_NONE;
+	jab_boolean fnc1_active = 0;		//inside an FNC1 region (internal FNC1 = field separator)
 	jab_int32 index = 0;	//index of input bits
 	jab_int32 count = 0;	//index of decoded bytes
 
@@ -2504,8 +2563,13 @@ jab_data* decodeData(jab_data* bits)
 									pre_mode = None;
 									break;
 								case 3:
-									flag = 1;		//end of message (EOM)
+								{
+									//ISO/IEC 23634 Table 14: "11" escapes to Table 15 (additional switches)
+									jab_int32 t15 = decodeTable15(bits, index, decoded_bytes, &count, &fnc1_mode, &fnc1_active);
+									if(t15 < 0) { flag = 1; break; }
+									index += t15;
 									break;
+								}
 							}
 							break;
 						default:
@@ -2567,8 +2631,9 @@ jab_data* decodeData(jab_data* bits)
 									pre_mode = None;
 									break;
 								case 3:
-									mode = FNC1;
-									pre_mode = None;
+									//Table 16: Lower "11111 11" = shift to numeric (NOT FNC1). Conformance fix.
+									mode = Numeric;
+									pre_mode = Lower;
 									break;
 							}
 							break;
@@ -2638,7 +2703,7 @@ jab_data* decodeData(jab_data* bits)
 			case Punct:
 				if(value >=0 && value <= 15)
 				{
-					decoded_bytes[count++] = jab_decoding_table_punct[value];
+					emitDataByte(decoded_bytes, &count, jab_decoding_table_punct[value], eci_active);
 					mode = pre_mode;
 				}
 				else
@@ -2673,7 +2738,7 @@ jab_data* decodeData(jab_data* bits)
 					}
 					else
 					{
-						decoded_bytes[count++] = jab_decoding_table_mixed[value];
+						emitDataByte(decoded_bytes, &count, jab_decoding_table_mixed[value], eci_active);
 					}
 					mode = pre_mode;
 				}
@@ -2768,7 +2833,7 @@ jab_data* decodeData(jab_data* bits)
 					}
 					//update index
 					index += 8;
-					decoded_bytes[count++] = (jab_byte)value;
+					emitDataByte(decoded_bytes, &count, (jab_byte)value, eci_active);
 				}
 				mode = pre_mode;
 				break;
@@ -2819,6 +2884,7 @@ jab_data* decodeData(jab_data* bits)
 				}
 				count += 6;
 				eci_used = 1;					//Annex H Table H.1 modifier -> 1 ("]j1")
+				eci_active = 1;					//7.3: double literal backslashes hereafter
 				mode = Upper;					//return to the invoking mode (5.3.9)
 				break;
 			}
