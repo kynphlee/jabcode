@@ -11,7 +11,7 @@ SHARED_LIB := $(CORE_DIR)/libjabcode.so
 SOURCES := $(wildcard *.c)
 OBJECTS := $(SOURCES:.c=.o)
 
-.PHONY: all clean bench test-pn test-symid
+.PHONY: all clean bench test-pn test-symid test-eci
 
 all: $(STATIC_LIB) $(SHARED_LIB)
 
@@ -29,7 +29,7 @@ $(SHARED_LIB): $(CORE_DIR) $(OBJECTS)
 	$(CC) -c -I. -I./include $(CFLAGS) $< -o $@
 
 clean:
-	rm -f $(STATIC_LIB) $(SHARED_LIB) $(OBJECTS) $(CORE_DIR)/bench_codec $(CORE_DIR)/test_pn_index $(CORE_DIR)/test_symbology_id
+	rm -f $(STATIC_LIB) $(SHARED_LIB) $(OBJECTS) $(CORE_DIR)/bench_codec $(CORE_DIR)/test_pn_index $(CORE_DIR)/test_symbology_id $(CORE_DIR)/test_eci
 
 # Suite A: native codec microbenchmark -- encode+decode timing across Nc 0..7.
 # Statically links libjabcode for a self-contained binary (adb-pushable).
@@ -49,3 +49,11 @@ test-pn: $(CORE_DIR)
 test-symid: $(CORE_DIR)
 	$(CC) -O2 -std=c11 -I. test/test_symbology_id.c -o $(CORE_DIR)/test_symbology_id
 	$(CORE_DIR)/test_symbology_id
+
+# Bit-level regression guard for ECI decoding (ISO/IEC 23634 5.3.9 / 7.3). The
+# encoder emits no ECI, so we feed decodeData hand-crafted bit streams and assert
+# the "\nnnnnn" transmission output + the Annex H "]j1" modifier. Links libjabcode
+# for decodeData / jabGetSymbologyIdentifier.
+test-eci: $(STATIC_LIB)
+	$(CC) -O2 -std=c11 -I. -I./include test/test_eci.c $(STATIC_LIB) -lpng16 -ltiff -lz -lm -o $(CORE_DIR)/test_eci
+	$(CORE_DIR)/test_eci

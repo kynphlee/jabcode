@@ -2438,7 +2438,9 @@ jab_data* decodeData(jab_data* bits)
 		jab_boolean flag = 0;
 		jab_int32 value = 0;
         jab_int32 n;
-        if(mode != Byte)
+        /* ECI/FNC1 modes read their own bits inside their case blocks; skip the
+         * generic character_size[] read, which has no entry for them (-> OOB). */
+        if(mode != Byte && mode != ECI && mode != FNC1)
         {
             n = readData(bits, index, character_size[mode], &value);
             if(n < character_size[mode])	//did not read enough bits
@@ -2772,10 +2774,54 @@ jab_data* decodeData(jab_data* bits)
 				break;
 			}
 			case ECI:
-				//TODO: not implemented. When implemented, set eci_used = 1 here so the
-				//Annex H symbology-identifier modifier becomes 1/4/5 (Table H.1).
-				index += bits->length;
+			{
+				/* ISO/IEC 23634 5.3.9 + Table 19: the ECI assignment number is an
+				 * 8-, 16-, or 22-bit string; the leading indicator bits give the
+				 * width (0 => 8, 10 => 16, 11 => 22). Per 7.3 it is transmitted as
+				 * the escape '\' (0x5C) followed by the 6-digit number, after which
+				 * encoding returns to the invoking (uppercase) mode. Backslash-
+				 * doubling of literal 0x5C within ECI data (7.3) is part of the
+				 * FNC1/Table-15 follow-up. */
+				jab_int32 eci_value = 0;
+				n = readData(bits, index, 1, &value);
+				if(n < 1) { flag = 1; break; }
+				index += 1;
+				if(value == 0)					//0bbbbbbb : 7 value bits
+				{
+					n = readData(bits, index, 7, &eci_value);
+					if(n < 7) { flag = 1; break; }
+					index += 7;
+				}
+				else
+				{
+					n = readData(bits, index, 1, &value);
+					if(n < 1) { flag = 1; break; }
+					index += 1;
+					if(value == 0)				//10b..b : 14 value bits
+					{
+						n = readData(bits, index, 14, &eci_value);
+						if(n < 14) { flag = 1; break; }
+						index += 14;
+					}
+					else						//11b..b : 20 value bits
+					{
+						n = readData(bits, index, 20, &eci_value);
+						if(n < 20) { flag = 1; break; }
+						index += 20;
+					}
+				}
+				//emit "\nnnnnn": escape + 6-digit zero-padded ECI number (7.3)
+				decoded_bytes[count++] = (jab_byte)0x5C;
+				for(jab_int32 d = 5; d >= 0; d--)
+				{
+					decoded_bytes[count + d] = (jab_byte)('0' + (eci_value % 10));
+					eci_value /= 10;
+				}
+				count += 6;
+				eci_used = 1;					//Annex H Table H.1 modifier -> 1 ("]j1")
+				mode = Upper;					//return to the invoking mode (5.3.9)
 				break;
+			}
 			case FNC1:
 				//TODO: not implemented. When implemented, set fnc1_mode to
 				//JAB_FNC1_PRECEDING/FOLLOWING (7.2) so the modifier becomes 2/3/4/5.
