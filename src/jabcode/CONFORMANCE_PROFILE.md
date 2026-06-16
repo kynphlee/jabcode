@@ -1,7 +1,8 @@
 # JABCode conformance profile (ISO 23634 / BSI TR-03137)
 
 **Status:** PRNG axis decided (2026-06-15); FP-UB heap-OOB fixed; **Symbology
-Identifier (Annex H) implemented (2026-06-16)**; palette parked, ECI/FNC1 pending.
+Identifier (Annex H) implemented (2026-06-16)**; **ECI decode implemented
+(2026-06-16)**; palette parked; FNC1 + Table-15 mode-switches = the last ISO gap.
 This is the pinned design seam — implement the diverging axes here when they land,
 so the `JAB_PROFILE` selector is born with a real consumer rather than as a dead enum.
 
@@ -33,7 +34,8 @@ palette).
 |---|---|---|---|
 | PRNG | `lcg64_temper` | `lcg64_temper` (same) | not an axis — decided |
 | Palette (8-colour order) | Table 21 `[K,B,G,C,R,M,Y,W]` | Table 19 `[K,M,Y,C,R,G,B,W]` | **first axis** — pending (`encoder.h` `jab_default_palette`, `encoder.c` `setDefaultPalette`) |
-| ECI / FNC1 | implement (currently `//TODO`) | implement | ISO gap — pending (`decoder.c`; modifier hooks in place) |
+| ECI (5.3.9 / 7.3) | `\nnnnnn` escape → `]j1` | same | **IMPLEMENTED 2026-06-16** (`decoder.c` ECI case) |
+| FNC1 + Table-15 switches | FNC1 / EoT / ISO-15434 / URL shortcuts | same | ISO gap — pending (needs Table 15 layer + 2 latch fixes) |
 | Symbology Identifier | `]j0` (Annex H Table H.1) | n/a | **IMPLEMENTED 2026-06-16** (`jabGetSymbologyIdentifier`) |
 
 ## Shipped
@@ -54,3 +56,16 @@ palette).
     auto-updates (1–5) when those land (the next ISO gap).
   - Verified: Nc 4–256 in-memory roundtrip byte-identical + `]j0`; no new
     `-Wall -Wextra` warnings.
+- **ECI decode (ISO/IEC 23634 5.3.9 / 7.3, normative)** — `decodeData` decodes the
+  Table 19 variable-length assignment number (8/16/22-bit) and transmits the §7.3
+  escape `\nnnnnn` (backslash + 6-digit number), returning to the invoking mode;
+  sets `eci_used` so the Annex H modifier becomes `]j1`. Added the `character_size[]`
+  out-of-bounds guard for ECI/FNC1 modes. Guarded by `test/test_eci.c`
+  (`make test-eci`) with hand-crafted bit streams for all 3 width classes (the
+  encoder emits no ECI). Verified: all-Nc encode+decode roundtrip `ok` (normal
+  decode untouched).
+  - **Follow-up (last ISO gap):** conformant FNC1 needs the **Table 15**
+    additional-switch layer (FNC1, EoT, ISO/IEC 15434, `https://`/`http://`/`www.`
+    shortcuts) + two mode-switch latch fixes (Upper `11111 11`→EOM should be Table
+    15; Lower `11111 11`→FNC1 should be "shift numeric") + the §7.3 backslash-
+    doubling edge.
