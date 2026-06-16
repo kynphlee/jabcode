@@ -1,9 +1,9 @@
 # JABCode conformance profile (ISO 23634 / BSI TR-03137)
 
-**Status:** PRNG axis decided (2026-06-15); FP-UB heap-OOB fixed; palette + marker
-axes pending. This is the pinned design seam — implement the diverging axes here
-when they land, so the `JAB_PROFILE` selector is born with a real consumer rather
-than as a dead enum.
+**Status:** PRNG axis decided (2026-06-15); FP-UB heap-OOB fixed; **Symbology
+Identifier (Annex H) implemented (2026-06-16)**; palette parked, ECI/FNC1 pending.
+This is the pinned design seam — implement the diverging axes here when they land,
+so the `JAB_PROFILE` selector is born with a real consumer rather than as a dead enum.
 
 ## The decision: Reference-is-ISO
 
@@ -33,12 +33,24 @@ palette).
 |---|---|---|---|
 | PRNG | `lcg64_temper` | `lcg64_temper` (same) | not an axis — decided |
 | Palette (8-colour order) | Table 21 `[K,B,G,C,R,M,Y,W]` | Table 19 `[K,M,Y,C,R,G,B,W]` | **first axis** — pending (`encoder.h` `jab_default_palette`, `encoder.c` `setDefaultPalette`) |
-| ECI / FNC1 | implement (currently `//TODO`) | implement | ISO gap — pending (`decoder.c`) |
-| Symbology Identifier | implement (Annex H) | n/a | ISO gap — pending |
+| ECI / FNC1 | implement (currently `//TODO`) | implement | ISO gap — pending (`decoder.c`; modifier hooks in place) |
+| Symbology Identifier | `]j0` (Annex H Table H.1) | n/a | **IMPLEMENTED 2026-06-16** (`jabGetSymbologyIdentifier`) |
 
-## Shipped on this groundwork branch
+## Shipped
 
-- **FP-UB heap-OOB fix** — `pn_index()` in `pseudo_random.h` clamps the
+- **FP-UB heap-OOB fix** (PR #85) — `pn_index()` in `pseudo_random.h` clamps the
   float-rounding edge to `range-1` across the 5 call sites in `interleave.c` /
   `ldpc.c`. Interop-preserving (bit-identical to the legacy mapping for every
   in-range draw); guarded permanently by `test/test_pn_index.c` (`make test-pn`).
+- **Symbology Identifier (ISO/IEC 23634 Annex H, normative)** — the decoder now
+  produces `]jm` (currently `]j0`; ECI/FNC1 not yet decoded). Design:
+  - Pure Table H.1 formatter in `symbology_id.h` (`]j` + modifier from
+    `(eci_used, fnc1_mode)`); guarded by `test/test_symbology_id.c` (`make test-symid`).
+  - `decodeData` resets per decode and publishes on success via the new public
+    `jabGetSymbologyIdentifier()`. **The `jab_data` payload is left untouched** —
+    per §7.4 the identifier is a transmission preamble the host prepends, so
+    payload hash/verification (the COA crypto path) is unaffected.
+  - ECI/FNC1 `//TODO` sites carry hooks to set the flags so the modifier
+    auto-updates (1–5) when those land (the next ISO gap).
+  - Verified: Nc 4–256 in-memory roundtrip byte-identical + `]j0`; no new
+    `-Wall -Wextra` warnings.
