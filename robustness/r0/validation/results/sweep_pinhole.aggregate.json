@@ -1,0 +1,123 @@
+{
+  "manifest": "/tmp/r0-persp-pinhole/manifest.jsonl",
+  "bucket_keys": [
+    "conditions"
+  ],
+  "overall": {
+    "n": 88,
+    "decoded": 53,
+    "decode_rate": 0.6023,
+    "mean_decode_ms": 35.361,
+    "fail_stage_histogram": {
+      "NONE": 53,
+      "LDPC": 35
+    }
+  },
+  "by_condition": {
+    "conditions=pinhole_0deg": {
+      "n": 8,
+      "decoded": 7,
+      "decode_rate": 0.875,
+      "mean_decode_ms": 43.348,
+      "fail_stage_histogram": {
+        "NONE": 7,
+        "LDPC": 1
+      }
+    },
+    "conditions=pinhole_10deg": {
+      "n": 8,
+      "decoded": 7,
+      "decode_rate": 0.875,
+      "mean_decode_ms": 45.402,
+      "fail_stage_histogram": {
+        "NONE": 7,
+        "LDPC": 1
+      }
+    },
+    "conditions=pinhole_15deg": {
+      "n": 8,
+      "decoded": 8,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 45.712,
+      "fail_stage_histogram": {
+        "NONE": 8
+      }
+    },
+    "conditions=pinhole_20deg": {
+      "n": 8,
+      "decoded": 8,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 42.611,
+      "fail_stage_histogram": {
+        "NONE": 8
+      }
+    },
+    "conditions=pinhole_25deg": {
+      "n": 8,
+      "decoded": 7,
+      "decode_rate": 0.875,
+      "mean_decode_ms": 44.217,
+      "fail_stage_histogram": {
+        "NONE": 7,
+        "LDPC": 1
+      }
+    },
+    "conditions=pinhole_30deg": {
+      "n": 8,
+      "decoded": 7,
+      "decode_rate": 0.875,
+      "mean_decode_ms": 43.292,
+      "fail_stage_histogram": {
+        "NONE": 7,
+        "LDPC": 1
+      }
+    },
+    "conditions=pinhole_35deg": {
+      "n": 8,
+      "decoded": 2,
+      "decode_rate": 0.25,
+      "mean_decode_ms": 11.803,
+      "fail_stage_histogram": {
+        "NONE": 2,
+        "LDPC": 6
+      }
+    },
+    "conditions=pinhole_40deg": {
+      "n": 8,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 17.53,
+      "fail_stage_histogram": {
+        "LDPC": 8
+      }
+    },
+    "conditions=pinhole_45deg": {
+      "n": 8,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 15.399,
+      "fail_stage_histogram": {
+        "LDPC": 8
+      }
+    },
+    "conditions=pinhole_50deg": {
+      "n": 8,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 37.107,
+      "fail_stage_histogram": {
+        "LDPC": 8
+      }
+    },
+    "conditions=pinhole_5deg": {
+      "n": 8,
+      "decoded": 7,
+      "decode_rate": 0.875,
+      "mean_decode_ms": 42.552,
+      "fail_stage_histogram": {
+        "NONE": 7,
+        "LDPC": 1
+      }
+    }
+  }
+}

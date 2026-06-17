@@ -1,0 +1,11 @@
+{"nc": "0", "medium": "", "n_attempts": 2725, "n_success": 62, "decode_rate": 0.0228, "fail_stage_hist": {"detect": 1640, "side_version": 10, "ldpc": 1013}}
+{"nc": "1", "medium": "", "n_attempts": 410, "n_success": 302, "decode_rate": 0.7366, "fail_stage_hist": {"detect": 64, "ldpc": 44}}
+{"nc": "1", "medium": "print", "n_attempts": 102, "n_success": 61, "decode_rate": 0.598, "fail_stage_hist": {"detect": 5, "module_color": 34, "ldpc": 2}}
+{"nc": "1", "medium": "screen", "n_attempts": 104, "n_success": 71, "decode_rate": 0.6827, "fail_stage_hist": {"detect": 33}}
+{"nc": "2", "medium": "", "n_attempts": 2232, "n_success": 349, "decode_rate": 0.1564, "fail_stage_hist": {"detect": 505, "module_color": 212, "pair_bits": 550, "side_version": 7, "ldpc": 609}}
+{"nc": "3", "medium": "", "n_attempts": 308, "n_success": 231, "decode_rate": 0.75, "fail_stage_hist": {"detect": 38, "module_color": 4, "ldpc": 35}}
+{"nc": "4", "medium": "", "n_attempts": 242, "n_success": 190, "decode_rate": 0.7851, "fail_stage_hist": {"detect": 26, "module_color": 1, "ldpc": 25}}
+{"nc": "5", "medium": "", "n_attempts": 295, "n_success": 199, "decode_rate": 0.6746, "fail_stage_hist": {"detect": 33, "ldpc": 63}}
+{"nc": "6", "medium": "", "n_attempts": 229, "n_success": 153, "decode_rate": 0.6681, "fail_stage_hist": {"detect": 25, "ldpc": 51}}
+{"nc": "7", "medium": "", "n_attempts": 250, "n_success": 93, "decode_rate": 0.372, "fail_stage_hist": {"detect": 13, "module_color": 1, "ldpc": 143}}
+{"nc": "X", "medium": "", "n_attempts": 761, "n_success": 300, "decode_rate": 0.3942, "fail_stage_hist": {"detect": 189, "ldpc": 272}}
