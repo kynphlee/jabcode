@@ -63,7 +63,12 @@ the failure surface a global threshold cannot cover.
   nearest so all corpus images share a canvas and the genuine resolution loss
   -- not interpolation cosmetics -- is what the decoder sees.
 - **`jpeg`** is a real encode/decode roundtrip through an in-memory buffer, so
-  the block artifacts are genuine. It is the only family whose output is `.jpg`.
+  the block artifacts are genuine — but the result is **saved as a lossless
+  `.png`**, not `.jpg`. The rig's `readImage` links libpng/libtiff and cannot
+  decode JPEG, so committing `.jpg` would make the jpeg cells unreadable. A PNG
+  container is lossless: the compression damage is already baked into the pixels
+  by the roundtrip, so it survives the lossless re-encode. **Every** image in the
+  corpus is therefore a `.png` and rig-readable.
 
 ### Determinism
 

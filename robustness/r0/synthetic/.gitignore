@@ -1,0 +1,9 @@
+# Generated bridge manifest: produced by to_rig_manifest.py on demand. It
+# embeds machine-specific absolute image paths (or out-relative paths), so it is
+# regenerated from a clean checkout rather than committed.
+out/rig_manifest.jsonl
+
+# Full-ladder / larger synthetic sweeps live here and are regenerated with
+# `degrade.py --full` rather than committed (the 144-image sample under out/ IS
+# committed in full so the rig runs straight from a clean checkout).
+out-full/

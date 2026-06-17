@@ -156,7 +156,12 @@ def degrade_downscale(img: Image.Image, px_per_module: float) -> Image.Image:
 def degrade_jpeg(img: Image.Image, quality: int) -> Image.Image:
     """Real JPEG encode/decode roundtrip at `quality`. Introduces 8x8 block
     ringing and chroma subsampling that bleed across module edges. Implemented
-    by writing to a bytes buffer and re-reading so the artifacts are genuine."""
+    by writing to a bytes buffer and re-reading so the artifacts are genuine.
+
+    The returned image is RGB pixels with the JPEG artifacts already baked in;
+    it is then saved by the caller into a lossless **PNG** container (the rig's
+    readImage links libpng/libtiff and cannot decode JPEG). The container is
+    lossless, so the compression damage lives in the pixels, not the file."""
     import io
 
     buf = io.BytesIO()
@@ -239,8 +244,11 @@ FAMILIES: list[Family] = [
            full=(0.3, 0.5, 0.7), sample=(0.3, 0.5, 0.7)),
     Family("downscale", degrade_downscale,
            full=(8, 6, 4, 3), sample=(6, 4, 3), fmt="{:g}px"),
+    # jpeg roundtrips through an in-memory JPEG buffer to bake real ringing,
+    # then saves the result as a lossless PNG so the rig (libpng/libtiff, no
+    # JPEG) can read it. Hence ext stays the default "png", not "jpg".
     Family("jpeg", degrade_jpeg,
-           full=(90, 70, 50, 30), sample=(70, 50, 30), ext="jpg", fmt="q{:g}"),
+           full=(90, 70, 50, 30), sample=(70, 50, 30), fmt="q{:g}"),
     Family("chroma", degrade_chroma,
            full=(0.3, 0.5, 0.7), sample=(0.3, 0.5, 0.7)),
 ]
