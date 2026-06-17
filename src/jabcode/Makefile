@@ -2,7 +2,10 @@ PREFIX =
 CC 	= $(PREFIX)gcc
 AR 	= $(PREFIX)ar
 RANLIB	= $(PREFIX)ranlib
-CFLAGS	= -O2 -std=c11 -fPIC
+# _POSIX_C_SOURCE exposes clock_gettime / CLOCK_MONOTONIC (used by the opt-in
+# decode stage profiler in decode_profile.h) under -std=c11. Defined globally so
+# the feature macro precedes every system-header include in every TU.
+CFLAGS	= -O2 -std=c11 -fPIC -D_POSIX_C_SOURCE=199309L
 
 CORE_DIR := build
 STATIC_LIB := $(CORE_DIR)/libjabcode.a
@@ -11,7 +14,7 @@ SHARED_LIB := $(CORE_DIR)/libjabcode.so
 SOURCES := $(wildcard *.c)
 OBJECTS := $(SOURCES:.c=.o)
 
-.PHONY: all clean bench sweep transcode test-pn test-symid test-eci test-table15 test-roundtrip
+.PHONY: all clean bench sweep transcode profile test-pn test-symid test-eci test-table15 test-roundtrip
 
 all: $(STATIC_LIB) $(SHARED_LIB)
 
@@ -29,7 +32,7 @@ $(SHARED_LIB): $(CORE_DIR) $(OBJECTS)
 	$(CC) -c -I. -I./include $(CFLAGS) $< -o $@
 
 clean:
-	rm -f $(STATIC_LIB) $(SHARED_LIB) $(OBJECTS) $(CORE_DIR)/bench_codec $(CORE_DIR)/test_pn_index $(CORE_DIR)/test_symbology_id $(CORE_DIR)/test_eci $(CORE_DIR)/test_table15 $(CORE_DIR)/test_text_roundtrip
+	rm -f $(STATIC_LIB) $(SHARED_LIB) $(OBJECTS) $(CORE_DIR)/bench_codec $(CORE_DIR)/bench_profile $(CORE_DIR)/test_pn_index $(CORE_DIR)/test_symbology_id $(CORE_DIR)/test_eci $(CORE_DIR)/test_table15 $(CORE_DIR)/test_text_roundtrip
 
 # Suite A: native codec microbenchmark -- encode+decode timing across Nc 0..7.
 # Statically links libjabcode for a self-contained binary (adb-pushable).
@@ -37,6 +40,17 @@ clean:
 bench: $(STATIC_LIB)
 	$(CC) -O2 -std=c11 -I. -I./include test/bench_codec.c $(STATIC_LIB) -lpng16 -ltiff -lz -lm -o $(CORE_DIR)/bench_codec
 	@echo "built $(CORE_DIR)/bench_codec"
+
+# Per-stage decode profiling harness -- attributes decode latency to the major
+# pipeline stages (DETECT, PALETTE, COLOR_CLASSIFY, DEINTERLEAVE, LDPC,
+# DATA_DECODE) across colour modes Nc=4..256, using the opt-in profiler. Like
+# bench, statically links libjabcode for a self-contained binary; emits per-stage
+# microseconds as JSON on stdout (feeds scripts/plot_stage_profile.py) and a
+# human table on stderr.
+# Run: $(CORE_DIR)/bench_profile [warmup] [iters]   (defaults: 5 30)
+profile: $(STATIC_LIB)
+	$(CC) -O2 -std=c11 -D_POSIX_C_SOURCE=199309L -I. -I./include test/bench_profile.c $(STATIC_LIB) -lpng16 -ltiff -lz -lm -o $(CORE_DIR)/bench_profile
+	@echo "built $(CORE_DIR)/bench_profile"
 
 # Comprehensive capacity/latency/ECC sweep for the full-picture benchmark suite.
 sweep: $(STATIC_LIB)
