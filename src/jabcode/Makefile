@@ -43,10 +43,13 @@ bench: $(STATIC_LIB)
 
 # Per-stage decode profiling harness -- attributes decode latency to the major
 # pipeline stages (DETECT, PALETTE, COLOR_CLASSIFY, DEINTERLEAVE, LDPC,
-# DATA_DECODE) across colour modes Nc=4..256, using the opt-in profiler. Like
-# bench, statically links libjabcode for a self-contained binary; emits per-stage
-# microseconds as JSON on stdout (feeds scripts/plot_stage_profile.py) and a
-# human table on stderr.
+# DATA_DECODE) across colour modes Nc=4..256, using the opt-in profiler. It also
+# breaks DETECT into its sub-stages (DETECT_BINARIZE, DETECT_FINDER,
+# DETECT_TRANSFORM, DETECT_SAMPLE), which sum to the DETECT roll-up. Like bench,
+# statically links libjabcode for a self-contained binary; emits per-stage and
+# per-sub-stage microseconds as JSON on stdout and two human tables on stderr.
+#   scripts/plot_stage_profile.py    -> stacked pipeline-stage chart
+#   scripts/plot_detect_substage.py  -> stacked DETECT-sub-stage chart
 # Run: $(CORE_DIR)/bench_profile [warmup] [iters]   (defaults: 5 30)
 profile: $(STATIC_LIB)
 	$(CC) -O2 -std=c11 -D_POSIX_C_SOURCE=199309L -I. -I./include test/bench_profile.c $(STATIC_LIB) -lpng16 -ltiff -lz -lm -o $(CORE_DIR)/bench_profile
