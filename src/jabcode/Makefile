@@ -14,7 +14,7 @@ SHARED_LIB := $(CORE_DIR)/libjabcode.so
 SOURCES := $(wildcard *.c)
 OBJECTS := $(SOURCES:.c=.o)
 
-.PHONY: all clean bench profile test-pn test-symid test-eci test-table15 test-roundtrip
+.PHONY: all clean bench sweep transcode profile test-pn test-symid test-eci test-table15 test-roundtrip
 
 all: $(STATIC_LIB) $(SHARED_LIB)
 
@@ -51,6 +51,16 @@ bench: $(STATIC_LIB)
 profile: $(STATIC_LIB)
 	$(CC) -O2 -std=c11 -D_POSIX_C_SOURCE=199309L -I. -I./include test/bench_profile.c $(STATIC_LIB) -lpng16 -ltiff -lz -lm -o $(CORE_DIR)/bench_profile
 	@echo "built $(CORE_DIR)/bench_profile"
+
+# Comprehensive capacity/latency/ECC sweep for the full-picture benchmark suite.
+sweep: $(STATIC_LIB)
+	$(CC) -O2 -std=c11 -I. -I./include test/bench_sweep.c $(STATIC_LIB) -lpng16 -ltiff -lz -lm -o $(CORE_DIR)/bench_sweep
+	@echo "built $(CORE_DIR)/bench_sweep"
+
+# Encode/decode helper for the transcode-survival benchmark (benchmarks/transcode_survival.py).
+transcode: $(STATIC_LIB)
+	$(CC) -O2 -std=c11 -I. -I./include test/transcode_tool.c $(STATIC_LIB) -lpng16 -ltiff -lz -lm -o $(CORE_DIR)/transcode_tool
+	@echo "built $(CORE_DIR)/transcode_tool"
 
 # Regression guard for the pn_index() FP-UB fix. Self-contained -- pn_index is a
 # static inline in pseudo_random.h, so no libjabcode link is needed.
