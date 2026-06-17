@@ -381,18 +381,27 @@ jab_int32 *createGeneratorMatrix(jab_int32* matrixA, jab_int32 capacity, jab_int
  * COPY, so callers keep their existing ownership/free semantics and can never corrupt the
  * cache. The cache is thread-local: no locking, and each worker thread warms its own small
  * cache once per colour mode (a deployment uses a handful of keys). Only the dense message
- * path (wr > 3) is cached; the small metadata path is built as before. */
-#define LDPC_CACHE_SIZE 16
+ * path (wr > 3) is cached; the small metadata path is built as before.
+ *
+ * Eviction is LRU: a thread-local clock stamps each access, and a full cache evicts the
+ * least-recently-used entry. A single LDPC encode touches several distinct keys (one per
+ * full sub-block plus the trailing partial block, each a different capacity), and realistic
+ * callers interleave fit-probing across many payload sizes -- without eviction a fixed table
+ * saturates with transient keys and starves the hot ones, collapsing back to the rebuild
+ * cost. LRU keeps the working set (the handful of repeatedly-encoded keys) resident. */
+#define LDPC_CACHE_SIZE 32
 typedef struct {
     jab_boolean valid;
     jab_int32   wc, wr, capacity;   /* key */
     jab_int32   rank;               /* GaussJordan matrix_rank for this key */
     jab_int32   n_ints;             /* length of matrix[] in jab_int32 words */
+    jab_uint32  lru;                /* access tick; larger == more recently used */
     jab_int32*  matrix;             /* cached generator G (encode) or post-GJ A (decode) */
 } ldpc_cache_entry;
 
 static _Thread_local ldpc_cache_entry g_ldpc_enc_cache[LDPC_CACHE_SIZE];
 static _Thread_local ldpc_cache_entry g_ldpc_dec_cache[LDPC_CACHE_SIZE];
+static _Thread_local jab_uint32       g_ldpc_lru_clock = 0;
 
 /* Return a fresh copy of the cached matrix for (wc,wr,capacity), or NULL on miss. */
 static jab_int32* ldpcCacheGet(ldpc_cache_entry* cache, jab_int32 wc, jab_int32 wr, jab_int32 capacity, jab_int32* out_rank)
@@ -405,6 +414,7 @@ static jab_int32* ldpcCacheGet(ldpc_cache_entry* cache, jab_int32 wc, jab_int32 
             jab_int32* copy = (jab_int32*)malloc((size_t)e->n_ints * sizeof(jab_int32));
             if(copy == NULL) return NULL;
             memcpy(copy, e->matrix, (size_t)e->n_ints * sizeof(jab_int32));
+            e->lru = ++g_ldpc_lru_clock;   /* mark recently used */
             *out_rank = e->rank;
             return copy;
         }
@@ -412,23 +422,25 @@ static jab_int32* ldpcCacheGet(ldpc_cache_entry* cache, jab_int32 wc, jab_int32 
     return NULL;
 }
 
-/* Store a copy of a freshly built matrix. Best-effort: if full or OOM, skip caching. */
+/* Store a copy of a freshly built matrix. Uses a free slot if available, otherwise evicts
+ * the least-recently-used entry. Best-effort: on OOM the entry is simply not cached. */
 static void ldpcCachePut(ldpc_cache_entry* cache, jab_int32 wc, jab_int32 wr, jab_int32 capacity,
                          jab_int32 rank, const jab_int32* matrix, jab_int32 n_ints)
 {
+    jab_int32 victim = 0;
     for(jab_int32 i=0; i<LDPC_CACHE_SIZE; i++)
     {
-        if(!cache[i].valid)
-        {
-            jab_int32* stored = (jab_int32*)malloc((size_t)n_ints * sizeof(jab_int32));
-            if(stored == NULL) return;
-            memcpy(stored, matrix, (size_t)n_ints * sizeof(jab_int32));
-            cache[i].wc=wc; cache[i].wr=wr; cache[i].capacity=capacity;
-            cache[i].rank=rank; cache[i].n_ints=n_ints; cache[i].matrix=stored;
-            cache[i].valid=1;
-            return;
-        }
+        if(!cache[i].valid) { victim = i; break; }           /* prefer an empty slot */
+        if(cache[i].lru < cache[victim].lru) victim = i;      /* else track the LRU entry */
     }
+    jab_int32* stored = (jab_int32*)malloc((size_t)n_ints * sizeof(jab_int32));
+    if(stored == NULL) return;
+    memcpy(stored, matrix, (size_t)n_ints * sizeof(jab_int32));
+    if(cache[victim].valid) free(cache[victim].matrix);       /* evict LRU if reusing a slot */
+    cache[victim].wc=wc; cache[victim].wr=wr; cache[victim].capacity=capacity;
+    cache[victim].rank=rank; cache[victim].n_ints=n_ints; cache[victim].matrix=stored;
+    cache[victim].lru=++g_ldpc_lru_clock;
+    cache[victim].valid=1;
 }
 
 /* Generator matrix for the LDPC encoder, memoized for the dense message path (wr>3).
@@ -576,26 +588,15 @@ jab_data *encodeLDPC(jab_data* data, jab_int32* coderate_params)
         matrix_rank=0;
         Pg_sub_block=Pg - encoding_iterations * Pg_sub_block;
         Pn_sub_block=Pg_sub_block * (wr-wc) / wr;
-        jab_int32* matrixA = createMatrixA(wc, wr, Pg_sub_block);
-        if(matrixA == NULL)
-        {
-            reportError("Generator matrix could not be created in LDPC encoder.");
-            return NULL;
-        }
-        if(GaussJordan(matrixA, wc, wr, Pg_sub_block, &matrix_rank,1))   /* encode=1 (partial sub-block) */
-        {
-            reportError("Gauss Jordan Elimination in LDPC encoder failed.");
-            free(matrixA);
-            return NULL;
-        }
-        jab_int32* G = createGeneratorMatrix(matrixA, Pg_sub_block, Pg_sub_block - matrix_rank);
+        //partial sub-block: same deterministic generator as the main block, so route it
+        //through the memoized builder (the trailing partial block was the last uncached
+        //createMatrixA/GaussJordan in the encode path -- the high-ECC hotspot)
+        jab_int32* G = buildOrCacheGenerator(wc, wr, Pg_sub_block, &matrix_rank);
         if(G == NULL)
         {
             reportError("Generator matrix could not be created in LDPC encoder.");
-            free(matrixA);
             return NULL;
         }
-        free(matrixA);
         offset=ceil((Pg_sub_block - matrix_rank)/(jab_float)32);
         for (jab_int32 i=0;i<Pg_sub_block;i++)
         {
