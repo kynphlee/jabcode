@@ -1,2 +1,8 @@
 # Compiled probe — rebuilt by `make` / `run.sh`. Not committed.
 r0_decode
+
+# Synthetic-corpus rig run: the aggregate embeds a machine-specific absolute
+# manifest path and is regenerable (to_rig_manifest.py + run.sh). The portable
+# first-pass numbers live in the top-level R0 README; the bundled-manifest
+# results (manifest.*) ARE committed as the rig's self-validation.
+results/rig_manifest.*
