@@ -1,0 +1,172 @@
+{
+  "manifest": "/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode.worktrees/r0-rig/robustness/r0/rig/manifest.jsonl",
+  "bucket_keys": [
+    "conditions",
+    "nc"
+  ],
+  "overall": {
+    "n": 21,
+    "decoded": 16,
+    "decode_rate": 0.7619,
+    "mean_decode_ms": 54.094,
+    "fail_stage_histogram": {
+      "NONE": 16,
+      "DETECT": 5
+    }
+  },
+  "by_condition": {
+    "conditions=clean-benchmark nc=0": {
+      "n": 1,
+      "decoded": 1,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 2.469,
+      "fail_stage_histogram": {
+        "NONE": 1
+      }
+    },
+    "conditions=clean-benchmark nc=1": {
+      "n": 1,
+      "decoded": 1,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 9.02,
+      "fail_stage_histogram": {
+        "NONE": 1
+      }
+    },
+    "conditions=clean-benchmark nc=2": {
+      "n": 1,
+      "decoded": 1,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 4.747,
+      "fail_stage_histogram": {
+        "NONE": 1
+      }
+    },
+    "conditions=clean-benchmark nc=3": {
+      "n": 1,
+      "decoded": 1,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 67.001,
+      "fail_stage_histogram": {
+        "NONE": 1
+      }
+    },
+    "conditions=clean-benchmark nc=4": {
+      "n": 1,
+      "decoded": 1,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 63.669,
+      "fail_stage_histogram": {
+        "NONE": 1
+      }
+    },
+    "conditions=clean-benchmark nc=5": {
+      "n": 1,
+      "decoded": 1,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 48.079,
+      "fail_stage_histogram": {
+        "NONE": 1
+      }
+    },
+    "conditions=clean-benchmark nc=6": {
+      "n": 1,
+      "decoded": 1,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 63.832,
+      "fail_stage_histogram": {
+        "NONE": 1
+      }
+    },
+    "conditions=clean-benchmark nc=7": {
+      "n": 1,
+      "decoded": 1,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 71.117,
+      "fail_stage_histogram": {
+        "NONE": 1
+      }
+    },
+    "conditions=clean-fullspectrum nc=0": {
+      "n": 1,
+      "decoded": 1,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 2.534,
+      "fail_stage_histogram": {
+        "NONE": 1
+      }
+    },
+    "conditions=clean-fullspectrum nc=1": {
+      "n": 1,
+      "decoded": 1,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 6.368,
+      "fail_stage_histogram": {
+        "NONE": 1
+      }
+    },
+    "conditions=clean-fullspectrum nc=2": {
+      "n": 1,
+      "decoded": 1,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 7.905,
+      "fail_stage_histogram": {
+        "NONE": 1
+      }
+    },
+    "conditions=clean-fullspectrum nc=3": {
+      "n": 1,
+      "decoded": 1,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 46.321,
+      "fail_stage_histogram": {
+        "NONE": 1
+      }
+    },
+    "conditions=clean-fullspectrum nc=4": {
+      "n": 1,
+      "decoded": 1,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 54.315,
+      "fail_stage_histogram": {
+        "NONE": 1
+      }
+    },
+    "conditions=clean-fullspectrum nc=5": {
+      "n": 1,
+      "decoded": 1,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 39.626,
+      "fail_stage_histogram": {
+        "NONE": 1
+      }
+    },
+    "conditions=clean-fullspectrum nc=6": {
+      "n": 1,
+      "decoded": 1,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 67.722,
+      "fail_stage_histogram": {
+        "NONE": 1
+      }
+    },
+    "conditions=clean-fullspectrum nc=7": {
+      "n": 1,
+      "decoded": 1,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 80.079,
+      "fail_stage_histogram": {
+        "NONE": 1
+      }
+    },
+    "conditions=ws5-realframe nc=1": {
+      "n": 5,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 100.233,
+      "fail_stage_histogram": {
+        "DETECT": 5
+      }
+    }
+  }
+}
