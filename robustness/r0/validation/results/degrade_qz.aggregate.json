@@ -1,0 +1,133 @@
+{
+  "manifest": "/tmp/r0-degrade-qz/manifest.jsonl",
+  "bucket_keys": [
+    "conditions"
+  ],
+  "overall": {
+    "n": 96,
+    "decoded": 22,
+    "decode_rate": 0.2292,
+    "mean_decode_ms": 24.393,
+    "fail_stage_histogram": {
+      "NONE": 22,
+      "DETECT": 55,
+      "LDPC": 19
+    }
+  },
+  "by_condition": {
+    "conditions=qz12_20deg": {
+      "n": 8,
+      "decoded": 7,
+      "decode_rate": 0.875,
+      "mean_decode_ms": 45.724,
+      "fail_stage_histogram": {
+        "NONE": 7,
+        "LDPC": 1
+      }
+    },
+    "conditions=qz12_30deg": {
+      "n": 8,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 33.178,
+      "fail_stage_histogram": {
+        "DETECT": 1,
+        "LDPC": 7
+      }
+    },
+    "conditions=qz12_40deg": {
+      "n": 8,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 14.44,
+      "fail_stage_histogram": {
+        "DETECT": 8
+      }
+    },
+    "conditions=qz16_20deg": {
+      "n": 8,
+      "decoded": 7,
+      "decode_rate": 0.875,
+      "mean_decode_ms": 48.098,
+      "fail_stage_histogram": {
+        "NONE": 7,
+        "LDPC": 1
+      }
+    },
+    "conditions=qz16_30deg": {
+      "n": 8,
+      "decoded": 1,
+      "decode_rate": 0.125,
+      "mean_decode_ms": 42.249,
+      "fail_stage_histogram": {
+        "NONE": 1,
+        "LDPC": 7
+      }
+    },
+    "conditions=qz16_40deg": {
+      "n": 8,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 21.561,
+      "fail_stage_histogram": {
+        "DETECT": 6,
+        "LDPC": 2
+      }
+    },
+    "conditions=qz4_20deg": {
+      "n": 8,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 4.991,
+      "fail_stage_histogram": {
+        "DETECT": 8
+      }
+    },
+    "conditions=qz4_30deg": {
+      "n": 8,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 9.07,
+      "fail_stage_histogram": {
+        "DETECT": 8
+      }
+    },
+    "conditions=qz4_40deg": {
+      "n": 8,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 8.673,
+      "fail_stage_histogram": {
+        "DETECT": 8
+      }
+    },
+    "conditions=qz8_20deg": {
+      "n": 8,
+      "decoded": 7,
+      "decode_rate": 0.875,
+      "mean_decode_ms": 44.194,
+      "fail_stage_histogram": {
+        "NONE": 7,
+        "LDPC": 1
+      }
+    },
+    "conditions=qz8_30deg": {
+      "n": 8,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 9.121,
+      "fail_stage_histogram": {
+        "DETECT": 8
+      }
+    },
+    "conditions=qz8_40deg": {
+      "n": 8,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 11.415,
+      "fail_stage_histogram": {
+        "DETECT": 8
+      }
+    }
+  }
+}

@@ -1,0 +1,103 @@
+{
+  "manifest": "/tmp/r0-persp-shear-qz4/manifest.jsonl",
+  "bucket_keys": [
+    "conditions"
+  ],
+  "overall": {
+    "n": 72,
+    "decoded": 47,
+    "decode_rate": 0.6528,
+    "mean_decode_ms": 32.166,
+    "fail_stage_histogram": {
+      "NONE": 47,
+      "LDPC": 25
+    }
+  },
+  "by_condition": {
+    "conditions=shear_0deg": {
+      "n": 8,
+      "decoded": 7,
+      "decode_rate": 0.875,
+      "mean_decode_ms": 44.035,
+      "fail_stage_histogram": {
+        "NONE": 7,
+        "LDPC": 1
+      }
+    },
+    "conditions=shear_10deg": {
+      "n": 8,
+      "decoded": 8,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 40.713,
+      "fail_stage_histogram": {
+        "NONE": 8
+      }
+    },
+    "conditions=shear_15deg": {
+      "n": 8,
+      "decoded": 8,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 37.814,
+      "fail_stage_histogram": {
+        "NONE": 8
+      }
+    },
+    "conditions=shear_20deg": {
+      "n": 8,
+      "decoded": 7,
+      "decode_rate": 0.875,
+      "mean_decode_ms": 39.374,
+      "fail_stage_histogram": {
+        "NONE": 7,
+        "LDPC": 1
+      }
+    },
+    "conditions=shear_25deg": {
+      "n": 8,
+      "decoded": 7,
+      "decode_rate": 0.875,
+      "mean_decode_ms": 43.158,
+      "fail_stage_histogram": {
+        "NONE": 7,
+        "LDPC": 1
+      }
+    },
+    "conditions=shear_30deg": {
+      "n": 8,
+      "decoded": 2,
+      "decode_rate": 0.25,
+      "mean_decode_ms": 6.077,
+      "fail_stage_histogram": {
+        "NONE": 2,
+        "LDPC": 6
+      }
+    },
+    "conditions=shear_35deg": {
+      "n": 8,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 20.427,
+      "fail_stage_histogram": {
+        "LDPC": 8
+      }
+    },
+    "conditions=shear_40deg": {
+      "n": 8,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 17.892,
+      "fail_stage_histogram": {
+        "LDPC": 8
+      }
+    },
+    "conditions=shear_5deg": {
+      "n": 8,
+      "decoded": 8,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 40.003,
+      "fail_stage_histogram": {
+        "NONE": 8
+      }
+    }
+  }
+}
