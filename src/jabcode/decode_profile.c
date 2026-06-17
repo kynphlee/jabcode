@@ -23,8 +23,9 @@
  * decoded bytes. */
 unsigned char g_profile_stages = 0;
 
-/* Accumulators. Zero-initialised; jabResetDecodeProfile clears between sweeps. */
-jab_decode_profile g_decode_profile = {{0}, 0};
+/* Accumulators. Zero-initialised; jabResetDecodeProfile clears between sweeps.
+ * Fields: stage_us[], detect_us[] (DETECT sub-stage breakdown), decode_count. */
+jab_decode_profile g_decode_profile = {{0}, {0}, 0};
 
 /**
  * @brief Enable or disable per-stage decode profiling

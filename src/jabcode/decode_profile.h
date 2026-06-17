@@ -21,6 +21,15 @@
  *   DEINTERLEAVE    bit de-interleave of the raw symbol data
  *   LDPC            LDPC hard-decision decode of the symbol payload
  *   DATA_DECODE     final byte/mode data decode (decodeData)
+ *
+ * DETECT sub-stages (detail breakdown of the DETECT roll-up — additive, summing
+ * to ~DETECT; timed by JAB_PROF_DET_END, which folds each interval into both the
+ * sub-stage AND DETECT in one read, so DETECT == sum(sub-stages) by construction
+ * and there is no double counting against the top-level DETECT accumulator):
+ *   DETECT_BINARIZE   balanceRGB + binarizerRGB channel balance/thresholding
+ *   DETECT_FINDER     finder-pattern search (findMaster/Slave) + AP-seed scans
+ *   DETECT_TRANSFORM  calculateSideSize + getPerspectiveTransform (geometry)
+ *   DETECT_SAMPLE     sampleSymbol / sampleSymbolByAlignmentPattern (grid resample)
  */
 
 #ifndef JABCODE_DECODE_PROFILE_H
@@ -54,13 +63,27 @@ typedef enum
 	JAB_STAGE_COUNT
 } jab_decode_stage;
 
-/* Accumulated microseconds per stage, plus the number of decode calls the
- * accumulation spans (so a caller can derive per-decode averages). Tagged
- * (struct jab_decode_profile) so jabcode.h can forward-declare the getter's
- * return type without pulling in this header. */
+/* DETECT sub-stage indices into jab_decode_profile.detect_us[]. These break the
+ * DETECT roll-up down into its real sub-steps (see header banner). They sum to
+ * ~DETECT because JAB_PROF_DET_END folds every interval into both the sub-stage
+ * and JAB_STAGE_DETECT. */
+typedef enum
+{
+	JAB_DET_BINARIZE = 0,
+	JAB_DET_FINDER,
+	JAB_DET_TRANSFORM,
+	JAB_DET_SAMPLE,
+	JAB_DET_COUNT
+} jab_detect_substage;
+
+/* Accumulated microseconds per stage (and per DETECT sub-stage), plus the number
+ * of decode calls the accumulation spans (so a caller can derive per-decode
+ * averages). Tagged (struct jab_decode_profile) so jabcode.h can forward-declare
+ * the getter's return type without pulling in this header. */
 typedef struct jab_decode_profile
 {
 	jab_int64 stage_us[JAB_STAGE_COUNT];
+	jab_int64 detect_us[JAB_DET_COUNT];
 	jab_int64 decode_count;
 } jab_decode_profile;
 
@@ -91,6 +114,21 @@ static inline jab_int64 jab_prof_now_ns(void)
 		if (g_profile_stages) { \
 			g_decode_profile.stage_us[(stage)] += \
 				(jab_prof_now_ns() - _jab_prof_t0_##scope) / 1000; \
+		} \
+	} while (0)
+
+/* DETECT sub-stage timing: pairs with JAB_PROF_BEGIN. JAB_PROF_DET_END folds the
+ * elapsed microseconds into BOTH the named DETECT sub-stage AND the JAB_STAGE_DETECT
+ * roll-up from a single clock read — so the sub-stages always sum to DETECT, with
+ * no double counting (DETECT sites use this macro instead of JAB_PROF_END, never
+ * both). Same OFF short-circuit and torn-toggle re-check as JAB_PROF_END. */
+#define JAB_PROF_DET_END(scope, substage) \
+	do { \
+		if (g_profile_stages) { \
+			jab_int64 _jab_prof_dt = \
+				(jab_prof_now_ns() - _jab_prof_t0_##scope) / 1000; \
+			g_decode_profile.detect_us[(substage)] += _jab_prof_dt; \
+			g_decode_profile.stage_us[JAB_STAGE_DETECT] += _jab_prof_dt; \
 		} \
 	} while (0)
 

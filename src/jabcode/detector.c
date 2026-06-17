@@ -3728,10 +3728,11 @@ jab_boolean detectMaster(jab_bitmap* bitmap, jab_bitmap* ch[], jab_decoded_symbo
     //find master symbol
     jab_finder_pattern* fps;
     jab_int32 status;
-    /* DETECT stage (part 2/3): finder-pattern search (pass 1, default binarizer). */
+    /* DETECT stage (part 2/3): finder-pattern search (pass 1, default binarizer).
+     * Sub-stage: DETECT_FINDER. */
     JAB_PROF_BEGIN(detect_find1);
     fps = findMasterSymbol(bitmap, ch, INTENSIVE_DETECT, &status);
-    JAB_PROF_END(detect_find1, JAB_STAGE_DETECT);
+    JAB_PROF_DET_END(detect_find1, JAB_DET_FINDER);
     if(status == FATAL_ERROR) return JAB_FAILURE;
     else if(status == JAB_FAILURE)
     {
@@ -3741,7 +3742,12 @@ jab_boolean detectMaster(jab_bitmap* bitmap, jab_bitmap* ch[], jab_decoded_symbo
 #if TEST_MODE
         JAB_REPORT_INFO(("Trying to detect more finder patterns based on the found ones"))
 #endif
+        /* DETECT stage (part 3/3): adaptive re-binarize + finder-pattern search
+         * (pass 2), reached only when pass 1 finds no usable pattern. The
+         * threshold-determination work (avg pixel value + re-binarize) is folded
+         * into DETECT_BINARIZE, the re-search into DETECT_FINDER. */
         //calculate the average pixel value around the found FPs
+        JAB_PROF_BEGIN(detect_rebin);
         jab_float rgb_ave[3];
         getAveragePixelValue(bitmap, fps, rgb_ave);
 #if JABCODE_DIAG
@@ -3750,18 +3756,16 @@ jab_boolean detectMaster(jab_bitmap* bitmap, jab_bitmap* ch[], jab_decoded_symbo
         free(fps);
         //binarize the bitmap using the average pixel values as thresholds
         for(jab_int32 i=0; i<3; free(ch[i++]));
-        /* DETECT stage (part 3/3): adaptive re-binarize + finder-pattern search
-         * (pass 2), reached only when pass 1 finds no usable pattern. */
-        JAB_PROF_BEGIN(detect_find2);
         jab_boolean binarize2_ok = binarizerRGB(bitmap, ch, rgb_ave);
+        JAB_PROF_DET_END(detect_rebin, JAB_DET_BINARIZE);
         if(!binarize2_ok)
         {
-            JAB_PROF_END(detect_find2, JAB_STAGE_DETECT);
             return JAB_FAILURE;
         }
         //find master symbol
+        JAB_PROF_BEGIN(detect_find2);
         fps = findMasterSymbol(bitmap, ch, INTENSIVE_DETECT, &status);
-        JAB_PROF_END(detect_find2, JAB_STAGE_DETECT);
+        JAB_PROF_DET_END(detect_find2, JAB_DET_FINDER);
         if(status == JAB_FAILURE || status == FATAL_ERROR)
         {
 #if JABCODE_DIAG
@@ -3781,7 +3785,10 @@ jab_boolean detectMaster(jab_bitmap* bitmap, jab_bitmap* ch[], jab_decoded_symbo
         fps[3].center.x, fps[3].center.y, fps[3].module_size));
 
     //calculate the master symbol side size
+    /* DETECT sub-stage: DETECT_TRANSFORM (grid geometry from the 4 FP centres). */
+    JAB_PROF_BEGIN(detect_sidesize);
     jab_vector2d side_size = calculateSideSize(fps);
+    JAB_PROF_DET_END(detect_sidesize, JAB_DET_TRANSFORM);
     if(side_size.x == -1 || side_size.y == -1)
     {
 		reportError("Calculating side size failed");
@@ -3793,9 +3800,12 @@ jab_boolean detectMaster(jab_bitmap* bitmap, jab_bitmap* ch[], jab_decoded_symbo
 #endif
     //try decoding using only finder patterns
 	//calculate perspective transform matrix
+	/* DETECT sub-stage: DETECT_TRANSFORM (perspective matrix for resampling). */
+	JAB_PROF_BEGIN(detect_pt);
 	jab_perspective_transform* pt = getPerspectiveTransform(fps[0].center, fps[1].center,
 															fps[2].center, fps[3].center,
 															side_size);
+	JAB_PROF_DET_END(detect_pt, JAB_DET_TRANSFORM);
 	if(pt == NULL)
 	{
 		free(fps);
@@ -3806,7 +3816,10 @@ jab_boolean detectMaster(jab_bitmap* bitmap, jab_bitmap* ch[], jab_decoded_symbo
 #if TEST_MODE
 	test_mode_color = 255;
 #endif
+	/* DETECT sub-stage: DETECT_SAMPLE (grid/module resample into the matrix). */
+	JAB_PROF_BEGIN(detect_sample);
 	jab_bitmap* matrix = sampleSymbol(bitmap, pt, side_size);
+	JAB_PROF_DET_END(detect_sample, JAB_DET_SAMPLE);
 	if(matrix && side_size.x == 21 && side_size.y == 21)
 	{
 		static const char* hello_ref[21] = {
@@ -3905,7 +3918,11 @@ jab_boolean detectMaster(jab_bitmap* bitmap, jab_bitmap* ch[], jab_decoded_symbo
 #endif // TEST_MODE
 		master_symbol->side_size.x = VERSION2SIZE(master_symbol->metadata.side_version.x);
 		master_symbol->side_size.y = VERSION2SIZE(master_symbol->metadata.side_version.y);
+		/* DETECT sub-stage: DETECT_SAMPLE (alignment-pattern search + resample,
+		 * the fallback path when FP-only sampling did not decode). */
+		JAB_PROF_BEGIN(detect_sample_ap);
 		matrix = sampleSymbolByAlignmentPattern(bitmap, ch, master_symbol, fps);
+		JAB_PROF_DET_END(detect_sample_ap, JAB_DET_SAMPLE);
 		free(fps);
 		if(matrix == NULL)
 		{
@@ -3942,16 +3959,24 @@ jab_bitmap* detectSlave(jab_bitmap* bitmap, jab_bitmap* ch[], jab_decoded_symbol
     }
 
     //find slave symbol next to the host symbol
-    if(!findSlaveSymbol(bitmap, ch, host_symbol, slave_symbol, docked_position))
+    /* DETECT sub-stage: DETECT_FINDER (slave finder-pattern search). Result is
+     * hoisted to a local so the timed span does not alter the branch. */
+    JAB_PROF_BEGIN(detect_find_slave);
+    jab_boolean slave_found = findSlaveSymbol(bitmap, ch, host_symbol, slave_symbol, docked_position);
+    JAB_PROF_DET_END(detect_find_slave, JAB_DET_FINDER);
+    if(!slave_found)
     {
         JAB_REPORT_ERROR(("Slave symbol %d not found", slave_symbol->index))
         return NULL;
     }
 
     //calculate perspective transform matrix
+    /* DETECT sub-stage: DETECT_TRANSFORM (slave perspective matrix). */
+    JAB_PROF_BEGIN(detect_pt_slave);
     jab_perspective_transform* pt = getPerspectiveTransform(slave_symbol->pattern_positions[0], slave_symbol->pattern_positions[1],
                                                             slave_symbol->pattern_positions[2], slave_symbol->pattern_positions[3],
                                                             slave_symbol->side_size);
+    JAB_PROF_DET_END(detect_pt_slave, JAB_DET_TRANSFORM);
     if(pt == NULL)
     {
         return NULL;
@@ -3961,7 +3986,10 @@ jab_bitmap* detectSlave(jab_bitmap* bitmap, jab_bitmap* ch[], jab_decoded_symbol
 #if TEST_MODE
 	test_mode_color = 255;
 #endif
+    /* DETECT sub-stage: DETECT_SAMPLE (slave grid/module resample). */
+    JAB_PROF_BEGIN(detect_sample_slave);
     jab_bitmap* matrix = sampleSymbol(bitmap, pt, slave_symbol->side_size);
+    JAB_PROF_DET_END(detect_sample_slave, JAB_DET_SAMPLE);
     if(matrix == NULL)
     {
         JAB_REPORT_ERROR(("Sampling slave symbol %d failed", slave_symbol->index))
@@ -4046,12 +4074,13 @@ jab_data* decodeJABCodeEx(jab_bitmap* bitmap, jab_int32 mode, jab_int32* status,
 	/* DETECT stage (part 1/3): RGB channel balance + binarization. The finder-
 	 * pattern search inside detectMaster is timed separately (also DETECT), and
 	 * the symbol-decode stages it triggers are timed at their own call sites, so
-	 * the per-stage totals stay additive with no double counting. */
+	 * the per-stage totals stay additive with no double counting. Sub-stage:
+	 * DETECT_BINARIZE (JAB_PROF_DET_END folds into both the sub-stage and DETECT). */
 	jab_bitmap* ch[3];
 	JAB_PROF_BEGIN(detect_binarize);
 	balanceRGB(bitmap);
     jab_boolean binarize_ok = binarizerRGB(bitmap, ch, 0);
-	JAB_PROF_END(detect_binarize, JAB_STAGE_DETECT);
+	JAB_PROF_DET_END(detect_binarize, JAB_DET_BINARIZE);
     if(!binarize_ok)
 	{
 		return NULL;

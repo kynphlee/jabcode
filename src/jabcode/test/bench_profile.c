@@ -13,6 +13,14 @@
  *   LDPC            LDPC hard-decision decode
  *   DATA_DECODE     final byte/encode-mode decode
  *
+ * It additionally breaks the DETECT roll-up into its sub-stages (these sum to
+ * ~DETECT by construction -- see decode_profile.h):
+ *
+ *   DETECT_BINARIZE   balanceRGB + binarizerRGB channel thresholding
+ *   DETECT_FINDER     finder-pattern search (findMaster/Slave)
+ *   DETECT_TRANSFORM  calculateSideSize + getPerspectiveTransform
+ *   DETECT_SAMPLE     sampleSymbol / sampleSymbolByAlignmentPattern resample
+ *
  * The point is attribution, not wall-clock: which stage dominates at LOW Nc vs
  * HIGH Nc. The accumulator is reset per mode (jabResetDecodeProfile) and the
  * reported per-stage value is the total over `iters` decodes divided by the
@@ -52,6 +60,11 @@ static const char *STAGE_NAME[JAB_STAGE_COUNT] = {
 	"DETECT", "PALETTE", "COLOR_CLASSIFY", "DEINTERLEAVE", "LDPC", "DATA_DECODE"
 };
 
+/* DETECT sub-stage labels, indexed by jab_detect_substage. */
+static const char *DET_NAME[JAB_DET_COUNT] = {
+	"DETECT_BINARIZE", "DETECT_FINDER", "DETECT_TRANSFORM", "DETECT_SAMPLE"
+};
+
 static jab_data *mkdata(const jab_byte *s, int n) {
 	jab_data *d = (jab_data *)malloc(sizeof(jab_data) + n);
 	d->length = n;
@@ -78,9 +91,16 @@ int main(int argc, char **argv) {
 
 	fprintf(stderr, "platform=%s warmup=%d iters=%d payload_bytes=%d ecc=%d\n",
 	        PLATFORM, warmup, iters, payload_len, ecc);
+	fprintf(stderr, "-- pipeline stages (mean us/decode) --\n");
 	fprintf(stderr, "%-5s %10s %10s %10s %10s %10s %10s %10s %6s\n",
 	        "Nc", "DETECT", "PALETTE", "COLORCLS", "DEINTLV", "LDPC",
 	        "DATADEC", "TOTAL", "ok");
+
+	/* DETECT sub-stage means per mode, buffered so the sub-stage table prints as
+	 * one block after the per-stage table rather than interleaving with it. */
+	double det_per[16][JAB_DET_COUNT];   /* [mode][sub-stage] mean us/decode */
+	int    det_color[16];
+	int    n_done = 0;
 
 	printf("[\n");
 	int first = 1;
@@ -128,7 +148,18 @@ int main(int argc, char **argv) {
 			total += per[s];
 		}
 
-		/* JSON record per (Nc, stage): mean microseconds per decode. */
+		/* DETECT sub-stage means (sum to ~per[JAB_STAGE_DETECT] by construction). */
+		double det[JAB_DET_COUNT];
+		for (int s = 0; s < JAB_DET_COUNT; s++)
+			det[s] = (double)p->detect_us[s] / (double)denom;
+		for (int s = 0; s < JAB_DET_COUNT && n_done < 16; s++)
+			det_per[n_done][s] = det[s];
+		if (n_done < 16) det_color[n_done] = color;
+
+		/* JSON record per (Nc, stage): mean microseconds per decode. The DETECT
+		 * sub-stage records carry "detect_substage":true so a sub-stage chart can
+		 * select them and the top-level stacked chart (which keys on the six
+		 * pipeline-stage names) ignores them. */
 		for (int s = 0; s < JAB_STAGE_COUNT; s++) {
 			if (!first) printf(",\n");
 			first = 0;
@@ -137,15 +168,38 @@ int main(int argc, char **argv) {
 			       PLATFORM, color, STAGE_NAME[s], per[s],
 			       (long long)p->decode_count, ok);
 		}
+		for (int s = 0; s < JAB_DET_COUNT; s++) {
+			printf(",\n");
+			printf("  {\"platform\":\"%s\",\"colours\":%d,\"stage\":\"%s\","
+			       "\"detect_substage\":true,"
+			       "\"us_per_decode\":%.3f,\"decodes\":%lld,\"ok\":%d}",
+			       PLATFORM, color, DET_NAME[s], det[s],
+			       (long long)p->decode_count, ok);
+		}
 
 		fprintf(stderr, "%-5d %10.2f %10.2f %10.2f %10.2f %10.2f %10.2f %10.2f %3d/%d\n",
 		        color, per[JAB_STAGE_DETECT], per[JAB_STAGE_PALETTE],
 		        per[JAB_STAGE_COLOR_CLASSIFY], per[JAB_STAGE_DEINTERLEAVE],
 		        per[JAB_STAGE_LDPC], per[JAB_STAGE_DATA_DECODE], total, ok, iters);
 
+		n_done++;
 		free(d0);
 		destroyEncode(e0);
 	}
 	printf("\n]\n");
+
+	/* DETECT sub-stage breakdown (printed after the per-stage table). DET_SUM is
+	 * the sub-stage sum; it equals the DETECT column above to rounding, proving
+	 * the breakdown is additive. */
+	fprintf(stderr, "\n-- DETECT sub-stages (mean us/decode) --\n");
+	fprintf(stderr, "%-5s %12s %12s %12s %12s %12s\n",
+	        "Nc", "BINARIZE", "FINDER", "TRANSFORM", "SAMPLE", "DET_SUM");
+	for (int m = 0; m < n_done; m++) {
+		double sum = 0.0;
+		for (int s = 0; s < JAB_DET_COUNT; s++) sum += det_per[m][s];
+		fprintf(stderr, "%-5d %12.2f %12.2f %12.2f %12.2f %12.2f\n",
+		        det_color[m], det_per[m][JAB_DET_BINARIZE], det_per[m][JAB_DET_FINDER],
+		        det_per[m][JAB_DET_TRANSFORM], det_per[m][JAB_DET_SAMPLE], sum);
+	}
 	return 0;
 }
