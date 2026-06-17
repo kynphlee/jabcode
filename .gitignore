@@ -119,3 +119,8 @@ src/jabcode/test/test_*
 
 # Apple swift-java interop dependency (nested git checkout, external repo)
 /swift-java/
+
+# R0 robustness corpus: the bulk full-ladder / large-sweep degradation set is
+# regenerated on demand via `degrade.py --full`. The 144-image SAMPLE set under
+# robustness/r0/synthetic/out/ IS tracked; only the out-full/ bulk is ignored.
+robustness/r0/synthetic/out-full/
