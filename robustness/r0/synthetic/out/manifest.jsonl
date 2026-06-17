@@ -3,7 +3,7 @@
 {"id": "nc0-2c-20260521__blur_3", "file": "nc0-2c-20260521__blur_3.png", "source_symbol": "nc0-2c-20260521.png", "nc": 0, "degradation_type": "blur", "param": 3.0}
 {"id": "nc0-2c-20260521__perspective_20deg", "file": "nc0-2c-20260521__perspective_20deg.png", "source_symbol": "nc0-2c-20260521.png", "nc": 0, "degradation_type": "perspective", "param": 20}
 {"id": "nc0-2c-20260521__perspective_30deg", "file": "nc0-2c-20260521__perspective_30deg.png", "source_symbol": "nc0-2c-20260521.png", "nc": 0, "degradation_type": "perspective", "param": 30}
-{"id": "nc0-2c-20260521__perspective_40deg", "file": "nc0-2c-20260521__perspective_40deg.png", "source_symbol": "nc0-2c-20260521.png", "nc": 0, "degradation_type": "perspective", "param": 40}
+{"id": "nc0-2c-20260521__perspective_35deg", "file": "nc0-2c-20260521__perspective_35deg.png", "source_symbol": "nc0-2c-20260521.png", "nc": 0, "degradation_type": "perspective", "param": 35}
 {"id": "nc0-2c-20260521__lighting_0.3", "file": "nc0-2c-20260521__lighting_0.3.png", "source_symbol": "nc0-2c-20260521.png", "nc": 0, "degradation_type": "lighting", "param": 0.3}
 {"id": "nc0-2c-20260521__lighting_0.5", "file": "nc0-2c-20260521__lighting_0.5.png", "source_symbol": "nc0-2c-20260521.png", "nc": 0, "degradation_type": "lighting", "param": 0.5}
 {"id": "nc0-2c-20260521__lighting_0.7", "file": "nc0-2c-20260521__lighting_0.7.png", "source_symbol": "nc0-2c-20260521.png", "nc": 0, "degradation_type": "lighting", "param": 0.7}
@@ -21,7 +21,7 @@
 {"id": "nc1-4c-20260521__blur_3", "file": "nc1-4c-20260521__blur_3.png", "source_symbol": "nc1-4c-20260521.png", "nc": 1, "degradation_type": "blur", "param": 3.0}
 {"id": "nc1-4c-20260521__perspective_20deg", "file": "nc1-4c-20260521__perspective_20deg.png", "source_symbol": "nc1-4c-20260521.png", "nc": 1, "degradation_type": "perspective", "param": 20}
 {"id": "nc1-4c-20260521__perspective_30deg", "file": "nc1-4c-20260521__perspective_30deg.png", "source_symbol": "nc1-4c-20260521.png", "nc": 1, "degradation_type": "perspective", "param": 30}
-{"id": "nc1-4c-20260521__perspective_40deg", "file": "nc1-4c-20260521__perspective_40deg.png", "source_symbol": "nc1-4c-20260521.png", "nc": 1, "degradation_type": "perspective", "param": 40}
+{"id": "nc1-4c-20260521__perspective_35deg", "file": "nc1-4c-20260521__perspective_35deg.png", "source_symbol": "nc1-4c-20260521.png", "nc": 1, "degradation_type": "perspective", "param": 35}
 {"id": "nc1-4c-20260521__lighting_0.3", "file": "nc1-4c-20260521__lighting_0.3.png", "source_symbol": "nc1-4c-20260521.png", "nc": 1, "degradation_type": "lighting", "param": 0.3}
 {"id": "nc1-4c-20260521__lighting_0.5", "file": "nc1-4c-20260521__lighting_0.5.png", "source_symbol": "nc1-4c-20260521.png", "nc": 1, "degradation_type": "lighting", "param": 0.5}
 {"id": "nc1-4c-20260521__lighting_0.7", "file": "nc1-4c-20260521__lighting_0.7.png", "source_symbol": "nc1-4c-20260521.png", "nc": 1, "degradation_type": "lighting", "param": 0.7}
@@ -39,7 +39,7 @@
 {"id": "nc2-8c-20260521__blur_3", "file": "nc2-8c-20260521__blur_3.png", "source_symbol": "nc2-8c-20260521.png", "nc": 2, "degradation_type": "blur", "param": 3.0}
 {"id": "nc2-8c-20260521__perspective_20deg", "file": "nc2-8c-20260521__perspective_20deg.png", "source_symbol": "nc2-8c-20260521.png", "nc": 2, "degradation_type": "perspective", "param": 20}
 {"id": "nc2-8c-20260521__perspective_30deg", "file": "nc2-8c-20260521__perspective_30deg.png", "source_symbol": "nc2-8c-20260521.png", "nc": 2, "degradation_type": "perspective", "param": 30}
-{"id": "nc2-8c-20260521__perspective_40deg", "file": "nc2-8c-20260521__perspective_40deg.png", "source_symbol": "nc2-8c-20260521.png", "nc": 2, "degradation_type": "perspective", "param": 40}
+{"id": "nc2-8c-20260521__perspective_35deg", "file": "nc2-8c-20260521__perspective_35deg.png", "source_symbol": "nc2-8c-20260521.png", "nc": 2, "degradation_type": "perspective", "param": 35}
 {"id": "nc2-8c-20260521__lighting_0.3", "file": "nc2-8c-20260521__lighting_0.3.png", "source_symbol": "nc2-8c-20260521.png", "nc": 2, "degradation_type": "lighting", "param": 0.3}
 {"id": "nc2-8c-20260521__lighting_0.5", "file": "nc2-8c-20260521__lighting_0.5.png", "source_symbol": "nc2-8c-20260521.png", "nc": 2, "degradation_type": "lighting", "param": 0.5}
 {"id": "nc2-8c-20260521__lighting_0.7", "file": "nc2-8c-20260521__lighting_0.7.png", "source_symbol": "nc2-8c-20260521.png", "nc": 2, "degradation_type": "lighting", "param": 0.7}
@@ -57,7 +57,7 @@
 {"id": "nc3-16c-20260521__blur_3", "file": "nc3-16c-20260521__blur_3.png", "source_symbol": "nc3-16c-20260521.png", "nc": 3, "degradation_type": "blur", "param": 3.0}
 {"id": "nc3-16c-20260521__perspective_20deg", "file": "nc3-16c-20260521__perspective_20deg.png", "source_symbol": "nc3-16c-20260521.png", "nc": 3, "degradation_type": "perspective", "param": 20}
 {"id": "nc3-16c-20260521__perspective_30deg", "file": "nc3-16c-20260521__perspective_30deg.png", "source_symbol": "nc3-16c-20260521.png", "nc": 3, "degradation_type": "perspective", "param": 30}
-{"id": "nc3-16c-20260521__perspective_40deg", "file": "nc3-16c-20260521__perspective_40deg.png", "source_symbol": "nc3-16c-20260521.png", "nc": 3, "degradation_type": "perspective", "param": 40}
+{"id": "nc3-16c-20260521__perspective_35deg", "file": "nc3-16c-20260521__perspective_35deg.png", "source_symbol": "nc3-16c-20260521.png", "nc": 3, "degradation_type": "perspective", "param": 35}
 {"id": "nc3-16c-20260521__lighting_0.3", "file": "nc3-16c-20260521__lighting_0.3.png", "source_symbol": "nc3-16c-20260521.png", "nc": 3, "degradation_type": "lighting", "param": 0.3}
 {"id": "nc3-16c-20260521__lighting_0.5", "file": "nc3-16c-20260521__lighting_0.5.png", "source_symbol": "nc3-16c-20260521.png", "nc": 3, "degradation_type": "lighting", "param": 0.5}
 {"id": "nc3-16c-20260521__lighting_0.7", "file": "nc3-16c-20260521__lighting_0.7.png", "source_symbol": "nc3-16c-20260521.png", "nc": 3, "degradation_type": "lighting", "param": 0.7}
@@ -75,7 +75,7 @@
 {"id": "nc4-32c-20260521__blur_3", "file": "nc4-32c-20260521__blur_3.png", "source_symbol": "nc4-32c-20260521.png", "nc": 4, "degradation_type": "blur", "param": 3.0}
 {"id": "nc4-32c-20260521__perspective_20deg", "file": "nc4-32c-20260521__perspective_20deg.png", "source_symbol": "nc4-32c-20260521.png", "nc": 4, "degradation_type": "perspective", "param": 20}
 {"id": "nc4-32c-20260521__perspective_30deg", "file": "nc4-32c-20260521__perspective_30deg.png", "source_symbol": "nc4-32c-20260521.png", "nc": 4, "degradation_type": "perspective", "param": 30}
-{"id": "nc4-32c-20260521__perspective_40deg", "file": "nc4-32c-20260521__perspective_40deg.png", "source_symbol": "nc4-32c-20260521.png", "nc": 4, "degradation_type": "perspective", "param": 40}
+{"id": "nc4-32c-20260521__perspective_35deg", "file": "nc4-32c-20260521__perspective_35deg.png", "source_symbol": "nc4-32c-20260521.png", "nc": 4, "degradation_type": "perspective", "param": 35}
 {"id": "nc4-32c-20260521__lighting_0.3", "file": "nc4-32c-20260521__lighting_0.3.png", "source_symbol": "nc4-32c-20260521.png", "nc": 4, "degradation_type": "lighting", "param": 0.3}
 {"id": "nc4-32c-20260521__lighting_0.5", "file": "nc4-32c-20260521__lighting_0.5.png", "source_symbol": "nc4-32c-20260521.png", "nc": 4, "degradation_type": "lighting", "param": 0.5}
 {"id": "nc4-32c-20260521__lighting_0.7", "file": "nc4-32c-20260521__lighting_0.7.png", "source_symbol": "nc4-32c-20260521.png", "nc": 4, "degradation_type": "lighting", "param": 0.7}
@@ -93,7 +93,7 @@
 {"id": "nc5-64c-20260521__blur_3", "file": "nc5-64c-20260521__blur_3.png", "source_symbol": "nc5-64c-20260521.png", "nc": 5, "degradation_type": "blur", "param": 3.0}
 {"id": "nc5-64c-20260521__perspective_20deg", "file": "nc5-64c-20260521__perspective_20deg.png", "source_symbol": "nc5-64c-20260521.png", "nc": 5, "degradation_type": "perspective", "param": 20}
 {"id": "nc5-64c-20260521__perspective_30deg", "file": "nc5-64c-20260521__perspective_30deg.png", "source_symbol": "nc5-64c-20260521.png", "nc": 5, "degradation_type": "perspective", "param": 30}
-{"id": "nc5-64c-20260521__perspective_40deg", "file": "nc5-64c-20260521__perspective_40deg.png", "source_symbol": "nc5-64c-20260521.png", "nc": 5, "degradation_type": "perspective", "param": 40}
+{"id": "nc5-64c-20260521__perspective_35deg", "file": "nc5-64c-20260521__perspective_35deg.png", "source_symbol": "nc5-64c-20260521.png", "nc": 5, "degradation_type": "perspective", "param": 35}
 {"id": "nc5-64c-20260521__lighting_0.3", "file": "nc5-64c-20260521__lighting_0.3.png", "source_symbol": "nc5-64c-20260521.png", "nc": 5, "degradation_type": "lighting", "param": 0.3}
 {"id": "nc5-64c-20260521__lighting_0.5", "file": "nc5-64c-20260521__lighting_0.5.png", "source_symbol": "nc5-64c-20260521.png", "nc": 5, "degradation_type": "lighting", "param": 0.5}
 {"id": "nc5-64c-20260521__lighting_0.7", "file": "nc5-64c-20260521__lighting_0.7.png", "source_symbol": "nc5-64c-20260521.png", "nc": 5, "degradation_type": "lighting", "param": 0.7}
@@ -111,7 +111,7 @@
 {"id": "nc6-128c-20260521__blur_3", "file": "nc6-128c-20260521__blur_3.png", "source_symbol": "nc6-128c-20260521.png", "nc": 6, "degradation_type": "blur", "param": 3.0}
 {"id": "nc6-128c-20260521__perspective_20deg", "file": "nc6-128c-20260521__perspective_20deg.png", "source_symbol": "nc6-128c-20260521.png", "nc": 6, "degradation_type": "perspective", "param": 20}
 {"id": "nc6-128c-20260521__perspective_30deg", "file": "nc6-128c-20260521__perspective_30deg.png", "source_symbol": "nc6-128c-20260521.png", "nc": 6, "degradation_type": "perspective", "param": 30}
-{"id": "nc6-128c-20260521__perspective_40deg", "file": "nc6-128c-20260521__perspective_40deg.png", "source_symbol": "nc6-128c-20260521.png", "nc": 6, "degradation_type": "perspective", "param": 40}
+{"id": "nc6-128c-20260521__perspective_35deg", "file": "nc6-128c-20260521__perspective_35deg.png", "source_symbol": "nc6-128c-20260521.png", "nc": 6, "degradation_type": "perspective", "param": 35}
 {"id": "nc6-128c-20260521__lighting_0.3", "file": "nc6-128c-20260521__lighting_0.3.png", "source_symbol": "nc6-128c-20260521.png", "nc": 6, "degradation_type": "lighting", "param": 0.3}
 {"id": "nc6-128c-20260521__lighting_0.5", "file": "nc6-128c-20260521__lighting_0.5.png", "source_symbol": "nc6-128c-20260521.png", "nc": 6, "degradation_type": "lighting", "param": 0.5}
 {"id": "nc6-128c-20260521__lighting_0.7", "file": "nc6-128c-20260521__lighting_0.7.png", "source_symbol": "nc6-128c-20260521.png", "nc": 6, "degradation_type": "lighting", "param": 0.7}
@@ -129,7 +129,7 @@
 {"id": "nc7-256c-20260521__blur_3", "file": "nc7-256c-20260521__blur_3.png", "source_symbol": "nc7-256c-20260521.png", "nc": 7, "degradation_type": "blur", "param": 3.0}
 {"id": "nc7-256c-20260521__perspective_20deg", "file": "nc7-256c-20260521__perspective_20deg.png", "source_symbol": "nc7-256c-20260521.png", "nc": 7, "degradation_type": "perspective", "param": 20}
 {"id": "nc7-256c-20260521__perspective_30deg", "file": "nc7-256c-20260521__perspective_30deg.png", "source_symbol": "nc7-256c-20260521.png", "nc": 7, "degradation_type": "perspective", "param": 30}
-{"id": "nc7-256c-20260521__perspective_40deg", "file": "nc7-256c-20260521__perspective_40deg.png", "source_symbol": "nc7-256c-20260521.png", "nc": 7, "degradation_type": "perspective", "param": 40}
+{"id": "nc7-256c-20260521__perspective_35deg", "file": "nc7-256c-20260521__perspective_35deg.png", "source_symbol": "nc7-256c-20260521.png", "nc": 7, "degradation_type": "perspective", "param": 35}
 {"id": "nc7-256c-20260521__lighting_0.3", "file": "nc7-256c-20260521__lighting_0.3.png", "source_symbol": "nc7-256c-20260521.png", "nc": 7, "degradation_type": "lighting", "param": 0.3}
 {"id": "nc7-256c-20260521__lighting_0.5", "file": "nc7-256c-20260521__lighting_0.5.png", "source_symbol": "nc7-256c-20260521.png", "nc": 7, "degradation_type": "lighting", "param": 0.5}
 {"id": "nc7-256c-20260521__lighting_0.7", "file": "nc7-256c-20260521__lighting_0.7.png", "source_symbol": "nc7-256c-20260521.png", "nc": 7, "degradation_type": "lighting", "param": 0.7}

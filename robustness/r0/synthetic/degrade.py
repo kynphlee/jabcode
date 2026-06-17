@@ -82,31 +82,53 @@ def degrade_blur(img: Image.Image, sigma: float) -> Image.Image:
     return img.filter(ImageFilter.GaussianBlur(radius=float(sigma)))
 
 
+# Pinhole camera distance for the perspective warp, in symbol widths. A true
+# central projection (vs. a one-edge-pinned shear) keeps the symbol centred with
+# symmetric foreshortening -- what an off-axis photo of a flat symbol looks like.
+PERSPECTIVE_DIST_WIDTHS = 3.0
+
+
+def _dst_corners_pinhole(w: int, h: int, angle_deg: float,
+                         dist_widths: float = PERSPECTIVE_DIST_WIDTHS):
+    """Where the four corners of a w x h plane land after rotating the plane by
+    `angle_deg` about its vertical centre-line and projecting through a pinhole
+    `dist_widths` * w away. Recentred so the projected quad stays centred."""
+    a = math.radians(float(angle_deg))
+    corners3 = [
+        (-0.5 * w, -0.5 * h, 0.0),  # TL
+        (+0.5 * w, -0.5 * h, 0.0),  # TR
+        (+0.5 * w, +0.5 * h, 0.0),  # BR
+        (-0.5 * w, +0.5 * h, 0.0),  # BL
+    ]
+    f = dist_widths * w
+    ca, sa = math.cos(a), math.sin(a)
+    proj = []
+    for (X, Y, Z) in corners3:
+        Xr = ca * X + sa * Z
+        Zr = -sa * X + ca * Z
+        zc = Zr + f
+        proj.append((f * Xr / zc, f * Y / zc))
+    cx = sum(p[0] for p in proj) / 4.0
+    cy = sum(p[1] for p in proj) / 4.0
+    return [(p[0] - cx + w / 2.0, p[1] - cy + h / 2.0) for p in proj]
+
+
 def degrade_perspective(img: Image.Image, angle_deg: float, quiet_modules: int) -> Image.Image:
-    """Projective tilt about the vertical axis by `angle_deg`, as if the symbol
-    were photographed off-axis. Pads a white quiet zone first so the corner
-    finder patterns survive the warp, then keeps the output canvas the same
-    size as the padded input."""
+    """Off-axis projective tilt via a true pinhole-camera homography: the symbol
+    plane is rotated by `angle_deg` about its vertical centre-line and projected
+    through a pinhole. A GENEROUS white quiet zone is padded first -- the
+    perspective grid sampler needs margin around the symbol to lock registration;
+    too thin a pad lets the warped symbol run flush to the canvas edge and the
+    sampler fails even though the finder patterns are perfectly intact (the R0
+    validation traced the original 0%@20deg wall to exactly this 4-module pad --
+    see robustness/r0/validation/perspective.md)."""
     padded = _pad_quiet_zone(img, quiet_modules)
     w, h = padded.size
-
-    # Foreshorten the right edge: model a rotation of the plane about its
-    # vertical centre line. The far edge shrinks by cos-driven perspective.
-    a = math.radians(float(angle_deg))
-    # Inset of the far (right) edge, as a fraction of width. sin(angle) gives a
-    # monotone, intuitive tilt ladder without needing a full camera model.
-    shrink = math.sin(a)
-    dx = (w * 0.5) * shrink
-    dy = (h * 0.5) * shrink * 0.5  # vertical foreshortening of the far edge
-
     src = [(0, 0), (w, 0), (w, h), (0, h)]
-    dst = [
-        (0, 0),
-        (w - dx, dy),
-        (w - dx, h - dy),
-        (0, h),
-    ]
-    coeffs = _perspective_coeffs(dst, src)
+    dst = _dst_corners_pinhole(w, h, angle_deg)
+    # _perspective_coeffs(src, dst) solves the dst->src map PIL needs (it samples
+    # the source for each output pixel) -- the convention the validation proved.
+    coeffs = _perspective_coeffs(src, dst)
     return padded.transform(
         (w, h), Image.PERSPECTIVE, coeffs,
         resample=Image.BICUBIC, fillcolor=WHITE,
@@ -239,7 +261,7 @@ FAMILIES: list[Family] = [
     Family("blur", degrade_blur,
            full=(0.5, 1.0, 2.0, 3.0), sample=(1.0, 2.0, 3.0)),
     Family("perspective", degrade_perspective,
-           full=(10, 20, 30, 40), sample=(20, 30, 40), fmt="{:g}deg"),
+           full=(15, 20, 25, 30, 35, 40), sample=(20, 30, 35), fmt="{:g}deg"),
     Family("lighting", degrade_lighting,
            full=(0.3, 0.5, 0.7), sample=(0.3, 0.5, 0.7)),
     Family("downscale", degrade_downscale,
@@ -294,9 +316,11 @@ def main(argv=None) -> int:
                     help="emit the full param ladder (default: repo subset)")
     ap.add_argument("--types", default=None,
                     help="comma-separated subset of degradation families")
-    ap.add_argument("--quiet-zone", type=int, default=4,
-                    help="white quiet-zone modules added before "
-                         "perspective/lighting (default 4)")
+    ap.add_argument("--quiet-zone", type=int, default=12,
+                    help="white quiet-zone modules padded before perspective "
+                         "(default 12; the grid sampler needs margin -- a "
+                         "4-module pad caused the R0 validation tilt artifact). "
+                         "Lighting uses its own fixed 2-module pad.")
     args = ap.parse_args(argv)
 
     if args.types:

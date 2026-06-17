@@ -13,7 +13,8 @@ It has three components, in the order you'd build an argument:
 robustness/r0/
 ├── trace-baseline/   1. WHAT THE FIELD DOES   — decode-rate mined from real on-device traces
 ├── rig/              2. THE MEASURING DEVICE  — host harness: labelled images -> decode-rate + fail-stage
-└── synthetic/        3. THE CONTROLLED INPUT  — deterministic degradations of clean symbols, fed to the rig
+├── synthetic/        3. THE CONTROLLED INPUT  — deterministic degradations of clean symbols, fed to the rig
+└── validation/       investigations that ground surprising rig results (e.g. the perspective artifact)
 ```
 
 1. **`trace-baseline/`** reduces 56 real `jabauth-android` diagnostic traces
@@ -165,7 +166,7 @@ larger ladder to the gitignored `out-full/`.
 ## First-pass results (synthetic corpus, 144 images)
 
 Decode-rate by degradation cell from the run above (stock decoder, strict
-Part II). Overall **102/144 = 70.8%**, mean 34.4 ms/image, **0 PAYLOAD_MISMATCH**
+Part II). Overall **119/144 = 82.6%**, mean ~39 ms/image, **0 PAYLOAD_MISMATCH**
 — every successful decode passed SHA-256 verification, which is the sanity
 check that the bridge hashes and the decode path are wired correctly.
 
@@ -174,9 +175,9 @@ check that the bridge hashes and the decode path are wired correctly.
 | `blur`        | 1.0 | 8 | 8 | **100%** | NONE×8 |
 | `blur`        | 2.0 | 8 | 7 | 88%  | NONE×7, LDPC×1 |
 | `blur`        | 3.0 | 8 | 4 | 50%  | NONE×4, DETECT×1, LDPC×3 |
-| `perspective` | 20  | 8 | 0 | **0%**   | DETECT×8 |
-| `perspective` | 30  | 8 | 0 | **0%**   | DETECT×8 |
-| `perspective` | 40  | 8 | 0 | **0%**   | DETECT×8 |
+| `perspective` | 20  | 8 | 8 | **100%** | NONE×8 |
+| `perspective` | 30  | 8 | 7 | 88%  | NONE×7, LDPC×1 |
+| `perspective` | 35  | 8 | 2 | 25%  | NONE×2, LDPC×6 |
 | `lighting`    | 0.3 | 8 | 7 | 88%  | NONE×7, LDPC×1 |
 | `lighting`    | 0.5 | 8 | 6 | 75%  | NONE×6, LDPC×2 |
 | `lighting`    | 0.7 | 8 | 5 | 62%  | NONE×5, LDPC×3 |
@@ -189,7 +190,7 @@ check that the bridge hashes and the decode path are wired correctly.
 | `chroma`      | 0.3 | 8 | 8 | **100%** | NONE×8 |
 | `chroma`      | 0.5 | 8 | 8 | **100%** | NONE×8 |
 | `chroma`      | 0.7 | 8 | 2 | 25%  | NONE×2, DETECT×6 |
-| **overall**   | —   | **144** | **102** | **70.8%** | NONE×102, DETECT×31, LDPC×11 |
+| **overall**   | —   | **144** | **119** | **82.6%** | NONE×119, DETECT×7, LDPC×18 |
 
 How to read it:
 
@@ -197,9 +198,16 @@ How to read it:
   `jpeg@70`, `downscale@6`), all SHA-256-verified — the rig and the bridge are
   correct. (If the bridge hashes were wrong these cells would read
   `PAYLOAD_MISMATCH`, not `NONE`.)
-- **`perspective` is a hard wall: 0% at every angle, 100% `DETECT`.** The
-  projective tilt moves the finder patterns enough that the detector never
-  localizes the symbol — a pure *detection* failure, the R2 lever.
+- **`perspective` holds to ~30° tilt, then fails through `LDPC`.** 100% at 20°,
+  88% at 30°, 25% at 35° — and the failures are `LDPC`, not `DETECT`: the decoder
+  finds and samples the tilted symbol, but grid-sampling precision erodes the
+  colours faster than error-correction can recover. (An earlier corpus bug — a
+  too-thin 4-module quiet zone that let the warped symbol run flush to the canvas
+  edge — masqueraded as a 0% `DETECT` wall; the realistic pinhole warp + 12-module
+  quiet zone here is the corrected model. See
+  [`validation/perspective.md`](./validation/perspective.md): jabcode's true tilt
+  ceiling is ~30°, a *sampling-precision* limit, vs ~66° for a mature QR reader on
+  the identical warp.)
 - **`lighting` and `blur` degrade through `LDPC`.** As the gradient steepens or
   the smear widens, the symbol is still *found* but colour/metadata recovery
   fails at the LDPC layer — the *classification* surface, the R1 lever the field
@@ -213,6 +221,8 @@ How to read it:
 
 This first pass is the **baseline a decoder change is measured against**: rerun
 the identical command after an R1 change and diff the per-condition decode-rates
-cell-by-cell. The `LDPC`-dominated `lighting`/`blur` cells are where adaptive
-binarization / palette recovery should move the number; `perspective` is the
-detection (R2) story.
+cell-by-cell. The `LDPC`-dominated `lighting`/`blur`/`chroma` cells are where
+adaptive binarization / palette recovery should move the number — the R1 lever
+the field baseline pointed at. `perspective` (a ~30° sampling-precision ceiling)
+and the harsh `chroma@0.7` cliff are the residual detection (R2) story — milder,
+and lower-priority once the quiet-zone artifact is removed.
