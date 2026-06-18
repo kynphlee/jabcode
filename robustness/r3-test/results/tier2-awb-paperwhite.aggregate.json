@@ -1,0 +1,30 @@
+{
+  "manifest": "/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode.worktrees/r3-test/robustness/r3-test/manifests/tier2-awb-paperwhite.jsonl",
+  "bucket_keys": [
+    "conditions"
+  ],
+  "overall": {
+    "n": 23,
+    "decoded": 3,
+    "decode_rate": 0.1304,
+    "mean_decode_ms": 389.014,
+    "fail_stage_histogram": {
+      "NONE": 3,
+      "DETECT": 4,
+      "LDPC": 16
+    }
+  },
+  "by_condition": {
+    "conditions=tier2-awb-paperwhite": {
+      "n": 23,
+      "decoded": 3,
+      "decode_rate": 0.1304,
+      "mean_decode_ms": 389.014,
+      "fail_stage_histogram": {
+        "NONE": 3,
+        "DETECT": 4,
+        "LDPC": 16
+      }
+    }
+  }
+}

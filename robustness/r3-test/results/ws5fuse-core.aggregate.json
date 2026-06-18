@@ -1,0 +1,53 @@
+{
+  "manifest": "/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode.worktrees/r3-test/robustness/r3-test/manifests/ws5fuse-core.jsonl",
+  "bucket_keys": [
+    "id"
+  ],
+  "overall": {
+    "n": 4,
+    "decoded": 0,
+    "decode_rate": 0.0,
+    "mean_decode_ms": 41.551,
+    "fail_stage_histogram": {
+      "DETECT": 4
+    }
+  },
+  "by_condition": {
+    "id=ws5fuse-core-mean": {
+      "n": 1,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 35.55,
+      "fail_stage_histogram": {
+        "DETECT": 1
+      }
+    },
+    "id=ws5fuse-core-median": {
+      "n": 1,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 50.541,
+      "fail_stage_histogram": {
+        "DETECT": 1
+      }
+    },
+    "id=ws5fuse-core-sharpmean": {
+      "n": 1,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 52.144,
+      "fail_stage_histogram": {
+        "DETECT": 1
+      }
+    },
+    "id=ws5fuse-core-single": {
+      "n": 1,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 27.97,
+      "fail_stage_histogram": {
+        "DETECT": 1
+      }
+    }
+  }
+}
