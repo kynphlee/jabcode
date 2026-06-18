@@ -1,0 +1,5 @@
+# The degraded corpus is large and fully regenerable from the committed clean
+# grid (symbols/) + degrade.py. Commit only the measurement artifacts.
+corpus/
+# Transient per-payload plaintext (generated + deleted by build_corpus.py).
+_payloads/

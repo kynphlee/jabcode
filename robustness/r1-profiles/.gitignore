@@ -1,0 +1,3 @@
+# Python bytecode cache (profile_select.py is imported by the gen tools/tests)
+__pycache__/
+*.pyc

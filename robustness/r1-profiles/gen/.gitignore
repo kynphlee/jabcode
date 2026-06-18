@@ -1,0 +1,7 @@
+# Compiled grid tools (regenerable: make -C robustness/r1-profiles/gen all)
+grid_encode
+grid_capacity
+*.o
+# Python bytecode cache
+__pycache__/
+*.pyc

@@ -1,0 +1,1929 @@
+{
+  "manifest": "/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode.worktrees/r1-profiles/robustness/r1-profiles/data/manifest.jsonl",
+  "bucket_keys": [
+    "conditions"
+  ],
+  "overall": {
+    "n": 1050,
+    "decoded": 902,
+    "decode_rate": 0.859,
+    "mean_decode_ms": 25.647,
+    "fail_stage_histogram": {
+      "NONE": 902,
+      "DETECT": 59,
+      "LDPC": 89
+    }
+  },
+  "by_condition": {
+    "conditions=nc1 ecc3 blur=0.5": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 18.221,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc1 ecc3 blur=1": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 12.924,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc1 ecc3 blur=2": {
+      "n": 5,
+      "decoded": 1,
+      "decode_rate": 0.2,
+      "mean_decode_ms": 19.578,
+      "fail_stage_histogram": {
+        "NONE": 1,
+        "LDPC": 4
+      }
+    },
+    "conditions=nc1 ecc3 blur=3": {
+      "n": 5,
+      "decoded": 1,
+      "decode_rate": 0.2,
+      "mean_decode_ms": 16.642,
+      "fail_stage_histogram": {
+        "NONE": 1,
+        "LDPC": 4
+      }
+    },
+    "conditions=nc1 ecc3 chroma=0.3": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 13.8,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc1 ecc3 chroma=0.5": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 18.754,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc1 ecc3 chroma=0.7": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 13.651,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc1 ecc3 downscale=3px": {
+      "n": 5,
+      "decoded": 2,
+      "decode_rate": 0.4,
+      "mean_decode_ms": 16.315,
+      "fail_stage_histogram": {
+        "NONE": 2,
+        "LDPC": 3
+      }
+    },
+    "conditions=nc1 ecc3 downscale=4px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 11.024,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc1 ecc3 downscale=6px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 13.6,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc1 ecc3 downscale=8px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 13.729,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc1 ecc3 lighting=0.3": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 16.237,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc1 ecc3 lighting=0.5": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 14.805,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc1 ecc3 lighting=0.7": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 12.814,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc1 ecc5 blur=0.5": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 11.8,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc1 ecc5 blur=1": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 19.159,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc1 ecc5 blur=2": {
+      "n": 5,
+      "decoded": 1,
+      "decode_rate": 0.2,
+      "mean_decode_ms": 32.51,
+      "fail_stage_histogram": {
+        "NONE": 1,
+        "LDPC": 4
+      }
+    },
+    "conditions=nc1 ecc5 blur=3": {
+      "n": 5,
+      "decoded": 2,
+      "decode_rate": 0.4,
+      "mean_decode_ms": 15.147,
+      "fail_stage_histogram": {
+        "NONE": 2,
+        "LDPC": 3
+      }
+    },
+    "conditions=nc1 ecc5 chroma=0.3": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 17.018,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc1 ecc5 chroma=0.5": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 16.221,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc1 ecc5 chroma=0.7": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 14.7,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc1 ecc5 downscale=3px": {
+      "n": 5,
+      "decoded": 2,
+      "decode_rate": 0.4,
+      "mean_decode_ms": 21.796,
+      "fail_stage_histogram": {
+        "NONE": 2,
+        "LDPC": 3
+      }
+    },
+    "conditions=nc1 ecc5 downscale=4px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 13.082,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc1 ecc5 downscale=6px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 13.036,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc1 ecc5 downscale=8px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 11.27,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc1 ecc5 lighting=0.3": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 16.964,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc1 ecc5 lighting=0.5": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 14.369,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc1 ecc5 lighting=0.7": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 16.273,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc1 ecc8 blur=0.5": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 22.076,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc1 ecc8 blur=1": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 21.703,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc1 ecc8 blur=2": {
+      "n": 5,
+      "decoded": 1,
+      "decode_rate": 0.2,
+      "mean_decode_ms": 16.409,
+      "fail_stage_histogram": {
+        "NONE": 1,
+        "LDPC": 4
+      }
+    },
+    "conditions=nc1 ecc8 blur=3": {
+      "n": 5,
+      "decoded": 2,
+      "decode_rate": 0.4,
+      "mean_decode_ms": 19.603,
+      "fail_stage_histogram": {
+        "NONE": 2,
+        "LDPC": 3
+      }
+    },
+    "conditions=nc1 ecc8 chroma=0.3": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 25.473,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc1 ecc8 chroma=0.5": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 22.861,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc1 ecc8 chroma=0.7": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 26.363,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc1 ecc8 downscale=3px": {
+      "n": 5,
+      "decoded": 1,
+      "decode_rate": 0.2,
+      "mean_decode_ms": 13.586,
+      "fail_stage_histogram": {
+        "NONE": 1,
+        "LDPC": 4
+      }
+    },
+    "conditions=nc1 ecc8 downscale=4px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 22.693,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc1 ecc8 downscale=6px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 23.234,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc1 ecc8 downscale=8px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 24.675,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc1 ecc8 lighting=0.3": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 24.323,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc1 ecc8 lighting=0.5": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 24.011,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc1 ecc8 lighting=0.7": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 23.818,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc2 ecc3 blur=0.5": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 8.091,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc2 ecc3 blur=1": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 7.933,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc2 ecc3 blur=2": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 9.364,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc2 ecc3 blur=3": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 13.519,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc2 ecc3 chroma=0.3": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 7.706,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc2 ecc3 chroma=0.5": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 8.524,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc2 ecc3 chroma=0.7": {
+      "n": 5,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 4.273,
+      "fail_stage_histogram": {
+        "DETECT": 5
+      }
+    },
+    "conditions=nc2 ecc3 downscale=3px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 9.46,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc2 ecc3 downscale=4px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 9.447,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc2 ecc3 downscale=6px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 8.087,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc2 ecc3 downscale=8px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 9.003,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc2 ecc3 lighting=0.3": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 9.58,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc2 ecc3 lighting=0.5": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 13.387,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc2 ecc3 lighting=0.7": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 9.372,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc2 ecc5 blur=0.5": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 16.777,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc2 ecc5 blur=1": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 15.033,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc2 ecc5 blur=2": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 14.449,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc2 ecc5 blur=3": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 21.811,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc2 ecc5 chroma=0.3": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 13.396,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc2 ecc5 chroma=0.5": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 13.017,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc2 ecc5 chroma=0.7": {
+      "n": 5,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 7.702,
+      "fail_stage_histogram": {
+        "DETECT": 5
+      }
+    },
+    "conditions=nc2 ecc5 downscale=3px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 19.359,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc2 ecc5 downscale=4px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 12.706,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc2 ecc5 downscale=6px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 11.918,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc2 ecc5 downscale=8px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 16.203,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc2 ecc5 lighting=0.3": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 13.952,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc2 ecc5 lighting=0.5": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 14.505,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc2 ecc5 lighting=0.7": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 14.579,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc2 ecc8 blur=0.5": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 32.48,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc2 ecc8 blur=1": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 29.976,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc2 ecc8 blur=2": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 32.314,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc2 ecc8 blur=3": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 55.084,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc2 ecc8 chroma=0.3": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 35.185,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc2 ecc8 chroma=0.5": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 41.279,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc2 ecc8 chroma=0.7": {
+      "n": 5,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 10.946,
+      "fail_stage_histogram": {
+        "DETECT": 5
+      }
+    },
+    "conditions=nc2 ecc8 downscale=3px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 34.729,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc2 ecc8 downscale=4px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 33.813,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc2 ecc8 downscale=6px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 34.318,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc2 ecc8 downscale=8px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 31.982,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc2 ecc8 lighting=0.3": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 33.542,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc2 ecc8 lighting=0.5": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 32.933,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc2 ecc8 lighting=0.7": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 36.307,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc3 ecc3 blur=0.5": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 18.598,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc3 ecc3 blur=1": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 20.274,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc3 ecc3 blur=2": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 20.088,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc3 ecc3 blur=3": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 20.682,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc3 ecc3 chroma=0.3": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 22.222,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc3 ecc3 chroma=0.5": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 28.567,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc3 ecc3 chroma=0.7": {
+      "n": 5,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 5.136,
+      "fail_stage_histogram": {
+        "DETECT": 5
+      }
+    },
+    "conditions=nc3 ecc3 downscale=3px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 19.606,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc3 ecc3 downscale=4px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 19.767,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc3 ecc3 downscale=6px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 19.866,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc3 ecc3 downscale=8px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 21.858,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc3 ecc3 lighting=0.3": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 27.835,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc3 ecc3 lighting=0.5": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 26.212,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc3 ecc3 lighting=0.7": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 30.437,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc3 ecc5 blur=0.5": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 18.953,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc3 ecc5 blur=1": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 17.649,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc3 ecc5 blur=2": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 18.633,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc3 ecc5 blur=3": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 18.079,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc3 ecc5 chroma=0.3": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 17.92,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc3 ecc5 chroma=0.5": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 27.813,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc3 ecc5 chroma=0.7": {
+      "n": 5,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 4.226,
+      "fail_stage_histogram": {
+        "DETECT": 5
+      }
+    },
+    "conditions=nc3 ecc5 downscale=3px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 17.25,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc3 ecc5 downscale=4px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 17.261,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc3 ecc5 downscale=6px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 18.401,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc3 ecc5 downscale=8px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 17.446,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc3 ecc5 lighting=0.3": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 19.64,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc3 ecc5 lighting=0.5": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 25.498,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc3 ecc5 lighting=0.7": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 26.94,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc3 ecc8 blur=0.5": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 36.455,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc3 ecc8 blur=1": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 35.636,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc3 ecc8 blur=2": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 36.432,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc3 ecc8 blur=3": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 37.421,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc3 ecc8 chroma=0.3": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 34.54,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc3 ecc8 chroma=0.5": {
+      "n": 5,
+      "decoded": 3,
+      "decode_rate": 0.6,
+      "mean_decode_ms": 35.083,
+      "fail_stage_histogram": {
+        "NONE": 3,
+        "LDPC": 2
+      }
+    },
+    "conditions=nc3 ecc8 chroma=0.7": {
+      "n": 5,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 8.273,
+      "fail_stage_histogram": {
+        "DETECT": 5
+      }
+    },
+    "conditions=nc3 ecc8 downscale=3px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 34.918,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc3 ecc8 downscale=4px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 35.486,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc3 ecc8 downscale=6px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 37.542,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc3 ecc8 downscale=8px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 36.073,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc3 ecc8 lighting=0.3": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 39.308,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc3 ecc8 lighting=0.5": {
+      "n": 5,
+      "decoded": 3,
+      "decode_rate": 0.6,
+      "mean_decode_ms": 33.358,
+      "fail_stage_histogram": {
+        "NONE": 3,
+        "LDPC": 2
+      }
+    },
+    "conditions=nc3 ecc8 lighting=0.7": {
+      "n": 5,
+      "decoded": 3,
+      "decode_rate": 0.6,
+      "mean_decode_ms": 41.871,
+      "fail_stage_histogram": {
+        "NONE": 3,
+        "LDPC": 2
+      }
+    },
+    "conditions=nc5 ecc3 blur=0.5": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 20.888,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc5 ecc3 blur=1": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 24.069,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc5 ecc3 blur=2": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 23.917,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc5 ecc3 blur=3": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 22.576,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc5 ecc3 chroma=0.3": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 24.032,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc5 ecc3 chroma=0.5": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 20.579,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc5 ecc3 chroma=0.7": {
+      "n": 5,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 5.82,
+      "fail_stage_histogram": {
+        "DETECT": 5
+      }
+    },
+    "conditions=nc5 ecc3 downscale=3px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 23.199,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc5 ecc3 downscale=4px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 24.43,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc5 ecc3 downscale=6px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 23.268,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc5 ecc3 downscale=8px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 19.522,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc5 ecc3 lighting=0.3": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 26.295,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc5 ecc3 lighting=0.5": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 32.984,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc5 ecc3 lighting=0.7": {
+      "n": 5,
+      "decoded": 1,
+      "decode_rate": 0.2,
+      "mean_decode_ms": 32.946,
+      "fail_stage_histogram": {
+        "NONE": 1,
+        "LDPC": 4
+      }
+    },
+    "conditions=nc5 ecc5 blur=0.5": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 21.978,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc5 ecc5 blur=1": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 19.511,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc5 ecc5 blur=2": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 18.632,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc5 ecc5 blur=3": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 21.312,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc5 ecc5 chroma=0.3": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 22.209,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc5 ecc5 chroma=0.5": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 26.896,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc5 ecc5 chroma=0.7": {
+      "n": 5,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 6.186,
+      "fail_stage_histogram": {
+        "DETECT": 5
+      }
+    },
+    "conditions=nc5 ecc5 downscale=3px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 20.139,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc5 ecc5 downscale=4px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 18.415,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc5 ecc5 downscale=6px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 19.182,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc5 ecc5 downscale=8px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 21.457,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc5 ecc5 lighting=0.3": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 20.416,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc5 ecc5 lighting=0.5": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 34.273,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc5 ecc5 lighting=0.7": {
+      "n": 5,
+      "decoded": 1,
+      "decode_rate": 0.2,
+      "mean_decode_ms": 30.308,
+      "fail_stage_histogram": {
+        "NONE": 1,
+        "LDPC": 4
+      }
+    },
+    "conditions=nc5 ecc8 blur=0.5": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 25.468,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc5 ecc8 blur=1": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 24.448,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc5 ecc8 blur=2": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 21.631,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc5 ecc8 blur=3": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 23.392,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc5 ecc8 chroma=0.3": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 26.686,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc5 ecc8 chroma=0.5": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 30.183,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc5 ecc8 chroma=0.7": {
+      "n": 5,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 21.471,
+      "fail_stage_histogram": {
+        "DETECT": 4,
+        "LDPC": 1
+      }
+    },
+    "conditions=nc5 ecc8 downscale=3px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 27.686,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc5 ecc8 downscale=4px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 34.682,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc5 ecc8 downscale=6px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 26.652,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc5 ecc8 downscale=8px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 24.269,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc5 ecc8 lighting=0.3": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 21.827,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc5 ecc8 lighting=0.5": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 37.112,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc5 ecc8 lighting=0.7": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 53.482,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc7 ecc3 blur=0.5": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 35.998,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc7 ecc3 blur=1": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 30.987,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc7 ecc3 blur=2": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 30.134,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc7 ecc3 blur=3": {
+      "n": 5,
+      "decoded": 1,
+      "decode_rate": 0.2,
+      "mean_decode_ms": 12.435,
+      "fail_stage_histogram": {
+        "NONE": 1,
+        "LDPC": 4
+      }
+    },
+    "conditions=nc7 ecc3 chroma=0.3": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 50.009,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc7 ecc3 chroma=0.5": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 52.01,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc7 ecc3 chroma=0.7": {
+      "n": 5,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 5.503,
+      "fail_stage_histogram": {
+        "DETECT": 5
+      }
+    },
+    "conditions=nc7 ecc3 downscale=3px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 35.805,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc7 ecc3 downscale=4px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 32.026,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc7 ecc3 downscale=6px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 30.172,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc7 ecc3 downscale=8px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 38.258,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc7 ecc3 lighting=0.3": {
+      "n": 5,
+      "decoded": 4,
+      "decode_rate": 0.8,
+      "mean_decode_ms": 62.482,
+      "fail_stage_histogram": {
+        "NONE": 4,
+        "LDPC": 1
+      }
+    },
+    "conditions=nc7 ecc3 lighting=0.5": {
+      "n": 5,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 98.339,
+      "fail_stage_histogram": {
+        "LDPC": 5
+      }
+    },
+    "conditions=nc7 ecc3 lighting=0.7": {
+      "n": 5,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 5.362,
+      "fail_stage_histogram": {
+        "LDPC": 5
+      }
+    },
+    "conditions=nc7 ecc5 blur=0.5": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 27.138,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc7 ecc5 blur=1": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 30.637,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc7 ecc5 blur=2": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 28.432,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc7 ecc5 blur=3": {
+      "n": 5,
+      "decoded": 1,
+      "decode_rate": 0.2,
+      "mean_decode_ms": 10.491,
+      "fail_stage_histogram": {
+        "NONE": 1,
+        "LDPC": 4
+      }
+    },
+    "conditions=nc7 ecc5 chroma=0.3": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 39.079,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc7 ecc5 chroma=0.5": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 41.436,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc7 ecc5 chroma=0.7": {
+      "n": 5,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 4.952,
+      "fail_stage_histogram": {
+        "DETECT": 5
+      }
+    },
+    "conditions=nc7 ecc5 downscale=3px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 35.236,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc7 ecc5 downscale=4px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 33.079,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc7 ecc5 downscale=6px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 28.55,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc7 ecc5 downscale=8px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 36.686,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc7 ecc5 lighting=0.3": {
+      "n": 5,
+      "decoded": 4,
+      "decode_rate": 0.8,
+      "mean_decode_ms": 60.457,
+      "fail_stage_histogram": {
+        "NONE": 4,
+        "LDPC": 1
+      }
+    },
+    "conditions=nc7 ecc5 lighting=0.5": {
+      "n": 5,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 98.903,
+      "fail_stage_histogram": {
+        "LDPC": 5
+      }
+    },
+    "conditions=nc7 ecc5 lighting=0.7": {
+      "n": 5,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 4.386,
+      "fail_stage_histogram": {
+        "LDPC": 5
+      }
+    },
+    "conditions=nc7 ecc8 blur=0.5": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 56.26,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc7 ecc8 blur=1": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 56.038,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc7 ecc8 blur=2": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 57.718,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc7 ecc8 blur=3": {
+      "n": 5,
+      "decoded": 3,
+      "decode_rate": 0.6,
+      "mean_decode_ms": 54.512,
+      "fail_stage_histogram": {
+        "NONE": 3,
+        "LDPC": 2
+      }
+    },
+    "conditions=nc7 ecc8 chroma=0.3": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 71.493,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc7 ecc8 chroma=0.5": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 75.746,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc7 ecc8 chroma=0.7": {
+      "n": 5,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 5.828,
+      "fail_stage_histogram": {
+        "DETECT": 5
+      }
+    },
+    "conditions=nc7 ecc8 downscale=3px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 63.716,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc7 ecc8 downscale=4px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 57.556,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc7 ecc8 downscale=6px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 56.829,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc7 ecc8 downscale=8px": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 57.434,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc7 ecc8 lighting=0.3": {
+      "n": 5,
+      "decoded": 5,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 125.286,
+      "fail_stage_histogram": {
+        "NONE": 5
+      }
+    },
+    "conditions=nc7 ecc8 lighting=0.5": {
+      "n": 5,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 4.585,
+      "fail_stage_histogram": {
+        "LDPC": 5
+      }
+    },
+    "conditions=nc7 ecc8 lighting=0.7": {
+      "n": 5,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 5.937,
+      "fail_stage_histogram": {
+        "LDPC": 5
+      }
+    }
+  }
+}

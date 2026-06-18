@@ -1,0 +1,4 @@
+medium,nc,colors,ecc,threat_families,threat_decode_rate,allfam_decode_rate,capacity_v7_bytes,density_vs_hostile
+hostile / screen,1,4,5,chroma+lighting,1.0,0.8571,198,1.0
+print / luxury-COA,3,16,5,blur+downscale,1.0,0.9286,393,1.98
+clean / archival,7,256,3,all,0.7143,0.7143,921,4.65
