@@ -1,0 +1,98 @@
+{
+  "manifest": "/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode.worktrees/r3-test/robustness/r3-test/manifests/ws5fuse-deep-rect.jsonl",
+  "bucket_keys": [
+    "id"
+  ],
+  "overall": {
+    "n": 9,
+    "decoded": 0,
+    "decode_rate": 0.0,
+    "mean_decode_ms": 29.347,
+    "fail_stage_histogram": {
+      "DETECT": 9
+    }
+  },
+  "by_condition": {
+    "id=ws5fuse-deep-median-rect1024": {
+      "n": 1,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 66.948,
+      "fail_stage_histogram": {
+        "DETECT": 1
+      }
+    },
+    "id=ws5fuse-deep-median-rect512": {
+      "n": 1,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 20.289,
+      "fail_stage_histogram": {
+        "DETECT": 1
+      }
+    },
+    "id=ws5fuse-deep-median-rect768": {
+      "n": 1,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 28.506,
+      "fail_stage_histogram": {
+        "DETECT": 1
+      }
+    },
+    "id=ws5fuse-deep-sharpmean-rect1024": {
+      "n": 1,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 27.791,
+      "fail_stage_histogram": {
+        "DETECT": 1
+      }
+    },
+    "id=ws5fuse-deep-sharpmean-rect512": {
+      "n": 1,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 10.791,
+      "fail_stage_histogram": {
+        "DETECT": 1
+      }
+    },
+    "id=ws5fuse-deep-sharpmean-rect768": {
+      "n": 1,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 16.203,
+      "fail_stage_histogram": {
+        "DETECT": 1
+      }
+    },
+    "id=ws5fuse-deep-single-rect1024": {
+      "n": 1,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 47.996,
+      "fail_stage_histogram": {
+        "DETECT": 1
+      }
+    },
+    "id=ws5fuse-deep-single-rect512": {
+      "n": 1,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 21.088,
+      "fail_stage_histogram": {
+        "DETECT": 1
+      }
+    },
+    "id=ws5fuse-deep-single-rect768": {
+      "n": 1,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 24.512,
+      "fail_stage_histogram": {
+        "DETECT": 1
+      }
+    }
+  }
+}

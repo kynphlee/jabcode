@@ -1,0 +1,28 @@
+{
+  "manifest": "/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode.worktrees/r3-test/robustness/r3-test/manifests/tier2-awb-grayworld.jsonl",
+  "bucket_keys": [
+    "conditions"
+  ],
+  "overall": {
+    "n": 23,
+    "decoded": 3,
+    "decode_rate": 0.1304,
+    "mean_decode_ms": 355.261,
+    "fail_stage_histogram": {
+      "NONE": 3,
+      "LDPC": 20
+    }
+  },
+  "by_condition": {
+    "conditions=tier2-awb-grayworld": {
+      "n": 23,
+      "decoded": 3,
+      "decode_rate": 0.1304,
+      "mean_decode_ms": 355.261,
+      "fail_stage_histogram": {
+        "NONE": 3,
+        "LDPC": 20
+      }
+    }
+  }
+}

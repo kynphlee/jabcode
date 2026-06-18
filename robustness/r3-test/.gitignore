@@ -1,0 +1,5 @@
+# R3 regenerable fusion working-images (~12 MB). The verdict + evidence live in
+# REPORT.md, results/*.json and charts/; samples/ keeps the illustrative crops.
+# Reproduce: scripts/lever_b_fuse.py + scripts/lever_b_rectify.py (from the ws5 clip).
+leverB-fusion/fused/
+leverB-fusion/rectified/
