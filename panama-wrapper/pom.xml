@@ -207,84 +207,32 @@
                                 <!-- Output directory -->
                                 <argument>--output</argument>
                                 <argument>${jextract.output.dir}</argument>
-                                
+
                                 <!-- Target package -->
                                 <argument>--target-package</argument>
                                 <argument>${panama.package}</argument>
-                                
+
                                 <!-- Library name -->
                                 <argument>--library</argument>
                                 <argument>jabcode</argument>
-                                
+
                                 <!-- Include directories -->
                                 <argument>-I</argument>
                                 <argument>${jabcode.include.dir}</argument>
-                                
-                                <!-- Include specific functions -->
-                                <argument>--include-function</argument>
-                                <argument>createEncode</argument>
-                                
-                                <argument>--include-function</argument>
-                                <argument>destroyEncode</argument>
-                                
-                                <argument>--include-function</argument>
-                                <argument>generateJABCode</argument>
-                                
-                                <argument>--include-function</argument>
-                                <argument>decodeJABCode</argument>
-                                
-                                <argument>--include-function</argument>
-                                <argument>decodeJABCodeEx</argument>
-                                
-                                <argument>--include-function</argument>
-                                <argument>decodeJABCodeWithObservations</argument>
-                                
-                                <argument>--include-function</argument>
-                                <argument>resetDecoderState</argument>
-                                
-                                <argument>--include-function</argument>
-                                <argument>saveImage</argument>
-                                
-                                <argument>--include-function</argument>
-                                <argument>saveImageCMYK</argument>
-                                
-                                <argument>--include-function</argument>
-                                <argument>readImage</argument>
 
-                                <argument>--include-function</argument>
-                                <argument>saveImageToMemory</argument>
+                                <!--
+                                  No include-function / include-struct filters.
+                                  jextract 25 only emits a standalone struct file when that
+                                  struct is reachable from an included declaration; pairing
+                                  per-function include filters with explicit struct includes
+                                  was silently dropping the jab_encode / jab_data / jab_bitmap
+                                  structs the wrapper needs. Generating the whole (small,
+                                  stable) header is more robust and emits all 8 struct classes
+                                  plus jabcode_h. The former include-function list also named
+                                  decodeJABCodeWithObservations, which does not exist in this
+                                  header (never merged to swift-java-poc) and made jextract fail.
+                                -->
 
-                                <argument>--include-function</argument>
-                                <argument>readImageFromMemory</argument>
-
-                                <argument>--include-function</argument>
-                                <argument>reportError</argument>
-                                
-                                <!-- Include specific structs -->
-                                <argument>--include-struct</argument>
-                                <argument>jab_encode</argument>
-                                
-                                <argument>--include-struct</argument>
-                                <argument>jab_data</argument>
-                                
-                                <argument>--include-struct</argument>
-                                <argument>jab_bitmap</argument>
-                                
-                                <argument>--include-struct</argument>
-                                <argument>jab_decoded_symbol</argument>
-                                
-                                <argument>--include-struct</argument>
-                                <argument>jab_metadata</argument>
-                                
-                                <argument>--include-struct</argument>
-                                <argument>jab_symbol</argument>
-                                
-                                <argument>--include-struct</argument>
-                                <argument>jab_vector2d</argument>
-                                
-                                <argument>--include-struct</argument>
-                                <argument>jab_point</argument>
-                                
                                 <!-- Input header file -->
                                 <argument>${jabcode.header.path}</argument>
                             </arguments>

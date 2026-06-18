@@ -69,32 +69,18 @@ mkdir -p "$OUTPUT_DIR"
 echo "Generating Panama bindings..."
 echo ""
 
+# No --include-function / --include-struct filters: jextract 25 only emits a
+# standalone struct file when the struct is reachable from an *included*
+# declaration, so pairing per-function filters with --include-struct silently
+# dropped the jab_encode / jab_data / jab_bitmap structs the wrapper needs.
+# Generating the whole (small, stable) header emits all 8 struct classes plus
+# jabcode_h. The old filter list also named decodeJABCodeWithObservations, which
+# is not in this header (never merged to swift-java-poc) and made jextract fail.
 jextract \
     --output "$OUTPUT_DIR" \
     --target-package "$PACKAGE" \
     --library jabcode \
     -I "$JABCODE_INCLUDE_DIR" \
-    --include-function createEncode \
-    --include-function destroyEncode \
-    --include-function generateJABCode \
-    --include-function decodeJABCode \
-    --include-function decodeJABCodeEx \
-    --include-function decodeJABCodeWithObservations \
-    --include-function resetDecoderState \
-    --include-function saveImage \
-    --include-function saveImageCMYK \
-    --include-function readImage \
-    --include-function saveImageToMemory \
-    --include-function readImageFromMemory \
-    --include-function reportError \
-    --include-struct jab_encode \
-    --include-struct jab_data \
-    --include-struct jab_bitmap \
-    --include-struct jab_decoded_symbol \
-    --include-struct jab_metadata \
-    --include-struct jab_symbol \
-    --include-struct jab_vector2d \
-    --include-struct jab_point \
     "$JABCODE_HEADER"
 
 if [ $? -eq 0 ]; then
