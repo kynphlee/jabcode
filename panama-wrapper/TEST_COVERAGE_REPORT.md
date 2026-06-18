@@ -1,7 +1,21 @@
 # Test Coverage Report - JABCode Panama Wrapper
 
 **Date:** 2026-01-08 01:26 EST  
-**Status:** ✅ **TDD COMPLIANT**
+**Status:** ✅ **TDD COMPLIANT** *(as of the January date above)*
+
+---
+
+## ⚠️ CURRENT STATE — Updated 2026-06-18
+
+> The January report below is preserved as a historical record but is **~5 months stale.** Current reality, verified against the live sources:
+
+- **In-memory / byte-array encode + decode — ✅ NOW IMPLEMENTED & TESTED** (2026-06-13). `JABCodeDecoder.decode(byte[])` / `decodeEx(byte[])` no longer throw `UnsupportedOperationException` (verified: zero such refs in the source); `InMemoryRoundTripIntegrationTest` round-trips across Nc; the encoder returns a `byte[]` PNG with no temp file. **→ Supersedes "Byte Array Decoding Not Implemented" (Known Issues #2 below).**
+- **Colour modes — the wrapper now EXPOSES and TESTS all modes (4–256), not just 4/8.** Decode is **reliable through Nc5 (64-colour).** **→ Supersedes "Working modes: 4, 8 colors" below.**
+- **Nc6 / Nc7 (128 / 256-colour) — a *validation gap*, not a confirmed limitation.** The C core round-trips all Nc 2–256 cleanly on the host (`bench_codec` dec_ok 30/30, 2026-06), and the wrapper binds that same core — but the wrapper's own 128/256 round-trip tests have **not been re-validated** since the core fixes. Older notes (`REBUILD_NOTES.md`, 2026-05-28) flagged `ColorMode6` failures and a "~4% screen success" figure, but the latter is a *capture / screen-scan* issue (a separately-parked regime), not clean round-trip. **Treat Nc6/7 as core-capable but wrapper-unconfirmed — re-run the wrapper round-trip suite to settle it.**
+- **Higher-Nc / wrapper-restructuring plans** (`FULL_COLOR_MODE_IMPLEMENTATION_PLAN.md`, COA `06-panama-wrapper-restructuring.md`) — **still PLANNED, not executed.**
+- **Server-side readiness:** safe today for **Nc ≤ 5 (≤ 64 colours) + the in-memory paths;** **Nc 6/7 need wrapper re-validation** before production trust.
+
+---
 
 ## Executive Summary
 
