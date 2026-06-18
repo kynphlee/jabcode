@@ -29,10 +29,14 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/jabcode
 )
 
-# JABCode native source files (EXCLUDING image.c)
+# JABCode native source files (EXCLUDING image.c — no libpng/tiff on mobile).
+# NOTE: keep in sync with src/jabcode. decode_profile.c is REQUIRED — decoder.c
+# references g_decode_profile unconditionally (runtime-gated, not compile-gated),
+# so omitting it breaks the link (undefined symbol: g_decode_profile).
 set(JABCODE_SOURCES
     ../src/jabcode/encoder.c
     ../src/jabcode/decoder.c
+    ../src/jabcode/decode_profile.c
     ../src/jabcode/ldpc.c
     ../src/jabcode/detector.c
     ../src/jabcode/detector_synthetic.c
