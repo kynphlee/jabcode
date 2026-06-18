@@ -54,6 +54,8 @@
         <activity
             android:name=".AllNcSelfTestActivity"
             android:label="JABCode All-Nc Self-Test"
+            android:icon="@mipmap/ic_allnc"
+            android:roundIcon="@mipmap/ic_allnc"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
