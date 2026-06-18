@@ -1,0 +1,59 @@
+name: Android Native Build (mobile NDK link guard)
+
+# Builds the swift-java mobile native library (:library, which compiles
+# src/jabcode/*.c via swift-java-wrapper/CMakeLists.txt through the NDK) on any
+# change to the C core or the mobile build files.
+#
+# Catches the class of bug where a core source is added to src/jabcode/ but not
+# to the hand-listed JABCODE_SOURCES in CMakeLists.txt, silently breaking the
+# NDK link (PR #102: `undefined symbol: g_decode_profile`). The server build
+# globs *.c so it never sees this; only an actual NDK build links the explicit
+# list. The existing benchmark.yml builds native code too, but only triggers on
+# jabauth-android/** — so a core-only change slipped through unguarded.
+#
+# Assemble only (no device): the link step is what we are guarding.
+on:
+  pull_request:
+    paths:
+      - 'src/jabcode/**'
+      - 'swift-java-wrapper/**'
+      - '.github/workflows/android-native-build.yml'
+  push:
+    branches: [main, master, swift-java-poc]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  assemble-native-library:
+    name: Assemble mobile native lib (:library, all ABIs)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      # The committed swift-java-wrapper/android/gradle.properties pins
+      # org.gradle.java.home to a contributor's machine-specific JDK path,
+      # which does not exist on the runner. Drop it so Gradle uses the JDK 17
+      # set up above. (That committed pin should ideally become a Gradle
+      # toolchain so it is portable; see PR description.)
+      - name: Use the runner JDK (drop machine-specific org.gradle.java.home)
+        working-directory: swift-java-wrapper/android
+        run: sed -i '/^org\.gradle\.java\.home/d' gradle.properties
+
+      # Compiles src/jabcode/*.c via CMake/NDK for every ABI and links
+      # libjabcode-mobile.so. A core source missing from JABCODE_SOURCES
+      # fails here, at link time.
+      - name: Assemble :library debug (NDK link)
+        working-directory: swift-java-wrapper/android
+        run: ./gradlew :library:assembleDebug --no-daemon --stacktrace

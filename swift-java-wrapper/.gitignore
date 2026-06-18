@@ -1,0 +1,7 @@
+# Build output & caches — never commit. This subtree historically tracked CMake
+# output (swift-java-wrapper/build/) and the Gradle cache (android/.gradle/),
+# which dirtied the working tree on every build. Untracked in the same PR that
+# added this file; see android-native-build.yml for the CI guard.
+**/build/
+**/.cxx/
+**/.gradle/

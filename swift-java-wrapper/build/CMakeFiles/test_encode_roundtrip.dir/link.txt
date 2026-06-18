@@ -1,1 +1,0 @@
-/usr/bin/cc -O3 -DNDEBUG CMakeFiles/test_encode_roundtrip.dir/test/c/test_encode_roundtrip.c.o -o test_encode_roundtrip  lib/libjabcode-mobile.a libunity.a -lm 
