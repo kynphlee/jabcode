@@ -1,7 +1,21 @@
 # Test Coverage Report - JABCode Panama Wrapper
 
 **Date:** 2026-01-08 01:26 EST  
-**Status:** ✅ **TDD COMPLIANT**
+**Status:** ✅ **TDD COMPLIANT** *(as of the January date above)*
+
+---
+
+## ⚠️ CURRENT STATE — Updated 2026-06-18
+
+> The January report below is preserved as a historical record but is **~5 months stale.** Current reality, verified against the live sources:
+
+- **In-memory / byte-array encode + decode — ✅ NOW IMPLEMENTED & TESTED** (2026-06-13). `JABCodeDecoder.decode(byte[])` / `decodeEx(byte[])` no longer throw `UnsupportedOperationException` (verified: zero such refs in the source); `InMemoryRoundTripIntegrationTest` round-trips across Nc; the encoder returns a `byte[]` PNG with no temp file. **→ Supersedes "Byte Array Decoding Not Implemented" (Known Issues #2 below).**
+- **Colour modes — the wrapper now EXPOSES and TESTS all modes (4–256), not just 4/8.** Decode is **reliable through Nc5 (64-colour).** **→ Supersedes "Working modes: 4, 8 colors" below.**
+- **Nc6 / Nc7 (128 / 256-colour) — ✅ VERIFIED WORKING** (validated 2026-06-18). The wrapper round-trips 128c and 256c cleanly on **both** the in-memory and file paths, stable across repeated runs (`NcRoundTripMatrixTest`; C-core baseline `bench_codec` dec_ok 50/50 across Nc 2–256). The `REBUILD_NOTES.md` (2026-05-28) "ColorMode6 fails / Nc7 malloc-broken" claims are **stale — they predate the core fixes**, not a real gap. (`ColorMode7Test` is still `@Disabled` on the stale claim; re-enable it with a capacity-aware payload.) Evidence: `panama-wrapper/RESULTS.md`.
+- **Higher-Nc / wrapper-restructuring plans** (`FULL_COLOR_MODE_IMPLEMENTATION_PLAN.md`, COA `06-panama-wrapper-restructuring.md`) — **still PLANNED, not executed.**
+- **Server-side readiness:** **all modes Nc 1–7 (4–256 colours) round-trip clean** on both in-memory and file paths (validated 2026-06-18); the in-memory paths are the recommended production interface.
+
+---
 
 ## Executive Summary
 
