@@ -1,9 +1,12 @@
 # JABCode codec benchmarks — the full picture
 
 A measured-from-source view of the JABCode codec across the axes that matter:
-**capacity, latency, the ECC tradeoff, and transcode robustness** — plus a scaffold
-for the end-to-end verification budget. Generated on the `claude/benchmark-full-picture`
-branch off the 100%-ISO-conformant decoder (jabcode PRs #85–#88).
+**capacity, latency, the ECC tradeoff, transcode robustness, and capture
+robustness** — plus a scaffold for the end-to-end verification budget. **Refreshed
+on the optimized decoder** (the JABCode latency campaign, jabcode PRs through #91:
+the ~19.6× encode speedup + decode/binarize work). The encode/decode latency here
+is the *post-optimization* picture; capacity and transcode-survival are byte-identical
+to the pre-optimization baseline (the opts were behaviour-preserving), as expected.
 
 ## What is measured vs. scaffolded
 
@@ -11,11 +14,16 @@ branch off the 100%-ISO-conformant decoder (jabcode PRs #85–#88).
 |---|---|---|
 | `bench_sweep` (C, host x86_64, links libjabcode) | capacity heatmap, text-vs-binary, latency, ECC Pareto, Wikipedia, density | **measured** |
 | `transcode_survival.py` (C encode → PIL transform → C decode) | transcode-survival heatmap | **measured** (digital channel, 1 trial/cell) |
+| **R0 rig** (`robustness/r0`, C `r0_decode` probe + synthetic corpus) | **decode-rate vs degradation** | **measured** (8 symbols/cell, SHA-verified) |
+| **R1 rig** (`robustness/r1-profiles`, R0 rig over an Nc×ECC grid) | **robustness vs Nc + per-medium profiles** | **measured** (5 payloads/cell, SHA-verified) |
 | representative crypto timings | verification budget | **scaffold** — decode is measured, PKI/ABE/JWT are placeholders pending the `jab-auth` module benchmarks |
 
-Reproduce: `make -C src/jabcode sweep transcode` then `python benchmarks/gen_charts.py`.
-Fixtures: `fixtures/wikipedia_qr.txt` (the Wikipedia *QR code* article, ~7.6 KB, the
-text-capacity stress payload). Raw data: `data/*.jsonl`.
+Reproduce the codec suite: `make -C src/jabcode sweep transcode`, run
+`build/bench_sweep fixtures/wikipedia_qr.txt > data/sweep.jsonl` and
+`python benchmarks/transcode_survival.py`, then `python benchmarks/gen_charts.py`.
+The robustness panel additionally needs the R0 rig run before `gen_charts.py`
+(see §7). Fixtures: `fixtures/wikipedia_qr.txt` (the Wikipedia *QR code* article,
+~7.6 KB, the text-capacity stress payload). Raw data: `data/*.jsonl`.
 
 ---
 
@@ -57,8 +65,11 @@ the polychrome density advantage, quantified.
 
 ![latency by Nc](charts/latency_by_nc.png)
 
-Encode and decode median latency by colour mode (256 B, ECC 3, x86_64 host). Decode
-dominates (the LDPC + colour classification), and rises with colour depth.
+Encode and decode median latency by colour mode (256 B, ECC 3, x86_64 host), on the
+**optimized decoder**. Decode still dominates (the LDPC + colour classification), but
+after the latency campaign encode is **flat ~3–5 ms** across every colour mode and the
+old "cost rises monotonically with colour depth" shape is gone — decode is now in a
+tight ~6–17 ms band with no clean Nc trend at this payload.
 
 ![latency vs payload](charts/latency_vs_payload.png)
 
@@ -72,10 +83,12 @@ Mode-0 limitation, surfaced honestly here as `dec_ok=0`.)
 
 ![ECC pareto](charts/ecc_pareto.png)
 
-The robustness-vs-everything-else curve (8-colour). Climbing ECC 1→10 trades capacity
-(~4 KB → ~1 KB at this payload) **and** decode latency (~9 ms → ~150 ms) for error
-resilience. The default level 3 sits where the curve is still cheap — the right knee for
-the print-vs-screen two-medium posture.
+The robustness-vs-everything-else curve (8-colour), on the **optimized decoder**.
+Climbing ECC 1→10 trades capacity (~4.8 KB → ~1.1 KB at this payload) **and** decode
+latency (**~8 ms → ~97 ms**, down from ~9→151 ms pre-optimization) for error resilience.
+*Encode no longer pays for ECC* — it stays flat ~3–6 ms across the whole range, so the
+ECC trade now lives entirely on the decode + capacity axes. The default level 3 sits
+where the curve is still cheap — the right knee for the print-vs-screen two-medium posture.
 
 ---
 
@@ -133,17 +146,81 @@ zxing-cpp** would close — making this comparison itself an argument for the co
 
 ---
 
+## 7 · Capture robustness — the axis the rest of the suite lacked
+
+Capacity, latency, ECC, and *digital* transcode-survival all assume the symbol
+reaches the decoder roughly intact. The missing axis is **what survives real
+capture degradation** — defocus, off-axis perspective, illumination ramps, screen
+colour-wash, low-res sensors, recompression. The R0/R1 rigs measure exactly that,
+decode-rate with **known-payload SHA-256 verification** (a decode counts only if the
+bytes are *correct*, so a lucky-looking-but-wrong decode never scores).
+
+### Decode-rate vs degradation severity
+
+![robustness decode vs degradation](charts/robustness_decode_vs_degradation.png)
+
+The **R0 rig** over the synthetic corpus (144 images = 8 colour modes × 6
+degradation families × a per-family severity ladder, 8 symbols/cell). Overall
+**82.6 %**. The shape is the point: **downscale and JPEG-recompress hold ~100 %**
+across the whole ladder (the codec is robust to ordinary distribution transforms,
+echoing §4), while **chroma (colour-wash) and off-axis perspective cliff hard** at
+the worst rung (→25 %), **blur** falls to 50 %, and the **illumination ramp**
+degrades gracefully to ~62 %. These are the *capture* failure modes a camera SDK
+must design around — invisible to every other chart in this suite.
+
+### Robustness vs colour count, with the per-medium profile picks
+
+![robustness vs Nc with profiles](charts/robustness_vs_nc_profiles.png)
+
+The **R1 rig** sweeps the degradation families across an Nc×ECC grid (5
+payloads/cell, SHA-verified) and asks *which colour count is most robust*. The
+all-families mean is an **inverted-U peaking at Nc2–3 (8–16 colours) and collapsing
+at Nc7 (256 colours)** — more colours pack more data but sit closer together, so a
+colour-wash or illumination ramp folds them into each other. The per-family split
+is sharper still: **chroma and lighting strongly favour low Nc** (Nc1 = 100 % on
+both), while **downscale is flat** across Nc and **blur dips at Nc1** then recovers.
+
+That threat-specificity is what the **per-medium encoding profiles** encode (the
+three circled picks, from `robustness/r1-profiles/data/profiles_table.csv`):
+
+| medium | pick | the threat it's tuned for |
+|---|---|---|
+| **hostile / screen** | Nc1 / ECC5 (4-colour) | chroma + lighting — 100 % at Nc1 vs 47 % at Nc7 |
+| **print / luxury-COA** | Nc3 / ECC5 (16-colour) | defocus + low-res — 100 % at Nc3, at 2.0× the hostile density |
+| **clean / archival** | Nc7 / ECC3 (256-colour) | no capture degradation → maximise density (921 B/symbol, 4.7×) |
+
+The strategic read: **robustness is bought by colour-count selection, not by ECC**
+(the R1 data shows the ECC marginal is nearly flat on these correlated, structural
+degradations; ECC's real price is capacity). The right symbol depends on the
+medium — which is precisely the per-medium-profile encoder posture, now evidence-backed.
+
+> Reproduce the panel: `python robustness/r0/synthetic/to_rig_manifest.py` then
+> `robustness/r0/rig/run.sh "$(pwd)/robustness/r0/synthetic/out/rig_manifest.jsonl" conditions`
+> writes `robustness/r0/rig/results/rig_manifest.aggregate.json`; the R1 CSVs under
+> `robustness/r1-profiles/data/` are committed (regenerate via that module's
+> `gen/build_corpus.py`). `gen_charts.py` then reads both and emits the two charts.
+
+---
+
 ## Key findings
 
 - **Capacity:** up to ~12.6 KB in one 256-colour symbol (ECC 1); the whole Wikipedia
   article in one 64-colour symbol; ~4× QR's maximum at high colour depth.
 - **Text > binary** at every operating point (mode compression).
-- **ECC is the dominant latency *and* capacity knob** — far more than colour mode.
+- **ECC is now a *decode-only* knob (post-optimization):** encode is **flat ~3–6 ms**
+  across ECC 1→10 (was 9.5→109 ms before the latency campaign); decode still climbs
+  with ECC (≈8 → 97 ms across the level range at 256 B, 8-colour), which is where the
+  ECC Pareto trade now lives. Capacity is unchanged — the opts were behaviour-preserving.
 - **Transcode-robust** at sane module sizes; cliffs only at extreme downscale or
   high-colour heavy JPEG.
+- **Capture-robust by *colour-count selection*, not ECC:** the R0/R1 panel (§7) shows
+  decode-rate is an inverted-U over Nc (peak Nc2–3, collapse at Nc7); colour-wash and
+  perspective are the hard threats. Robustness is bought by picking the right Nc per
+  medium — the per-medium-profile encoder posture, now evidence-backed.
 - **Conformance dividend:** these are the codec's numbers *as a fully ISO/IEC 23634
   decoder* — the same artifact that anchors the standards-credibility narrative.
 - **vs QR (zxing-cpp):** JABCode wins density ~4× (11.2 KB vs 2.95 KB); QR wins decode
-  latency ~10× (0.22 ms vs 2.33 ms @ 64 B) and survives more transcoding. JABCode's niche
-  is density + multi-layer crypto — *not* speed/robustness — and part of QR's lead is
-  reader maturity, the gap a zxing-cpp JABCode port would close.
+  latency, but the gap **narrowed from ~10× to ~9×** on the optimized decoder
+  (0.22 ms vs **1.96 ms** @ 64 B, was 2.33 ms) and QR still survives more transcoding.
+  JABCode's niche is density + multi-layer crypto — *not* speed/robustness — and part
+  of QR's residual lead is reader maturity, the gap a zxing-cpp JABCode port would close.
