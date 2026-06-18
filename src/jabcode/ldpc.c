@@ -13,6 +13,7 @@
 
 #include <stdlib.h>
 #include <math.h>
+#include <stdint.h>
 #include "jabcode.h"
 #include "ldpc.h"
 #include "pseudo_random.h"   /* WS-4.5.3: deterministic LCG replaces stdlib rand() */
@@ -20,6 +21,141 @@
 #include <stdio.h>
 #include "detector.h"
 #include "pseudo_random.h"
+
+/* ===================== LDPC decode hot-path primitives (performance) =====================
+ * The hard-decision decoder (decodeLDPChd -> decodeMessage) spends almost all of its time
+ * in one primitive: the GF(2) inner product of a packed parity-check row with the received
+ * bit vector. The stock code walks this one *bit* at a time
+ *     for (j=0..length)  temp ^= ((row[j/32] >> (31-j%32)) & 1) & (data[j] & 1);
+ * which is ~length branch-laden iterations per check, repeated over every check row, every
+ * syndrome test, and every bit-flip iteration. These helpers compute the identical value a
+ * 32/256-bit *word* at a time via popcount, with an AVX2 path (host-dispatched) and a scalar
+ * fallback. They are bit-exact: the matrix rows are stored MSB-first with zero padding beyond
+ * `length` (calloc + valid-position fills; GaussJordan only XORs rows, never sets pad bits),
+ * so if the received vector is packed the same way (pad bits zero) then
+ *     parity(sum_i row_i&data_i) == ( sum_words popcount(row_word & data_word) ) & 1
+ * over the full `offset = ceil(length/32)` words, with no tail special-case. Nothing here
+ * changes a decoded bit; it only removes per-bit overhead from the existing arithmetic. */
+
+/* Host AVX2 path is opt-out via -DJAB_LDPC_NO_SIMD (forces the scalar fallback everywhere;
+ * used to prove the fallback is byte-identical, and a clean switch for builds that want it). */
+#if !defined(JAB_LDPC_NO_SIMD) && defined(__GNUC__) && (defined(__x86_64__) || defined(__i386__))
+#  define JAB_LDPC_X86 1
+#  include <immintrin.h>
+#endif
+
+/* Pack `length` received symbols (each a 0/1-valued byte; only bit 0 is meaningful, exactly
+ * as the stock `(data[i] >> 0) & 1`) into MSB-first 32-bit words, matching the parity-check
+ * matrix's bit layout. Bits in the final word beyond `length` are left zero so packed[] and
+ * each matrix row share identical zero padding. `packed` must hold ceil(length/32) words. */
+static inline void ldpc_pack_bits(jab_uint32* packed, const jab_byte* data, jab_int32 length)
+{
+    jab_int32 offset = (length + 31) >> 5;
+    memset(packed, 0, (size_t)offset * sizeof(jab_uint32));
+    for (jab_int32 i = 0; i < length; i++)
+        if (data[i] & 1)
+            packed[i >> 5] |= (jab_uint32)1u << (31 - (i & 31));
+}
+
+/* Scalar GF(2) row-dot-parity: ( sum_w popcount(row[w] & vec[w]) ) & 1 over n_words. */
+static inline jab_int32 ldpc_row_parity_scalar(const jab_uint32* row, const jab_uint32* vec, jab_int32 n_words)
+{
+    jab_uint32 acc = 0;
+    for (jab_int32 w = 0; w < n_words; w++)
+        acc += (jab_uint32)__builtin_popcount(row[w] & vec[w]);
+    return (jab_int32)(acc & 1u);
+}
+
+#ifdef JAB_LDPC_X86
+/* AVX2 GF(2) row-dot-parity. Only the parity (LSB of the popcount sum) is needed, so the
+ * per-lane popcounts are reduced by XOR (parity is associative/commutative under XOR). We
+ * popcount 64-bit lanes via the SWAR/byte-sum trick (no AVX-512 VPOPCNTQ dependency) and
+ * fold to a single parity bit. Bit-identical to the scalar path. */
+__attribute__((target("avx2")))
+static jab_int32 ldpc_row_parity_avx2(const jab_uint32* row, const jab_uint32* vec, jab_int32 n_words)
+{
+    const __m256i m4  = _mm256_set1_epi8(0x0f);
+    const __m256i lut = _mm256_setr_epi8(
+        0,1,1,2,1,2,2,3,1,2,2,3,2,3,3,4, 0,1,1,2,1,2,2,3,1,2,2,3,2,3,3,4);
+    const __m256i one = _mm256_set1_epi8(1);
+    __m256i parity = _mm256_setzero_si256();   /* 32 byte-lanes, each a running parity bit */
+    jab_int32 w = 0;
+    for (; w + 8 <= n_words; w += 8)
+    {
+        __m256i r = _mm256_loadu_si256((const __m256i*)(row + w));
+        __m256i v = _mm256_loadu_si256((const __m256i*)(vec + w));
+        __m256i x = _mm256_and_si256(r, v);
+        /* per-byte popcount (0..8) via a nibble LUT */
+        __m256i lo = _mm256_and_si256(x, m4);
+        __m256i hi = _mm256_and_si256(_mm256_srli_epi16(x, 4), m4);
+        __m256i pc = _mm256_add_epi8(_mm256_shuffle_epi8(lut, lo),
+                                     _mm256_shuffle_epi8(lut, hi));
+        /* fold each byte popcount to its parity (LSB) and XOR into the accumulator */
+        parity = _mm256_xor_si256(parity, _mm256_and_si256(pc, one));
+    }
+    /* horizontal XOR-reduce the 32 byte-lanes to one parity bit */
+    __m128i p128 = _mm_xor_si128(_mm256_castsi256_si128(parity),
+                                 _mm256_extracti128_si256(parity, 1));
+    uint64_t a = (uint64_t)_mm_extract_epi64(p128, 0) ^ (uint64_t)_mm_extract_epi64(p128, 1);
+    a ^= a >> 32; a ^= a >> 16; a ^= a >> 8;
+    jab_int32 acc = (jab_int32)(a & 1u);
+    /* scalar tail */
+    for (; w < n_words; w++)
+        acc ^= __builtin_popcount(row[w] & vec[w]) & 1;
+    return acc & 1;
+}
+
+/* One-time host capability probe (AVX2). __builtin_cpu_supports needs a constructor-time
+ * __builtin_cpu_init; the GCC runtime does this before main, and the flag is read-only after,
+ * so no synchronization is needed. */
+static int ldpc_have_avx2(void)
+{
+    static int v = -1;
+    if (v < 0) v = __builtin_cpu_supports("avx2") ? 1 : 0;
+    return v;
+}
+#endif /* JAB_LDPC_X86 */
+
+/* Dispatch wrapper: GF(2) parity of (row . vec) over n_words packed words. */
+static inline jab_int32 ldpc_row_parity(const jab_uint32* row, const jab_uint32* vec, jab_int32 n_words)
+{
+#ifdef JAB_LDPC_X86
+    if (n_words >= 8 && ldpc_have_avx2())
+        return ldpc_row_parity_avx2(row, vec, n_words);
+#endif
+    return ldpc_row_parity_scalar(row, vec, n_words);
+}
+
+/* Full syndrome test: returns 1 iff every one of the first `rank` rows of `matrix`
+ * (offset words/row) is parity-orthogonal to the packed received vector `vec`. Mirrors the
+ * stock "first check syndrom" loop (early-exit on the first violated check). */
+static jab_int32 ldpc_syndrome_ok(const jab_int32* matrix, const jab_uint32* vec,
+                                  jab_int32 rank, jab_int32 offset)
+{
+    for (jab_int32 i = 0; i < rank; i++)
+        if (ldpc_row_parity((const jab_uint32*)(matrix + (size_t)i * offset), vec, offset))
+            return 0;
+    return 1;
+}
+
+/* Convenience syndrome test over an unpacked 0/1-valued byte vector `data` of `length`
+ * symbols: packs `data` once (offset = ceil(length/32) words) and runs ldpc_syndrome_ok.
+ * Returns 1 == codeword satisfies all `rank` checks (== stock loop set is_correct stays 1),
+ * 0 == at least one check violated, and -1 on allocation failure so the caller can fall back
+ * to never claiming a bad codeword is correct. Self-contained buffer: no lifetime to manage
+ * at the (many) call sites, and the alloc (<=~85 words) is dwarfed by the per-bit loop it
+ * replaces. Bit-identical to the stock syndrome loop. */
+static jab_int32 ldpc_syndrome_ok_bytes(const jab_int32* matrix, const jab_byte* data,
+                                        jab_int32 rank, jab_int32 length)
+{
+    jab_int32 offset = (length + 31) >> 5;
+    jab_uint32* packed = (jab_uint32*)malloc((size_t)offset * sizeof(jab_uint32));
+    if (packed == NULL) return -1;
+    ldpc_pack_bits(packed, data, length);
+    jab_int32 ok = ldpc_syndrome_ok(matrix, packed, rank, offset);
+    free(packed);
+    return ok;
+}
 
 /**
  * @brief Create matrix A for message data
@@ -657,18 +793,27 @@ jab_int32 decodeMessage(jab_byte* data, jab_int32* matrix, jab_int32 length, jab
     jab_int32 max=0;
     jab_int32 offset=ceil(length/(jab_float)32);
 
+    /* Packed MSB-first copy of the received vector (data[start_pos .. +length)), refreshed
+     * each iteration because the bit-flips below mutate data. Lets the per-check parity use
+     * the word-at-a-time popcount primitive (ldpc_row_parity) instead of a per-bit scan. */
+    jab_uint32* packed=(jab_uint32 *)malloc((size_t)offset * sizeof(jab_uint32));
+    if(packed == NULL)
+    {
+        reportError("Memory allocation for LDPC decoder failed");
+        free(prev_index);
+        free(equal_max);
+        free(max_val);
+        return 0;
+    }
+
     for (jab_int32 kl=0;kl<max_iter;kl++)
     {
         max=0;
+        ldpc_pack_bits(packed, data+start_pos, length);   /* re-pack mutated data */
         for(jab_int32 j=0;j<height;j++)
         {
-            check=0;
-            for (jab_int32 i=0;i<length;i++)
-            {
-                if(((matrix[j*offset+i/32] >> (31-i%32)) & 1) & ((data[start_pos+i] >> 0) & 1))
-                    check+=1;
-            }
-            check=check%2;
+            const jab_uint32* row = (const jab_uint32*)(matrix + (size_t)j*offset);
+            check = ldpc_row_parity(row, packed, offset);   /* == (sum_i row_i&data_i) % 2 */
             if(check)
             {
                 for(jab_int32 k=0;k<length;k++)
@@ -738,6 +883,7 @@ jab_int32 decodeMessage(jab_byte* data, jab_int32* matrix, jab_int32 length, jab
 #if TEST_MODE
     JAB_REPORT_INFO(("start position:%d, stop position:%d, correct:%d", start_pos, start_pos+length,(jab_int32)*is_correct))
 #endif
+    free(packed);
     free(prev_index);
     free(equal_max);
     free(max_val);
@@ -829,20 +975,10 @@ jab_int32 decodeLDPChd(jab_byte* data, jab_int32 length, jab_int32 wc, jab_int32
                 return 0;
             }
             //ldpc decoding
-            //first check syndrom
+            //first check syndrom (word-at-a-time popcount parity; see ldpc_syndrome_ok_bytes)
             jab_boolean is_correct=1;
-            jab_int32 offset=ceil(Pg_sub_block/(jab_float)32);
-            for (jab_int32 i=0;i< matrix_rank; i++)
-            {
-                jab_int32 temp=0;
-                for (jab_int32 j=0;j<Pg_sub_block;j++)
-                    temp ^= (((matrixA1[i*offset+j/32] >> (31-j%32)) & 1) & ((data[iter*old_Pg_sub+j] >> 0) & 1)) << 0; //
-                if (temp)
-                {
-                    is_correct=(jab_boolean) 0;//message not correct
-                    break;
-                }
-            }
+            if(ldpc_syndrome_ok_bytes(matrixA1, &data[iter*old_Pg_sub], matrix_rank, Pg_sub_block) != 1)
+                is_correct=(jab_boolean) 0;//message not correct
 
             if(is_correct==0)
             {
@@ -858,17 +994,8 @@ jab_int32 decodeLDPChd(jab_byte* data, jab_int32 length, jab_int32 wc, jab_int32
             if(is_correct==0)
             {
                 jab_boolean is_correct=1;
-                for (jab_int32 i=0;i< matrix_rank; i++)
-                {
-                    jab_int32 temp=0;
-                    for (jab_int32 j=0;j<Pg_sub_block;j++)
-                        temp ^= (((matrixA1[i*offset+j/32] >> (31-j%32)) & 1) & ((data[iter*old_Pg_sub+j] >> 0) & 1)) << 0;
-                    if (temp)
-                    {
-                        is_correct=(jab_boolean) 0;//message not correct
-                        break;
-                    }
-                }
+                if(ldpc_syndrome_ok_bytes(matrixA1, &data[iter*old_Pg_sub], matrix_rank, Pg_sub_block) != 1)
+                    is_correct=(jab_boolean) 0;//message not correct
                 if(is_correct==0)
                 {
                     reportError("Too many errors in message. LDPC decoding failed.");
@@ -881,20 +1008,10 @@ jab_int32 decodeLDPChd(jab_byte* data, jab_int32 length, jab_int32 wc, jab_int32
         else
         {
             //ldpc decoding
-            //first check syndrom
+            //first check syndrom (word-at-a-time popcount parity; see ldpc_syndrome_ok_bytes)
             jab_boolean is_correct=1;
-            jab_int32 offset=ceil(Pg_sub_block/(jab_float)32);
-            for (jab_int32 i=0;i< matrix_rank; i++)
-            {
-                jab_int32 temp=0;
-                for (jab_int32 j=0;j<Pg_sub_block;j++)
-                    temp ^= (((matrixA[i*offset+j/32] >> (31-j%32)) & 1) & ((data[iter*old_Pg_sub+j] >> 0) & 1)) << 0;
-                if (temp)
-                {
-                    is_correct=(jab_boolean) 0;//message not correct
-                    break;
-                }
-            }
+            if(ldpc_syndrome_ok_bytes(matrixA, &data[iter*old_Pg_sub], matrix_rank, Pg_sub_block) != 1)
+                is_correct=(jab_boolean) 0;//message not correct
 
             if(is_correct==0)
             {
@@ -907,17 +1024,8 @@ jab_int32 decodeLDPChd(jab_byte* data, jab_int32 length, jab_int32 wc, jab_int32
                     return 0;
                 }
                 is_correct=1;
-                for (jab_int32 i=0;i< matrix_rank; i++)
-                {
-                    jab_int32 temp=0;
-                    for (jab_int32 j=0;j<Pg_sub_block;j++)
-                        temp ^= (((matrixA[i*offset+j/32] >> (31-j%32)) & 1) & ((data[iter*old_Pg_sub+j] >> 0) & 1)) << 0;
-                    if (temp)
-                    {
-                        is_correct=(jab_boolean)0;//message not correct
-                        break;
-                    }
-                }
+                if(ldpc_syndrome_ok_bytes(matrixA, &data[iter*old_Pg_sub], matrix_rank, Pg_sub_block) != 1)
+                    is_correct=(jab_boolean)0;//message not correct
                 if(is_correct==0)
                 {
                     reportError("Too many errors in message. LDPC decoding failed.");
