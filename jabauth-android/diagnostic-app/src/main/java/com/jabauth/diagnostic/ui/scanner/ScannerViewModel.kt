@@ -14,6 +14,7 @@ import com.jabauth.jabcode.DecodeResult
 import com.jabauth.jabcode.JABCodeDecoderImpl
 import com.jabauth.jabcode.PerformanceTracker
 import com.jabauth.jabcode.camera.Camera2JABCodeAnalyzer
+import com.jabauth.jabcode.camera.ImageQualityAnalyzer
 import com.jabauth.jabcode.camera.RoiSpec
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -67,6 +68,17 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
     private data class RoiInput(val l: Float, val t: Float, val r: Float, val b: Float, val viewAspect: Float)
     @Volatile private var roiInput: RoiInput? = null
     @Volatile private var sensorOrientation: Int = 90  // back-camera default; set on camera open
+
+    // R4 measure-first acquisition: the analyzer computes per-frame image-quality
+    // metrics and invokes onQualityUpdate IMMEDIATELY BEFORE it decodes that same
+    // frame (see Camera2JABCodeAnalyzer.analyze: metrics → callback → decode), so
+    // this snapshot corresponds to the frame whose decode outcome recordAttempt()
+    // then logs. Purely ADDITIVE observation — no decode gate. We measure quality
+    // alongside outcome now so thresholds can be calibrated from real field data
+    // later, rather than gating on the un-calibrated provisional defaults in
+    // ImageQualityAnalyzer.QualityMetrics. @Volatile: the analyzer callback and
+    // the decode callbacks run on the camera/analysis threads.
+    @Volatile private var latestQuality: ImageQualityAnalyzer.QualityMetrics? = null
 
     private val _workloadPct = MutableStateFlow(0)
     val workloadPct: StateFlow<Int> = _workloadPct.asStateFlow()
@@ -152,6 +164,35 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
         failureCategory: FailureCategory = FailureCategory.NONE
     ) {
         val now = System.currentTimeMillis()
+
+        // R4 measure-first correlation marker: ONE greppable line per decode
+        // attempt joining the just-measured frame quality with the decode
+        // outcome (rates/stages only — NEVER the decoded payload). The analyzer
+        // computes quality immediately before decoding the SAME frame, so the
+        // latestQuality snapshot corresponds to this attempt's frame. Lets us
+        // later correlate quality vs decode success and calibrate the (currently
+        // provisional) ImageQualityAnalyzer thresholds from real field data.
+        // This is purely observational — there is deliberately NO decode gate.
+        // Sentinels (-1 / false) cover the null case (e.g. quality disabled, or
+        // the Scan-image path which has no live camera frame).
+        // Greppable: QUALITY_DECODE.
+        val q = latestQuality
+        Log.i(
+            "ScannerViewModel",
+            "QUALITY_DECODE outcome=%s nc=%d decodeMs=%d focus=%.3f brightness=%.3f contrast=%.3f score=%.3f inFocus=%b exposed=%b stage=%s".format(
+                if (isSuccess) "ok" else "fail",
+                nc,
+                decodeTimeMs,
+                q?.focus ?: -1f,
+                q?.brightness ?: -1f,
+                q?.contrast ?: -1f,
+                q?.qualityScore ?: -1f,
+                q?.isInFocus ?: false,
+                q?.isWellExposed ?: false,
+                failureCategory.name
+            )
+        )
+
         attemptLog.add(AttemptRecord(now, isSuccess, decodeTimeMs, nc, failureCategory))
         // Prune outside the rolling window
         val cutoff = now - attemptWindowMs
@@ -437,7 +478,17 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
             options = DecodeOptions(
                 timeout = timeout,
                 analyzeIntervalMs = analyzeInterval
+                // includeQualityMetrics defaults true — left ON so the analyzer
+                // computes per-frame quality and drives onQualityUpdate below.
             ),
+            // R4 measure-first: capture the latest frame's quality metrics. The
+            // analyzer invokes this on the SAME frame it is about to decode, so
+            // latestQuality is current when the decode outcome reaches
+            // recordAttempt(), which logs the QUALITY_DECODE correlation line.
+            // Store-only — no gate, no decode-behaviour change.
+            onQualityUpdate = { metrics ->
+                latestQuality = metrics
+            },
             onDecodeSuccess = { result ->
                 val decodedColorValue = result.colorMode.value
                 Log.i("ScannerViewModel", "✅ DECODE SUCCESS!")
