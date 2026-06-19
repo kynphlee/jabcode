@@ -5,13 +5,23 @@ import android.util.Size
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
  * Unit tests for StreamConfigValidator
  *
  * Tests stream configuration helper functions
  * Full validation tests done via instrumented tests
+ *
+ * Runs under Robolectric so `android.util.Size` resolves to a real
+ * implementation. Without it, the unit-test stub (returnDefaultValues=true)
+ * makes Size.width / Size.height return 0, so the size assertions below
+ * compared 1280/720 against 0 and failed.
  */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
 class StreamConfigValidatorTest {
 
     private lateinit var validator: StreamConfigValidator

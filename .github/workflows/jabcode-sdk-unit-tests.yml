@@ -1,0 +1,65 @@
+name: JABCode SDK Unit Tests
+
+# Runs the :framework:jabcode-sdk JVM unit-test suite (testDebugUnitTest).
+#
+# These are local-JVM tests (JUnit + Robolectric + Mockito) — NO device or
+# emulator required. The suite covers ColorMode mapping, camera enumeration,
+# stream-config validation, the Camera2 analyzer decode control flow, and the
+# rest of the SDK's pure-logic surface.
+#
+# WHY THIS EXISTS: the jabcode-sdk unit-test SOURCE SET was uncompilable for
+# weeks (a non-exhaustive `when` over ColorMode after COLOR_256 was added), so
+# nothing ran it — and 18 pre-existing failures rotted unnoticed because no CI
+# job executed testDebugUnitTest. The benchmark workflow only *compiles* the
+# androidTest set; it never runs these JVM tests. This job closes that gap so
+# the suite cannot silently rot again.
+on:
+  pull_request:
+    paths:
+      - 'jabauth-android/framework/**'
+      - 'src/jabcode/**'
+      - '.github/workflows/jabcode-sdk-unit-tests.yml'
+  push:
+    branches: [swift-java-poc]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  jabcode-sdk-unit-tests:
+    name: jabcode-sdk testDebugUnitTest
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      # The JVM unit-test suite. Robolectric pulls the instrumented
+      # android-all jar so framework classes (Size, ImageFormat,
+      # CameraCharacteristics, ImageReader/Image mocks) resolve without a
+      # device. Fails the job on any test failure — the guard this workflow
+      # was created to provide.
+      - name: Run jabcode-sdk unit tests
+        working-directory: jabauth-android
+        run: ./gradlew :framework:jabcode-sdk:testDebugUnitTest --no-daemon
+
+      # Surface the HTML/XML reports on failure so the per-test stack traces
+      # are one click away in the Actions run.
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jabcode-sdk-unit-test-report
+          path: |
+            jabauth-android/framework/jabcode-sdk/build/reports/tests/
+            jabauth-android/framework/jabcode-sdk/build/test-results/
+          if-no-files-found: ignore
