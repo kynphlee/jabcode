@@ -1,15 +1,38 @@
 package com.jabauth.jabcode.camera
 
+import android.graphics.Bitmap
+import android.graphics.Rect
 import android.media.Image
 import android.media.ImageReader
+import com.jabauth.jabcode.ColorMode
 import com.jabauth.jabcode.DecodeOptions
 import com.jabauth.jabcode.DecodeResult
 import com.jabauth.jabcode.JABCodeDecoder
 import org.junit.Before
 import org.junit.Test
+import org.junit.runner.RunWith
 import org.mockito.kotlin.*
 import org.junit.Assert.*
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
+/**
+ * Unit tests for the [Camera2JABCodeAnalyzer] decode **control flow** —
+ * frame throttling, success/failure callback routing, exception handling and
+ * image cleanup. The YUV_420_888→Bitmap conversion is an Android-boundary
+ * concern covered by Camera2JABCodeAnalyzerInstrumentedTest (androidTest/);
+ * here it is replaced via the analyzer's `imageToBitmap` seam with a stub
+ * returning a tiny real Bitmap, so a mocked [Image] (which has no YUV planes)
+ * never reaches the real conversion.
+ *
+ * Runs under Robolectric for two reasons: (1) on a bare JVM (JDK 23) the
+ * Mockito inline mock-maker cannot instrument android.media.ImageReader /
+ * android.media.Image — every test failed with "Mockito cannot mock this
+ * class: class android.media.ImageReader"; (2) the analyzer reads
+ * bitmap.getPixel(...) on the converted frame, which needs a real Bitmap.
+ */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
 class Camera2JABCodeAnalyzerTest {
 
     private lateinit var mockDecoder: JABCodeDecoder
@@ -31,7 +54,13 @@ class Camera2JABCodeAnalyzerTest {
             decoder = mockDecoder,
             options = DecodeOptions(analyzeIntervalMs = 100L),
             onDecodeSuccess = onDecodeSuccess,
-            onDecodeFailure = onDecodeFailure
+            onDecodeFailure = onDecodeFailure,
+            // Stub the Image→Bitmap conversion: a mocked Image has no real YUV
+            // planes, so the production CameraUtils.imageToBitmap path cannot
+            // run here. These tests exercise decode control flow, not the
+            // conversion. Returns a fresh 2x2 bitmap each call (analyze()
+            // recycles it).
+            imageToBitmap = { Bitmap.createBitmap(2, 2, Bitmap.Config.ARGB_8888) }
         )
     }
 
@@ -59,13 +88,23 @@ class Camera2JABCodeAnalyzerTest {
 
     @Test
     fun `analyze invokes onDecodeSuccess when JABCode found`() {
-        val mockResult = mock<DecodeResult>()
+        // Use a REAL DecodeResult rather than a mock: it is a Kotlin data
+        // class (final), which the subclass mock-maker this module uses
+        // cannot mock. A real instance is also more faithful — the analyzer
+        // reads result.colorMode.value on the success path; COLOR_16 keeps it
+        // out of the (default-disabled) nc2 consensus branch.
+        val result = DecodeResult(
+            data = "OK".toByteArray(),
+            colorMode = ColorMode.COLOR_16,
+            position = Rect(0, 0, 0, 0),
+            decodeTimeMs = 0L
+        )
         whenever(mockImageReader.acquireLatestImage()).thenReturn(mockImage)
-        whenever(mockDecoder.decode(any(), any())).thenReturn(mockResult)
+        whenever(mockDecoder.decode(any(), any())).thenReturn(result)
 
         analyzer.analyze(mockImageReader)
 
-        verify(onDecodeSuccess).invoke(mockResult)
+        verify(onDecodeSuccess).invoke(result)
         verifyNoInteractions(onDecodeFailure)
     }
 

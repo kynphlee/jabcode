@@ -35,6 +35,11 @@ class ColorModeFromValueTest {
         assertEquals(ColorMode.COLOR_32, ColorMode.fromValue(32))
         assertEquals(ColorMode.COLOR_64, ColorMode.fromValue(64))
         assertEquals(ColorMode.COLOR_128, ColorMode.fromValue(128))
+        // Nc=7 (256) is now a first-class enum member (added alongside the
+        // v7 Galaxy S25 256-colour decode traces). The mapping is bijective
+        // for the spec-defined Nc values 0..7, so 256 must resolve to
+        // COLOR_256 — not collapse to the COLOR_8 default any more.
+        assertEquals(ColorMode.COLOR_256, ColorMode.fromValue(256))
     }
 
     @Test
@@ -48,10 +53,13 @@ class ColorModeFromValueTest {
 
     @Test
     fun `fromValue falls back to COLOR_8 on unexpected values`() {
-        // The bridge currently does not surface Nc=7 (256) as an enum
-        // member. Any unrecognized value must collapse to the default.
-        assertEquals(ColorMode.COLOR_8, ColorMode.fromValue(256))
+        // Any value that is NOT a spec-defined Nc count must collapse to the
+        // COLOR_8 default. 256 is no longer in this set — it maps to
+        // COLOR_256 (asserted above) — so the unrecognized cases are
+        // arbitrary non-power-of-two / out-of-range values from a
+        // forward-incompatible native decoder.
         assertEquals(ColorMode.COLOR_8, ColorMode.fromValue(99))
+        assertEquals(ColorMode.COLOR_8, ColorMode.fromValue(512))
         assertEquals(ColorMode.COLOR_8, ColorMode.fromValue(-1))
     }
 }

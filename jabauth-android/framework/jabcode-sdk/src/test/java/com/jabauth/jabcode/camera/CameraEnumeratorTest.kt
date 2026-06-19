@@ -7,15 +7,27 @@ import android.util.Size
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
+import org.junit.runner.RunWith
 import org.mockito.Mock
 import org.mockito.Mockito.*
 import org.mockito.MockitoAnnotations
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
  * Unit tests for CameraEnumerator
  *
- * Uses mocked CameraManager to test enumeration logic
+ * Uses mocked CameraManager to test enumeration logic.
+ *
+ * Runs under Robolectric: on a bare JVM (JDK 23) the Mockito inline
+ * mock-maker cannot instrument the Android framework classes this test
+ * mocks (Context, CameraManager, CameraCharacteristics) — every test failed
+ * with "Mockito cannot mock this class: class android.content.Context".
+ * Robolectric supplies instrumented, mockable versions of those classes and
+ * a real `android.util.Size` constructor for the output-size stubs below.
  */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
 class CameraEnumeratorTest {
 
     @Mock

@@ -89,7 +89,17 @@ class Camera2JABCodeAnalyzer(
      * with M>=2. See docs/cassandra-register/H_nc2_decode_failure.md (2026-06-11).
      */
     private val nc2ConsensusMinAgreement: Int = 1,
-    private val nc2ConsensusWindowMs: Long = 1500L
+    private val nc2ConsensusWindowMs: Long = 1500L,
+    /**
+     * Converts an acquired [Image] to a decodable [Bitmap] (or null on
+     * failure). Defaults to the production YUV_420_888→Bitmap path
+     * ([CameraUtils.imageToBitmap]). Injectable purely as a test seam: it
+     * lets unit tests drive the decode control flow (throttle, success/
+     * failure callbacks, image cleanup) with a stub conversion, since the
+     * real YUV path cannot run against a mocked [Image] with no planes. The
+     * conversion itself is covered end-to-end by the androidTest suite.
+     */
+    private val imageToBitmap: (Image) -> Bitmap? = CameraUtils::imageToBitmap
 ) {
     
     companion object {
@@ -149,7 +159,7 @@ class Camera2JABCodeAnalyzer(
             
             // Convert Image to Bitmap
             val bitmapStart = System.currentTimeMillis()
-            val bitmap = CameraUtils.imageToBitmap(image)
+            val bitmap = imageToBitmap(image)
             val bitmapTime = System.currentTimeMillis() - bitmapStart
             
             if (bitmap == null) {
