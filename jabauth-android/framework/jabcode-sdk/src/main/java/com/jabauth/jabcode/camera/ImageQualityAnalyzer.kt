@@ -41,21 +41,62 @@ class ImageQualityAnalyzer {
         val contrast: Float
     ) {
         /**
-         * Check if all metrics meet minimum thresholds
-         * 
-         * @param minBrightness Minimum acceptable brightness (default: 0.3)
-         * @param minFocus Minimum acceptable focus (default: 0.4)
-         * @param minContrast Minimum acceptable contrast (default: 0.3)
-         * @return True if all metrics meet thresholds
+         * Sharpness is the focus score under another name — an alias kept for
+         * callers migrated from the retired ImageQualityMetrics model.
+         */
+        val sharpness: Float get() = focus
+
+        /** Focus clears the decodability threshold (i.e. the frame is not blurry). */
+        val isInFocus: Boolean get() = focus >= MIN_FOCUS
+
+        /** Brightness sits in the usable band — neither too dark nor blown out. */
+        val isWellExposed: Boolean get() = brightness in MIN_BRIGHTNESS..MAX_BRIGHTNESS
+
+        /**
+         * Single 0..1 composite for ranking frames (e.g. best-frame selection).
+         * Focus-weighted, because detection/framing is the field bottleneck;
+         * exposure and contrast are secondary contributors.
+         */
+        val qualityScore: Float
+            get() = (FOCUS_WEIGHT * focus +
+                     CONTRAST_WEIGHT * contrast +
+                     EXPOSURE_WEIGHT * exposureScore()).coerceIn(0f, 1f)
+
+        /** 1.0 within the well-exposed band, ramping linearly to 0 at the dark/bright extremes. */
+        private fun exposureScore(): Float = when {
+            brightness < MIN_BRIGHTNESS -> brightness / MIN_BRIGHTNESS
+            brightness > MAX_BRIGHTNESS -> (1f - brightness) / (1f - MAX_BRIGHTNESS)
+            else -> 1f
+        }.coerceIn(0f, 1f)
+
+        /**
+         * Check if all metrics meet minimum thresholds (defaults from the
+         * companion constants; override per call site if needed).
+         *
+         * @return True if brightness, focus and contrast all clear their minimums.
          */
         fun meetsThresholds(
-            minBrightness: Float = 0.3f,
-            minFocus: Float = 0.4f,
-            minContrast: Float = 0.3f
+            minBrightness: Float = MIN_BRIGHTNESS,
+            minFocus: Float = MIN_FOCUS,
+            minContrast: Float = MIN_CONTRAST
         ): Boolean {
             return brightness >= minBrightness &&
                    focus >= minFocus &&
                    contrast >= minContrast
+        }
+
+        companion object {
+            // Decodability thresholds (0..1). Provisional — to be calibrated against
+            // field decode-rate data (R4 acquisition; see robustness/r4-acquisition).
+            const val MIN_BRIGHTNESS = 0.3f
+            const val MAX_BRIGHTNESS = 0.95f
+            const val MIN_FOCUS = 0.4f
+            const val MIN_CONTRAST = 0.3f
+
+            // qualityScore weights — focus-dominant, since framing is the field bottleneck.
+            private const val FOCUS_WEIGHT = 0.6f
+            private const val CONTRAST_WEIGHT = 0.2f
+            private const val EXPOSURE_WEIGHT = 0.2f
         }
     }
     
