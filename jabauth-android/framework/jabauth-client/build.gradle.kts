@@ -47,19 +47,19 @@ dependencies {
     implementation("androidx.core:core-ktx:1.12.0")
     
     // Cryptography
-    implementation("org.bouncycastle:bcprov-jdk18on:1.77")
-    implementation("org.bouncycastle:bcpkix-jdk18on:1.77")
+    implementation("org.bouncycastle:bcprov-jdk18on:1.84")
+    implementation("org.bouncycastle:bcpkix-jdk18on:1.84")
     
     // JWT
-    implementation("com.auth0:java-jwt:4.4.0")
+    implementation("com.auth0:java-jwt:4.5.2")
     
     // Testing
     testImplementation("junit:junit:${rootProject.property("JUNIT_VERSION")}")
     testImplementation("org.mockito:mockito-core:${rootProject.property("MOCKITO_VERSION")}")
     testImplementation("org.robolectric:robolectric:${rootProject.property("ROBOLECTRIC_VERSION")}")
     testImplementation("com.google.truth:truth:1.1.5")
-    testImplementation("org.bouncycastle:bcprov-jdk18on:1.77")
-    testImplementation("org.bouncycastle:bcpkix-jdk18on:1.77")
+    testImplementation("org.bouncycastle:bcprov-jdk18on:1.84")
+    testImplementation("org.bouncycastle:bcpkix-jdk18on:1.84")
     
     // Instrumented Testing
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
