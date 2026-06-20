@@ -25,13 +25,23 @@
 #define MASTER_METADATA_PART1_MODULE_NUMBER 4	//the number of modules used to encode master metadata part 1
 
 /**
- * @brief The positions of the first 32 color palette modules in slave symbol
+ * @brief The positions of the color palette modules in a slave symbol (extended
+ * from 32 to 64 for high Nc; the slave places palette colours 2..MIN(cn,64)-1 at
+ * index [colour-2], needing 62 entries at cn=64; >64 colours are interpolated).
+ * Boustrophedon over the corner band x in [4,11], y in [5,12].
+ * NOTE: at high colour, cascade still fails at slave versions == 0 (mod 5)
+ * (v10/v15/v20...) -- a separate pre-existing slave capacity/alignment-geometry
+ * resonance, tracked as a follow-up; NOT the palette sizing fixed here.
 */
-static const jab_vector2d slave_palette_position[32] =
+static const jab_vector2d slave_palette_position[64] =
 		{	{4, 5}, {4, 6}, {4, 7}, {4, 8}, {4, 9}, {4, 10}, {4, 11}, {4, 12},
 			{5, 12}, {5, 11}, {5, 10}, {5, 9}, {5, 8}, {5, 7}, {5, 6}, {5, 5},
 			{6, 5}, {6, 6}, {6, 7}, {6, 8}, {6, 9}, {6, 10}, {6, 11}, {6, 12},
-			{7, 12}, {7, 11}, {7, 10}, {7, 9}, {7, 8}, {7, 7}, {7, 6}, {7, 5}
+			{7, 12}, {7, 11}, {7, 10}, {7, 9}, {7, 8}, {7, 7}, {7, 6}, {7, 5},
+			{8, 5}, {8, 6}, {8, 7}, {8, 8}, {8, 9}, {8, 10}, {8, 11}, {8, 12},
+			{9, 12}, {9, 11}, {9, 10}, {9, 9}, {9, 8}, {9, 7}, {9, 6}, {9, 5},
+			{10, 5}, {10, 6}, {10, 7}, {10, 8}, {10, 9}, {10, 10}, {10, 11}, {10, 12},
+			{11, 12}, {11, 11}, {11, 10}, {11, 9}, {11, 8}, {11, 7}, {11, 6}, {11, 5}
 		};
 
 /**
