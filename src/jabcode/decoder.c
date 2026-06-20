@@ -601,7 +601,7 @@ jab_int32 readColorPaletteInSlave(jab_bitmap* matrix, jab_decoded_symbol* symbol
 		//color palette 0
 		px = slave_palette_position[color_counter-2].x;
 		py = slave_palette_position[color_counter-2].y;
-		color_index = slave_palette_placement_index[color_counter] % color_number;
+		color_index = (color_number <= 8) ? (slave_palette_placement_index[color_counter] % color_number) : color_counter;
 		writeColorPalette(matrix, symbol, 0, color_index, px, py);
 		//set data map
 		data_map[py * matrix->width + px] = 1;
@@ -609,7 +609,7 @@ jab_int32 readColorPaletteInSlave(jab_bitmap* matrix, jab_decoded_symbol* symbol
 		//color palette 1
 		px = matrix->width - 1 - slave_palette_position[color_counter-2].y;
 		py = slave_palette_position[color_counter-2].x;
-		color_index = slave_palette_placement_index[color_counter] % color_number;
+		color_index = (color_number <= 8) ? (slave_palette_placement_index[color_counter] % color_number) : color_counter;
 		writeColorPalette(matrix, symbol, 1, color_index, px, py);
 		//set data map
 		data_map[py * matrix->width + px] = 1;
@@ -617,7 +617,7 @@ jab_int32 readColorPaletteInSlave(jab_bitmap* matrix, jab_decoded_symbol* symbol
 		//color palette 2
 		px = matrix->width - 1 - slave_palette_position[color_counter-2].x;
 		py = matrix->height - 1 - slave_palette_position[color_counter-2].y;
-		color_index = slave_palette_placement_index[color_counter] % color_number;
+		color_index = (color_number <= 8) ? (slave_palette_placement_index[color_counter] % color_number) : color_counter;
 		writeColorPalette(matrix, symbol, 2, color_index, px, py);
 		//set data map
 		data_map[py * matrix->width + px] = 1;
@@ -625,13 +625,31 @@ jab_int32 readColorPaletteInSlave(jab_bitmap* matrix, jab_decoded_symbol* symbol
 		//color palette 3
 		px = slave_palette_position[color_counter-2].y;
 		py = matrix->height - 1 - slave_palette_position[color_counter-2].x;
-		color_index = slave_palette_placement_index[color_counter] % color_number;
+		color_index = (color_number <= 8) ? (slave_palette_placement_index[color_counter] % color_number) : color_counter;
 		writeColorPalette(matrix, symbol, 3, color_index, px, py);
 		//set data map
 		data_map[py * matrix->width + px] = 1;
 
 		//next color
 		color_counter++;
+	}
+
+	/* For color_number > 8 the slave's metadata loop now uses sequential indexing
+	 * (like the master), and the AP loop places only palette indices 3 and 6, so
+	 * palette index 1 is never written to the matrix. Synthesize it from the
+	 * canonical genColorPalette() value so the decoder's palette[1] matches the
+	 * encoder's. Mirrors readColorPaletteInMaster's WS-4.5.4 "Bug E" fix. */
+	if(color_number > 8)
+	{
+		jab_byte default_palette[256 * 3] = {0};
+		genColorPalette(color_number, default_palette);
+		for(jab_int32 panel = 0; panel < COLOR_PALETTE_NUMBER; panel++)
+		{
+			jab_int32 panel_offset = panel * color_number * 3;
+			symbol->palette[panel_offset + 3] = default_palette[3];  // palette[1].R
+			symbol->palette[panel_offset + 4] = default_palette[4];  // palette[1].G
+			symbol->palette[panel_offset + 5] = default_palette[5];  // palette[1].B
+		}
 	}
 
 	//interpolate the palette if there are more than 64 colors

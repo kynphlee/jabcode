@@ -1492,16 +1492,16 @@ jab_boolean createMatrix(jab_encode* enc, jab_int32 index, jab_data* ecc_encoded
         for (jab_int32 i=2; i<MIN(enc->color_number, 64); i++)	//skip the first two colors in alignment pattern
         {
         	//left
-			enc->symbols[index].matrix  [slave_palette_position[i-2].y*width + slave_palette_position[i-2].x] = palette_index[slave_palette_placement_index[i]%enc->color_number];
+			enc->symbols[index].matrix  [slave_palette_position[i-2].y*width + slave_palette_position[i-2].x] = palette_index[(enc->color_number <= 8) ? (slave_palette_placement_index[i] % enc->color_number) : i];
 			enc->symbols[index].data_map[slave_palette_position[i-2].y*width + slave_palette_position[i-2].x] = 0;
 			//top
-			enc->symbols[index].matrix  [slave_palette_position[i-2].x*width + (width-1-slave_palette_position[i-2].y)] = palette_index[slave_palette_placement_index[i]%enc->color_number];
+			enc->symbols[index].matrix  [slave_palette_position[i-2].x*width + (width-1-slave_palette_position[i-2].y)] = palette_index[(enc->color_number <= 8) ? (slave_palette_placement_index[i] % enc->color_number) : i];
 			enc->symbols[index].data_map[slave_palette_position[i-2].x*width + (width-1-slave_palette_position[i-2].y)] = 0;
 			//right
-			enc->symbols[index].matrix  [(height-1-slave_palette_position[i-2].y)*width + (width-1-slave_palette_position[i-2].x)] = palette_index[slave_palette_placement_index[i]%enc->color_number];
+			enc->symbols[index].matrix  [(height-1-slave_palette_position[i-2].y)*width + (width-1-slave_palette_position[i-2].x)] = palette_index[(enc->color_number <= 8) ? (slave_palette_placement_index[i] % enc->color_number) : i];
 			enc->symbols[index].data_map[(height-1-slave_palette_position[i-2].y)*width + (width-1-slave_palette_position[i-2].x)] = 0;
 			//bottom
-			enc->symbols[index].matrix  [(height-1-slave_palette_position[i-2].x)*width + slave_palette_position[i-2].y] = palette_index[slave_palette_placement_index[i]%enc->color_number];
+			enc->symbols[index].matrix  [(height-1-slave_palette_position[i-2].x)*width + slave_palette_position[i-2].y] = palette_index[(enc->color_number <= 8) ? (slave_palette_placement_index[i] % enc->color_number) : i];
 			enc->symbols[index].data_map[(height-1-slave_palette_position[i-2].x)*width + slave_palette_position[i-2].y] = 0;
         }
     }
