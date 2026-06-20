@@ -16,6 +16,7 @@ to the pre-optimization baseline (the opts were behaviour-preserving), as expect
 | `transcode_survival.py` (C encode → PIL transform → C decode) | transcode-survival heatmap | **measured** (digital channel, 1 trial/cell) |
 | **R0 rig** (`robustness/r0`, C `r0_decode` probe + synthetic corpus) | **decode-rate vs degradation** | **measured** (8 symbols/cell, SHA-verified) |
 | **R1 rig** (`robustness/r1-profiles`, R0 rig over an Nc×ECC grid) | **robustness vs Nc + per-medium profiles** | **measured** (5 payloads/cell, SHA-verified) |
+| `bench_cascade` (C, host x86_64, links libjabcode) | cascade capacity / latency / density vs N + success matrix | **measured** (multi-symbol, round-trip-verified; the axis PR #113 made sound) |
 | representative crypto timings | verification budget | **scaffold** — decode is measured, PKI/ABE/JWT are placeholders pending the `jab-auth` module benchmarks |
 
 Reproduce the codec suite: `make -C src/jabcode sweep transcode`, run
@@ -255,6 +256,99 @@ ideal-linear reference line makes the falloff visible rather than hiding it.
 
 ---
 
+## 9 · Multi-symbol cascade — the axis PR #113 made sound
+
+Every chart above is **single-symbol**. But a JABCode can tile a payload across up
+to **61 docked symbols** (`createEncode(nc, N)`, `N` up to `MAX_SYMBOL_NUMBER`), and
+**PR #113** is what made that work above 8 colours (the slave palette path used to
+overflow its fixed 8/32-entry tables). Cascade is therefore a **new benchmark axis** —
+`bench_cascade` (`make -C src/jabcode bench-cascade`) sweeps the cascade size `N` and
+reports what tiling actually buys and costs. The construction is the correctness crux:
+for `N>1` the symbol arrays are zero-initialised, so the harness sets
+`symbol_positions[i]=i` (sequential dock indices are edge-adjacent → a valid docking
+chain, master at 0) and `symbol_versions[i]={V,V}` for **every** symbol before
+`generateJABCode`, then asserts `decodeJABCode` returns the **exact** input bytes.
+
+### Capacity — the ~N× headline
+
+![cascade capacity](charts/cascade_capacity.png)
+
+Capacity (the **largest payload that round-trips**, measured by binary search) scales
+**essentially linearly in N**. At **Nc 8 / V 8 / ECC 3**: **757 B at N=1 → 46,753 B at
+N=61** (**61.8×** — the dashed ideal-linear reference is nearly coincident). At
+**Nc 256**: **1,813 B → 113,065 B** (**62.4×**) — *over 100 KB in one polychrome code*,
+~38× a single QR's maximum. The measured line sits a hair **above** ideal-linear
+because slaves are cheaper than the master (smaller finder, no master metadata), so
+each added symbol pulls slightly *more* than its 1/N share.
+
+### Latency — also ~N×
+
+![cascade latency](charts/cascade_latency.png)
+
+Both encode (`generateJABCode`) and decode (round-trip) scale **~linearly in N** — a
+cascade is N symbols' worth of work. Decode dominates (the LDPC + colour
+classification per symbol). The honest operational caveat: this is real per-symbol
+cost, and **N=61 is heavy** — at Nc 256, encode ≈ **0.83 s** and decode ≈ **1.9 s**
+per round-trip on the x86_64 host; a full `bench_cascade curves` sweep takes **~10
+min** end-to-end, dominated by the N=61 row. N=61 is kept (it is the
+`MAX_SYMBOL_NUMBER` headline datapoint), not silently dropped — just be aware the big
+cascades are second-scale, not millisecond-scale, operations.
+
+### Density — tiling is ~density-neutral (a JABCode-specific result)
+
+![cascade density](charts/cascade_density.png)
+
+The intuitive expectation is "many small symbols waste modules on repeated
+finder/palette overhead, so a cascade is less dense than one big symbol." **The data
+refutes that for JABCode**, and the chart is honest about it:
+
+- At fixed version, **density is flat in N** (Nc 8: ~0.319 payload-bytes/module from
+  N=1 to N=61). Each docked slave carries about the same payload-per-module as the
+  master — slaves are even marginally *more* efficient (4×7 finder vs the master's
+  4×17, no PartII metadata).
+- A single **MAX-version** symbol (the dashed reference, v32/145²) is actually **LESS**
+  dense than a V=8 tile (Nc 8: 0.202 vs 0.319) — because **alignment-pattern overhead
+  grows super-linearly with version** and swamps the fixed finder/metadata a big
+  symbol would amortise.
+
+So the real cost of a cascade is **not** per-module density; it is the **~N× latency**
+above and the **all-or-nothing decode** below.
+
+### Decode is all-or-nothing — the cascade's real fragility
+
+In `NORMAL_DECODE` the decoder **reassembles every symbol's slice into one payload**,
+so **one unreadable slave fails the whole decode** — the round-trip assertion is
+binary across all N symbols. That is exactly why cascade *robustness* (not measured
+here — this panel is the clean digital channel) is a distinct concern from
+single-symbol robustness: an N-symbol code presents N independent capture targets, and
+the weakest one gates the result.
+
+### Success matrix — the regression guard + the documented edge
+
+![cascade success](charts/cascade_success.png)
+
+A second dataset sweeps **Nc {4…256} × version {8,10,12,15} × N {2,3}** with a fixed
+small payload and records round-trip `ok`. It does double duty:
+
+- **Regression guard for #113:** every `Nc ≥ 16` cell at the safe versions (v8, v12)
+  is **green** — the high-colour slave palette path round-trips losslessly, which is
+  precisely the fix #113 landed (and what used to fail).
+- **Maps the documented `v ≡ 0 (mod 5)` high-Nc edge:** v8 and v12 are green
+  everywhere; **v10 fails from Nc 16 up, v15 from Nc 64 up** (low colour — Nc 4/8 — is
+  unaffected at every version). This is a **separate pre-existing slave
+  capacity/alignment-geometry resonance**, tracked as a #113 follow-up and **not**
+  fixed here — the matrix surfaces it honestly rather than hiding it. The curves above
+  deliberately use the safe **V=8** so they are clean.
+
+> Reproduce: `make -C src/jabcode bench-cascade` then
+> `build/bench_cascade curves > benchmarks/data/cascade.jsonl` and
+> `build/bench_cascade matrix > benchmarks/data/cascade_matrix.jsonl`
+> (`[curves|matrix|both] [warmup] [iters]`, defaults `both 5 20`); `gen_charts.py`
+> emits the four cascade charts. The `curves` sweep is ~10 min (the N=61 row); the
+> `matrix` sweep is seconds.
+
+---
+
 ## Key findings
 
 - **Capacity:** up to ~12.6 KB in one 256-colour symbol (ECC 1); the whole Wikipedia
@@ -278,6 +372,16 @@ ideal-linear reference line makes the falloff visible rather than hiding it.
   efficiency through 4 threads, falling to ~44–56% by 16–20 as the shared `malloc` and
   memory bandwidth (not the codec) become the ceiling. Reported honestly against an
   ideal-linear reference; the win is large but not free linear scaling.
+- **Cascade — the multi-symbol axis (§9, PR #113):** capacity scales **~N× linearly**
+  (Nc 8: **757 B → 46,753 B** from N=1 to N=61; Nc 256: **1,813 B → ~113 KB**, ~38× a
+  QR), and so does latency (N=61 is a **~2 s** round-trip, kept and flagged, not hidden).
+  Tiling is **~density-neutral** — small V=8 tiles are actually *denser* than one
+  max-version symbol (alignment-pattern overhead), refuting the QR intuition. The real
+  cascade costs are the ~N× latency and the **all-or-nothing decode** (one lost slave
+  fails the whole code in NORMAL mode). The success matrix is **green for every Nc ≥ 16
+  at v8/v12** (the #113 high-colour fix, guarded) and maps the documented
+  **`v ≡ 0 (mod 5)` high-Nc edge** (v10 from Nc 16, v15 from Nc 64) as a known #113
+  follow-up — surfaced, not hidden.
 - **Conformance dividend:** these are the codec's numbers *as a fully ISO/IEC 23634
   decoder* — the same artifact that anchors the standards-credibility narrative.
 - **vs QR (zxing-cpp):** JABCode wins density ~4× (11.2 KB vs 2.95 KB); QR wins decode
