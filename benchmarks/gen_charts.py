@@ -323,4 +323,47 @@ if os.path.exists(rates_csv):
     save(fig, "robustness_vs_nc_profiles.png")
     made.append("robustness_vs_nc_profiles.png")
 
+# ============================================================================
+# CONCURRENT THROUGHPUT — what PR #110 (reentrant codec) bought.
+# Two lines from the same 8c/256B round-trip:
+#   CONCURRENT  — reentrant codec, no lock → throughput scales toward T×.
+#   SERIALIZED  — same codec, one global mutex per round-trip → the pre-#110
+#                 "lock everything" reality → flat at ~single-thread rate.
+# Plus a dashed ideal-linear reference (concurrent_1 × T). The gap between the
+# concurrent line and the flat serialized line IS the value #110 unlocked.
+# Source: benchmarks/data/concurrent_throughput.jsonl (src/jabcode bench_concurrent).
+# ============================================================================
+ct = load_jsonl("concurrent_throughput.jsonl")
+if ct:
+    ct = sorted(ct, key=lambda r: r["threads"])
+    th   = [r["threads"] for r in ct]
+    conc = [r["concurrent_ops_per_s"] for r in ct]
+    seri = [r["serialized_ops_per_s"] for r in ct]
+    conc1 = next((r["concurrent_ops_per_s"] for r in ct if r["threads"] == 1), conc[0])
+    ideal = [conc1 * t for t in th]
+    cores = ct[0].get("cores", max(th))
+    fig, ax = plt.subplots(figsize=(8.5, 5))
+    ax.plot(th, ideal, ls="--", color="#999", lw=1.5,
+            label=f"ideal linear (1-thread × T)")
+    ax.plot(th, conc, "-o", color=C_DEC, lw=2, markersize=7,
+            label="concurrent (reentrant, no lock)")
+    ax.plot(th, seri, "-s", color=C_ACC, lw=2, markersize=7,
+            label="serialized (one global mutex — pre-#110)")
+    # Annotate the achieved speedup at max threads.
+    rmax = ct[-1]
+    ax.annotate(f"{rmax['speedup']:.1f}× @ {rmax['threads']} threads\n"
+                f"({rmax['efficiency']*100:.0f}% efficiency)",
+                (rmax["threads"], rmax["concurrent_ops_per_s"]),
+                textcoords="offset points", xytext=(-12, 14), fontsize=9,
+                ha="right", color=C_DEC,
+                bbox=dict(boxstyle="round,pad=0.3", fc="white", ec=C_DEC, alpha=0.9))
+    ax.set_xticks(th); ax.set_xticklabels([str(t) for t in th])
+    ax.set_xlabel("worker threads")
+    ax.set_ylabel("round-trip throughput  (ops/sec)")
+    ax.set_ylim(bottom=0)
+    ax.set_title(f"Concurrent throughput — the value of the reentrant codec (PR #110)\n"
+                 f"x86_64, {cores} cores, 8-colour / 256-byte encode→decode round-trip")
+    ax.legend(loc="upper left", fontsize=9)
+    save(fig, "concurrent_throughput.png"); made.append("concurrent_throughput.png")
+
 print(f"\nGenerated {len(made)} charts -> {CH}")

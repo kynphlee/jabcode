@@ -202,6 +202,59 @@ medium — which is precisely the per-medium-profile encoder posture, now eviden
 
 ---
 
+## 8 · Concurrent throughput — what the reentrant codec bought (PR #110)
+
+Every chart above measures one operation at a time — **latency**. None of them can
+see what **PR #110** (the reentrant codec) actually delivered, because #110 made a
+single round-trip no faster. What it changed is that the codec's per-operation
+process-global state is now `_Thread_local`, so the codec is safe to run on many
+threads at once. The payoff is **throughput**, and that needs a different measurement.
+
+![concurrent throughput](charts/concurrent_throughput.png)
+
+The benchmark (`src/jabcode/test/bench_concurrent.c`, `make -C src/jabcode bench-concurrent`)
+runs the **same** 8-colour / 256-byte encode→decode round-trip two ways at each thread
+count and is deliberately honest by reporting both:
+
+- **CONCURRENT** — the reentrant codec on T threads with **no lock**. Each thread owns
+  its codec state, so throughput climbs with T.
+- **SERIALIZED** — the identical codec, but every round-trip is wrapped in **one global
+  mutex**. This reproduces the **pre-#110 reality**: the only safe way to use the codec
+  from many threads was to serialize every call. Throughput stays pinned at the
+  single-thread rate no matter how many threads you add.
+
+The **gap between the two lines is exactly the throughput PR #110 unlocked.** Every
+iteration also asserts the decoded bytes are byte-identical to what that thread encoded
+(`ops_ok=true` at every T), so this doubles as a correctness-under-load proof.
+
+| threads | concurrent (ops/s) | serialized (ops/s) | speedup | efficiency |
+|--:|--:|--:|--:|--:|
+| 1  | 155   | 162 | 1.00× | 100% |
+| 2  | 315   | 147 | 2.03× | 102% |
+| 4  | 619   | 133 | 3.99× | 100% |
+| 8  | 931   | 156 | 6.00× | 75% |
+| 16 | 1,391 | 152 | **8.96×** | 56% |
+| 20 | 1,365 | 155 | 8.80× | 44% |
+
+*(x86_64, 20 cores, default ECC; `benchmarks/data/concurrent_throughput.jsonl`, 2 s/measurement.)*
+
+**The honest read:** before #110 the codec was throughput-capped at **1×** — you could
+buy correctness under concurrency only by serializing everything, and the serialized line
+proves it stays flat at ~150 ops/s however many cores you throw at it. Post-#110 the same
+workload scales to **~9× (8.96× peak at 16 threads)** on this 20-core host. The scaling is
+**sublinear, and we report that honestly**: efficiency is near-perfect through 4 threads
+(~100%), then falls to ~75% at 8 and ~44–56% by 16–20. The sublinearity is expected — each
+round-trip does substantial `malloc`/`free` (bitmap + LDPC buffers) and streams memory, so
+the shared allocator and memory bandwidth, not the codec, become the ceiling past a handful
+of threads. The win is real and large; it is simply not free linear scaling, and the chart's
+ideal-linear reference line makes the falloff visible rather than hiding it.
+
+> Reproduce: `make -C src/jabcode bench-concurrent` then
+> `build/bench_concurrent 2000 > benchmarks/data/concurrent_throughput.jsonl`
+> (`[duration_ms] [max_threads]`, defaults `2000 nproc`); `gen_charts.py` emits the panel.
+
+---
+
 ## Key findings
 
 - **Capacity:** up to ~12.6 KB in one 256-colour symbol (ECC 1); the whole Wikipedia
@@ -217,6 +270,14 @@ medium — which is precisely the per-medium-profile encoder posture, now eviden
   decode-rate is an inverted-U over Nc (peak Nc2–3, collapse at Nc7); colour-wash and
   perspective are the hard threats. Robustness is bought by picking the right Nc per
   medium — the per-medium-profile encoder posture, now evidence-backed.
+- **Concurrent throughput — the reentrant-codec dividend (§8, PR #110):** before #110 the
+  codec was throughput-capped at **1×** (the only safe multi-thread use was to serialize
+  every call behind a lock — the flat ~150 ops/s "serialized" line). The now-reentrant
+  codec scales the same 8c/256B round-trip to **~9× (8.96× peak at 16 threads)** on a
+  20-core host, byte-identical under load. Scaling is **sublinear by design** — ~100%
+  efficiency through 4 threads, falling to ~44–56% by 16–20 as the shared `malloc` and
+  memory bandwidth (not the codec) become the ceiling. Reported honestly against an
+  ideal-linear reference; the win is large but not free linear scaling.
 - **Conformance dividend:** these are the codec's numbers *as a fully ISO/IEC 23634
   decoder* — the same artifact that anchors the standards-credibility narrative.
 - **vs QR (zxing-cpp):** JABCode wins density ~4× (11.2 KB vs 2.95 KB); QR wins decode
