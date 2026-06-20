@@ -43,6 +43,30 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v3
 
+      # Cache the NDK, keyed on the pinned ndkVersion (jabcode-sdk/build.gradle.kts).
+      # jabcode-sdk's externalNativeBuild (-> swift-java-wrapper/CMakeLists.txt) needs
+      # the NDK even to CONFIGURE a unit-test run, so AGP re-downloads it on every
+      # clean run — and a corrupt sdkmanager download is exactly what flaked this job.
+      # Cache hit = no download = no flake.
+      - name: Cache Android NDK
+        id: cache-ndk
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.ANDROID_SDK_ROOT }}/ndk/27.0.12077973
+          key: android-ndk-27.0.12077973
+
+      # On a cache miss, install the NDK explicitly with a retry, so even the first
+      # (uncached) run survives a transient corrupt download instead of failing hard.
+      - name: Install Android NDK (on cache miss, with retry)
+        if: steps.cache-ndk.outputs.cache-hit != 'true'
+        run: |
+          for attempt in 1 2 3; do
+            "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager" "ndk;27.0.12077973" && exit 0
+            echo "sdkmanager NDK install attempt ${attempt} failed; retrying after backoff"
+            sleep 10
+          done
+          echo "NDK install failed after 3 attempts"; exit 1
+
       # The JVM unit-test suite. Robolectric pulls the instrumented
       # android-all jar so framework classes (Size, ImageFormat,
       # CameraCharacteristics, ImageReader/Image mocks) resolve without a
