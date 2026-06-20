@@ -94,8 +94,14 @@
  * K and W only, per the Mode 0 spec).
  *
  * Declared non-static (was `static` prior to PR #46 / H_mode0_partI
- * fix landing) so decoder.c can read the flag at the call site. */
-jab_boolean g_mode0_decode = 0;
+ * fix landing) so decoder.c can read the flag at the call site.
+ *
+ * _Thread_local (codec reentrancy): set per-decode by detectMaster's
+ * chroma trigger (line ~3722) and read within the same decode, so a
+ * per-thread copy is correct AND single-threaded behaviour is unchanged.
+ * NOTE: a _Thread_local object must be declared _Thread_local in EVERY
+ * translation unit — the extern in decoder.c is kept in sync. */
+_Thread_local jab_boolean g_mode0_decode = 0;
 
 #if TEST_MODE
 jab_bitmap* test_mode_bitmap = NULL;

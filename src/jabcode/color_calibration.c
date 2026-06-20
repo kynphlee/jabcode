@@ -3,7 +3,16 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-static jab_color_calibration g_calibration = {0};
+/* _Thread_local (codec reentrancy). CAVEAT: the per-decode build path
+ * (jabBuildCalibrationFromFPCores -> jabCalibrateFromObservedRGB, rebuilt from
+ * the symbol's own FP cores on every decode) is now thread-safe — each worker
+ * thread carries its own calibration with no cross-thread interference.
+ * HOWEVER, a host that installs a *global* calibration profile out-of-band via
+ * jabApplyCalibration() / jabCalibrateFromObservedRGB() / jabLoadCalibrationFromJSON()
+ * must now do so ON EACH WORKER THREAD: the installed profile no longer
+ * propagates across threads (each thread starts from the zero-initialised
+ * default). Single TU (color_calibration.c) — no cross-file declaration to sync. */
+static _Thread_local jab_color_calibration g_calibration = {0};
 
 static void parseColorMapping(const char* json_section, jab_byte* rgb_out);
 

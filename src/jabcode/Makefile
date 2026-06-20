@@ -14,7 +14,7 @@ SHARED_LIB := $(CORE_DIR)/libjabcode.so
 SOURCES := $(wildcard *.c)
 OBJECTS := $(SOURCES:.c=.o)
 
-.PHONY: all clean bench sweep transcode profile test-pn test-symid test-eci test-table15 test-roundtrip
+.PHONY: all clean bench sweep transcode profile test-pn test-symid test-eci test-table15 test-roundtrip test-concurrent
 
 all: $(STATIC_LIB) $(SHARED_LIB)
 
@@ -32,7 +32,7 @@ $(SHARED_LIB): $(CORE_DIR) $(OBJECTS)
 	$(CC) -c -I. -I./include $(CFLAGS) $< -o $@
 
 clean:
-	rm -f $(STATIC_LIB) $(SHARED_LIB) $(OBJECTS) $(CORE_DIR)/bench_codec $(CORE_DIR)/bench_profile $(CORE_DIR)/test_pn_index $(CORE_DIR)/test_symbology_id $(CORE_DIR)/test_eci $(CORE_DIR)/test_table15 $(CORE_DIR)/test_text_roundtrip
+	rm -f $(STATIC_LIB) $(SHARED_LIB) $(OBJECTS) $(CORE_DIR)/bench_codec $(CORE_DIR)/bench_profile $(CORE_DIR)/test_pn_index $(CORE_DIR)/test_symbology_id $(CORE_DIR)/test_eci $(CORE_DIR)/test_table15 $(CORE_DIR)/test_text_roundtrip $(CORE_DIR)/test_concurrent_roundtrip
 
 # Suite A: native codec microbenchmark -- encode+decode timing across Nc 0..7.
 # Statically links libjabcode for a self-contained binary (adb-pushable).
@@ -95,3 +95,21 @@ test-table15: $(STATIC_LIB)
 test-roundtrip: $(STATIC_LIB)
 	$(CC) -O2 -std=c11 -I. -I./include test/test_text_roundtrip.c $(STATIC_LIB) -lpng16 -ltiff -lz -lm -o $(CORE_DIR)/test_text_roundtrip
 	$(CORE_DIR)/test_text_roundtrip
+
+# Codec reentrancy (thread-safety) guard under ThreadSanitizer.
+# Spawns N>=8 pthreads x M>=50 encode->decode round-trips over Nc=1..7 and
+# asserts each thread decodes its OWN payload byte-identically.
+#
+# Built with -fsanitize=thread -g, compiling the codec SOURCES (not the
+# pre-built static lib) into the binary so TSan instruments the library
+# internals -- the shared codec globals live there, so linking the
+# non-instrumented $(STATIC_LIB) would hide exactly the races we guard against.
+# -O1 keeps TSan's stacks readable; -lpthread for the threads.
+#   AFTER the _Thread_local fix:  TSan clean, RESULT: PASS.
+#   BEFORE (stash the src change): TSan reports races on the codec globals
+#                                  and/or round-trip assertions fail.
+test-concurrent: $(CORE_DIR)
+	$(CC) -O1 -g -std=c11 -fsanitize=thread -D_POSIX_C_SOURCE=199309L -I. -I./include \
+	    test/test_concurrent_roundtrip.c $(SOURCES) \
+	    -lpng16 -ltiff -lz -lm -lpthread -o $(CORE_DIR)/test_concurrent_roundtrip
+	$(CORE_DIR)/test_concurrent_roundtrip

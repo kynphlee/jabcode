@@ -1,6 +1,13 @@
 #include "pseudo_random.h"
 
-static uint64_t lcg64_seed = 42;
+/* Thread-safety (codec reentrancy): the LCG state is per-operation, not
+ * cross-call — every consumer re-seeds it to a fixed constant via setSeed()
+ * immediately before use (interleave.c INTERLEAVE_SEED; ldpc.c
+ * LPDC_MESSAGE_SEED / LPDC_METADATA_SEED). Making it _Thread_local gives each
+ * worker thread its own deterministic sequence, so concurrent encode/decode no
+ * longer race on this global AND single-threaded output stays byte-identical.
+ * Mirrors the established #91 LDPC-cache _Thread_local pattern (ldpc.c). */
+static _Thread_local uint64_t lcg64_seed = 42;
 
 uint32_t temper(uint32_t x)
 {
