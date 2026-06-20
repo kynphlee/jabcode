@@ -42,6 +42,29 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v3
 
+      # Cache the NDK, keyed on the pinned ndkVersion (library/build.gradle.kts).
+      # The :library externalNativeBuild compiles src/jabcode/*.c through the NDK;
+      # pinning + caching avoids a per-run re-download (a corrupt download is a CI
+      # flake surface). Cache hit = no download.
+      - name: Cache Android NDK
+        id: cache-ndk
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.ANDROID_SDK_ROOT }}/ndk/27.0.12077973
+          key: android-ndk-27.0.12077973
+
+      # On a cache miss, install the NDK explicitly with a retry so the first
+      # (uncached) run survives a transient corrupt download.
+      - name: Install Android NDK (on cache miss, with retry)
+        if: steps.cache-ndk.outputs.cache-hit != 'true'
+        run: |
+          for attempt in 1 2 3; do
+            "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager" "ndk;27.0.12077973" && exit 0
+            echo "sdkmanager NDK install attempt ${attempt} failed; retrying after backoff"
+            sleep 10
+          done
+          echo "NDK install failed after 3 attempts"; exit 1
+
       # The committed swift-java-wrapper/android/gradle.properties pins
       # org.gradle.java.home to a contributor's machine-specific JDK path,
       # which does not exist on the runner. Drop it so Gradle uses the JDK 17

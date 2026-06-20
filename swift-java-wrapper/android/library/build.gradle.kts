@@ -6,6 +6,11 @@ android {
     namespace = "com.jabcode.mobile"
     compileSdk = 35
 
+    // Pin the NDK so it does not float to AGP's default (android-native-build.yml
+    // caches the NDK keyed on this version). A floating version re-downloads each
+    // clean run, and a corrupt sdkmanager download is a CI flake surface.
+    ndkVersion = "27.0.12077973"
+
     defaultConfig {
         minSdk = 24
         

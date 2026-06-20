@@ -7,7 +7,13 @@ plugins {
 android {
     namespace = "com.jabauth.jabcode"
     compileSdk = rootProject.property("COMPILE_SDK").toString().toInt()
-    
+
+    // Pin the NDK so it does not float to AGP's default. A floating version is
+    // re-resolved — and re-downloaded — on every clean CI run, and a corrupt
+    // sdkmanager NDK download is exactly what flaked testDebugUnitTest. A fixed
+    // version also gives the workflow a stable cache key (jabcode-sdk-unit-tests.yml).
+    ndkVersion = "27.0.12077973"
+
     defaultConfig {
         minSdk = rootProject.property("MIN_SDK").toString().toInt()
 
