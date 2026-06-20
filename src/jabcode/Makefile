@@ -14,7 +14,7 @@ SHARED_LIB := $(CORE_DIR)/libjabcode.so
 SOURCES := $(wildcard *.c)
 OBJECTS := $(SOURCES:.c=.o)
 
-.PHONY: all clean bench sweep transcode profile test-pn test-symid test-eci test-table15 test-roundtrip test-concurrent
+.PHONY: all clean bench bench-concurrent sweep transcode profile test-pn test-symid test-eci test-table15 test-roundtrip test-concurrent
 
 all: $(STATIC_LIB) $(SHARED_LIB)
 
@@ -32,7 +32,7 @@ $(SHARED_LIB): $(CORE_DIR) $(OBJECTS)
 	$(CC) -c -I. -I./include $(CFLAGS) $< -o $@
 
 clean:
-	rm -f $(STATIC_LIB) $(SHARED_LIB) $(OBJECTS) $(CORE_DIR)/bench_codec $(CORE_DIR)/bench_profile $(CORE_DIR)/test_pn_index $(CORE_DIR)/test_symbology_id $(CORE_DIR)/test_eci $(CORE_DIR)/test_table15 $(CORE_DIR)/test_text_roundtrip $(CORE_DIR)/test_concurrent_roundtrip
+	rm -f $(STATIC_LIB) $(SHARED_LIB) $(OBJECTS) $(CORE_DIR)/bench_codec $(CORE_DIR)/bench_concurrent $(CORE_DIR)/bench_profile $(CORE_DIR)/test_pn_index $(CORE_DIR)/test_symbology_id $(CORE_DIR)/test_eci $(CORE_DIR)/test_table15 $(CORE_DIR)/test_text_roundtrip $(CORE_DIR)/test_concurrent_roundtrip
 
 # Suite A: native codec microbenchmark -- encode+decode timing across Nc 0..7.
 # Statically links libjabcode for a self-contained binary (adb-pushable).
@@ -40,6 +40,17 @@ clean:
 bench: $(STATIC_LIB)
 	$(CC) -O2 -std=c11 -I. -I./include test/bench_codec.c $(STATIC_LIB) -lpng16 -ltiff -lz -lm -o $(CORE_DIR)/bench_codec
 	@echo "built $(CORE_DIR)/bench_codec"
+
+# Concurrent-THROUGHPUT benchmark -- the value PR #110 (reentrant codec) unlocked.
+# Runs the SAME 8-colour/256-byte round-trip two ways at each thread count:
+# CONCURRENT (reentrant codec, no lock -> throughput scales toward T x) vs
+# SERIALIZED (every round-trip behind one global mutex -> the pre-#110 "lock
+# everything" reality, throughput stays flat). The gap is what #110 bought.
+# Statically links libjabcode (self-contained binary); -lpthread for the threads.
+# Run: $(CORE_DIR)/bench_concurrent [duration_ms] [max_threads]   (JSONL stdout, table stderr)
+bench-concurrent: $(STATIC_LIB)
+	$(CC) -O2 -std=c11 -D_POSIX_C_SOURCE=199309L -I. -I./include test/bench_concurrent.c $(STATIC_LIB) -lpng16 -ltiff -lz -lm -lpthread -o $(CORE_DIR)/bench_concurrent
+	@echo "built $(CORE_DIR)/bench_concurrent"
 
 # Per-stage decode profiling harness -- attributes decode latency to the major
 # pipeline stages (DETECT, PALETTE, COLOR_CLASSIFY, DEINTERLEAVE, LDPC,
