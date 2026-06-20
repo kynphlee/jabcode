@@ -105,12 +105,17 @@ static jab_int32 ldpc_row_parity_avx2(const jab_uint32* row, const jab_uint32* v
     return acc & 1;
 }
 
-/* One-time host capability probe (AVX2). __builtin_cpu_supports needs a constructor-time
- * __builtin_cpu_init; the GCC runtime does this before main, and the flag is read-only after,
- * so no synchronization is needed. */
+/* Host capability probe (AVX2). __builtin_cpu_supports relies on a
+ * constructor-time __builtin_cpu_init (the GCC runtime runs it before main),
+ * but the memoised result `v` is filled lazily on first call -- so under
+ * concurrent decode two threads could race to write it. The probe is a pure
+ * host-invariant function (every thread computes the same answer), so make the
+ * cache _Thread_local: each thread memoises its own copy once, with no shared
+ * write and no synchronization. Matches the #91 LDPC-cache _Thread_local idiom
+ * used elsewhere in this file and keeps the dispatch decision byte-identical. */
 static int ldpc_have_avx2(void)
 {
-    static int v = -1;
+    static _Thread_local int v = -1;
     if (v < 0) v = __builtin_cpu_supports("avx2") ? 1 : 0;
     return v;
 }

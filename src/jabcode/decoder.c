@@ -78,9 +78,18 @@ void jabSetStrictPartIIRequired(jab_boolean strict)
  *
  * See: docs/cassandra-register/H_partI_clean_data_failure.md for the
  * underlying investigation that motivated keeping the markers available
- * but gated. */
+ * but gated.
+ *
+ * CONCURRENCY CONTRACT: Process-global configuration. Set once before
+ * spawning worker threads; read-only during concurrent encode/decode.
+ * Mutating it concurrently with a decode is a data race. (It is deliberately
+ * NOT _Thread_local so a single jabSetDiagVerbose() propagates to pool
+ * threads — see the design note above.) */
 jab_boolean g_diag_verbose = 0;
 
+/* CONCURRENCY CONTRACT: call before spawning worker threads, not concurrently
+ * with an in-flight decode. The flag is read-only during concurrent
+ * encode/decode; mutating it mid-decode is a data race. */
 void jabSetDiagVerbose(jab_boolean verbose)
 {
 	g_diag_verbose = verbose;
@@ -114,16 +123,27 @@ void jabSetDiagVerbose(jab_boolean verbose)
  *
  * See: docs/cassandra-register/H_nc2_decode_failure.md and the
  * 2026-05-30 SWOT/TOWS analysis for the rationale and rejected
- * alternatives. */
+ * alternatives.
+ *
+ * CONCURRENCY CONTRACT: Process-global configuration. Set once before
+ * spawning worker threads; read-only during concurrent encode/decode.
+ * Mutating it concurrently with a decode is a data race. (Deliberately NOT
+ * _Thread_local so a single setter call propagates to pool threads.) */
 jab_boolean g_permissive_color_classification = 0;
 
 /* Mode 0 (monochrome) decode flag, defined in detector.c. Read by
  * decodeMasterMetadataPartI to switch the metadata module_color
  * validity check between {K, C, Y} (color modes) and {K, W} (Mode 0).
  * See H_mode0_partI_decode_failure register entry for the empirical
- * record motivating the Mode 0 short-circuit. */
-extern jab_boolean g_mode0_decode;
+ * record motivating the Mode 0 short-circuit.
+ *
+ * _Thread_local must match the defining TU (detector.c) — a thread-local
+ * object has to be declared _Thread_local in EVERY translation unit. */
+extern _Thread_local jab_boolean g_mode0_decode;
 
+/* CONCURRENCY CONTRACT: call before spawning worker threads, not concurrently
+ * with an in-flight decode. Read-only during concurrent encode/decode;
+ * mutating it mid-decode is a data race. */
 void jabSetPermissiveColorClassification(jab_boolean permissive)
 {
 	g_permissive_color_classification = permissive;
@@ -152,9 +172,17 @@ jab_boolean jabIsPermissiveColorClassification(void)
  *
  * Process-global rather than __thread because it's decoder-instance-wide
  * configuration, not per-call. Matches the g_diag_verbose /
- * g_permissive_color_classification idiom for consistency. */
+ * g_permissive_color_classification idiom for consistency.
+ *
+ * CONCURRENCY CONTRACT: Process-global configuration. Set once before
+ * spawning worker threads; read-only during concurrent encode/decode.
+ * Mutating it concurrently with a decode is a data race. (Deliberately NOT
+ * _Thread_local so a single setter call propagates to pool threads.) */
 jab_int32 g_preferred_color_count = 0;
 
+/* CONCURRENCY CONTRACT: call before spawning worker threads, not concurrently
+ * with an in-flight decode. Read-only during concurrent encode/decode;
+ * mutating it mid-decode is a data race. */
 void jabSetPreferredColorCount(jab_int32 count)
 {
 	g_preferred_color_count = count;
@@ -166,9 +194,13 @@ jab_int32 jabGetPreferredColorCount(void)
 }
 
 /* ISO/IEC 23634 Annex H symbology identifier of the most recent successful
- * decode (set in decodeData). Process-global, matching the
- * g_preferred_color_count idiom above. "" until the first successful decode. */
-jab_char g_symbology_identifier[4] = "";
+ * decode. _Thread_local (codec reentrancy): reset per-decode at the top of
+ * decodeData (g_symbology_identifier[0]='\0') and populated on success within
+ * the same call, so a per-thread copy is correct and single-threaded output is
+ * unchanged. Each thread reads back its OWN last decode via
+ * jabGetSymbologyIdentifier(). "" until the first successful decode on that
+ * thread. Single TU (decoder.c) — no cross-file declaration to sync. */
+_Thread_local jab_char g_symbology_identifier[4] = "";
 
 jab_char* jabGetSymbologyIdentifier(void)
 {
