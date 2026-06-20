@@ -109,8 +109,33 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            // BouncyCastle 1.84 ships per-version OSGi metadata at
+            // META-INF/versions/<N>/OSGI-INF/MANIFEST.MF in each of bcprov,
+            // bcpkix and bcutil, so the three collide in
+            // :diagnostic-app:mergeDebugJavaResource. Android has no OSGi
+            // runtime, so this packaging-only metadata is safe to drop. This
+            // excludes only the OSGI-INF metadata — the multi-release BC
+            // .class files under META-INF/versions/<N>/org/... are untouched.
+            excludes += "/META-INF/versions/**/OSGI-INF/**"
         }
     }
+
+    // Pin the JaCoCo version used by AGP's debug coverage instrumentation
+    // (`enableAndroidTestCoverage` / `enableUnitTestCoverage` above). AGP's
+    // bundled JaCoCo is too old to parse the Java 25 classes in BouncyCastle
+    // 1.84's multi-release jar (META-INF/versions/25), which made
+    // :diagnostic-app:mergeExtDexDebug fail in JacocoTransform. 0.8.15 adds
+    // official Java 26 support, so it parses BC 1.84's bytecode cleanly.
+    testCoverage {
+        jacocoVersion = "0.8.15"
+    }
+}
+
+// Align the JacocoReport tasks below with the instrumentation version pinned
+// in android { testCoverage { ... } } so report tooling reads the same
+// coverage data format.
+jacoco {
+    toolVersion = "0.8.15"
 }
 
 dependencies {
