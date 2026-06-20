@@ -366,4 +366,133 @@ if ct:
     ax.legend(loc="upper left", fontsize=9)
     save(fig, "concurrent_throughput.png"); made.append("concurrent_throughput.png")
 
+# ============================================================================
+# CASCADE (multi-symbol) — the axis PR #113 made sound, invisible to every
+# single-symbol harness above. A cascade tiles N>1 docked symbols into one code:
+#   - capacity grows ~N× (headline scaling), but
+#   - each small symbol pays its own finder/palette/metadata overhead, so N small
+#     symbols are LESS dense than one big symbol (the tiling cost), and
+#   - decode is all-or-nothing in NORMAL mode (one lost slave fails the whole code).
+# Four views from two datasets:
+#   cascade.jsonl        — CURVES: capacity / latency / density vs N, per Nc (V=8).
+#   cascade_matrix.jsonl — SUCCESS MATRIX: ok over Nc × version × N, exposing the
+#                          documented v≡0-mod-5 high-Nc edge (#113 follow-up).
+# Both guarded: absent inputs simply skip their charts. Sources: src/jabcode
+# bench_cascade (make -C src/jabcode bench-cascade).
+# ============================================================================
+casc = load_jsonl("cascade.jsonl")
+if casc:
+    ncs_c = sorted({r["colors"] for r in casc})
+    Ns_c  = sorted({r["symbol_number"] for r in casc})
+    cmap_c = plt.cm.viridis(np.linspace(0, 0.92, len(ncs_c)))
+    def _c(r, key):  # value for record matching (N, nc), or None
+        return r.get(key)
+    def series(nc, key):
+        return [next((r[key] for r in casc
+                      if r["colors"] == nc and r["symbol_number"] == N), np.nan)
+                for N in Ns_c]
+
+    # ---- 12. Capacity vs N, one line per Nc (the ~N× headline) ----
+    fig, ax = plt.subplots(figsize=(8.5, 5))
+    for k, nc in enumerate(ncs_c):
+        ys = series(nc, "capacity_bytes")
+        ax.plot(Ns_c, ys, "-o", color=cmap_c[k], lw=2, markersize=6, label=f"Nc {nc}")
+        # ideal-linear reference from N=1 (dashed, same colour, faint): N× the
+        # single-symbol capacity — the cascade would track this if tiling were free.
+        cap1 = next((r["capacity_bytes"] for r in casc
+                     if r["colors"] == nc and r["symbol_number"] == 1), None)
+        if cap1:
+            ax.plot(Ns_c, [cap1 * N for N in Ns_c], ls="--", color=cmap_c[k],
+                    lw=1, alpha=0.45)
+    ax.set_xlabel("cascade size  N  (docked symbols)")
+    ax.set_ylabel("capacity  (bytes that round-trip)")
+    ax.set_title("Cascade capacity scaling — bytes vs N, per colour mode (V=8, ECC 3)\n"
+                 "solid = measured;  dashed = ideal-linear (N × the N=1 capacity)")
+    ax.legend(ncol=2, fontsize=8, title="solid measured / dashed ideal")
+    save(fig, "cascade_capacity.png"); made.append("cascade_capacity.png")
+
+    # ---- 13. Encode + decode latency vs N (per Nc) ----
+    fig, ax = plt.subplots(figsize=(8.5, 5))
+    for k, nc in enumerate(ncs_c):
+        enc_y = series(nc, "encode_ms")
+        dec_y = series(nc, "decode_ms")
+        ax.plot(Ns_c, enc_y, "-o", color=cmap_c[k], lw=2, markersize=6,
+                label=f"encode Nc {nc}")
+        ax.plot(Ns_c, dec_y, "--s", color=cmap_c[k], lw=1.6, markersize=5,
+                label=f"decode Nc {nc}")
+    ax.set_xlabel("cascade size  N  (docked symbols)")
+    ax.set_ylabel("latency  (ms, median)")
+    ax.set_title("Cascade latency vs N (V=8, ECC 3)\n"
+                 "solid = encode (generateJABCode);  dashed = decode (round-trip)")
+    ax.legend(ncol=2, fontsize=7)
+    save(fig, "cascade_latency.png"); made.append("cascade_latency.png")
+
+    # ---- 14. Density vs N, with the single-MAX-version symbol as a reference ----
+    # density = capacity_bytes / total_modules (drawn as bytes per 1000 modules).
+    # The HONEST, somewhat counter-intuitive finding the data forces:
+    #   (1) at fixed version V=8, cascade density is ~FLAT in N — each docked slave
+    #       carries about the same payload-per-module as the master (slaves are even
+    #       marginally MORE efficient: 4×7 finder vs the master's 4×17, no master
+    #       PartII metadata). So tiling is essentially density-NEUTRAL per module.
+    #   (2) the QR intuition "one big symbol is denser, it amortises fixed overhead"
+    #       is FALSE for JABCode: a single MAX-version symbol (v32, 145²) is actually
+    #       LESS dense than a V=8 tile, because alignment-pattern overhead grows
+    #       super-linearly with version and swamps the finder/metadata it saves.
+    # We draw the single max-version density (from the capacity sweep, cap_binary /
+    # side_binary², same Nc, ECC 3) as a dashed reference per Nc — it sits BELOW the
+    # V=8 tiles, evidencing point (2). The real cost of a cascade is therefore NOT
+    # density; it is the all-or-nothing decode and the ~N× latency (other charts).
+    fig, ax = plt.subplots(figsize=(8.5, 5))
+    for k, nc in enumerate(ncs_c):
+        ys = [v * 1000 for v in series(nc, "density")]  # bytes per 1000 modules, readable
+        ax.plot(Ns_c, ys, "-o", color=cmap_c[k], lw=2, markersize=6, label=f"Nc {nc}")
+        # single MAX-version symbol density reference (largest version in the capacity
+        # sweep for this Nc at ECC 3): cap_binary / side_binary². Dashed, same colour.
+        big = [r for r in cap if r.get("colors") == nc and r.get("ecc") == 3
+               and r.get("side_binary")]
+        if big:
+            ref = max(big, key=lambda r: r["side_binary"])
+            d_big = ref["cap_binary"] / (ref["side_binary"] ** 2) * 1000
+            ax.axhline(d_big, ls="--", color=cmap_c[k], lw=1.1, alpha=0.55)
+    ax.set_xlabel("cascade size  N  (docked symbols)")
+    ax.set_ylabel("density  (payload bytes per 1000 modules)")
+    ax.set_title("Cascade density vs N (V=8, ECC 3) — tiling is ~density-neutral\n"
+                 "solid = N small V=8 tiles (flat in N);  dashed = one MAX-version symbol, "
+                 "same Nc (LESS dense)")
+    ax.legend(ncol=2, fontsize=8)
+    save(fig, "cascade_density.png"); made.append("cascade_density.png")
+
+# ---- 15. Success matrix heatmap (Nc rows × version cols), N faceted ----
+cmat = load_jsonl("cascade_matrix.jsonl")
+if cmat:
+    ncs_m = sorted({r["nc"] for r in cmat})
+    vers_m = sorted({r["version"] for r in cmat})
+    Ns_m  = sorted({r["symbol_number"] for r in cmat})
+    # green = round-trips, red = fails — same RdYlGn semantics as the robustness maps.
+    cmap_rg = matplotlib.colors.ListedColormap(["#d62728", "#2ca02c"])
+    fig, axes = plt.subplots(1, len(Ns_m), figsize=(5.2 * len(Ns_m), 4.6), squeeze=False)
+    for col, N in enumerate(Ns_m):
+        ax = axes[0][col]
+        M = np.full((len(ncs_m), len(vers_m)), np.nan)
+        for r in cmat:
+            if r["symbol_number"] == N:
+                M[ncs_m.index(r["nc"]), vers_m.index(r["version"])] = 1.0 if r["ok"] else 0.0
+        ax.imshow(M, aspect="auto", cmap=cmap_rg, vmin=0, vmax=1, origin="lower")
+        ax.set_xticks(range(len(vers_m))); ax.set_xticklabels([f"v{v}" for v in vers_m])
+        ax.set_yticks(range(len(ncs_m))); ax.set_yticklabels([str(c) for c in ncs_m])
+        ax.set_xlabel("slave version")
+        if col == 0:
+            ax.set_ylabel("colours (Nc)")
+        ax.set_title(f"N = {N} symbols")
+        for i in range(len(ncs_m)):
+            for j in range(len(vers_m)):
+                if not np.isnan(M[i, j]):
+                    ax.text(j, i, "OK" if M[i, j] > 0.5 else "X", ha="center",
+                            va="center", color="white", fontsize=9, fontweight="bold")
+    fig.suptitle("Cascade success matrix — round-trip ok over Nc × version (ECC 3)\n"
+                 "green = lossless round-trip;  red = fail (the documented v≡0-mod-5 "
+                 "high-Nc edge — v10 from Nc16, v15 from Nc64; see PR #113)",
+                 fontsize=10)
+    save(fig, "cascade_success.png"); made.append("cascade_success.png")
+
 print(f"\nGenerated {len(made)} charts -> {CH}")

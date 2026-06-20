@@ -14,7 +14,7 @@ SHARED_LIB := $(CORE_DIR)/libjabcode.so
 SOURCES := $(wildcard *.c)
 OBJECTS := $(SOURCES:.c=.o)
 
-.PHONY: all clean bench bench-concurrent sweep transcode profile test-pn test-symid test-eci test-table15 test-roundtrip test-concurrent
+.PHONY: all clean bench bench-concurrent bench-cascade sweep transcode profile test-pn test-symid test-eci test-table15 test-roundtrip test-concurrent
 
 all: $(STATIC_LIB) $(SHARED_LIB)
 
@@ -32,7 +32,7 @@ $(SHARED_LIB): $(CORE_DIR) $(OBJECTS)
 	$(CC) -c -I. -I./include $(CFLAGS) $< -o $@
 
 clean:
-	rm -f $(STATIC_LIB) $(SHARED_LIB) $(OBJECTS) $(CORE_DIR)/bench_codec $(CORE_DIR)/bench_concurrent $(CORE_DIR)/bench_profile $(CORE_DIR)/test_pn_index $(CORE_DIR)/test_symbology_id $(CORE_DIR)/test_eci $(CORE_DIR)/test_table15 $(CORE_DIR)/test_text_roundtrip $(CORE_DIR)/test_concurrent_roundtrip
+	rm -f $(STATIC_LIB) $(SHARED_LIB) $(OBJECTS) $(CORE_DIR)/bench_codec $(CORE_DIR)/bench_concurrent $(CORE_DIR)/bench_cascade $(CORE_DIR)/bench_profile $(CORE_DIR)/test_pn_index $(CORE_DIR)/test_symbology_id $(CORE_DIR)/test_eci $(CORE_DIR)/test_table15 $(CORE_DIR)/test_text_roundtrip $(CORE_DIR)/test_concurrent_roundtrip
 
 # Suite A: native codec microbenchmark -- encode+decode timing across Nc 0..7.
 # Statically links libjabcode for a self-contained binary (adb-pushable).
@@ -51,6 +51,19 @@ bench: $(STATIC_LIB)
 bench-concurrent: $(STATIC_LIB)
 	$(CC) -O2 -std=c11 -D_POSIX_C_SOURCE=199309L -I. -I./include test/bench_concurrent.c $(STATIC_LIB) -lpng16 -ltiff -lz -lm -lpthread -o $(CORE_DIR)/bench_concurrent
 	@echo "built $(CORE_DIR)/bench_concurrent"
+
+# Multi-symbol (CASCADE) benchmark -- the axis PR #113 (high-colour cascade) made
+# sound, and the one every single-symbol harness above cannot see. Sweeps the
+# cascade size N (1..61 docked symbols) x colour Nc and reports capacity (~N x
+# scaling), encode/decode latency, and density (the per-symbol tiling overhead),
+# plus a success matrix over Nc x version x N that doubles as a regression guard for
+# #113 and maps the documented v==0-mod-5 high-Nc edge. Statically links libjabcode.
+# Run: $(CORE_DIR)/bench_cascade [curves|matrix|both] [warmup] [iters]
+#   build/bench_cascade curves > benchmarks/data/cascade.jsonl
+#   build/bench_cascade matrix > benchmarks/data/cascade_matrix.jsonl
+bench-cascade: $(STATIC_LIB)
+	$(CC) -O2 -std=c11 -D_POSIX_C_SOURCE=199309L -I. -I./include test/bench_cascade.c $(STATIC_LIB) -lpng16 -ltiff -lz -lm -o $(CORE_DIR)/bench_cascade
+	@echo "built $(CORE_DIR)/bench_cascade"
 
 # Per-stage decode profiling harness -- attributes decode latency to the major
 # pipeline stages (DETECT, PALETTE, COLOR_CLASSIFY, DEINTERLEAVE, LDPC,
