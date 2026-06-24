@@ -1,10 +1,13 @@
 package com.jabauth.diagnostic.ui.capturetest
 
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jabauth.diagnostic.benchmark.BenchmarkResult
 import com.jabauth.diagnostic.benchmark.CodecBenchmark
+import com.jabauth.diagnostic.metric.DeviceVerifyAttemptExporter
+import com.jabauth.diagnostic.metric.deviceVerifyAttemptExporter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -52,8 +55,49 @@ class CaptureTestViewModel : ViewModel() {
             val results = withContext(Dispatchers.Default) {
                 CodecBenchmark().run(appContext)
             }
+            // Stage 1b: promote the Suite-B decode cells to durable shared-schema
+            // records, alongside the existing BENCHMARK_JSON logcat lines (which
+            // CodecBenchmark still emits). Only decode cells map to the shared
+            // VerifyAttempt schema (its first stage is a decode); encode cells
+            // keep only their logcat line. Best-effort — an export I/O failure
+            // must not break the on-screen benchmark summary.
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    val exporter = appContext.deviceVerifyAttemptExporter()
+                    val records = results.mapNotNull { r ->
+                        decodeColorNumber(r.benchmarkName)?.let { colorNumber ->
+                            DeviceVerifyAttemptExporter.fromSuiteBDecode(
+                                colorNumber = colorNumber,
+                                medianDecodeMs = r.medianTimeMs
+                            )
+                        }
+                    }
+                    exporter.appendAll(records)
+                    Log.i(
+                        TAG,
+                        "DEVICE_VERIFY_EXPORT suite-b wrote ${records.size} decode record(s) " +
+                            "-> ${exporter.jsonlPath()}"
+                    )
+                }.onFailure { Log.w(TAG, "DEVICE_VERIFY_EXPORT suite-b export failed: ${it.message}") }
+            }
             _benchmarkState.value = BenchmarkState.Done(results)
         }
+    }
+
+    /**
+     * Maps a Suite-B decode benchmark name (`decode_ncN`, N=0..7) to its carrier colour count
+     * (2,4,8,...,256). Returns null for non-decode cells (e.g. `encode_ncN`), which have no shared
+     * VerifyAttempt analogue.
+     */
+    private fun decodeColorNumber(benchmarkName: String): Int? {
+        if (!benchmarkName.startsWith("decode_nc")) return null
+        val nc = benchmarkName.removePrefix("decode_nc").toIntOrNull() ?: return null
+        if (nc < 0 || nc > 7) return null
+        return 1 shl (nc + 1)
+    }
+
+    private companion object {
+        const val TAG = "CaptureTestViewModel"
     }
 
     fun startStream() {

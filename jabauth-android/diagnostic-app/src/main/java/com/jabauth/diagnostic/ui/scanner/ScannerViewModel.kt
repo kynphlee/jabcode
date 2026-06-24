@@ -6,6 +6,9 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.jabauth.diagnostic.data.SettingsRepository
+import com.jabauth.diagnostic.metric.DeviceVerifyAttempt
+import com.jabauth.diagnostic.metric.DeviceVerifyAttemptExporter
+import com.jabauth.diagnostic.metric.deviceVerifyAttemptExporter
 import com.jabauth.diagnostic.util.DiagnosticLogger
 import com.jabauth.diagnostic.util.HapticFeedbackController
 import com.jabauth.diagnostic.util.motion.MotionTelemetryController
@@ -31,6 +34,16 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
     private val logger = DiagnosticLogger.create("ScannerViewModel", settingsRepository)
     private val hapticController = HapticFeedbackController(application)
     private val motionController = MotionTelemetryController(application)
+
+    // Stage 1b: durable structured export of each decode attempt as a shared-schema
+    // DeviceVerifyAttempt record (the device leg of the host VerifyAttempt wire
+    // format). Built lazily from the Application context so the file dir is resolved
+    // only on first attempt. Promotes the QUALITY_DECODE logcat telemetry to files;
+    // the logcat line itself is unchanged. Best-effort: an export I/O error never
+    // affects decode/scan behaviour.
+    private val verifyAttemptExporter: DeviceVerifyAttemptExporter by lazy {
+        application.deviceVerifyAttemptExporter()
+    }
 
     // Production-side PerformanceTracker — records each decode attempt's
     // duration and success across the session lifetime. Complements the
@@ -192,6 +205,24 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
                 failureCategory.name
             )
         )
+
+        // Stage 1b: promote the SAME per-attempt telemetry to a durable, host-diffable
+        // DeviceVerifyAttempt record (JSONL + CSV). Codec-only leg: decode timing only,
+        // authOutcome all-SKIP. Mirrors the QUALITY_DECODE line above — never the payload.
+        // Wrapped so a storage failure cannot perturb the scan path.
+        runCatching {
+            verifyAttemptExporter.append(
+                DeviceVerifyAttemptExporter.fromScanAttempt(
+                    isSuccess = isSuccess,
+                    decodeTimeMs = decodeTimeMs,
+                    colorNumber = ncToColorNumber(nc),
+                    failAttr = failureCategory.toFailAttr(),
+                    focus = q?.focus,
+                    brightness = q?.brightness,
+                    contrast = q?.contrast
+                )
+            )
+        }.onFailure { Log.w("ScannerViewModel", "DEVICE_VERIFY_EXPORT append failed: ${it.message}") }
 
         attemptLog.add(AttemptRecord(now, isSuccess, decodeTimeMs, nc, failureCategory))
         // Prune outside the rolling window
@@ -393,6 +424,40 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
         )
     }
 
+    /**
+     * Map the rolling-stats Nc index (0..7, or -1 for auto-detect / unknown) to the carrier
+     * colour count the shared schema's `colorNumber` column expects (2,4,8,...,256). An unknown
+     * Nc becomes 0, matching the host schema's "unknown/not probed" sentinel.
+     */
+    private fun ncToColorNumber(nc: Int): Int =
+        if (nc in 0..7) 1 shl (nc + 1) else 0
+
+    /**
+     * Classify a decoder error string into the failure-attribution category. Mirrors the C-side
+     * FAIL_ATTR status codes: "No JABCode found" ⇒ detector miss; "not decodable" ⇒ slave/payload
+     * recovery failure; anything else ⇒ unspecified. Shared by the live-camera failure callback and
+     * the picked-image decode path so both attribute failures on the same axis.
+     */
+    private fun classifyFailure(error: String): FailureCategory = when {
+        error.contains("No JABCode found", ignoreCase = true) -> FailureCategory.NO_FP_FOUND
+        error.contains("not decodable", ignoreCase = true) -> FailureCategory.SLAVE_DECODE_FAILED
+        else -> FailureCategory.OTHER
+    }
+
+    /**
+     * Translate this view-model's private decode [FailureCategory] into the shared cross-leg
+     * [DeviceVerifyAttempt.FailAttr] vocabulary (decode subset). `NO_FP_FOUND` is a detector miss
+     * (`DETECT`); `SLAVE_DECODE_FAILED` is a found-but-unrecoverable symbol (`CLASSIFICATION`); the
+     * residual `OTHER` is an unspecified decode failure that, by elimination, was not a clean
+     * detector miss, so it maps to `CLASSIFICATION` rather than `DETECT`.
+     */
+    private fun FailureCategory.toFailAttr(): DeviceVerifyAttempt.FailAttr = when (this) {
+        FailureCategory.NONE -> DeviceVerifyAttempt.FailAttr.NONE
+        FailureCategory.NO_FP_FOUND -> DeviceVerifyAttempt.FailAttr.DETECT
+        FailureCategory.SLAVE_DECODE_FAILED -> DeviceVerifyAttempt.FailAttr.CLASSIFICATION
+        FailureCategory.OTHER -> DeviceVerifyAttempt.FailAttr.CLASSIFICATION
+    }
+
     data class ScanStats(val okCount: Int, val failCount: Int) {
         val total: Int get() = okCount + failCount
         val successRate: Float get() = if (total == 0) 0f else okCount.toFloat() / total
@@ -563,13 +628,7 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
                 // can attribute attempts to FP-detection vs slave-decode
                 // failure. This is the screen-side mirror of the C-side
                 // FAIL_ATTR status codes — same axis, different log source.
-                val category = when {
-                    error.contains("No JABCode found", ignoreCase = true) ->
-                        FailureCategory.NO_FP_FOUND
-                    error.contains("not decodable", ignoreCase = true) ->
-                        FailureCategory.SLAVE_DECODE_FAILED
-                    else -> FailureCategory.OTHER
-                }
+                val category = classifyFailure(error)
                 // Derive attempted Nc from user's preferredColorMode. On
                 // auto-detect sessions (preferredColorMode == null), we
                 // can't attribute the failure to a specific Nc — it lands
@@ -639,7 +698,10 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
                 recordAttempt(
                     isSuccess = false,
                     decodeTimeMs = dt,
-                    nc = preferredColorMode?.let { COLOR_COUNT_TO_NC[it] } ?: -1
+                    nc = preferredColorMode?.let { COLOR_COUNT_TO_NC[it] } ?: -1,
+                    // Attribute the picked-image failure on the same axis as the
+                    // camera path so a FAIL record never carries failAttr=NONE.
+                    failureCategory = classifyFailure(err)
                 )
                 Log.i("ScannerViewModel", "SCAN_IMAGE decode FAIL: $err")
             }
