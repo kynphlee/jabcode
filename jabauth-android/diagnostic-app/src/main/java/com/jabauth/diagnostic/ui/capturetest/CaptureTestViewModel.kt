@@ -6,12 +6,17 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jabauth.diagnostic.benchmark.BenchmarkResult
 import com.jabauth.diagnostic.benchmark.CodecBenchmark
+import com.jabauth.diagnostic.data.SettingsRepository
 import com.jabauth.diagnostic.metric.DeviceVerifyAttemptExporter
+import com.jabauth.diagnostic.metric.androidDecodeInternalsExporter
 import com.jabauth.diagnostic.metric.deviceVerifyAttemptExporter
+import com.jabauth.diagnostic.metric.readJabCodeMarkerLines
+import com.jabauth.jabcode.setDiagVerbose
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -52,8 +57,37 @@ class CaptureTestViewModel : ViewModel() {
         val appContext = context.applicationContext
         _benchmarkState.value = BenchmarkState.Running
         viewModelScope.launch {
+            // Stage 3: turn the C decoder's diag-verbose markers on for the duration of this
+            // controlled fixture sweep so the per-decode internals (DETECT, learned palette, Part I/II,
+            // FAIL_ATTR) land in the log buffer; capture + structure them after the run, then restore
+            // the flag. The benchmark is a discrete, off-camera-hot-path window — the right place to
+            // pay the marker cost. Best-effort: the toggle never throws here.
+            runCatching { setDiagVerbose(true) }
             val results = withContext(Dispatchers.Default) {
                 CodecBenchmark().run(appContext)
+            }
+            // Stage 3: read back this process's JABCode marker lines, slice them into per-decode
+            // windows, and export one structured DecodeInternals record per window — the device leg's
+            // "why", written beside the Stage-1b outcome export (decode-internals.jsonl next to
+            // device-verify-attempts.jsonl). Best-effort; must not break the on-screen summary.
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    val markerLines = readJabCodeMarkerLines()
+                    val exporter = appContext.androidDecodeInternalsExporter()
+                    val records = exporter.captureAll(markerLines)
+                    Log.i(
+                        TAG,
+                        "DECODE_INTERNALS suite-b captured ${records.size} decode window(s) " +
+                            "-> ${exporter.jsonlPath()}"
+                    )
+                }.onFailure { Log.w(TAG, "DECODE_INTERNALS suite-b capture failed: ${it.message}") }
+                // Restore the marker flag to the user's persisted choice (MainActivity sets it from
+                // this same setting on launch) rather than blindly forcing it off — so enabling
+                // "debug logging" in Settings keeps working after a benchmark run.
+                runCatching {
+                    val debugLogging = SettingsRepository(appContext).settingsFlow.first().debugLogging
+                    setDiagVerbose(debugLogging)
+                }
             }
             // Stage 1b: promote the Suite-B decode cells to durable shared-schema
             // records, alongside the existing BENCHMARK_JSON logcat lines (which
