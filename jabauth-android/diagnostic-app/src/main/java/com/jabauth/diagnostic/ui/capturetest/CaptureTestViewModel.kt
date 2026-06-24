@@ -1,14 +1,22 @@
 package com.jabauth.diagnostic.ui.capturetest
 
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jabauth.diagnostic.benchmark.BenchmarkResult
 import com.jabauth.diagnostic.benchmark.CodecBenchmark
+import com.jabauth.diagnostic.data.SettingsRepository
+import com.jabauth.diagnostic.metric.DeviceVerifyAttemptExporter
+import com.jabauth.diagnostic.metric.androidDecodeInternalsExporter
+import com.jabauth.diagnostic.metric.deviceVerifyAttemptExporter
+import com.jabauth.diagnostic.metric.readJabCodeMarkerLines
+import com.jabauth.jabcode.setDiagVerbose
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -49,11 +57,81 @@ class CaptureTestViewModel : ViewModel() {
         val appContext = context.applicationContext
         _benchmarkState.value = BenchmarkState.Running
         viewModelScope.launch {
+            // Stage 3: turn the C decoder's diag-verbose markers on for the duration of this
+            // controlled fixture sweep so the per-decode internals (DETECT, learned palette, Part I/II,
+            // FAIL_ATTR) land in the log buffer; capture + structure them after the run, then restore
+            // the flag. The benchmark is a discrete, off-camera-hot-path window — the right place to
+            // pay the marker cost. Best-effort: the toggle never throws here.
+            runCatching { setDiagVerbose(true) }
             val results = withContext(Dispatchers.Default) {
                 CodecBenchmark().run(appContext)
             }
+            // Stage 3: read back this process's JABCode marker lines, slice them into per-decode
+            // windows, and export one structured DecodeInternals record per window — the device leg's
+            // "why", written beside the Stage-1b outcome export (decode-internals.jsonl next to
+            // device-verify-attempts.jsonl). Best-effort; must not break the on-screen summary.
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    val markerLines = readJabCodeMarkerLines()
+                    val exporter = appContext.androidDecodeInternalsExporter()
+                    val records = exporter.captureAll(markerLines)
+                    Log.i(
+                        TAG,
+                        "DECODE_INTERNALS suite-b captured ${records.size} decode window(s) " +
+                            "-> ${exporter.jsonlPath()}"
+                    )
+                }.onFailure { Log.w(TAG, "DECODE_INTERNALS suite-b capture failed: ${it.message}") }
+                // Restore the marker flag to the user's persisted choice (MainActivity sets it from
+                // this same setting on launch) rather than blindly forcing it off — so enabling
+                // "debug logging" in Settings keeps working after a benchmark run.
+                runCatching {
+                    val debugLogging = SettingsRepository(appContext).settingsFlow.first().debugLogging
+                    setDiagVerbose(debugLogging)
+                }
+            }
+            // Stage 1b: promote the Suite-B decode cells to durable shared-schema
+            // records, alongside the existing BENCHMARK_JSON logcat lines (which
+            // CodecBenchmark still emits). Only decode cells map to the shared
+            // VerifyAttempt schema (its first stage is a decode); encode cells
+            // keep only their logcat line. Best-effort — an export I/O failure
+            // must not break the on-screen benchmark summary.
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    val exporter = appContext.deviceVerifyAttemptExporter()
+                    val records = results.mapNotNull { r ->
+                        decodeColorNumber(r.benchmarkName)?.let { colorNumber ->
+                            DeviceVerifyAttemptExporter.fromSuiteBDecode(
+                                colorNumber = colorNumber,
+                                medianDecodeMs = r.medianTimeMs
+                            )
+                        }
+                    }
+                    exporter.appendAll(records)
+                    Log.i(
+                        TAG,
+                        "DEVICE_VERIFY_EXPORT suite-b wrote ${records.size} decode record(s) " +
+                            "-> ${exporter.jsonlPath()}"
+                    )
+                }.onFailure { Log.w(TAG, "DEVICE_VERIFY_EXPORT suite-b export failed: ${it.message}") }
+            }
             _benchmarkState.value = BenchmarkState.Done(results)
         }
+    }
+
+    /**
+     * Maps a Suite-B decode benchmark name (`decode_ncN`, N=0..7) to its carrier colour count
+     * (2,4,8,...,256). Returns null for non-decode cells (e.g. `encode_ncN`), which have no shared
+     * VerifyAttempt analogue.
+     */
+    private fun decodeColorNumber(benchmarkName: String): Int? {
+        if (!benchmarkName.startsWith("decode_nc")) return null
+        val nc = benchmarkName.removePrefix("decode_nc").toIntOrNull() ?: return null
+        if (nc < 0 || nc > 7) return null
+        return 1 shl (nc + 1)
+    }
+
+    private companion object {
+        const val TAG = "CaptureTestViewModel"
     }
 
     fun startStream() {
