@@ -2,8 +2,10 @@ package com.jabauth.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import com.jabauth.ui.R
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
@@ -17,20 +19,24 @@ import androidx.compose.ui.unit.sp
  *  - Data / display: **IBM Plex Mono** (weights 400/500/600/700)
  *  - Body / UI:       **Archivo**      (weights 400/500/600/700)
  *
- * TODO(fonts): swap [DataFontFamily] / [BodyFontFamily] for the real brand
- * faces via Compose downloadable Google Fonts
- * (androidx.compose.ui:ui-text-google-fonts). That route additionally needs a
- * GoogleFont.Provider backed by the GMS font-certs resource array. It was not
- * wired here because the certs cannot be verified offline and a mis-typed cert
- * fails *silently at runtime* (fonts never download) rather than at compile
- * time — worse than an honest, visible fallback. Until then we use the platform
- * monospace face for data/display (preserving the fixed-width "instrument"
- * feel) and the platform sans for body/UI. Every size, weight, line height and
- * letter-spacing below already matches the spec, so the swap is purely a
- * FontFamily change with no metric churn.
+ * The brand faces are bundled as OFL static TTFs in res/font (IBM Plex Mono
+ * 400/500/600/700; Archivo 400/500/600) rather than fetched via downloadable
+ * Google Fonts — bundling is deterministic (no GMS dependency, no font-certs
+ * array, no silent runtime-download failure) and works offline on every device
+ * down to minSdk 24. Every size, weight, line height and letter-spacing below
+ * already matches the spec. Licences bundled in assets/OFL_*.txt.
  */
-internal val DataFontFamily: FontFamily = FontFamily.Monospace // IBM Plex Mono target
-internal val BodyFontFamily: FontFamily = FontFamily.Default   // Archivo target
+internal val DataFontFamily: FontFamily = FontFamily(
+    Font(R.font.ibm_plex_mono_regular, FontWeight.Normal),
+    Font(R.font.ibm_plex_mono_medium, FontWeight.Medium),
+    Font(R.font.ibm_plex_mono_semibold, FontWeight.SemiBold),
+    Font(R.font.ibm_plex_mono_bold, FontWeight.Bold)
+)
+internal val BodyFontFamily: FontFamily = FontFamily(
+    Font(R.font.archivo_regular, FontWeight.Normal),
+    Font(R.font.archivo_medium, FontWeight.Medium),
+    Font(R.font.archivo_semibold, FontWeight.SemiBold)
+)
 
 /** em-based tracking from the spec, expressed in Compose sp letter-spacing. */
 private val Tracking002 = (-0.02).em
