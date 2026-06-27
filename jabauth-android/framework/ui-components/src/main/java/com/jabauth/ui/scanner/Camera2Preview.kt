@@ -16,6 +16,7 @@ import android.media.ImageReader
 import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
+import android.os.SystemClock
 import java.util.concurrent.Executor
 import android.util.Log
 import android.view.MotionEvent
@@ -32,6 +33,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import com.jabauth.jabcode.camera.metadata.MetadataExtractor
 
 /**
  * Camera2Preview - Raw Camera2 API preview component
@@ -166,6 +168,9 @@ private class Camera2Controller(
 ) {
     companion object {
         private const val TAG = "Camera2Controller"
+        // Heartbeat throttle for 3A telemetry (an AF/AE state change always logs;
+        // between changes, emit at most one line per this interval).
+        private const val TELEMETRY_3A_INTERVAL_MS = 1000L
         // WS-camera-1-2: split preview and analysis resolutions.
         // Preview at 1920x1080 (TextureView display surface) preserves the
         // existing viewfinder quality. Analysis at 1280x720 reduces the
@@ -217,6 +222,16 @@ private class Camera2Controller(
     private var lowLightBoostSupported: Boolean = false
     @Volatile
     private var lastReportedLlbState: Int = -1  // -1 = no observation yet
+
+    // 3A telemetry debounce. Reuses the jabcode-sdk MetadataExtractor for the
+    // Camera2 -> enum state mapping (exposure/ISO/focus/af/ae/awb), logged on
+    // state transitions + a ~1 Hz heartbeat. Closes the gap the AF/AE field
+    // analysis flagged: decode/zoom/LLB were traced, but AE/AF state, exposure
+    // and ISO were not, so 3A behaviour had to be inferred from pixels.
+    private val metadataExtractor = MetadataExtractor()
+    private var last3aAfRaw: Int? = null
+    private var last3aAeRaw: Int? = null
+    private var last3aLogMs: Long = 0L
 
     // WS-camera-PR1 pinch-zoom verification (ROI implementation plan §1).
     // The plan's empirical decision gate: does manually zooming the camera
@@ -719,6 +734,30 @@ private class Camera2Controller(
                     request: CaptureRequest,
                     result: TotalCaptureResult
                 ) {
+                    // 3A telemetry: af/ae/awb state + exposure/ISO/focus. Logged on
+                    // every AF or AE state transition, plus a ~1 Hz heartbeat so
+                    // exposure/ISO drift stays visible during stable stretches.
+                    // Debounced via the raw-state compare so it never logs per frame.
+                    val afRaw = result.get(CaptureResult.CONTROL_AF_STATE)
+                    val aeRaw = result.get(CaptureResult.CONTROL_AE_STATE)
+                    val now3aMs = SystemClock.elapsedRealtime()
+                    if (afRaw != last3aAfRaw || aeRaw != last3aAeRaw ||
+                        now3aMs - last3aLogMs >= TELEMETRY_3A_INTERVAL_MS) {
+                        last3aAfRaw = afRaw
+                        last3aAeRaw = aeRaw
+                        last3aLogMs = now3aMs
+                        val m = metadataExtractor.extract(result)
+                        val expMs = m.exposureTimeNs?.let { String.format("%.2f", it / 1_000_000.0) } ?: "?"
+                        val focus = m.focusDistance?.let { String.format("%.2f", it) } ?: "?"
+                        val evSteps = result.get(CaptureResult.CONTROL_AE_EXPOSURE_COMPENSATION) ?: 0
+                        Log.i(
+                            "JABCode3A",
+                            "af=${m.afState} ae=${m.aeState} awb=${m.awbState} " +
+                                "exp=${expMs}ms iso=${m.iso ?: "?"} focusDiopters=$focus " +
+                                "evSteps=$evSteps frame=${m.frameNumber}"
+                        )
+                    }
+
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
                         val state = result.get(CaptureResult.CONTROL_LOW_LIGHT_BOOST_STATE)
                         if (state != null && state != lastReportedLlbState) {
