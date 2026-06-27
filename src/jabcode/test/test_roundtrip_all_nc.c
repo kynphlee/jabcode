@@ -6,8 +6,10 @@
  * boundary is visible.
  *
  * Currently expected:
- *   Nc=0..6 PASS
- *   Nc=7    FAIL (library bug — being fixed in this workstream)
+ *   Nc=0..7 PASS (8/8)
+ *
+ * The Nc=7 (256-color) library bug has been fixed (cascade high-color
+ * work, PR #113 and related), so every Nc level now round-trips cleanly.
  *
  * See: docs/jabcode-all-nc-plan/03-phase-a-library-fix.md
  */
