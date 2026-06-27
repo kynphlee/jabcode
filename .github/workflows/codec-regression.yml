@@ -1,0 +1,173 @@
+name: Codec Regression (C core correctness)
+
+# Pure-C correctness gate for the JABCode codec under src/jabcode/. Complements
+# android-native-build.yml (which guards only the NDK *link* of the same sources)
+# by actually EXECUTING the codec: every C regression test binary plus a
+# full-spectrum synthetic encode->decode round-trip across all colour modes.
+#
+# Why this exists: the NDK/Gradle workflows compile the C core but never run it,
+# and the only headless C runner before this was absent. A decoder regression in
+# src/jabcode/*.c (LDPC, colour classification, sampling, ECI, etc.) could merge
+# fully green. This job runs the tests on a clean ubuntu-latest checkout and
+# fails on ANY non-zero exit or any decoded-payload mismatch.
+#
+# No silent skips: the synthetic decode images are (re)generated here with the
+# freshly built writer so they always match the codec under test, and the job
+# asserts every colour mode decoded byte-identically rather than trusting the
+# helper script's report-only exit status.
+on:
+  pull_request:
+    paths:
+      - 'src/jabcode/**'
+      - 'swift-java-wrapper/**'
+      - '.github/workflows/codec-regression.yml'
+  push:
+    branches: [main, master, swift-java-poc]
+    paths:
+      - 'src/jabcode/**'
+      - 'swift-java-wrapper/**'
+      - '.github/workflows/codec-regression.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  c-codec-regression:
+    name: C codec regression (all colour modes + test binaries)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      # libpng16 / libtiff / zlib are the codec's image-I/O deps; build-essential
+      # provides gcc + make. The concurrent test additionally needs pthread, which
+      # build-essential's glibc already supplies.
+      - name: Install C build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential libpng-dev libtiff-dev zlib1g-dev
+
+      # Static + shared libjabcode from every src/jabcode/*.c. The CLI writer and
+      # reader (built next) link the shared lib, so build/ goes on LD_LIBRARY_PATH
+      # for the run steps below.
+      - name: Build core libjabcode (static + shared)
+        working-directory: src/jabcode
+        run: make all
+
+      # CLI encode/decode tools. The synthetic round-trip drives these exactly as
+      # the on-device pipeline does (encode -> PNG -> decode), so a regression in
+      # the saved-image decode path surfaces here and not only in the in-memory
+      # library tests.
+      - name: Build jabcodeWriter and jabcodeReader CLIs
+        run: |
+          make -C src/jabcodeWriter
+          make -C src/jabcodeReader
+
+      # The five fast, self-contained guards. Each prints "RESULT: PASS" and exits
+      # 0 on success, non-zero on failure; `set -e` fails the job on the first red.
+      #   test-pn       pn_index() FP-UB fix (ISO Annex F PRNG)
+      #   test-symid    Annex H Table H.1 symbology identifier
+      #   test-eci      ISO 23634 5.3.9 / 7.3 ECI decoding (bit-level)
+      #   test-table15  ISO 23634 Table 15 / FNC1 backslash-doubling (bit-level)
+      #   test-roundtrip multi-mode text encode->decode byte-identity
+      - name: Run C unit/regression tests
+        working-directory: src/jabcode
+        run: |
+          set -e
+          export LD_LIBRARY_PATH="$PWD/build:${LD_LIBRARY_PATH:-}"
+          make test-pn
+          make test-symid
+          make test-eci
+          make test-table15
+          make test-roundtrip
+
+      # Full-spectrum in-library round-trip: encode->decode "HELLO" at every colour
+      # mode Nc=0..7 (2,4,8,16,32,64,128,256) and assert byte-identity. This is the
+      # only test that exercises Nc=0 (monochrome) and Nc=7 (256-colour); it has no
+      # make target, so compile against the static lib directly.
+      - name: Run all-Nc roundtrip regression (Nc=0..7)
+        working-directory: src/jabcode
+        run: |
+          set -e
+          export LD_LIBRARY_PATH="$PWD/build:${LD_LIBRARY_PATH:-}"
+          gcc -O2 -std=c11 -I. -I./include \
+            test/test_roundtrip_all_nc.c build/libjabcode.a \
+            -lpng16 -ltiff -lz -lm -o build/test_roundtrip_all_nc
+          ./build/test_roundtrip_all_nc
+
+      # Codec reentrancy / thread-safety under ThreadSanitizer (>=8 threads x >=50
+      # encode->decode over Nc=1..7). Built and run via the make target, but driven
+      # through `setarch -R` (ASLR off): modern kernels' high-entropy mmap layout
+      # otherwise aborts TSan with "unexpected memory mapping" before any test runs.
+      # Disabling randomization fixes only that startup crash -- a genuine data race
+      # still fails the run (and the job).
+      - name: Run concurrent roundtrip test (ThreadSanitizer)
+        working-directory: src/jabcode
+        run: |
+          set -e
+          export LD_LIBRARY_PATH="$PWD/build:${LD_LIBRARY_PATH:-}"
+          # Build the TSan binary via its make target, then re-run it under setarch.
+          # (The target both builds and runs; the initial run may hit the ASLR
+          # crash on the runner, so the authoritative run is the setarch one.)
+          make test-concurrent || true
+          test -x build/test_concurrent_roundtrip
+          setarch -R ./build/test_concurrent_roundtrip
+
+      # Synthetic decode across all colour modes the helper covers (4,8,16,32,64,
+      # 128). The committed output/images/*.png are stale relative to the current
+      # codec, and test_synthetic_decode.sh reports results but always exits 0 --
+      # so we (1) regenerate each mode's image with the writer just built, then
+      # (2) run the helper for its diagnostic report, then (3) decode every mode
+      # ourselves and FAIL the job if any mode does not decode byte-identically.
+      # This is what turns the report-only script into a hard gate with no skips.
+      - name: Synthetic decode across all colour modes
+        run: |
+          set -euo pipefail
+          export LD_LIBRARY_PATH="$PWD/src/jabcode/build:${LD_LIBRARY_PATH:-}"
+          writer="src/jabcodeWriter/bin/jabcodeWriter"
+          reader="src/jabcodeReader/bin/jabcodeReader"
+          modes="4 8 16 32 64 128"
+
+          # (1) Regenerate the helper's images so they match the codec under test.
+          mkdir -p output/images
+          for m in $modes; do
+            "$writer" \
+              --input "JABCode Test with Color Mode: ${m}" \
+              --output "output/images/jabcode_${m}.png" \
+              --color-number "$m" \
+              --ecc-level 5
+          done
+
+          # test_synthetic_decode.sh expects the reader at <repo>/bin/jabcodeReader.
+          mkdir -p bin
+          cp "$reader" bin/jabcodeReader
+
+          # (2) Run the helper for its human-readable per-mode report. Its own exit
+          # status is report-only (always 0), so do not rely on it for pass/fail.
+          ./test_synthetic_decode.sh
+
+          # (3) Authoritative gate: decode every mode and require an exact payload
+          # match. Any decode failure, mismatch, or missing image fails the job.
+          fail=0
+          for m in $modes; do
+            img="output/images/jabcode_${m}.png"
+            want="JABCode Test with Color Mode: ${m}"
+            if [ ! -f "$img" ]; then
+              echo "MODE ${m}: FAIL (image not generated: ${img})"
+              fail=1
+              continue
+            fi
+            if got="$(bin/jabcodeReader "$img" 2>/dev/null)" && [ "$got" = "$want" ]; then
+              echo "MODE ${m}: PASS"
+            else
+              echo "MODE ${m}: FAIL (decoded='${got}')"
+              fail=1
+            fi
+          done
+          if [ "$fail" -ne 0 ]; then
+            echo "Synthetic decode regression: one or more colour modes failed."
+            exit 1
+          fi
+          echo "Synthetic decode: all colour modes (${modes}) decoded byte-identically."

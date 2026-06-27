@@ -1,0 +1,126 @@
+name: Codec Suite-B (synthetic decode microbenchmark, headless)
+
+# Runs the synthetic-bitmap codec DECODE (+ encode) microbenchmark in CI with
+# NO device, NO emulator, NO camera, NO JVM -- a pure host build.
+#
+# Naming note (read this before you go looking for the "wrong" Suite B):
+#   * This job is the headless realization of the "Suite-B synthetic-decode
+#     microbenchmark" -- it times decodeJABCode() (and generateJABCode()) on a
+#     fixed in-memory bitmap across all eight colour modes (Nc = 0..7), which is
+#     exactly the synthetic, camera-free decode measurement Suite B is about.
+#   * The codec's OWN docs label this native binary "Suite A"
+#     (src/jabcode/test/README-bench.md, src/jabcode/Makefile `bench` target) to
+#     distinguish it from the on-device Kotlin harnesses. The same C source is
+#     timed either way -- on the host here, or via JNI on real hardware there.
+#   * The Android IN-APP CodecBenchmark.kt ("Suite B" in the diagnostic app's own
+#     vocabulary) and the diagnostic-engine androidTest variant CANNOT run
+#     headless -- see the explicitly-skipped block at the bottom of this file for
+#     why, so the omission is documented rather than silent.
+#
+# Per README-bench.md, bench_codec is "the only one that runs in CI without a
+# device", which is precisely why the headless synthetic decode benchmark is
+# wired here as native C rather than as an Android instrumentation test.
+#
+# This lives in its own workflow file (NOT codec-regression.yml) on purpose, to
+# avoid concurrent edits to that file.
+
+on:
+  pull_request:
+    paths:
+      # The codec C sources and the benchmark harness both live here; a change to
+      # either is what could move (or break) the synthetic decode numbers.
+      - 'src/jabcode/**'
+      - '.github/workflows/codec-suiteb.yml'
+  push:
+    branches: [main, master, swift-java-poc]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  suiteb-synthetic-decode:
+    name: Suite-B synthetic decode microbenchmark (host, no device)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      # The `make bench` target statically links libjabcode.a, which includes
+      # image.o (PNG/TIFF I/O), so the link pulls in -lpng16 -ltiff -lz. These
+      # dev packages provide those libraries + headers. (-lm is in glibc; gcc/make
+      # are preinstalled on ubuntu-latest.) The benchmark ITSELF uses an in-memory
+      # bitmap -- no PNG is read at runtime -- this is purely to satisfy the link.
+      - name: Install build dependencies (libpng / libtiff / zlib for the static link)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential libpng-dev libtiff-dev zlib1g-dev
+
+      # Builds build/bench_codec (Suite A in the Makefile's vocabulary; the
+      # headless synthetic decode microbenchmark for our purposes).
+      - name: Build synthetic decode microbenchmark
+        working-directory: src/jabcode
+        run: make bench
+
+      # Smoke-gate run: small warmup/iters keep CI fast and deterministic while
+      # still exercising encode + decode across every colour mode. JSON -> stdout
+      # (captured to a file for the artifact), human table -> stderr (job log).
+      #
+      # `set -o pipefail` so a non-zero bench_codec exit fails the job even though
+      # stdout is piped to tee. Each colour mode must DECODE its own freshly
+      # generated bitmap; a regression that breaks decode shows up as dec_ok 0/N
+      # in the stderr table and is asserted on below.
+      - name: Run synthetic decode microbenchmark (Nc 0..7, headless)
+        working-directory: src/jabcode
+        shell: bash
+        run: |
+          set -o pipefail
+          ./build/bench_codec 3 8 2>&1 1> >(tee suiteb-bench.json) | tee suiteb-bench.table.txt
+
+      # Guard: every colour mode must report at least one successful decode
+      # (dec_ok N/N, never */0). bench_codec exits 0 even if a decode yields no
+      # data, so without this a silent decode regression would pass CI green.
+      - name: Assert every colour mode decoded
+        working-directory: src/jabcode
+        shell: bash
+        run: |
+          if grep -E '"direction":"decode"' suiteb-bench.json | grep -qE '"ok":0\b'; then
+            echo "::error::A colour mode failed to decode (ok:0) -- synthetic decode regression."
+            grep -E '"direction":"decode"' suiteb-bench.json
+            exit 1
+          fi
+          echo "All decode modes reported ok > 0."
+
+      - name: Upload Suite-B benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codec-suiteb-results
+          path: |
+            src/jabcode/suiteb-bench.json
+            src/jabcode/suiteb-bench.table.txt
+          if-no-files-found: warn
+
+  # ---------------------------------------------------------------------------
+  # Explicitly NOT run here (documented, not silently omitted)
+  # ---------------------------------------------------------------------------
+  # The Android IN-APP synthetic codec benchmark -- CodecBenchmark.kt
+  # (jabauth-android/diagnostic-app/.../benchmark/CodecBenchmark.kt) and its
+  # diagnostic-engine androidTest sibling (JABCodeDecodeBenchmark.kt) -- measure
+  # the SAME codec across the SAME Nc 0..7 sweep, but CANNOT run as a headless
+  # no-device CI job because they require:
+  #   1. an Android Context (context.assets.open(...)) to load the per-Nc PNG
+  #      fixtures packaged in the diagnostic-app APK;
+  #   2. the JNI codec (libjabcode-mobile.so), which only executes on a real
+  #      Android device or emulator;
+  #   3. installing + running the APK inside the app process (in-app, tap-to-run).
+  # CI emulators additionally produce inaccurate / flaky timing (see
+  # benchmark.yml), so even an emulator run would not yield trustworthy numbers.
+  # Those on-device suites are compile-guarded by benchmark.yml
+  # (:framework:diagnostic-engine:compileDebugAndroidTestKotlin,
+  #  :diagnostic-app:assembleDebug) and executed manually on hardware; running
+  # them for real would need a device farm (e.g. Firebase Test Lab).
+  # The native suiteb-synthetic-decode job above is the device-free, CI-runnable
+  # measurement of the same synthetic decode latency.
+  # ---------------------------------------------------------------------------
