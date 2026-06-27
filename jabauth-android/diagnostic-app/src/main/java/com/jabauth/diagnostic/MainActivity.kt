@@ -4,8 +4,8 @@ import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.material3.MaterialTheme
 import androidx.lifecycle.lifecycleScope
+import com.jabauth.ui.theme.JABAuthTheme
 import com.jabauth.diagnostic.data.SettingsRepository
 import com.jabauth.jabcode.setDiagVerbose
 import com.jabauth.jabcode.setPermissiveColorClassification
@@ -47,7 +47,7 @@ class MainActivity : ComponentActivity() {
             }
         }
         setContent {
-            MaterialTheme {
+            JABAuthTheme {
                 DiagnosticApp()
             }
         }

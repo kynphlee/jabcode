@@ -1,5 +1,10 @@
 package com.jabauth.diagnostic.ui.settings
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -7,18 +12,29 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.jabauth.ui.components.JABAuthCard
+import com.jabauth.ui.theme.JABAuthBgBase
+import com.jabauth.ui.theme.JABAuthBgElevated
+import com.jabauth.ui.theme.JABAuthBorder
+import com.jabauth.ui.theme.JABAuthPrimary
+import com.jabauth.ui.theme.JABAuthTextPrimary
+import com.jabauth.ui.theme.JABAuthTextSecondary
+import com.jabauth.ui.theme.Spacing
+import kotlinx.coroutines.delay
 
 /**
  * Settings screen - App configuration
- * 
+ *
  * Provides configuration options for:
  * - Decoder settings (timeout, intervals)
  * - Camera settings (auto-focus)
  * - Debug options (logging)
  * - JABCode preferences (color mode)
+ *
+ * Styled with the JABAuth design system (DESIGN_SYSTEM.md v1.0.0): stepped navy
+ * surfaces via [JABAuthCard], neon-accent controls, and a staggered card
+ * entrance per the motion spec.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -27,18 +43,24 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = viewModel()
 ) {
     val settings by viewModel.settings.collectAsState()
-    
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Settings") },
                 actions = {
                     TextButton(onClick = { viewModel.resetToDefaults() }) {
-                        Text("Reset")
+                        Text("Reset", color = JABAuthPrimary)
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = JABAuthBgBase,
+                    titleContentColor = JABAuthTextPrimary,
+                    actionIconContentColor = JABAuthPrimary
+                )
             )
         },
+        containerColor = JABAuthBgBase,
         modifier = modifier
     ) { padding ->
         Column(
@@ -46,111 +68,174 @@ fun SettingsScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(Spacing.md),
+            verticalArrangement = Arrangement.spacedBy(Spacing.md)
         ) {
+            // Each section reveals with a staggered upward-slide + fade. The index
+            // counter increments per rendered section so they cascade top -> down.
+            var sectionIndex = 0
+
             // Decoder Settings
-            SettingsSection(title = "Decoder Settings") {
-                SliderSetting(
-                    label = "Decode Timeout",
-                    value = settings.decodeTimeout.toLong(),
-                    valueRange = 100f..1000f,
-                    steps = 8,
-                    onValueChange = { viewModel.updateDecodeTimeout(it.toInt()) },
-                    valueDisplay = { "${it.toInt()}ms" }
-                )
-                
-                SliderSetting(
-                    label = "Analyze Interval",
-                    value = settings.analyzeInterval.toLong(),
-                    valueRange = 100f..2000f,
-                    steps = 18,
-                    onValueChange = { viewModel.updateAnalyzeInterval(it.toInt()) },
-                    valueDisplay = { "${it.toInt()}ms" }
-                )
+            StaggeredReveal(index = sectionIndex++) {
+                SettingsSection(title = "Decoder Settings") {
+                    SliderSetting(
+                        label = "Decode Timeout",
+                        value = settings.decodeTimeout.toLong(),
+                        valueRange = 100f..1000f,
+                        steps = 8,
+                        onValueChange = { viewModel.updateDecodeTimeout(it.toInt()) },
+                        valueDisplay = { "${it.toInt()}ms" }
+                    )
+
+                    SliderSetting(
+                        label = "Analyze Interval",
+                        value = settings.analyzeInterval.toLong(),
+                        valueRange = 100f..2000f,
+                        steps = 18,
+                        onValueChange = { viewModel.updateAnalyzeInterval(it.toInt()) },
+                        valueDisplay = { "${it.toInt()}ms" }
+                    )
+                }
             }
-            
+
             // Camera Settings
-            SettingsSection(title = "Camera Settings") {
-                SwitchSetting(
-                    label = "Auto Focus",
-                    description = "Enable continuous auto-focus during capture",
-                    checked = settings.autoFocus,
-                    onCheckedChange = { viewModel.updateAutoFocus(it) }
-                )
+            StaggeredReveal(index = sectionIndex++) {
+                SettingsSection(title = "Camera Settings") {
+                    SwitchSetting(
+                        label = "Auto Focus",
+                        description = "Enable continuous auto-focus during capture",
+                        checked = settings.autoFocus,
+                        onCheckedChange = { viewModel.updateAutoFocus(it) }
+                    )
+                }
             }
-            
+
             // Debug Options
-            SettingsSection(title = "Debug Options") {
-                SwitchSetting(
-                    label = "Debug Logging",
-                    description = "Enable verbose logging for troubleshooting",
-                    checked = settings.debugLogging,
-                    onCheckedChange = { viewModel.updateDebugLogging(it) }
-                )
+            StaggeredReveal(index = sectionIndex++) {
+                SettingsSection(title = "Debug Options") {
+                    SwitchSetting(
+                        label = "Debug Logging",
+                        description = "Enable verbose logging for troubleshooting",
+                        checked = settings.debugLogging,
+                        onCheckedChange = { viewModel.updateDebugLogging(it) }
+                    )
+                }
             }
 
             // Feedback
-            SettingsSection(title = "Feedback") {
-                SwitchSetting(
-                    label = "Haptic Feedback",
-                    description = "Vibrate briefly on each successful decode",
-                    checked = settings.hapticFeedback,
-                    onCheckedChange = { viewModel.updateHapticFeedback(it) }
-                )
+            StaggeredReveal(index = sectionIndex++) {
+                SettingsSection(title = "Feedback") {
+                    SwitchSetting(
+                        label = "Haptic Feedback",
+                        description = "Vibrate briefly on each successful decode",
+                        checked = settings.hapticFeedback,
+                        onCheckedChange = { viewModel.updateHapticFeedback(it) }
+                    )
+                }
             }
 
             // Motion
-            SettingsSection(title = "Motion") {
-                SwitchSetting(
-                    label = "Motion Telemetry",
-                    description = "Log accelerometer + gyroscope magnitudes per decode (SENSOR_SNAPSHOT)",
-                    checked = settings.motionTelemetryEnabled,
-                    onCheckedChange = { viewModel.updateMotionTelemetry(it) }
-                )
-                SwitchSetting(
-                    label = "Motion Throttling",
-                    description = "Skip decode attempts during motion above stability threshold",
-                    checked = settings.motionThrottlingEnabled,
-                    onCheckedChange = { viewModel.updateMotionThrottling(it) }
-                )
+            StaggeredReveal(index = sectionIndex++) {
+                SettingsSection(title = "Motion") {
+                    SwitchSetting(
+                        label = "Motion Telemetry",
+                        description = "Log accelerometer + gyroscope magnitudes per decode (SENSOR_SNAPSHOT)",
+                        checked = settings.motionTelemetryEnabled,
+                        onCheckedChange = { viewModel.updateMotionTelemetry(it) }
+                    )
+                    SwitchSetting(
+                        label = "Motion Throttling",
+                        description = "Skip decode attempts during motion above stability threshold",
+                        checked = settings.motionThrottlingEnabled,
+                        onCheckedChange = { viewModel.updateMotionThrottling(it) }
+                    )
+                }
             }
-            
+
             // JABCode Preferences
-            SettingsSection(title = "JABCode Preferences") {
-                DropdownSetting(
-                    label = "Preferred Color Mode",
-                    value = settings.preferredColorMode,
-                    options = listOf(
-                        null to "Auto-detect",
-                        2 to "2 colors",
-                        4 to "4 colors",
-                        8 to "8 colors",
-                        16 to "16 colors",
-                        32 to "32 colors",
-                        64 to "64 colors",
-                        128 to "128 colors",
-                        256 to "256 colors"
-                    ),
-                    onValueChange = { viewModel.updateColorMode(it) },
-                    displayValue = { mode ->
-                        when (mode) {
-                            null -> "Auto-detect"
-                            else -> "$mode colors"
+            StaggeredReveal(index = sectionIndex++) {
+                SettingsSection(title = "JABCode Preferences") {
+                    DropdownSetting(
+                        label = "Preferred Color Mode",
+                        value = settings.preferredColorMode,
+                        options = listOf(
+                            null to "Auto-detect",
+                            2 to "2 colors",
+                            4 to "4 colors",
+                            8 to "8 colors",
+                            16 to "16 colors",
+                            32 to "32 colors",
+                            64 to "64 colors",
+                            128 to "128 colors",
+                            256 to "256 colors"
+                        ),
+                        onValueChange = { viewModel.updateColorMode(it) },
+                        displayValue = { mode ->
+                            when (mode) {
+                                null -> "Auto-detect"
+                                else -> "$mode colors"
+                            }
                         }
-                    }
-                )
+                    )
+                }
             }
-            
-            // About Section
-            SettingsSection(title = "About") {
-                InfoRow(label = "Version", value = "1.0.0")
-                InfoRow(label = "Build", value = "DEBUG")
-                InfoRow(label = "Framework", value = "JABCode SDK")
+
+            // About Section (last — no further increment needed)
+            StaggeredReveal(index = sectionIndex) {
+                SettingsSection(title = "About") {
+                    InfoRow(label = "Version", value = "1.0.0")
+                    InfoRow(label = "Build", value = "DEBUG")
+                    InfoRow(label = "Framework", value = "JABCode SDK")
+                }
             }
         }
     }
 }
+
+/**
+ * Staggered card-entrance wrapper (DESIGN_SYSTEM.md v1.0.0 motion spec).
+ *
+ * Each item fades in and slides 24dp upward over 600ms with the Decelerate
+ * easing, delayed 100ms per [index] so a column of sections cascades into view.
+ * Mechanical, not bouncy — the spec explicitly forbids springy motion.
+ */
+@Composable
+private fun StaggeredReveal(
+    index: Int,
+    content: @Composable () -> Unit
+) {
+    var visible by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        delay(index * StaggerDelayPerIndexMs)
+        visible = true
+    }
+
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(
+            animationSpec = tween(
+                durationMillis = EntranceDurationMs,
+                easing = DecelerateEasing
+            )
+        ) + slideInVertically(
+            initialOffsetY = { 24 },
+            animationSpec = tween(
+                durationMillis = EntranceDurationMs,
+                easing = DecelerateEasing
+            )
+        )
+    ) {
+        content()
+    }
+}
+
+/** Per-index entrance delay (ms) — DESIGN_SYSTEM.md motion spec. */
+private const val StaggerDelayPerIndexMs = 100L
+/** Entrance animation duration (ms) — AnimationDuration.Slow. */
+private const val EntranceDurationMs = 600
+/** Enter-screen easing curve — AnimationEasing.Decelerate (0.0, 0.0, 0.2, 1.0). */
+private val DecelerateEasing = CubicBezierEasing(0.0f, 0.0f, 0.2f, 1f)
 
 @Composable
 private fun SettingsSection(
@@ -160,21 +245,17 @@ private fun SettingsSection(
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(Spacing.sm)
     ) {
         Text(
             text = title,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.primary,
-            fontWeight = FontWeight.Bold
+            style = MaterialTheme.typography.labelLarge,
+            color = JABAuthPrimary
         )
-        
-        Card(
-            modifier = Modifier.fillMaxWidth()
-        ) {
+
+        JABAuthCard(modifier = Modifier.fillMaxWidth()) {
             Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(Spacing.md)
             ) {
                 content()
             }
@@ -194,7 +275,7 @@ private fun SliderSetting(
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(Spacing.xs)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -202,20 +283,30 @@ private fun SliderSetting(
         ) {
             Text(
                 text = label,
-                style = MaterialTheme.typography.bodyMedium
+                style = MaterialTheme.typography.bodyMedium,
+                color = JABAuthTextPrimary
             )
+            // Metric value rendered in the tracked mono label face for the
+            // "instrument readout" feel.
             Text(
                 text = valueDisplay(value.toFloat()),
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Bold
+                style = MaterialTheme.typography.labelLarge,
+                color = JABAuthPrimary
             )
         }
-        
+
         Slider(
             value = value.toFloat(),
             onValueChange = onValueChange,
             valueRange = valueRange,
-            steps = steps
+            steps = steps,
+            colors = SliderDefaults.colors(
+                thumbColor = JABAuthPrimary,
+                activeTrackColor = JABAuthPrimary,
+                activeTickColor = JABAuthBgBase,
+                inactiveTrackColor = JABAuthTextSecondary.copy(alpha = 0.3f),
+                inactiveTickColor = JABAuthTextSecondary.copy(alpha = 0.5f)
+            )
         )
     }
 }
@@ -235,23 +326,33 @@ private fun SwitchSetting(
     ) {
         Column(
             modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            verticalArrangement = Arrangement.spacedBy(Spacing.xxs)
         ) {
             Text(
                 text = label,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium
+                style = MaterialTheme.typography.headlineSmall,
+                color = JABAuthTextPrimary
             )
             Text(
                 text = description,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = JABAuthTextSecondary
             )
         }
-        
+
+        Spacer(modifier = Modifier.width(Spacing.md))
+
         Switch(
             checked = checked,
-            onCheckedChange = onCheckedChange
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = JABAuthBgBase,
+                checkedTrackColor = JABAuthPrimary,
+                checkedBorderColor = JABAuthPrimary,
+                uncheckedThumbColor = JABAuthTextSecondary,
+                uncheckedTrackColor = JABAuthBgBase,
+                uncheckedBorderColor = JABAuthTextSecondary
+            )
         )
     }
 }
@@ -267,16 +368,17 @@ private fun DropdownSetting(
     modifier: Modifier = Modifier
 ) {
     var expanded by remember { mutableStateOf(false) }
-    
+
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(Spacing.xs)
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.bodyMedium
+            style = MaterialTheme.typography.bodyMedium,
+            color = JABAuthTextPrimary
         )
-        
+
         ExposedDropdownMenuBox(
             expanded = expanded,
             onExpandedChange = { expanded = it }
@@ -285,21 +387,40 @@ private fun DropdownSetting(
                 value = displayValue(value),
                 onValueChange = {},
                 readOnly = true,
+                textStyle = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier
                     .fillMaxWidth()
                     .menuAnchor(),
                 trailingIcon = {
                     ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
-                }
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = JABAuthTextPrimary,
+                    unfocusedTextColor = JABAuthTextPrimary,
+                    focusedBorderColor = JABAuthPrimary,
+                    unfocusedBorderColor = JABAuthBorder,
+                    focusedTrailingIconColor = JABAuthPrimary,
+                    unfocusedTrailingIconColor = JABAuthTextSecondary,
+                    focusedContainerColor = JABAuthBgElevated,
+                    unfocusedContainerColor = JABAuthBgElevated
+                )
             )
-            
+
+            // NOTE: material3 1.1.2's ExposedDropdownMenu has no containerColor
+            // param; the menu surface follows the theme `surface` token (navy).
+            // We theme the item text directly for on-brand contrast.
             ExposedDropdownMenu(
                 expanded = expanded,
                 onDismissRequest = { expanded = false }
             ) {
                 options.forEach { (optionValue, optionLabel) ->
                     DropdownMenuItem(
-                        text = { Text(optionLabel) },
+                        text = {
+                            Text(
+                                text = optionLabel,
+                                color = if (optionValue == value) JABAuthPrimary else JABAuthTextPrimary
+                            )
+                        },
                         onClick = {
                             onValueChange(optionValue)
                             expanded = false
@@ -324,12 +445,12 @@ private fun InfoRow(
         Text(
             text = label,
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = JABAuthTextSecondary
         )
         Text(
             text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium
+            style = MaterialTheme.typography.labelLarge,
+            color = JABAuthTextPrimary
         )
     }
 }

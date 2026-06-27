@@ -2,43 +2,102 @@ package com.jabauth.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Primary brand colors
-val JABAuthPrimary = Color(0xFF006B5E)
-val JABAuthOnPrimary = Color(0xFFFFFFFF)
-val JABAuthPrimaryContainer = Color(0xFF72F8DF)
-val JABAuthOnPrimaryContainer = Color(0xFF00201B)
+/**
+ * JABAuth design-system colour palette.
+ *
+ * Source of truth: DESIGN_SYSTEM.md v1.0.0 (2026-05-02). The design system is a
+ * dark, high-contrast "instrument panel" aesthetic — neon accents on stepped
+ * navy surfaces. The Material 3 [Theme] maps a subset of these tokens onto the
+ * Material colour-scheme slots; the remaining tokens (backgrounds, text
+ * hierarchy, borders) are consumed directly by design-system composables.
+ */
 
-// Success colors
-val JABAuthSuccess = Color(0xFF4CAF50)
-val JABAuthOnSuccess = Color(0xFFFFFFFF)
-val JABAuthSuccessContainer = Color(0xFFC8E6C9)
-val JABAuthOnSuccessContainer = Color(0xFF1B5E20)
+// ---------------------------------------------------------------------------
+// Primary & status colours
+// ---------------------------------------------------------------------------
 
-// Warning colors
-val JABAuthWarning = Color(0xFFFF9800)
-val JABAuthOnWarning = Color(0xFF000000)
-val JABAuthWarningContainer = Color(0xFFFFE0B2)
-val JABAuthOnWarningContainer = Color(0xFFE65100)
+/** Primary (Cyan) — active states, primary actions. */
+val JABAuthPrimary = Color(0xFF00D9FF)
+/** Primary @ 0.2 alpha — subtle fills / badge backgrounds. */
+val JABAuthPrimaryDim = JABAuthPrimary.copy(alpha = 0.2f)
 
-// Error colors
-val JABAuthError = Color(0xFFBA1A1A)
-val JABAuthOnError = Color(0xFFFFFFFF)
-val JABAuthErrorContainer = Color(0xFFFFDAD6)
-val JABAuthOnErrorContainer = Color(0xFF410002)
+/** Success (Neon Green) — valid states, passed checks. */
+val JABAuthSuccess = Color(0xFF39FF14)
+/** Success @ 0.2 alpha. */
+val JABAuthSuccessDim = JABAuthSuccess.copy(alpha = 0.2f)
 
-// Background colors
-val JABAuthBackground = Color(0xFFFAFDFB)
-val JABAuthOnBackground = Color(0xFF191C1B)
-val JABAuthSurface = Color(0xFFFAFDFB)
-val JABAuthOnSurface = Color(0xFF191C1B)
+/** Warning (Amber) — alerts, performance issues. */
+val JABAuthWarning = Color(0xFFFFB800)
+/** Warning @ 0.2 alpha. */
+val JABAuthWarningDim = JABAuthWarning.copy(alpha = 0.2f)
 
-// Dark theme colors
-val JABAuthPrimaryDark = Color(0xFF51DBB9)
-val JABAuthOnPrimaryDark = Color(0xFF003730)
-val JABAuthPrimaryContainerDark = Color(0xFF005047)
-val JABAuthOnPrimaryContainerDark = Color(0xFF72F8DF)
+/** Error (Hot Magenta) — failures, invalid states. */
+val JABAuthError = Color(0xFFFF006E)
+/** Error @ 0.2 alpha. */
+val JABAuthErrorDim = JABAuthError.copy(alpha = 0.2f)
 
-val JABAuthBackgroundDark = Color(0xFF191C1B)
-val JABAuthOnBackgroundDark = Color(0xFFE1E3E1)
-val JABAuthSurfaceDark = Color(0xFF191C1B)
-val JABAuthOnSurfaceDark = Color(0xFFE1E3E1)
+// ---------------------------------------------------------------------------
+// Background hierarchy (stepped surfaces)
+// ---------------------------------------------------------------------------
+
+/** Base — canvas background. */
+val JABAuthBgBase = Color(0xFF0B1120)
+/** Elevated — raised surfaces, modals. */
+val JABAuthBgElevated = Color(0xFF131B2E)
+/** Card — primary card background. */
+val JABAuthBgCard = Color(0xFF1A2438)
+/** Hover — interactive hover states. */
+val JABAuthBgHover = Color(0xFF212D44)
+
+// ---------------------------------------------------------------------------
+// Text hierarchy
+// ---------------------------------------------------------------------------
+
+/** High-emphasis text. */
+val JABAuthTextPrimary = Color(0xFFE8F4F8)
+/** Medium-emphasis text. */
+val JABAuthTextSecondary = Color(0xFF8B9DB0)
+/** Metadata / hints. */
+val JABAuthTextDim = Color(0xFF5A6B7D)
+
+// ---------------------------------------------------------------------------
+// Borders & dividers
+// ---------------------------------------------------------------------------
+
+/** Border @ 0.15 alpha. */
+val JABAuthBorder = Color(0xFF8B9DB0).copy(alpha = 0.15f)
+/** Grid lines @ 0.05 alpha. */
+val JABAuthGrid = Color(0xFF8B9DB0).copy(alpha = 0.05f)
+
+// ---------------------------------------------------------------------------
+// Material 3 colour-scheme support tokens
+// ---------------------------------------------------------------------------
+// "On" colours and container variants the Material colour scheme requires.
+// Container tokens reuse the dim accent fills; their matching "on" colours are
+// the accent itself so text/icons on a dim fill stay legible and on-brand.
+
+/** Foreground on [JABAuthPrimary] surfaces (dark navy for contrast on cyan). */
+val JABAuthOnPrimary = Color(0xFF00131A)
+val JABAuthPrimaryContainer = JABAuthPrimaryDim
+val JABAuthOnPrimaryContainer = JABAuthPrimary
+
+/** Foreground on [JABAuthSuccess] surfaces. */
+val JABAuthOnSuccess = Color(0xFF00200A)
+val JABAuthSuccessContainer = JABAuthSuccessDim
+val JABAuthOnSuccessContainer = JABAuthSuccess
+
+/** Foreground on [JABAuthWarning] surfaces. */
+val JABAuthOnWarning = Color(0xFF1F1500)
+val JABAuthWarningContainer = JABAuthWarningDim
+val JABAuthOnWarningContainer = JABAuthWarning
+
+/** Foreground on [JABAuthError] surfaces. */
+val JABAuthOnError = Color(0xFF2A0014)
+val JABAuthErrorContainer = JABAuthErrorDim
+val JABAuthOnErrorContainer = JABAuthError
+
+/** Foreground on base/surface backgrounds. */
+val JABAuthOnBackground = JABAuthTextPrimary
+val JABAuthOnSurface = JABAuthTextPrimary
+/** Foreground on [JABAuthBgElevated] surface-variant. */
+val JABAuthOnSurfaceVariant = JABAuthTextSecondary
