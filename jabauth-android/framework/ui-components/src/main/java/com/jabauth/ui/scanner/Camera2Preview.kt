@@ -84,6 +84,11 @@ fun Camera2Preview(
      *  clamped to the device's max digital zoom. Pinch-to-zoom still works
      *  independently and reports back via onZoomChanged. */
     zoom: Float = 1.0f,
+    /** AE lock command from the decode-driven policy (ScannerViewModel): false =
+     *  continuous AE that adapts to where the camera points; true = freeze the
+     *  known-good (decoded) exposure. Replaces the old lock-on-first-convergence
+     *  latch that froze the startup scene (washed out if started pointed away). */
+    aeLocked: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -110,6 +115,13 @@ fun Camera2Preview(
     // Drive zoom from an external control (the zoom slider). Pinch still works.
     LaunchedEffect(zoom) {
         camera2Controller.updateZoom(zoom)
+    }
+
+    // Drive AE lock from the decode-driven policy: continuous AE until the first
+    // successful decode, then lock; re-arm on sustained failure / exposure shift.
+    // Replaces the old lock-on-first-convergence latch (the wash-out root cause).
+    LaunchedEffect(aeLocked) {
+        camera2Controller.setAeLocked(aeLocked)
     }
     
     // Release the camera on background (ON_STOP) and re-open on foreground
@@ -201,8 +213,10 @@ private class Camera2Controller(
     //
     // See: docs/cassandra-register/H_nc2_decode_failure.md,
     //      framework/jabcode-sdk/docs/CAMERA_CONFIGURATION_GUIDE.md
-    private var awbHasConverged: Boolean = false
-    private var aeHasConverged: Boolean = false
+    // Decode-driven AE lock state (toggled via setAeLocked from the ViewModel's
+    // lock-on-decode-success policy). Was previously latched on first 3A
+    // convergence, which froze exposure to the startup scene. AWB is held by the
+    // CLOUDY_DAYLIGHT preset regardless, so this flag only gates CONTROL_AE_LOCK.
     private var convergenceLocksApplied: Boolean = false
     private var activeRepeatingSurface: Surface? = null
     private var imageReader: ImageReader? = null
@@ -343,6 +357,25 @@ private class Camera2Controller(
         // applyCropRegion now dedups the crop bucket and owns currentZoomRatio,
         // so just forward the clamped request.
         applyCropRegion(zoomRatio.coerceIn(1.0f, maxDigitalZoom))
+    }
+
+    /**
+     * Apply or release CONTROL_AE_LOCK, driven by the ViewModel's
+     * lock-on-decode-success policy. Continuous AE (locked=false) lets exposure
+     * adapt to where the camera points; locking (locked=true) freezes the
+     * known-good exposure after a successful decode. Idempotent; reissues the
+     * repeating request on the background handler. AWB stays on the fixed
+     * CLOUDY_DAYLIGHT preset either way, so colour stability for decoding is
+     * unaffected by this toggle.
+     */
+    fun setAeLocked(locked: Boolean) {
+        if (locked == convergenceLocksApplied) return
+        convergenceLocksApplied = locked
+        Log.i(TAG, "setAeLocked($locked) -> decode-driven AE ${if (locked) "lock" else "re-arm"}; reissuing repeating request")
+        val surface = activeRepeatingSurface ?: previewSurface ?: return
+        backgroundHandler?.post {
+            startRepeatingRequest(surface, applyConvergenceLocks = locked)
+        }
     }
 
     fun openCamera(textureView: TextureView, viewWidth: Int, viewHeight: Int) {
@@ -772,43 +805,13 @@ private class Camera2Controller(
                         }
                     }
 
-                    // Convergence-lock observation: latch AWB/AE convergence
-                    // as one-way state, then reissue the repeating request
-                    // with the locks applied once both have settled. This
-                    // freezes the ISP's color-correction matrix and
-                    // exposure values for the rest of the session,
-                    // eliminating frame-to-frame drift that perturbs
-                    // JABCode metadata color classification.
-                    if (!convergenceLocksApplied) {
-                        val awbState = result.get(CaptureResult.CONTROL_AWB_STATE)
-                        val aeState = result.get(CaptureResult.CONTROL_AE_STATE)
-                        if (awbState == CameraMetadata.CONTROL_AWB_STATE_CONVERGED) {
-                            awbHasConverged = true
-                        }
-                        if (aeState == CameraMetadata.CONTROL_AE_STATE_CONVERGED ||
-                            aeState == CameraMetadata.CONTROL_AE_STATE_FLASH_REQUIRED) {
-                            // FLASH_REQUIRED also counts as "AE has decided"
-                            // — the algorithm has converged on its best
-                            // estimate, it just thinks flash would help.
-                            // For locked diagnostic capture we accept the
-                            // converged-without-flash decision.
-                            aeHasConverged = true
-                        }
-                        if (awbHasConverged && aeHasConverged) {
-                            convergenceLocksApplied = true
-                            Log.i(TAG, "AWB+AE converged -> reissuing repeating request with CONTROL_AWB_LOCK and CONTROL_AE_LOCK enabled")
-                            // Post to the background handler so we don't
-                            // re-enter setRepeatingRequest from inside the
-                            // capture callback path. The surface is
-                            // captured at startRepeatingRequest entry.
-                            val lockedSurface = activeRepeatingSurface
-                            if (lockedSurface != null) {
-                                backgroundHandler?.post {
-                                    startRepeatingRequest(lockedSurface, applyConvergenceLocks = true)
-                                }
-                            }
-                        }
-                    }
+                    // AE locking is now DECODE-DRIVEN (see setAeLocked, called from
+                    // the ViewModel's lock-on-decode-success policy) instead of being
+                    // latched here on first 3A convergence. The old auto-lock froze
+                    // exposure to whatever the camera saw at startup, washing out the
+                    // screen when a session began pointed away from it. AWB stays on
+                    // the fixed CLOUDY_DAYLIGHT preset, so colour stability for
+                    // decoding is preserved without freezing exposure.
                 }
             }
 
@@ -818,7 +821,7 @@ private class Camera2Controller(
                 backgroundHandler
             )
 
-            Log.d(TAG, "Camera2 preview started: AF=${if (autoFocusEnabled) "ON" else "OFF"}, AE=${if (aeMode == CameraMetadata.CONTROL_AE_MODE_ON_LOW_LIGHT_BOOST_BRIGHTNESS_PRIORITY) "ON_LLB" else "ON"} (EVbias=${aeBiasStops}stop), AWB=cloudy_d65, AE_meter=centre-third, ConvergenceLocks=${if (applyConvergenceLocks) "LOCKED" else "waiting-for-convergence"}")
+            Log.d(TAG, "Camera2 preview started: AF=${if (autoFocusEnabled) "ON" else "OFF"}, AE=${if (aeMode == CameraMetadata.CONTROL_AE_MODE_ON_LOW_LIGHT_BOOST_BRIGHTNESS_PRIORITY) "ON_LLB" else "ON"} (EVbias=${aeBiasStops}stop), AWB=cloudy_d65, AE_meter=centre-third, AE_lock=${if (applyConvergenceLocks) "LOCKED(decode-driven)" else "continuous"}")
             
         } catch (e: CameraAccessException) {
             Log.e(TAG, "Start repeating request failed", e)
