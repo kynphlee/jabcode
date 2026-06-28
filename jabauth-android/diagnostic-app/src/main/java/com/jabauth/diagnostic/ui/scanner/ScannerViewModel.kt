@@ -58,6 +58,21 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
     
     private val _scanError = MutableStateFlow<String?>(null)
     val scanError: StateFlow<String?> = _scanError.asStateFlow()
+
+    // AE lock policy. The camera runs continuous AE until the FIRST successful
+    // decode, then locks the known-good exposure; it re-arms (unlocks) on a
+    // sustained failure streak or a large brightness shift vs the locked frame.
+    // Fixes the start-pointed-away wash-out: the camera used to latch the lock on
+    // first 3A convergence, freezing the startup scene's (wrong) exposure.
+    // Collected by ScannerScreen and forwarded to Camera2Preview.setAeLocked().
+    private val _aeLocked = MutableStateFlow(false)
+    val aeLocked: StateFlow<Boolean> = _aeLocked.asStateFlow()
+    private var consecutiveAeFailures = 0
+    private var aeLockBrightness: Float? = null
+    /** Consecutive failed decodes while locked before re-arming AE. */
+    private val aeRearmFailureThreshold = 10
+    /** Brightness deviation factor (vs the locked frame) that re-arms AE fast. */
+    private val aeRearmBrightnessRatio = 1.6f
     
     private val _scanCount = MutableStateFlow(0)
     val scanCount: StateFlow<Int> = _scanCount.asStateFlow()
@@ -587,6 +602,16 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
                 _scanResult.value = result
                 _scanError.value = null
                 _scanCount.value++
+                // AE lock policy: freeze the now-known-good exposure on the first
+                // successful decode (continuous AE ran until now, so a session
+                // started pointed away from the screen kept adapting). Reset the
+                // failure streak so a later streak/shift can re-arm.
+                consecutiveAeFailures = 0
+                if (!_aeLocked.value) {
+                    aeLockBrightness = latestQuality?.brightness
+                    _aeLocked.value = true
+                    Log.i("JABCodeAE", "AE_LOCK engaged on first decode (lockBrightness=${aeLockBrightness?.let { "%.3f".format(it) } ?: "?"})")
+                }
                 // Fire haptic pulse on successful decode when the user
                 // has enabled the Settings "Haptic Feedback" toggle.
                 // Cheap to gate here — no analyzer recreation needed.
@@ -620,6 +645,23 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
                 Log.e("ScannerViewModel", "❌ Decode FAILURE: $error (decodeTime=${decodeTimeMs}ms)")
                 logger.dSync("Decode FAILURE: $error (decodeTime=${decodeTimeMs}ms)", isDebugEnabled)
                 _scanError.value = error
+                // AE re-arm policy: if exposure is locked but decodes are failing
+                // — a sustained streak, or a large brightness shift vs the locked
+                // frame (the camera moved off the screen and the frozen exposure
+                // now washes out) — unlock so AE re-converges to the new scene.
+                if (_aeLocked.value) {
+                    consecutiveAeFailures++
+                    val b = latestQuality?.brightness
+                    val lb = aeLockBrightness
+                    val exposureShift = b != null && lb != null && lb > 0f &&
+                        (b > lb * aeRearmBrightnessRatio || b < lb / aeRearmBrightnessRatio)
+                    if (consecutiveAeFailures >= aeRearmFailureThreshold || exposureShift) {
+                        _aeLocked.value = false
+                        consecutiveAeFailures = 0
+                        aeLockBrightness = null
+                        Log.i("JABCodeAE", "AE_LOCK re-armed (continuous AE) reason=${if (exposureShift) "brightness-shift" else "failure-streak"}")
+                    }
+                }
                 // Record failure into the production PerformanceTracker. Note
                 // that exception-path failures pass decodeTimeMs=0 from the
                 // analyzer; the tracker handles them as zero-duration events.

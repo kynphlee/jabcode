@@ -47,6 +47,7 @@ private fun ScannerScreenContent(
 ) {
     val scanResult by viewModel.scanResult.collectAsState()
     val scanError by viewModel.scanError.collectAsState()
+    val aeLocked by viewModel.aeLocked.collectAsState()
     val scanCount by viewModel.scanCount.collectAsState()
     val currentZoom by viewModel.currentZoom.collectAsState()
     val recentStats by viewModel.recentStats.collectAsState()
@@ -95,6 +96,7 @@ private fun ScannerScreenContent(
             onLowLightBoostSupported = { viewModel.onLowLightBoostSupported(it) },
             onLowLightBoostStateChanged = { viewModel.onLowLightBoostStateChanged(it) },
             onSensorOrientation = { viewModel.onSensorOrientation(it) },
+            aeLocked = aeLocked,
             modifier = Modifier.fillMaxSize()
         )
 
