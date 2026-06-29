@@ -20,7 +20,7 @@ to the pre-optimization baseline (the opts were behaviour-preserving), as expect
 | representative crypto timings | verification budget | **scaffold** — decode is measured, PKI/ABE/JWT are placeholders pending the `jab-auth` module benchmarks |
 
 Reproduce the codec suite: `make -C src/jabcode sweep transcode`, run
-`build/bench_sweep fixtures/wikipedia_qr.txt > data/sweep.jsonl` and
+`build/bench_sweep fixtures/wikipedia_qr.txt | grep '^{' > data/sweep.jsonl` (the `grep` drops the encoder's "Message does not fit" notices, which it prints to stdout during the capacity sweep) and
 `python benchmarks/transcode_survival.py`, then `python benchmarks/gen_charts.py`.
 The robustness panel additionally needs the R0 rig run before `gen_charts.py`
 (see §7). Fixtures: `fixtures/wikipedia_qr.txt` (the Wikipedia *QR code* article,
