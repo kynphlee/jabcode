@@ -194,14 +194,14 @@ for i in range(S.shape[0]):
 fig.colorbar(im, label="decode survival (1 trial)")
 save(fig, "transcode_survival_heatmap.png"); made.append("transcode_survival_heatmap.png")
 
-# ---- 9. Verification-budget waterfall (decode measured; crypto = scaffold) ----
+# ---- 9. Verification-budget waterfall (all stages measured: decode on current codec; crypto from phase-4) ----
 dec8 = next((r["decode_ms"] for r in (sub("ecc")) if r["colors"] == 8 and r["ecc"] == 3), None)
 if dec8 is None:
     dec8 = next((r["decode_ms"] for r in lat if r["colors"] == 8 and r["bytes"] == 256), 2.6)
-stages = [("JABCode decode\n(measured)", dec8, C_DEC),
-          ("PKI verify\n(X.509, scaffold)", 3.5, C_BIN),
-          ("CP-ABE decrypt\n(scaffold)", 42.0, C_ACC),
-          ("JWT validate\n(scaffold)", 0.8, C_BIN)]
+stages = [("JABCode decode\n(measured, current codec)", dec8, C_DEC),
+          ("PKI chain-validate\n(measured)", 0.09, C_BIN),
+          ("CP-ABE decap\n(measured)", 26.4, C_ACC),
+          ("JWT verify\n(measured)", 0.04, C_BIN)]
 fig, ax = plt.subplots(figsize=(8.5, 5))
 cum = 0
 for label, val, col in stages:
@@ -214,7 +214,7 @@ ax.text(len(stages)-0.5, 102, "100 ms target (Opp 30)", ha="right", fontsize=9, 
 ax.bar("TOTAL", cum, color="#444", edgecolor="white")
 ax.text("TOTAL", cum + 1.5, f"{cum:.1f} ms", ha="center", fontsize=9)
 ax.set_ylabel("latency (ms)")
-ax.set_title("End-to-end verification budget — decode measured, crypto scaffolded")
+ax.set_title("End-to-end verification budget — all stages measured (crypto: real PKI/JWT/ABE, phase-4)")
 save(fig, "verification_budget.png"); made.append("verification_budget.png")
 
 # ============================================================================
