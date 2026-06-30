@@ -163,7 +163,7 @@ public class JABCodeEncoder {
      * 
      * @param data The data to encode
      * @param colorNumber Number of colors (4,8,16,32,64,128,256)
-     * @param eccLevel Error correction level (0-10)
+     * @param eccLevel Error correction level (1-10, ISO/IEC 23634:2022 Table 20)
      * @return Encoded bitmap data as byte array, or null if encoding fails
      */
     public byte[] encode(String data, int colorNumber, int eccLevel) {

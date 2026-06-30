@@ -10,14 +10,13 @@ import java.util.Set;
  * <ul>
  *   <li><b>Colour number</b> — the eight ISO/extension colour modes
  *       {@code 2,4,8,16,32,64,128,256} (Nc = 0..7).</li>
- *   <li><b>ECC level</b> — {@code 0..10}. The encoder indexes the
- *       {@code ecclevel2wcwr[11][2]} lookup table directly with the symbol's
- *       ECC level (see {@code src/jabcode/encoder.h:231} and the uses in
- *       {@code src/jabcode/encoder.c}, e.g. line 1877
- *       {@code enc->symbols[0].wcwr[0] = ecclevel2wcwr[enc->symbol_ecc_levels[0]][0]}).
- *       The table has 11 rows (indices 0..10) and the codec performs no clamp,
- *       so the authoritative maximum is 10. The default is
- *       {@code DEFAULT_ECC_LEVEL = 3} ({@code src/jabcode/include/jabcode.h:35}).</li>
+ *   <li><b>ECC level</b> — {@code 1..10} per ISO/IEC 23634:2022 Table 20.
+ *       The codec's {@code ecclevel2wcwr} lookup table holds exactly ten rows,
+ *       one per level 1..10 (level-1 indexed; see {@code src/jabcode/encoder.h}).
+ *       A value of {@code 0} means "unset" at the C boundary and normalizes to
+ *       the default; it is not a distinct spec level, so the wrapper rejects 0.
+ *       The default is {@code DEFAULT_ECC_LEVEL = 3}
+ *       ({@code src/jabcode/include/jabcode.h:35}).</li>
  *   <li><b>Symbol number</b> — {@code 1..61} (master plus up to 60 docked
  *       slaves).</li>
  *   <li><b>Symbol version</b> — {@code 1..32} per axis.</li>
@@ -40,14 +39,19 @@ public final class JabCodeLimits {
     public static final Set<Integer> COLOR_NUMBERS =
         Set.of(2, 4, 8, 16, 32, 64, 128, 256);
 
-    /** Minimum LDPC ECC level accepted by the codec. */
-    public static final int ECC_MIN = 0;
+    /**
+     * Minimum LDPC ECC level per ISO/IEC 23634:2022 Table 20 (levels 1..10).
+     *
+     * <p>{@code 0} is the C-side "unset" sentinel (normalizes to the default),
+     * not a spec level, so the wrapper rejects it.</p>
+     */
+    public static final int ECC_MIN = 1;
 
     /**
-     * Maximum LDPC ECC level accepted by the codec.
+     * Maximum LDPC ECC level per ISO/IEC 23634:2022 Table 20 (levels 1..10).
      *
-     * <p>Pinned from {@code ecclevel2wcwr[11][2]}
-     * ({@code src/jabcode/encoder.h:231}); the highest valid index is 10.</p>
+     * <p>Pinned from the codec's {@code ecclevel2wcwr} table (ten rows, one per
+     * level 1..10; see {@code src/jabcode/encoder.h}).</p>
      */
     public static final int ECC_MAX = 10;
 
@@ -96,7 +100,8 @@ public final class JabCodeLimits {
         if (eccLevel < ECC_MIN || eccLevel > ECC_MAX) {
             throw new IllegalArgumentException(
                 "ECC level must be between " + ECC_MIN + " and " + ECC_MAX
-                    + ", got: " + eccLevel);
+                    + " per ISO/IEC 23634 Table 20 (levels 1..10), got: "
+                    + eccLevel);
         }
         return eccLevel;
     }

@@ -151,7 +151,8 @@ class JABCodeEncoderIntegrationTest {
 
     @Test
     void encodeWithDifferentECCLevels(@TempDir Path tempDir) {
-        for (int eccLevel = 0; eccLevel <= 10; eccLevel++) {
+        // ECC levels run 1..10 per ISO/IEC 23634:2022 Table 20.
+        for (int eccLevel = 1; eccLevel <= 10; eccLevel++) {
             Path outputFile = tempDir.resolve("ecc-" + eccLevel + ".png");
             
             var config = JABCodeEncoder.Config.builder()
