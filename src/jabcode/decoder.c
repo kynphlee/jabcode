@@ -1851,8 +1851,8 @@ void loadDefaultMasterMetadata(jab_bitmap* matrix, jab_decoded_symbol* symbol)
 	//set default metadata values
 	symbol->metadata.default_mode = 1;
 	symbol->metadata.Nc = DEFAULT_MODULE_COLOR_MODE;
-	symbol->metadata.ecl.x = ecclevel2wcwr[DEFAULT_ECC_LEVEL][0];
-	symbol->metadata.ecl.y = ecclevel2wcwr[DEFAULT_ECC_LEVEL][1];
+	symbol->metadata.ecl.x = wcwr_for_level(DEFAULT_ECC_LEVEL)[0];
+	symbol->metadata.ecl.y = wcwr_for_level(DEFAULT_ECC_LEVEL)[1];
 	symbol->metadata.mask_type = DEFAULT_MASKING_REFERENCE;
 	symbol->metadata.docked_position = 0;							//no default value
 	symbol->metadata.side_version.x = SIZE2VERSION(matrix->width);	//no default value

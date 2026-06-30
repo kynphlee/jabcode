@@ -226,9 +226,22 @@ static const jab_int32 mode_switch[7][16]=
 static const jab_float ecclevel2coderate[11] = {0.55f, 0.63f, 0.57f, 0.55f, 0.50f, 0.43f, 0.34f, 0.25f, 0.20f, 0.17f, 0.14f};
 
 /**
- * @brief wc and wr
+ * @brief wc and wr per ECC level, indexed level-1 (rows are levels 1..10)
+ * @details Per ISO/IEC 23634:2022 Table 20. ECC levels run 1..10 (default 3).
+ *          Row i (0-based) holds (wc, wr) for level i+1; there is no level-0 row
+ *          (an unset/0 level normalizes to DEFAULT_ECC_LEVEL — see wcwr_for_level()).
 */
-static const jab_int32 ecclevel2wcwr[11][2] = {{4, 9}, {3, 8}, {3, 7}, {4, 9}, {3, 6}, {4, 7}, {4, 6}, {3, 4}, {4, 5}, {5, 6}, {6, 7}};
+static const jab_int32 ecclevel2wcwr[10][2] = {{3, 8}, {3, 7}, {4, 9}, {3, 6}, {4, 7}, {4, 6}, {3, 4}, {4, 5}, {5, 6}, {6, 7}};
+
+/**
+ * @brief Look up (wc, wr) for an ECC level, normalizing unset/0 to DEFAULT_ECC_LEVEL.
+ * @param lvl the ECC level (0 or unset means default; valid spec range is 1..10)
+ * @return pointer to the 2-element {wc, wr} row for the (normalized) level
+*/
+static inline const jab_int32* wcwr_for_level(jab_int32 lvl)
+{
+	return ecclevel2wcwr[(lvl ? lvl : DEFAULT_ECC_LEVEL) - 1];
+}
 
 /**
  * @brief Positions of finder/alignment patterns (side-version 1-32)

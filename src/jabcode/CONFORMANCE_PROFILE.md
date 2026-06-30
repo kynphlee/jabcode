@@ -19,7 +19,11 @@ of that reference, so on the determinism axes the code is **already ISO-conforma
   reference ecosystem (official `libjabcode` and any reference-based reader).
   **PRNG is therefore NOT a profile axis** — both profiles keep lcg64.
 - **Palette** — default 8-colour order `[K,B,G,C,R,M,Y,W]` = ISO Table 21.
-- **ECC** — `ecclevel2wcwr` is identical across ISO Table 20 / BSI Table 18.
+- **ECC** — `ecclevel2wcwr` is identical across ISO Table 20 / BSI Table 18. The
+  table holds 10 rows for ECC levels 1..10 (level-1 indexed; default 3); there is
+  no level-0 row — an unset/0 level normalizes to `DEFAULT_ECC_LEVEL` via
+  `wcwr_for_level()`. The conformance generator asserts the in-code rows equal
+  Table 20 and round-trips all levels 1..10 at 8-colour.
 
 (Source-verified audit: COA `JABCode-zxing-Collaboration-Strategic-Analysis.md`, sec 2.5.)
 

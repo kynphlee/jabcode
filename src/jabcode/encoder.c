@@ -1874,8 +1874,8 @@ jab_boolean setMasterSymbolVersion(jab_encode *enc, jab_data* encoded_data)
     jab_int32 net_data_length = encoded_data->length;
     jab_int32 payload_length = net_data_length + 5;  //plus S and flag bit
     if(enc->symbol_ecc_levels[0] == 0) enc->symbol_ecc_levels[0] = DEFAULT_ECC_LEVEL;
-    enc->symbols[0].wcwr[0] = ecclevel2wcwr[enc->symbol_ecc_levels[0]][0];
-	enc->symbols[0].wcwr[1] = ecclevel2wcwr[enc->symbol_ecc_levels[0]][1];
+    enc->symbols[0].wcwr[0] = wcwr_for_level(enc->symbol_ecc_levels[0])[0];
+	enc->symbols[0].wcwr[1] = wcwr_for_level(enc->symbol_ecc_levels[0])[1];
 
 	//determine the minimum square symbol to fit data
 	jab_int32 capacity, net_capacity;
@@ -1900,7 +1900,7 @@ jab_boolean setMasterSymbolVersion(jab_encode *enc, jab_data* encoded_data)
 		jab_int32 level = -1;
 		for (jab_int32 j=(jab_int32)enc->symbol_ecc_levels[0]-1; j>0; j--)
 		{
-			net_capacity = (capacity/ecclevel2wcwr[j][1])*ecclevel2wcwr[j][1] - (capacity/ecclevel2wcwr[j][1])*ecclevel2wcwr[j][0];
+			net_capacity = (capacity/wcwr_for_level(j)[1])*wcwr_for_level(j)[1] - (capacity/wcwr_for_level(j)[1])*wcwr_for_level(j)[0];
 			if(net_capacity >= payload_length)
 				level = j;
 		}
@@ -2019,8 +2019,8 @@ jab_boolean fitDataIntoSymbols(jab_encode* enc, jab_data* encoded_data)
 	for(jab_int32 i=0; i<enc->symbol_number; i++)
 	{
 		capacity[i] = getSymbolCapacity(enc, i);
-		enc->symbols[i].wcwr[0] = ecclevel2wcwr[enc->symbol_ecc_levels[i]][0];
-		enc->symbols[i].wcwr[1] = ecclevel2wcwr[enc->symbol_ecc_levels[i]][1];
+		enc->symbols[i].wcwr[0] = wcwr_for_level(enc->symbol_ecc_levels[i])[0];
+		enc->symbols[i].wcwr[1] = wcwr_for_level(enc->symbol_ecc_levels[i])[1];
 		net_capacity[i] = (capacity[i]/enc->symbols[i].wcwr[1])*enc->symbols[i].wcwr[1] - (capacity[i]/enc->symbols[i].wcwr[1])*enc->symbols[i].wcwr[0];
 		total_net_capacity += net_capacity[i];
 	}
@@ -2258,8 +2258,8 @@ jab_boolean setSlaveMetadata(jab_encode* enc)
 		else
 		{
 			SE = 1;
-			E1 = ecclevel2wcwr[enc->symbol_ecc_levels[i]][0] - 3;
-			E2 = ecclevel2wcwr[enc->symbol_ecc_levels[i]][1] - 4;
+			E1 = wcwr_for_level(enc->symbol_ecc_levels[i])[0] - 3;
+			E2 = wcwr_for_level(enc->symbol_ecc_levels[i])[1] - 4;
 			metadata_length += 6;
 		}
 		//write slave metadata
