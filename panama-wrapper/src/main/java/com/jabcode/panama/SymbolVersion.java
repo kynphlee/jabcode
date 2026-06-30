@@ -37,14 +37,18 @@ package com.jabcode.panama;
 public final class SymbolVersion {
     
     /**
-     * Minimum symbol version (1×1)
+     * Minimum symbol version (1×1).
+     *
+     * <p>Sourced from the single {@link JabCodeLimits} constants surface.</p>
      */
-    public static final int MIN_VERSION = 1;
-    
+    public static final int MIN_VERSION = JabCodeLimits.VERSION_MIN;
+
     /**
-     * Maximum symbol version (32×32)
+     * Maximum symbol version (32×32).
+     *
+     * <p>Sourced from the single {@link JabCodeLimits} constants surface.</p>
      */
-    public static final int MAX_VERSION = 32;
+    public static final int MAX_VERSION = JabCodeLimits.VERSION_MAX;
     
     private final int x;
     private final int y;
@@ -57,18 +61,8 @@ public final class SymbolVersion {
      * @throws IllegalArgumentException if x or y is outside the valid range [1, 32]
      */
     public SymbolVersion(int x, int y) {
-        if (x < MIN_VERSION || x > MAX_VERSION) {
-            throw new IllegalArgumentException(
-                "X version must be between " + MIN_VERSION + " and " + MAX_VERSION + 
-                ", got: " + x);
-        }
-        if (y < MIN_VERSION || y > MAX_VERSION) {
-            throw new IllegalArgumentException(
-                "Y version must be between " + MIN_VERSION + " and " + MAX_VERSION + 
-                ", got: " + y);
-        }
-        this.x = x;
-        this.y = y;
+        this.x = JabCodeLimits.validateVersion("X", x);
+        this.y = JabCodeLimits.validateVersion("Y", y);
     }
     
     /**

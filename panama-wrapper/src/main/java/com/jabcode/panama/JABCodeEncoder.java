@@ -72,32 +72,23 @@ public class JABCodeEncoder {
             
             public Builder colorNumber(int colorNumber) {
                 // Allowed JABCode color modes (Nc=0..7 → 2,4,8,16,32,64,128,256).
-                // The historical Annex-G list above started at 4 (omitting 2-color/Mode 0),
+                // The historical Annex-G list started at 4 (omitting 2-color/Mode 0),
                 // pre-dating the WS-0 (Mode 0 monochrome) library work. The C library
                 // accepts color_number=2 via createEncode (jabcode swift-java-poc commit
                 // 05a1acc / mode0-investigation). See WS-6.5 in
                 // docs/jabcode-all-nc-plan/00-CHECKLIST.md.
-                switch (colorNumber) {
-                    case 2, 4, 8, 16, 32, 64, 128, 256 -> this.colorNumber = colorNumber;
-                    default -> throw new IllegalArgumentException(
-                        "Color number must be one of 2,4,8,16,32,64,128,256");
-                }
+                // Range is validated through the single JabCodeLimits surface.
+                this.colorNumber = JabCodeLimits.validateColorNumber(colorNumber);
                 return this;
             }
-            
+
             public Builder eccLevel(int eccLevel) {
-                if (eccLevel < 0 || eccLevel > 10) {
-                    throw new IllegalArgumentException("ECC level must be between 0 and 10");
-                }
-                this.eccLevel = eccLevel;
+                this.eccLevel = JabCodeLimits.validateEccLevel(eccLevel);
                 return this;
             }
-            
+
             public Builder symbolNumber(int symbolNumber) {
-                if (symbolNumber < 1 || symbolNumber > 61) {
-                    throw new IllegalArgumentException("Symbol number must be between 1 and 61");
-                }
-                this.symbolNumber = symbolNumber;
+                this.symbolNumber = JabCodeLimits.validateSymbolNumber(symbolNumber);
                 return this;
             }
             
