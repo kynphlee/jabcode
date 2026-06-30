@@ -26,12 +26,13 @@ extern void getPaletteThreshold(jab_byte* palette, jab_int32 color_number, jab_f
 extern void fillDataMap(jab_byte* data_map, jab_int32 width, jab_int32 height, jab_int32 type);
 extern jab_int32 decodeSymbol(jab_bitmap* matrix, jab_decoded_symbol* symbol, jab_byte* data_map, jab_float* norm_palette, jab_float* pal_ths, jab_int32 type);
 
-// ECC level to wc/wr mapping (MUST match encoder.h exactly!)
-static const jab_int32 ecclevel2wcwr[11][2] = {
-    {4, 9},   // Level 0
+// ECC level to wc/wr mapping per ISO/IEC 23634:2022 Table 20 (MUST match encoder.h exactly!)
+// Indexed level-1: row i holds (wc, wr) for level i+1. No level-0 row; an unset/0
+// level normalizes to DEFAULT_ECC_LEVEL (see wcwr_for_level()).
+static const jab_int32 ecclevel2wcwr[10][2] = {
     {3, 8},   // Level 1
     {3, 7},   // Level 2
-    {4, 9},   // Level 3
+    {4, 9},   // Level 3 (default)
     {3, 6},   // Level 4
     {4, 7},   // Level 5
     {4, 6},   // Level 6
@@ -40,6 +41,11 @@ static const jab_int32 ecclevel2wcwr[11][2] = {
     {5, 6},   // Level 9
     {6, 7}    // Level 10
 };
+
+static inline const jab_int32* wcwr_for_level(jab_int32 lvl)
+{
+    return ecclevel2wcwr[(lvl ? lvl : DEFAULT_ECC_LEVEL) - 1];
+}
 
 /**
  * @brief Extract RGB channels directly from synthetic RGBA bitmap without binarization
@@ -168,8 +174,8 @@ jab_data* decodeJABCodeSynthetic(jab_bitmap* bitmap, jab_int32 color_number, jab
         symbols[0].metadata.ecl.x = encoder_wcwr[0];  // wc
         symbols[0].metadata.ecl.y = encoder_wcwr[1];  // wr
     } else {
-        symbols[0].metadata.ecl.x = ecclevel2wcwr[ecc_level][0];  // wc
-        symbols[0].metadata.ecl.y = ecclevel2wcwr[ecc_level][1];  // wr
+        symbols[0].metadata.ecl.x = wcwr_for_level(ecc_level)[0];  // wc
+        symbols[0].metadata.ecl.y = wcwr_for_level(ecc_level)[1];  // wr
     }
     // side_version is VERSION not SIZE: VERSION = (SIZE - 17) / 4
     symbols[0].metadata.side_version.x = SIZE2VERSION(symbol_width);

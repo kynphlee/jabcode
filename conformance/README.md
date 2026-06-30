@@ -45,7 +45,7 @@ Link flags mirror `src/jabcode/Makefile` (`bench`/`sweep` targets):
   "id": "create_site_8c_v1_ms12_ecc0",   // stable identifier for this vector
   "params": {
     "colorNumber":    8,                  // Nc palette size: 2,4,8,...,256
-    "eccLevel":       0,                  // ecc level of the master symbol (0..10)
+    "eccLevel":       0,                  // master ecc level; spec range 1..10 (Table 20), 0=unset->default 3
     "symbolNumber":   1,                  // symbol count (1 = single, >1 = cascade)
     "symbolVersions": [[1,1]],            // per-symbol [version_x, version_y]; [0,0] = auto-sized
     "moduleSize":     12                  // pixels per module (default 12)
@@ -83,11 +83,17 @@ count (`jabSetPreferredColorCount`) to the known encode `colorNumber` — collap
 the auto-detect fallback ladder to the correct mode — then `decodeJABCode` and
 compares the returned bytes to the input.
 
-## Vector matrix (18 vectors)
+## Vector matrix (28 vectors)
 
-**Single-symbol** — colorNumber {2, 8, 128} x version {(1,1),(6,6)} x ecc {0, 3},
-symbolNumber 1, moduleSize 12. Plus the explicit create-site vector
-`create_site_8c_v1_ms12_ecc0`.
+**Single-symbol** — colorNumber {2, 8, 128} x version {(1,1),(6,6)} x ecc {1, 3},
+symbolNumber 1, moduleSize 12. ECC levels run 1..10 per ISO/IEC 23634:2022
+Table 20; this matrix exercises the minimum (1) and default (3). Plus the explicit
+create-site vector `create_site_8c_v1_ms12_ecc0`, which uses ecc 0 to exercise the
+"unset -> default 3" normalization (still modules 21 / px 252, round-trips).
+
+**ECC-level sweep** — `ecc_sweep_8c_L1` .. `ecc_sweep_8c_L10`: 8-colour,
+auto-sized single symbol, one per ECC level 1..10. The generator gates on all ten
+round-tripping and on the in-code `ecclevel2wcwr` rows equaling Table 20.
 
 **Cascade** — 8-colour multi-symbol:
 - `cascade_8c_n2_v66_v44`: symbolNumber 2, versions [[6,6],[4,4]].

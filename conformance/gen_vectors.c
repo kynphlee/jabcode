@@ -26,6 +26,28 @@
 #include <stdlib.h>
 #include <string.h>
 #include "jabcode.h"
+#include "encoder.h"   /* in-code ecclevel2wcwr table (ISO/IEC 23634:2022 Table 20) */
+
+/* ISO/IEC 23634:2022 Table 20 -- authoritative (wc,wr) for ECC levels 1..10.
+ * Row i (0-based) is level i+1. The in-code table (encoder.h ecclevel2wcwr) MUST
+ * equal this exactly; verified at startup by check_table20(). */
+static const jab_int32 TABLE20[10][2] = {
+    {3,8},{3,7},{4,9},{3,6},{4,7},{4,6},{3,4},{4,5},{5,6},{6,7}
+};
+
+/* Returns 0 if the in-code table equals Table 20, else nonzero (and prints). */
+static int check_table20(void){
+    for(int i=0;i<10;i++){
+        if(ecclevel2wcwr[i][0]!=TABLE20[i][0] || ecclevel2wcwr[i][1]!=TABLE20[i][1]){
+            fprintf(stderr,
+                "FAIL: ecclevel2wcwr[%d] = {%d,%d}, expected Table-20 level %d = {%d,%d}\n",
+                i, ecclevel2wcwr[i][0], ecclevel2wcwr[i][1],
+                i+1, TABLE20[i][0], TABLE20[i][1]);
+            return 1;
+        }
+    }
+    return 0;
+}
 
 #define OUT_PATH "conformance/vectors.jsonl"
 #define MAX_SYM 16
@@ -190,6 +212,9 @@ static void emit(FILE *f, const vector_spec *s, const vector_result *r){
 int main(void){
     init_big_payload();
 
+    /* GATE: the in-code (wc,wr) table must equal ISO/IEC 23634:2022 Table 20. */
+    if(check_table20()) return 3;
+
     FILE *f = fopen(OUT_PATH, "wb");
     if(!f){ fprintf(stderr,"cannot open %s for writing\n", OUT_PATH); return 1; }
 
@@ -197,10 +222,13 @@ int main(void){
     int n=0;
 
     /* ---- single-symbol matrix: colorNumber {2,8,128} x version {(1,1),(6,6)}
-     *      x eccLevel {0,3}, symbolNumber=1, default module size (12). --------- */
+     *      x eccLevel {1,3}, symbolNumber=1, default module size (12). ---------
+     * ECC levels are 1..10 per ISO/IEC 23634:2022 Table 20; we exercise the
+     * minimum (1) and the default (3) here. The "0/unset -> default" path is
+     * covered separately by the create-site vector below (ecc 0). */
     const int colors[] = {2, 8, 128};
     const int vers[]   = {1, 6};
-    const int eccs[]   = {0, 3};
+    const int eccs[]   = {1, 3};
     for(int ci=0; ci<3; ci++) for(int vi=0; vi<2; vi++) for(int ei=0; ei<2; ei++){
         vector_spec *s = &specs[n];
         memset(s,0,sizeof(*s));
@@ -236,6 +264,27 @@ int main(void){
         s->ecc[0]        = 0;
         s->payload       = (const unsigned char*)SMALL_PAYLOAD;
         s->payload_len   = (int)sizeof(SMALL_PAYLOAD)-1;
+    }
+
+    /* ---- ECC-level sweep: 8c, auto-sized single symbol, eccLevel 1..10 -------
+     * Spec range per ISO/IEC 23634:2022 Table 20. Every level must round-trip a
+     * fixed payload at 8-colour. Auto-size (versions {0,0}) lets the encoder pick
+     * the smallest version that fits the level's (wc,wr) overhead. */
+    {
+        static char ecc_ids[10][32];
+        for(int lvl=1; lvl<=10; lvl++){
+            vector_spec *s = &specs[n++];
+            memset(s,0,sizeof(*s));
+            snprintf(ecc_ids[lvl-1], sizeof(ecc_ids[lvl-1]), "ecc_sweep_8c_L%d", lvl);
+            s->id            = ecc_ids[lvl-1];
+            s->color_number  = 8;
+            s->symbol_number = 1;
+            s->module_size   = 0;
+            s->versions_set  = 0;          /* auto-size */
+            s->ecc[0]        = (jab_byte)lvl;
+            s->payload       = (const unsigned char*)SMALL_PAYLOAD;
+            s->payload_len   = (int)sizeof(SMALL_PAYLOAD)-1;
+        }
     }
 
     /* ---- cascade: 8c symbolNumber=2 versions [[6,6],[4,4]] ------------------- */
@@ -313,6 +362,8 @@ int main(void){
     }
 
     int created_modules=0, created_px=0;
+    int create_site_rt=0;          /* round-trip of the ecc-0 (unset->default) vector */
+    int sweep_rt[11]; memset(sweep_rt,0,sizeof(sweep_rt));  /* index by level 1..10 */
     for(int i=0;i<n;i++){
         vector_result r;
         encode_spec(&specs[i], &r);
@@ -320,16 +371,41 @@ int main(void){
         if(strcmp(specs[i].id,"create_site_8c_v1_ms12_ecc0")==0 && r.symbol_count>0){
             created_modules = r.side[0].x;
             created_px      = r.side[0].x * r.module_size;
+            create_site_rt  = r.roundtrip;
+        }
+        int lvl;
+        if(sscanf(specs[i].id,"ecc_sweep_8c_L%d",&lvl)==1 && lvl>=1 && lvl<=10){
+            sweep_rt[lvl] = r.roundtrip;
         }
     }
 
     fclose(f);
 
     fprintf(stderr,"wrote %d vectors to %s\n", n, OUT_PATH);
-    fprintf(stderr,"create-site geometry: modules=%d px=%d\n", created_modules, created_px);
+    fprintf(stderr,"create-site geometry: modules=%d px=%d (ecc-0 roundtrip=%s)\n",
+            created_modules, created_px, create_site_rt?"true":"false");
     if(created_modules!=21 || created_px!=252){
         fprintf(stderr,"FAIL: create-site expected modules=21 px=252\n");
         return 2;
     }
+
+    /* GATE: the ecc-0 (unset) vector must normalize to default and round-trip. */
+    if(!create_site_rt){
+        fprintf(stderr,"FAIL: create-site (ecc 0 -> default) did not round-trip\n");
+        return 4;
+    }
+
+    /* GATE: every ECC level 1..10 must round-trip at 8-colour. */
+    int sweep_ok=1;
+    for(int lvl=1; lvl<=10; lvl++){
+        fprintf(stderr,"ecc sweep L%-2d roundtrip=%s\n", lvl, sweep_rt[lvl]?"true":"false");
+        if(!sweep_rt[lvl]) sweep_ok=0;
+    }
+    if(!sweep_ok){
+        fprintf(stderr,"FAIL: one or more ECC levels 1..10 failed to round-trip\n");
+        return 5;
+    }
+
+    fprintf(stderr,"OK: Table-20 table verified; ecc levels 1..10 + ecc-0->default all round-trip\n");
     return 0;
 }
