@@ -12,9 +12,9 @@ class JabCodeLimitsTest {
 
     @Test
     void pinnedConstants() {
-        assertEquals(0, JabCodeLimits.ECC_MIN);
-        // ECC_MAX is pinned to the codec's ecclevel2wcwr[11][2] table
-        // (encoder.h:231); highest valid index is 10.
+        // ECC levels are 1..10 per ISO/IEC 23634:2022 Table 20; 0 is the
+        // C-side "unset" sentinel, not a spec level, so ECC_MIN is 1.
+        assertEquals(1, JabCodeLimits.ECC_MIN);
         assertEquals(10, JabCodeLimits.ECC_MAX);
         assertEquals(3, JabCodeLimits.ECC_DEFAULT);
         assertEquals(1, JabCodeLimits.SYMBOL_MIN);
@@ -59,7 +59,8 @@ class JabCodeLimitsTest {
 
     @Test
     void eccLevelBoundariesAccepted() {
-        assertEquals(0, JabCodeLimits.validateEccLevel(0));
+        // Spec range is 1..10 (ISO/IEC 23634:2022 Table 20).
+        assertEquals(1, JabCodeLimits.validateEccLevel(1));
         assertEquals(10, JabCodeLimits.validateEccLevel(10));
         assertEquals(3, JabCodeLimits.validateEccLevel(3));
     }
@@ -68,8 +69,12 @@ class JabCodeLimitsTest {
     void eccLevelOutOfRangeRejected() {
         assertThrows(IllegalArgumentException.class,
             () -> JabCodeLimits.validateEccLevel(-1));
-        // 11 used to be rejected and still is: it sits one past the
-        // codec-authoritative maximum (ecclevel2wcwr has 11 rows, indices 0..10).
+        // 0 is the C-side "unset->default" sentinel, not a spec level: rejected.
+        IllegalArgumentException zero = assertThrows(
+            IllegalArgumentException.class,
+            () -> JabCodeLimits.validateEccLevel(0));
+        assertTrue(zero.getMessage().contains("0"), zero.getMessage());
+        // 11 sits one past the spec maximum of 10.
         IllegalArgumentException ex = assertThrows(
             IllegalArgumentException.class,
             () -> JabCodeLimits.validateEccLevel(11));

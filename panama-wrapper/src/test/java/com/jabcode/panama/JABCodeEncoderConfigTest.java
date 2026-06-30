@@ -60,11 +60,13 @@ class JABCodeEncoderConfigTest {
 
     @Test
     void eccLevelBoundaryValidation() {
-        // Valid boundaries
-        assertDoesNotThrow(() -> JABCodeEncoder.Config.builder().eccLevel(0).build());
+        // Valid boundaries: ECC levels 1..10 per ISO/IEC 23634:2022 Table 20.
+        assertDoesNotThrow(() -> JABCodeEncoder.Config.builder().eccLevel(1).build());
         assertDoesNotThrow(() -> JABCodeEncoder.Config.builder().eccLevel(10).build());
-        
-        // Invalid boundaries
+
+        // Invalid boundaries: 0 is the C-side "unset" sentinel, not a spec level.
+        assertThrows(IllegalArgumentException.class,
+            () -> JABCodeEncoder.Config.builder().eccLevel(0).build());
         assertThrows(IllegalArgumentException.class,
             () -> JABCodeEncoder.Config.builder().eccLevel(-1).build());
         assertThrows(IllegalArgumentException.class,
