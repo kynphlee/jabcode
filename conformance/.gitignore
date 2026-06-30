@@ -1,0 +1,3 @@
+# Build artifact (regenerate with `make -C conformance vectors`).
+# vectors.jsonl IS committed -- it is the golden reference; the binary is not.
+gen_vectors
