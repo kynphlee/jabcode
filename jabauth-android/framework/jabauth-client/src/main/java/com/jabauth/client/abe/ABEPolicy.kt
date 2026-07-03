@@ -55,9 +55,13 @@ sealed class ABEPolicy {
     data class Threshold(val threshold: Int, val children: List<ABEPolicy>) : ABEPolicy()
     
     /**
-     * Convert policy to human-readable string
+     * Convert policy to human-readable string, e.g. `(role:inspector AND region:EU)`.
+     *
+     * `final` is load-bearing: the subclasses are `data class`es, and a non-final supertype `toString()`
+     * would be shadowed by their generated `toString()` (yielding `And(children=[Leaf(attribute=…)])`).
+     * A final implementation here suppresses that generation so every node renders readably.
      */
-    override fun toString(): String {
+    final override fun toString(): String {
         return when (this) {
             is Leaf -> attribute
             is And -> "(${children.joinToString(" AND ")})"
