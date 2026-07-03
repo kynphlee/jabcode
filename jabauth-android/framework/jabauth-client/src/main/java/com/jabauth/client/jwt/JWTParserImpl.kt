@@ -1,13 +1,11 @@
 package com.jabauth.client.jwt
 
 import com.auth0.jwt.JWT
-import com.auth0.jwt.algorithms.Algorithm
 import com.auth0.jwt.exceptions.JWTDecodeException
 import com.auth0.jwt.exceptions.JWTVerificationException
-import com.auth0.jwt.interfaces.DecodedJWT
 import com.jabauth.core.validation.ValidationResult
 import java.security.KeyFactory
-import java.security.interfaces.RSAPublicKey
+import java.security.PublicKey
 import java.security.spec.X509EncodedKeySpec
 import java.util.Date
 
@@ -65,34 +63,39 @@ class JWTParserImpl : JWTParser {
     
     override fun verifySignature(token: String, publicKey: ByteArray): Boolean {
         return try {
-            val keySpec = X509EncodedKeySpec(publicKey)
-            val keyFactory = KeyFactory.getInstance("RSA")
-            val rsaPublicKey = keyFactory.generatePublic(keySpec) as RSAPublicKey
-            
-            val algorithm = Algorithm.RSA256(rsaPublicKey, null)
-            val verifier = JWT.require(algorithm).build()
-            verifier.verify(token)
+            val decoded = JWT.decode(token)
+            // Allowlist first: reject none/HS* before touching the key.
+            JwtAlgorithms.validate(decoded.algorithm)
+
+            val key = decodePublicKey(publicKey)
+            // Fail-closed key/alg-typed selection (RS*/ES* only).
+            val algorithm = JwtAlgorithms.verifier(decoded.algorithm, key)
+            JWT.require(algorithm).build().verify(token)
             true
+        } catch (e: SecurityException) {
+            false
+        } catch (e: IllegalArgumentException) {
+            false
         } catch (e: JWTVerificationException) {
             false
         } catch (e: Exception) {
             false
         }
     }
-    
-    override fun verifySignatureHMAC(token: String, secret: String): Boolean {
+
+    /**
+     * Decode an X.509-encoded public key, trying RSA then EC so both the RS* and
+     * ES* families are supported on the COA verify path.
+     */
+    private fun decodePublicKey(encoded: ByteArray): PublicKey {
+        val keySpec = X509EncodedKeySpec(encoded)
         return try {
-            val algorithm = Algorithm.HMAC256(secret)
-            val verifier = JWT.require(algorithm).build()
-            verifier.verify(token)
-            true
-        } catch (e: JWTVerificationException) {
-            false
+            KeyFactory.getInstance("RSA").generatePublic(keySpec)
         } catch (e: Exception) {
-            false
+            KeyFactory.getInstance("EC").generatePublic(keySpec)
         }
     }
-    
+
     override fun isNotExpired(token: String): Boolean {
         return try {
             val decoded = JWT.decode(token)

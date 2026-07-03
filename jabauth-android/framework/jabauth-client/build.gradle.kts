@@ -52,7 +52,11 @@ dependencies {
     
     // JWT
     implementation("com.auth0:java-jwt:4.5.2")
-    
+    // SD-JWT VC selective-disclosure (Authlete). Java 8 bytecode, gson-only
+    // compile dep (Android-native); Nimbus/junit are test-scoped in its POM and
+    // are NOT pulled at runtime — no Nimbus on Android.
+    implementation("com.authlete:sd-jwt:1.9")
+
     // Testing
     testImplementation("junit:junit:${rootProject.property("JUNIT_VERSION")}")
     testImplementation("org.mockito:mockito-core:${rootProject.property("MOCKITO_VERSION")}")
