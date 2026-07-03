@@ -8,7 +8,14 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import com.jabauth.diagnostic.ui.verify.PipelineStageStrip
+import com.jabauth.diagnostic.ui.verify.TrustVerdictBadge
+import com.jabauth.ui.components.Badge
+import com.jabauth.ui.theme.JABAuthPrimary
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -46,6 +53,7 @@ private fun ScannerScreenContent(
     viewModel: ScannerViewModel
 ) {
     val scanResult by viewModel.scanResult.collectAsState()
+    val verificationResult by viewModel.verificationResult.collectAsState()
     val scanError by viewModel.scanError.collectAsState()
     val aeLocked by viewModel.aeLocked.collectAsState()
     val scanCount by viewModel.scanCount.collectAsState()
@@ -134,14 +142,28 @@ private fun ScannerScreenContent(
         }
 
         // Transient result chip (bottom-left) + rolling success badge (bottom-right).
-        ResultChip(
-            result = scanResult,
-            error = scanError,
-            stats = recentStats,
+        Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = 16.dp, bottom = 120.dp)
-        )
+                .padding(start = 16.dp, bottom = 120.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            ResultChip(result = scanResult, error = scanError, stats = recentStats)
+            // The trust verdict sits BESIDE the classic decode result, never replacing it (open-Q1).
+            val verdict = verificationResult
+            when {
+                verdict != null -> {
+                    TrustVerdictBadge(verdict = verdict.verdict)
+                    PipelineStageStrip(stages = verdict.stages)
+                }
+                // Gated affordance (open-Q5): verification runs only on tap, keeping the live scan fast.
+                scanResult != null -> Badge(
+                    text = "Verify",
+                    color = JABAuthPrimary,
+                    modifier = Modifier.clickable { viewModel.verifyCurrentScan() }
+                )
+            }
+        }
         if (recentStats.total >= 3) {
             SuccessBadge(
                 stats = recentStats,

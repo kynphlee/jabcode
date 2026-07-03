@@ -13,6 +13,8 @@ import com.jabauth.diagnostic.util.DiagnosticLogger
 import com.jabauth.diagnostic.util.HapticFeedbackController
 import com.jabauth.diagnostic.util.motion.MotionTelemetryController
 import com.jabauth.jabcode.DecodeOptions
+import com.jabauth.diagnostic.verify.ScanVerifier
+import com.jabauth.diagnostic.verify.VerificationResult
 import com.jabauth.jabcode.DecodeResult
 import com.jabauth.jabcode.JABCodeDecoderImpl
 import com.jabauth.jabcode.PerformanceTracker
@@ -55,6 +57,13 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
     
     private val _scanResult = MutableStateFlow<DecodeResult?>(null)
     val scanResult: StateFlow<DecodeResult?> = _scanResult.asStateFlow()
+
+    // Gated on-device verification pre-check (Phase 2). Runs only on an explicit verifyCurrentScan() so the
+    // live scan stays fast (open-Q5); cleared whenever a new symbol decodes so a stale verdict never lingers.
+    @Suppress("MemberVisibilityCanBePrivate")
+    internal var scanVerifier: ScanVerifier = ScanVerifier()
+    private val _verificationResult = MutableStateFlow<VerificationResult?>(null)
+    val verificationResult: StateFlow<VerificationResult?> = _verificationResult.asStateFlow()
     
     private val _scanError = MutableStateFlow<String?>(null)
     val scanError: StateFlow<String?> = _scanError.asStateFlow()
@@ -173,6 +182,15 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
     val settings = settingsRepository.settingsFlow
 
     // --- Tier-1 HUD setters (called from ScannerScreen via Camera2Preview callbacks) ---
+    /**
+     * Gated verification trigger: run the four-stage on-device pre-check over the current decoded symbol.
+     * No-op if nothing has decoded yet; the verdict is exposed via [verificationResult].
+     */
+    fun verifyCurrentScan() {
+        val result = _scanResult.value ?: return
+        _verificationResult.value = scanVerifier.verify(result.data, result.decodeTimeMs)
+    }
+
     fun onZoomChanged(zoomRatio: Float) {
         _currentZoom.value = zoomRatio
     }
@@ -601,6 +619,7 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
                 
                 _scanResult.value = result
                 _scanError.value = null
+                _verificationResult.value = null
                 _scanCount.value++
                 // AE lock policy: freeze the now-known-good exposure on the first
                 // successful decode (continuous AE ran until now, so a session
@@ -727,6 +746,7 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
             if (result != null) {
                 _scanResult.value = result
                 _scanError.value = null
+                _verificationResult.value = null
                 _scanCount.value++
                 performanceTracker.recordDecode(result.decodeTimeMs, success = true)
                 val ncIndex = COLOR_COUNT_TO_NC[result.colorMode.value] ?: -1
