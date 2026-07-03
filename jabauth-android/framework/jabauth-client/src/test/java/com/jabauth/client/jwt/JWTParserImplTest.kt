@@ -166,40 +166,29 @@ class JWTParserImplTest {
     }
     
     @Test
-    fun `verifySignatureHMAC validates HS256 signature`() {
+    fun `verifySignature rejects HS256 token against a public key (allowlist blocks HS)`() {
+        // An attacker crafts an HS256 token; the COA verify path must reject it
+        // rather than treat the public key bytes as an HMAC secret.
         val token = JWT.create()
             .withIssuer("test-issuer")
             .withSubject("user123")
             .sign(Algorithm.HMAC256(hmacSecret))
-        
-        val isValid = parser.verifySignatureHMAC(token, hmacSecret)
-        assertTrue(isValid)
+
+        val isValid = parser.verifySignature(token, rsaPublicKey.encoded)
+        assertFalse(isValid)
     }
-    
+
     @Test
-    fun `verifySignatureHMAC rejects invalid HS256 signature`() {
+    fun `verifySignature rejects none-algorithm token (allowlist blocks none)`() {
         val token = JWT.create()
             .withIssuer("test-issuer")
             .withSubject("user123")
-            .sign(Algorithm.HMAC256(hmacSecret))
-        
-        val tamperedToken = token.substring(0, token.length - 10) + "TAMPERED12"
-        
-        val isValid = parser.verifySignatureHMAC(tamperedToken, hmacSecret)
+            .sign(Algorithm.none())
+
+        val isValid = parser.verifySignature(token, rsaPublicKey.encoded)
         assertFalse(isValid)
     }
-    
-    @Test
-    fun `verifySignatureHMAC rejects token signed with different secret`() {
-        val token = JWT.create()
-            .withIssuer("test-issuer")
-            .withSubject("user123")
-            .sign(Algorithm.HMAC256("wrong-secret"))
-        
-        val isValid = parser.verifySignatureHMAC(token, hmacSecret)
-        assertFalse(isValid)
-    }
-    
+
     @Test
     fun `isNotExpired returns true for non-expired token`() {
         val expiresAt = Date(System.currentTimeMillis() + 3600000)

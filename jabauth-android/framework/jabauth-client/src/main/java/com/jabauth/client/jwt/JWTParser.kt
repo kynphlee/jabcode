@@ -7,10 +7,15 @@ import com.jabauth.core.validation.ValidationResult
  * 
  * Provides parsing and validation of JWT tokens including:
  * - Token structure validation (header.payload.signature)
- * - Signature verification (RS256, HS256)
+ * - Signature verification against an asymmetric (RSA/EC) public key, routed
+ *   through the [JwtAlgorithms] allowlist (RS/ES families only; none/HS blocked)
  * - Expiration checking
  * - Claims extraction
- * 
+ *
+ * Symmetric (HMAC/HS*) verification is intentionally NOT offered on the COA
+ * verify path: admitting an HS* token against a public key is an RS/HS
+ * algorithm-confusion vector. See [JwtAlgorithms].
+ *
  * @see JWTClaims for token claims data structure
  */
 interface JWTParser {
@@ -32,23 +37,20 @@ interface JWTParser {
     fun extractClaims(token: String): JWTClaims?
     
     /**
-     * Verify JWT signature
-     * 
+     * Verify a JWT signature against an asymmetric (RSA or EC) public key.
+     *
+     * The token's declared `alg` header is checked against the [JwtAlgorithms]
+     * allowlist (RS/ES families only; `none` and HS* rejected) and the key type
+     * must match the algorithm family, so an algorithm-confusion attempt fails
+     * closed rather than being coerced.
+     *
      * @param token JWT token string
-     * @param publicKey Public key for signature verification (RS256)
-     * @return true if signature is valid
+     * @param publicKey X.509-encoded RSA or EC public key
+     * @return true if the algorithm is allowed, the key matches, and the
+     *   signature is valid; false otherwise
      */
     fun verifySignature(token: String, publicKey: ByteArray): Boolean
-    
-    /**
-     * Verify JWT signature with secret key
-     * 
-     * @param token JWT token string
-     * @param secret Secret key for HMAC verification (HS256)
-     * @return true if signature is valid
-     */
-    fun verifySignatureHMAC(token: String, secret: String): Boolean
-    
+
     /**
      * Check if JWT token is expired
      * 

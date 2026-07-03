@@ -78,17 +78,6 @@ class TestJWTParserImpl : JWTParser {
         }
     }
     
-    override fun verifySignatureHMAC(token: String, secret: String): Boolean {
-        // Stub implementation - always returns true for testing
-        // Production implementation would use HMAC-SHA256 verification
-        return try {
-            val parts = token.split(".")
-            parts.size == 3 && parts[2].isNotEmpty() && secret.isNotEmpty()
-        } catch (e: Exception) {
-            false
-        }
-    }
-    
     override fun isNotExpired(token: String): Boolean {
         val claims = extractClaims(token) ?: return false
         return !claims.isExpired()

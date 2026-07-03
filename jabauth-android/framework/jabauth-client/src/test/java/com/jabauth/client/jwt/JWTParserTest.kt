@@ -172,32 +172,6 @@ class JWTParserTest {
     }
     
     @Test
-    fun `verifySignatureHMAC returns true for valid HMAC signature`() {
-        // Given
-        val token = createValidJWT()
-        val secret = "test-secret"
-        
-        // When
-        val result = parser.verifySignatureHMAC(token, secret)
-        
-        // Then
-        assertThat(result).isTrue()
-    }
-    
-    @Test
-    fun `verifySignatureHMAC returns false for empty secret`() {
-        // Given
-        val token = createValidJWT()
-        val emptySecret = ""
-        
-        // When
-        val result = parser.verifySignatureHMAC(token, emptySecret)
-        
-        // Then
-        assertThat(result).isFalse()
-    }
-    
-    @Test
     fun `isNotExpired returns true for valid token`() {
         // Given
         val futureExpiry = (System.currentTimeMillis() / 1000) + 3600 // 1 hour from now
