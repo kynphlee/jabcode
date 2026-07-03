@@ -152,7 +152,11 @@ private fun ScannerScreenContent(
             // The trust verdict sits BESIDE the classic decode result, never replacing it (open-Q1).
             val verdict = verificationResult
             when {
-                verdict != null -> {
+                verdict != null -> Column(
+                    modifier = Modifier.clickable { panelExpanded = true },
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    // Tap the verdict to open the Verification HUD drill-down (Phase 3).
                     TrustVerdictBadge(verdict = verdict.verdict)
                     PipelineStageStrip(stages = verdict.stages)
                 }
@@ -199,6 +203,7 @@ private fun ScannerScreenContent(
                 decodeHistory = decodeHistory,
                 decodeTimeStats = decodeTimeStats,
                 perNcStats = perNcStats,
+                verificationResult = verificationResult,
                 onClose = { panelExpanded = false },
                 modifier = Modifier
                     .fillMaxWidth()
