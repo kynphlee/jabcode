@@ -170,6 +170,12 @@ dependencies {
         implementation(project(":framework:ui-components"))
     }
     
+    // COA credential inspection — the diagnostic reads the JWS header algorithm and the SD-JWT
+    // disclosure digests directly for the Verification HUD / Credential drill-down. jabauth-client keeps
+    // these as `implementation` (encapsulated), so the app declares them at the same pinned versions.
+    implementation("com.auth0:java-jwt:4.5.2")
+    implementation("com.authlete:sd-jwt:1.9")
+
     // Kotlin
     implementation("org.jetbrains.kotlin:kotlin-stdlib:${rootProject.property("KOTLIN_VERSION")}")
     
