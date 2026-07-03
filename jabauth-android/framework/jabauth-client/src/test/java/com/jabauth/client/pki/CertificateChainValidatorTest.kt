@@ -30,6 +30,8 @@ class CertificateChainValidatorTest {
     
     private lateinit var validator: CertificateChainValidator
     private lateinit var trustedCAs: List<X509Certificate>
+    /** Tracks each generated cert's private key so a child can be signed by its ISSUER's key (real chain). */
+    private val issuerKeys = mutableMapOf<X509Certificate, java.security.PrivateKey>()
     
     companion object {
         init {
@@ -186,12 +188,13 @@ class CertificateChainValidatorTest {
             subject, serial, notBefore, notAfter, subject, publicKeyInfo
         )
         
+        // Self-signed root: signs with its own key. Track the key so children can be signed by this CA.
         val signer = JcaContentSignerBuilder("SHA256WithRSA").build(keyPair.private)
-        val certHolder = certBuilder.build(signer)
-        
-        return JcaX509CertificateConverter().getCertificate(certHolder)
+        val cert = JcaX509CertificateConverter().getCertificate(certBuilder.build(signer))
+        issuerKeys[cert] = keyPair.private
+        return cert
     }
-    
+
     private fun createIntermediateCertificate(issuerCert: X509Certificate): X509Certificate {
         val keyPairGen = KeyPairGenerator.getInstance("RSA")
         keyPairGen.initialize(2048)
@@ -210,12 +213,13 @@ class CertificateChainValidatorTest {
             issuer, serial, notBefore, notAfter, subject, publicKeyInfo
         )
         
-        val signer = JcaContentSignerBuilder("SHA256WithRSA").build(keyPair.private)
-        val certHolder = certBuilder.build(signer)
-        
-        return JcaX509CertificateConverter().getCertificate(certHolder)
+        // Sign with the ISSUER's tracked key (a real chain), and track this cert's key for its children.
+        val signer = JcaContentSignerBuilder("SHA256WithRSA").build(issuerKeys.getValue(issuerCert))
+        val cert = JcaX509CertificateConverter().getCertificate(certBuilder.build(signer))
+        issuerKeys[cert] = keyPair.private
+        return cert
     }
-    
+
     private fun createLeafCertificate(issuerCert: X509Certificate): X509Certificate {
         val keyPairGen = KeyPairGenerator.getInstance("RSA")
         keyPairGen.initialize(2048)
@@ -234,12 +238,13 @@ class CertificateChainValidatorTest {
             issuer, serial, notBefore, notAfter, subject, publicKeyInfo
         )
         
-        val signer = JcaContentSignerBuilder("SHA256WithRSA").build(keyPair.private)
-        val certHolder = certBuilder.build(signer)
-        
-        return JcaX509CertificateConverter().getCertificate(certHolder)
+        // Sign with the ISSUER's tracked key so leaf.verify(issuer.publicKey) succeeds (real chain).
+        val signer = JcaContentSignerBuilder("SHA256WithRSA").build(issuerKeys.getValue(issuerCert))
+        val cert = JcaX509CertificateConverter().getCertificate(certBuilder.build(signer))
+        issuerKeys[cert] = keyPair.private
+        return cert
     }
-    
+
     private fun createValidCertificate(): X509Certificate {
         return createRootCACertificate()
     }

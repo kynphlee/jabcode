@@ -66,7 +66,7 @@ class TestCertificateChainValidatorImpl : CertificateChainValidator {
         } else {
             ValidationResult(
                 isValid = false,
-                errorMessage = "Certificate not signed by trusted CA"
+                errorMessage = "Certificate signed by an untrusted CA (not in the trusted set)"
             )
         }
     }
