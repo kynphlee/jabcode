@@ -5,11 +5,12 @@ package com.jabauth.client.abe
  * 
  * Evaluates CP-ABE access policies against user attributes.
  * 
- * **Phase 3 Stub:** This interface defines the contract for ABE operations.
- * Production implementation will integrate the native Rust `rabe_kem` library
- * via JNI (see RABE-BUILD-GUIDE.md).
- * 
+ * The production implementation is [NativeABEPolicyEngine], backed by the native Rust
+ * `rabe_kem` CP-ABE library (via JNA) and AES-GCM. [TestABEPolicyEngineImpl] remains a
+ * non-cryptographic test double for unit tests that must run without the native library.
+ *
  * @see ABEPolicy for policy data structure
+ * @see NativeABEPolicyEngine for the native Rabe-backed implementation
  */
 interface ABEPolicyEngine {
     
