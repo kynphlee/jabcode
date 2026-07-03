@@ -1,0 +1,4 @@
+# The Rabe CP-ABE native libraries are cross-compiled build artifacts that MUST ship
+# in the repo so the packaged AAR/APK can dlopen them. Override the repo-wide *.so rule.
+!*.so
+!*/librabe_kem.so

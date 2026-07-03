@@ -49,6 +49,11 @@ dependencies {
     // Cryptography
     implementation("org.bouncycastle:bcprov-jdk18on:1.84")
     implementation("org.bouncycastle:bcpkix-jdk18on:1.84")
+
+    // JNA for the Rabe CP-ABE native binding (librabe_kem.so in jniLibs/<abi>/).
+    // On Android, Native.load("rabe_kem", ...) resolves the lib from jniLibs
+    // automatically — no classpath/temp-file fallback is required.
+    implementation("net.java.dev.jna:jna:5.14.0@aar")
     
     // JWT
     implementation("com.auth0:java-jwt:4.5.2")
