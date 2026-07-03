@@ -39,6 +39,16 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+
+    testOptions {
+        unitTests {
+            // Robolectric needs the merged manifest + resources (incl. the
+            // ui-test-manifest stub ComponentActivity and res/font faces) so
+            // createComposeRule() can host and render themed content on the JVM.
+            isIncludeAndroidResources = true
+            isReturnDefaultValues = true
+        }
+    }
 }
 
 dependencies {
@@ -65,6 +75,11 @@ dependencies {
     testImplementation("junit:junit:${rootProject.property("JUNIT_VERSION")}")
     testImplementation("org.robolectric:robolectric:${rootProject.property("ROBOLECTRIC_VERSION")}")
     testImplementation("androidx.compose.ui:ui-test-junit4:${rootProject.property("COMPOSE_VERSION")}")
+    // Registers the stub ComponentActivity in the merged manifest so
+    // createComposeRule()'s ActivityScenario can host content under Robolectric
+    // (JVM Compose render tests). Without this on the unit-test classpath the
+    // rule fails with "Unable to resolve activity ... ComponentActivity".
+    testImplementation("androidx.compose.ui:ui-test-manifest:${rootProject.property("COMPOSE_VERSION")}")
     testImplementation("com.google.truth:truth:1.1.5")
     debugImplementation("androidx.compose.ui:ui-tooling:${rootProject.property("COMPOSE_VERSION")}")
     debugImplementation("androidx.compose.ui:ui-test-manifest:${rootProject.property("COMPOSE_VERSION")}")

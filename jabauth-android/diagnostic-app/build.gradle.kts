@@ -105,7 +105,18 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
-    
+
+    testOptions {
+        unitTests {
+            // Robolectric needs the merged manifest + resources (incl. the
+            // ui-test-manifest stub ComponentActivity) so createComposeRule()
+            // can host and render the Dashboard / Error Log / Settings screens
+            // under the JABAuth theme on the JVM (the re-skin regression smoke).
+            isIncludeAndroidResources = true
+            isReturnDefaultValues = true
+        }
+    }
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -201,6 +212,11 @@ dependencies {
     testImplementation("com.google.truth:truth:1.1.5")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
     testImplementation("com.google.dagger:hilt-android-testing:${rootProject.property("HILT_VERSION")}")
+    // Robolectric-hosted Compose render of the themed screens (re-skin smoke).
+    // ui-test-junit4 provides createComposeRule(); ui-test-manifest registers
+    // the stub ComponentActivity in the merged unit-test manifest.
+    testImplementation("androidx.compose.ui:ui-test-junit4:${rootProject.property("COMPOSE_VERSION")}")
+    testImplementation("androidx.compose.ui:ui-test-manifest:${rootProject.property("COMPOSE_VERSION")}")
     kaptTest("com.google.dagger:hilt-android-compiler:${rootProject.property("HILT_VERSION")}")
     
     // Android Testing

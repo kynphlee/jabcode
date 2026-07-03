@@ -16,6 +16,8 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.jabauth.ui.theme.JABAuthPrimary
+import com.jabauth.ui.theme.JABAuthSuccess
 
 /**
  * Scan Target Overlay
@@ -39,8 +41,8 @@ fun ScanTargetOverlay(
     size: Dp = 300.dp,
     isScanning: Boolean = true,
     isDetected: Boolean = false,
-    primaryColor: Color = Color(0xFF00D9FF),
-    successColor: Color = Color(0xFF00FF88),
+    primaryColor: Color = JABAuthPrimary,
+    successColor: Color = JABAuthSuccess,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -175,7 +177,7 @@ fun CornerGuides(
 @Composable
 fun ScanningLine(
     targetHeight: Dp,
-    color: Color = Color(0xFF00D9FF)
+    color: Color = JABAuthPrimary
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "scanning")
     val offsetY by infiniteTransition.animateFloat(

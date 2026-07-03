@@ -13,29 +13,35 @@ import androidx.compose.ui.unit.sp
 /**
  * JABAuth design-system typography.
  *
- * Source of truth: DESIGN_SYSTEM.md v1.0.0 (2026-05-02).
+ * Source of truth: **JABAuth Emulator Design System ("theme 1b")**.
  *
  * The design calls for two families:
- *  - Data / display: **IBM Plex Mono** (weights 400/500/600/700)
- *  - Body / UI:       **Archivo**      (weights 400/500/600/700)
+ *  - Data / display / labels: **JetBrains Mono** (weights 400/500/600/700)
+ *  - Body / UI / prose:        **IBM Plex Sans** (weights 400/500/600)
  *
- * The brand faces are bundled as OFL static TTFs in res/font (IBM Plex Mono
- * 400/500/600/700; Archivo 400/500/600) rather than fetched via downloadable
- * Google Fonts — bundling is deterministic (no GMS dependency, no font-certs
- * array, no silent runtime-download failure) and works offline on every device
- * down to minSdk 24. Every size, weight, line height and letter-spacing below
- * already matches the spec. Licences bundled in assets/OFL_*.txt.
+ * The brand faces are bundled as OFL static TTFs in res/font (JetBrains Mono
+ * 400/500/600/700; IBM Plex Sans 400/500/600) rather than fetched via a
+ * downloadable Google Fonts provider — bundling is deterministic (no GMS
+ * dependency, no font-certs array, no silent runtime-download failure) and
+ * works offline on every device down to minSdk 24. Every size, weight, line
+ * height and letter-spacing below already matches the spec. Licences bundled in
+ * assets/OFL_*.txt.
+ *
+ * [DataFontFamily] and [BodyFontFamily] keep their role-based names (data vs
+ * prose) so the [Typography] slot mapping below is unchanged by the family
+ * swap — only the backing faces moved (IBM Plex Mono → JetBrains Mono for data,
+ * Archivo → IBM Plex Sans for prose).
  */
 internal val DataFontFamily: FontFamily = FontFamily(
-    Font(R.font.ibm_plex_mono_regular, FontWeight.Normal),
-    Font(R.font.ibm_plex_mono_medium, FontWeight.Medium),
-    Font(R.font.ibm_plex_mono_semibold, FontWeight.SemiBold),
-    Font(R.font.ibm_plex_mono_bold, FontWeight.Bold)
+    Font(R.font.jetbrains_mono_regular, FontWeight.Normal),
+    Font(R.font.jetbrains_mono_medium, FontWeight.Medium),
+    Font(R.font.jetbrains_mono_semibold, FontWeight.SemiBold),
+    Font(R.font.jetbrains_mono_bold, FontWeight.Bold)
 )
 internal val BodyFontFamily: FontFamily = FontFamily(
-    Font(R.font.archivo_regular, FontWeight.Normal),
-    Font(R.font.archivo_medium, FontWeight.Medium),
-    Font(R.font.archivo_semibold, FontWeight.SemiBold)
+    Font(R.font.ibm_plex_sans_regular, FontWeight.Normal),
+    Font(R.font.ibm_plex_sans_medium, FontWeight.Medium),
+    Font(R.font.ibm_plex_sans_semibold, FontWeight.SemiBold)
 )
 
 /** em-based tracking from the spec, expressed in Compose sp letter-spacing. */
@@ -49,14 +55,14 @@ private val NoTracking: TextUnit = 0.sp
  * Material 3 [Typography] populated from the JABAuth type scale.
  *
  * Mapping of design roles onto Material slots:
- *  - display{Large,Medium,Small} → IBM Plex Mono display tiers
- *  - headlineLarge               → IBM Plex Mono 18sp
- *  - headline{Medium,Small}      → Archivo UI headings
- *  - body{Large,Medium,Small}    → Archivo body
- *  - label{Large,Medium,Small}   → IBM Plex Mono tracked labels
+ *  - display{Large,Medium,Small} → JetBrains Mono display tiers
+ *  - headlineLarge               → JetBrains Mono 18sp
+ *  - headline{Medium,Small}      → IBM Plex Sans UI headings
+ *  - body{Large,Medium,Small}    → IBM Plex Sans body
+ *  - label{Large,Medium,Small}   → JetBrains Mono tracked labels
  *
  * The Material `title*` slots are not part of the JABAuth spec; they are filled
- * with sensible Archivo-based defaults so any stock Material component that
+ * with sensible IBM Plex Sans defaults so any stock Material component that
  * reaches for them still renders on-brand.
  */
 val JABAuthTypography = Typography(
