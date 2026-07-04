@@ -138,6 +138,16 @@ fun ErrorLogScreen(
                                 showFilterMenu = false
                             }
                         )
+                        // Crypto-stage facets (Phase 5) — filter the log by verification pipeline stage.
+                        listOf(ErrorFilter.DECODE, ErrorFilter.PKI, ErrorFilter.JWT, ErrorFilter.ABE).forEach { stage ->
+                            DropdownMenuItem(
+                                text = { Text("Stage · ${stage.name}") },
+                                onClick = {
+                                    viewModel.setFilter(stage)
+                                    showFilterMenu = false
+                                }
+                            )
+                        }
                     }
                 }
             )
@@ -145,12 +155,7 @@ fun ErrorLogScreen(
         containerColor = JABAuthBgBase,
         modifier = modifier
     ) { padding ->
-        val filteredErrors = when (filter) {
-            ErrorFilter.ALL -> errors
-            ErrorFilter.ERRORS_ONLY -> errors.filter { it.severity == ErrorSeverity.ERROR }
-            ErrorFilter.WARNINGS_ONLY -> errors.filter { it.severity == ErrorSeverity.WARNING }
-            ErrorFilter.INFO_ONLY -> errors.filter { it.severity == ErrorSeverity.INFO }
-        }
+        val filteredErrors = errors.filter { filter.accepts(it) }
 
         if (filteredErrors.isEmpty()) {
             EmptyState(
