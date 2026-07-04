@@ -1,6 +1,7 @@
 package com.jabauth.diagnostic.ui.errorlog
 
 import androidx.lifecycle.ViewModel
+import com.jabauth.diagnostic.verify.StageErrorTag
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -59,7 +60,8 @@ class ErrorLogViewModel : ViewModel() {
                 severity = ErrorSeverity.ERROR,
                 source = "JABCode Decoder",
                 message = "LDPC decoding failed",
-                details = "Too many errors in message. Code may be damaged or low quality."
+                details = "Too many errors in message. Code may be damaged or low quality.",
+                stageTag = StageErrorTag.DECODE
             ),
             ErrorEntry(
                 id = "2",
@@ -76,6 +78,24 @@ class ErrorLogViewModel : ViewModel() {
                 source = "Camera Enumeration",
                 message = "Back camera hardware level: LIMITED",
                 details = "Full manual control not available on this device"
+            ),
+            ErrorEntry(
+                id = "4",
+                timestamp = System.currentTimeMillis() - 1800000,
+                severity = ErrorSeverity.ERROR,
+                source = "Verification · PKI",
+                message = "Certificate revoked",
+                details = "OCSP/CRL reports the signer certificate as revoked.",
+                stageTag = StageErrorTag.PKI
+            ),
+            ErrorEntry(
+                id = "5",
+                timestamp = System.currentTimeMillis() - 900000,
+                severity = ErrorSeverity.ERROR,
+                source = "Verification · JWT",
+                message = "Algorithm not allowed (HS256 rejected)",
+                details = "Algorithm-confusion guard: only RS*/ES* signatures are permitted.",
+                stageTag = StageErrorTag.JWT
             )
         )
     }
@@ -90,7 +110,9 @@ data class ErrorEntry(
     val severity: ErrorSeverity,
     val source: String,
     val message: String,
-    val details: String? = null
+    val details: String? = null,
+    /** The verification pipeline stage this entry is attributed to (Phase 5), or null for non-pipeline entries. */
+    val stageTag: StageErrorTag? = null
 ) {
     fun getFormattedTime(): String {
         val sdf = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
@@ -119,5 +141,24 @@ enum class ErrorFilter {
     ALL,
     ERRORS_ONLY,
     WARNINGS_ONLY,
-    INFO_ONLY
+    INFO_ONLY,
+    DECODE,
+    PKI,
+    JWT,
+    ABE
+}
+
+/**
+ * Does [entry] pass this filter? Severity facets match on severity; the stage facets (DECODE/PKI/JWT/ABE)
+ * match the verification-stage tag — so the log is filterable by pipeline stage (Phase 5).
+ */
+fun ErrorFilter.accepts(entry: ErrorEntry): Boolean = when (this) {
+    ErrorFilter.ALL -> true
+    ErrorFilter.ERRORS_ONLY -> entry.severity == ErrorSeverity.ERROR
+    ErrorFilter.WARNINGS_ONLY -> entry.severity == ErrorSeverity.WARNING
+    ErrorFilter.INFO_ONLY -> entry.severity == ErrorSeverity.INFO
+    ErrorFilter.DECODE -> entry.stageTag == StageErrorTag.DECODE
+    ErrorFilter.PKI -> entry.stageTag == StageErrorTag.PKI
+    ErrorFilter.JWT -> entry.stageTag == StageErrorTag.JWT
+    ErrorFilter.ABE -> entry.stageTag == StageErrorTag.ABE
 }
