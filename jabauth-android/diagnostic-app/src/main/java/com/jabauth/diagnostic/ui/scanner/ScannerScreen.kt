@@ -158,23 +158,16 @@ private fun ScannerScreenContent(
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             ResultChip(result = scanResult, error = scanError, stats = recentStats)
-            // The trust verdict sits BESIDE the classic decode result, never replacing it (open-Q1).
-            val verdict = verificationResult
-            when {
-                verdict != null -> Column(
+            // The trust verdict runs automatically on a decode (Flow A: auto trigger) and sits beside the
+            // classic decode result; tap it to open the Verification HUD.
+            verificationResult?.let { verdict ->
+                Column(
                     modifier = Modifier.clickable { panelExpanded = true },
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    // Tap the verdict to open the Verification HUD drill-down (Phase 3).
                     TrustVerdictBadge(verdict = verdict.verdict)
                     PipelineStageStrip(stages = verdict.stages)
                 }
-                // Gated affordance (open-Q5): verification runs only on tap, keeping the live scan fast.
-                scanResult != null -> Badge(
-                    text = "Verify",
-                    color = JABAuthPrimary,
-                    modifier = Modifier.clickable { viewModel.verifyCurrentScan() }
-                )
             }
         }
         if (recentStats.total >= 3) {

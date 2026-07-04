@@ -31,6 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jabauth.diagnostic.ui.verify.StageSummaries
+import com.jabauth.diagnostic.ui.verify.VerificationSummary
 import com.jabauth.diagnostic.verify.VerificationResult
 import com.jabauth.diagnostic.verify.VerificationStage
 import com.jabauth.jabcode.DecodeResult
@@ -62,6 +63,12 @@ internal fun DiagnosticPanel(
                 }
             }
             Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+                // Verification-forward summary (Flow A) — the panel leads with the verdict + four stage rows;
+                // the classic decode forensics follow below.
+                verificationResult?.let { v ->
+                    VerificationSummary(result = v, onStageClick = onStageClick)
+                    Spacer(Modifier.height(16.dp))
+                }
                 if (lastResult != null) {
                     Text(
                         "✓ ${lastResult.colorMode} · ${decodeSummary(lastResult)} · ${lastResult.decodeTimeMs}ms",
@@ -95,21 +102,6 @@ internal fun DiagnosticPanel(
                     Spacer(Modifier.height(8.dp))
                     Text("HEX DUMP", color = Orange, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     Text(result.data.joinToString(" ") { "%02X".format(it) }, color = TextSecondary, fontSize = 11.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.padding(top = 4.dp))
-                }
-                // Verification HUD — the four-stage pre-check drill-down (Phase 3). DECODE is already
-                // shown above; here we add the PKI / JWT / ABE stage sections + the format/profile line.
-                verificationResult?.let { v ->
-                    Spacer(Modifier.height(12.dp))
-                    Text("VERIFICATION · ${v.verdict}", color = Orange, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                    DiagnosticRow("format", StageSummaries.formatLine(v.formatProfile))
-                    v.stages.filter { it.stage != VerificationStage.DECODE }.forEach { stage ->
-                        // Each stage section is a drill-down entry point (Flow B); the › hints at it.
-                        Column(modifier = Modifier.fillMaxWidth().clickable { onStageClick(stage.stage) }) {
-                            Spacer(Modifier.height(6.dp))
-                            Text("${StageSummaries.header(stage)}  ›", color = Orange, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            StageSummaries.rows(stage).forEach { (label, value) -> DiagnosticRow(label, value) }
-                        }
-                    }
                 }
                 if (lastResult == null && lastError != null) {
                     Spacer(Modifier.height(8.dp))
