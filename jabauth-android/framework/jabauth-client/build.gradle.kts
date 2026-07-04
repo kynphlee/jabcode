@@ -62,6 +62,10 @@ dependencies {
     // are NOT pulled at runtime — no Nimbus on Android.
     implementation("com.authlete:sd-jwt:1.9")
 
+    // Payload Format v2 — whole-body LZ4 (same lib+version as the server so a server-encoded
+    // COA decodes here; LZ4 decompression is impl-independent).
+    implementation("org.lz4:lz4-java:1.8.0")
+
     // Testing
     testImplementation("junit:junit:${rootProject.property("JUNIT_VERSION")}")
     testImplementation("org.mockito:mockito-core:${rootProject.property("MOCKITO_VERSION")}")
