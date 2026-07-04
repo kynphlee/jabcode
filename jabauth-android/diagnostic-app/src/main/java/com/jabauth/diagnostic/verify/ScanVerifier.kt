@@ -1,44 +1,56 @@
 package com.jabauth.diagnostic.verify
 
+import com.jabauth.client.v2.PayloadFormatV2
+import java.security.KeyFactory
+import java.security.PublicKey
+import java.security.spec.X509EncodedKeySpec
+
 /**
- * Bridges a decoded scan into a [VerificationResult] via [CoaVerifier], using interim extraction seams
- * (Payload v2 parsing, an on-device PKI trust store, and the verifier attribute set all land in Phase 6).
+ * Bridges a decoded scan into a [VerificationResult] via [CoaVerifier], parsing the on-device **Payload
+ * Format v2** container to feed each stage its real input.
  *
- * Today:
- *  - a non-credential symbol (payload not an SD-JWT VC) → [TrustVerdict.NOT_A_COA], preserving the classic
- *    decode path (never make the plain decode worse);
- *  - a credential-bearing symbol → the pipeline runs, but with no on-device trust anchor the JWT stage
- *    honestly reports it cannot resolve an issuer key (verification is completed authoritatively server-side).
+ *  - Non-v2 payload → [TrustVerdict.NOT_A_COA] (the classic decode path is preserved).
+ *  - v2 COA → the `SDJWT_VC` section is the credential and the `TRUST_CHAIN` section carries the issuer
+ *    public key (SPKI), so the **JWT stage verifies the real SD-JWT VC with the real issuer key**. PKI
+ *    stays interim (the current v2 `TRUST_CHAIN` is the leaf key, not a full chain → no path validation
+ *    offline); ABE policy extraction from the sealed envelope is a follow-up. The on-device verdict is a
+ *    pre-check — the server verifies authoritatively (Principle F).
  */
 class ScanVerifier(
     private val orchestrator: VerificationOrchestrator = defaultOrchestrator(),
 ) {
     /** Verify a decoded symbol's raw [payload] bytes carrying its [decodeLatencyMs]. */
-    fun verify(payload: ByteArray, decodeLatencyMs: Long): VerificationResult =
-        orchestrator.verify(
+    fun verify(payload: ByteArray, decodeLatencyMs: Long): VerificationResult {
+        val isV2 = PayloadFormatV2.isV2(payload)
+        return orchestrator.verify(
             DecodeInput.Decoded(
                 DecodedSymbol(
                     payload = payload,
-                    isCoaFormat = looksLikeCoaCredential(payload),
+                    isCoaFormat = isV2,
                     decodeLatencyMs = decodeLatencyMs,
-                    formatProfile = FormatProfile("unknown", null),
+                    formatProfile = FormatProfile(if (isV2) "v2" else "unknown", null),
                 ),
             ),
         )
+    }
 
     companion object {
-        /** Interim COA-credential heuristic: an SD-JWT VC begins with a base64url JWS header (`eyJ`).
-         *  Phase 6 replaces this with the PayloadFormatV2 `JAC2` magic check. */
-        internal fun looksLikeCoaCredential(payload: ByteArray): Boolean =
-            payloadAsText(payload)?.startsWith("eyJ") == true
+        /** The bytes of a v2 section, or null if the payload is not a v2 COA / the section is absent. */
+        internal fun v2Section(payload: ByteArray, type: PayloadFormatV2.SectionType): ByteArray? = runCatching {
+            if (PayloadFormatV2.isV2(payload)) PayloadFormatV2.decode(payload).first(type) else null
+        }.getOrNull()
 
-        private fun payloadAsText(payload: ByteArray): String? =
-            runCatching { String(payload, Charsets.UTF_8) }.getOrNull()
+        /** Parse an X.509 SubjectPublicKeyInfo (the `TRUST_CHAIN` section) into a public key (ES* or RS*). */
+        internal fun parsePublicKey(spki: ByteArray): PublicKey? = runCatching {
+            val spec = X509EncodedKeySpec(spki)
+            runCatching { KeyFactory.getInstance("EC").generatePublic(spec) }.getOrNull()
+                ?: KeyFactory.getInstance("RSA").generatePublic(spec)
+        }.getOrNull()
 
         private fun defaultOrchestrator(): VerificationOrchestrator = CoaVerifier.orchestrator(
-            extractToken = { sym -> payloadAsText(sym.payload)?.takeIf { it.startsWith("eyJ") } },
-            resolveIssuerKey = { null },   // no on-device trust store yet (Phase 6)
-            extractPolicy = { null },      // no v2 ABE_SEALED section yet (Phase 6)
+            extractToken = { sym -> v2Section(sym.payload, PayloadFormatV2.SectionType.SDJWT_VC)?.toString(Charsets.UTF_8) },
+            resolveIssuerKey = { sym -> v2Section(sym.payload, PayloadFormatV2.SectionType.TRUST_CHAIN)?.let { parsePublicKey(it) } },
+            extractPolicy = { null }, // ABE policy from the sealed envelope — follow-up (envelope decode is engine-private)
             verifierAttributes = { emptySet() },
         )
     }
