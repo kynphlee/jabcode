@@ -2,7 +2,10 @@ package com.jabauth.diagnostic.verify
 
 import com.jabauth.client.abe.ABEPolicy
 import com.jabauth.client.jwt.SdJwtVcService
+import com.jabauth.client.pki.CertificateChainValidator
+import com.jabauth.client.pki.TrustStoreManager
 import java.security.PublicKey
+import java.security.cert.X509Certificate
 
 /**
  * Assembles the four-stage on-device pre-check pipeline from the real stage adapters, wiring the
@@ -20,9 +23,12 @@ object CoaVerifier {
         resolveIssuerKey: (DecodedSymbol) -> PublicKey?,
         extractPolicy: (DecodedSymbol) -> ABEPolicy?,
         verifierAttributes: () -> Set<String>,
+        extractChain: (DecodedSymbol) -> List<X509Certificate>? = { null },
+        pkiValidator: CertificateChainValidator? = null,
+        pkiTrustStore: TrustStoreManager? = null,
         sdJwt: SdJwtVcService = SdJwtVcService(),
     ): VerificationOrchestrator = VerificationOrchestrator(
-        pki = PkiStageRunner(),
+        pki = PkiStageRunner(extractChain, pkiValidator, pkiTrustStore),
         jwt = JwtStageRunner(extractToken, resolveIssuerKey, sdJwt),
         abe = AbeStageRunner(extractPolicy, verifierAttributes),
     )
