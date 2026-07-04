@@ -23,6 +23,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -62,53 +66,86 @@ internal fun DiagnosticPanel(
                     Icon(Icons.Default.Close, contentDescription = "Close", tint = TextSecondary)
                 }
             }
+            // For a COA the panel is verification-forward (mock board -1): the verdict + four stage rows lead,
+            // and the JABCODE row already carries decode latency — so the verbose codec forensics collapse
+            // behind a toggle rather than forming a second panel. For a non-COA / plain decode, the forensics
+            // ARE the content, so they stay expanded.
+            var codecExpanded by remember { mutableStateOf(verificationResult == null) }
             Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
-                // Verification-forward summary (Flow A) — the panel leads with the verdict + four stage rows;
-                // the classic decode forensics follow below.
                 verificationResult?.let { v ->
                     VerificationSummary(result = v, onStageClick = onStageClick)
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(14.dp))
                 }
-                if (lastResult != null) {
-                    Text(
-                        "✓ ${lastResult.colorMode} · ${decodeSummary(lastResult)} · ${lastResult.decodeTimeMs}ms",
-                        color = TextPrimary, fontSize = 14.sp
-                    )
-                    decodeTimeStats?.takeIf { it.sampleCount >= 2 }?.let { s ->
-                        Text(
-                            "ms: min ${s.minMs} · max ${s.maxMs} · avg ${s.avgMs} · Δ${s.deltaMs} (n=${s.sampleCount})",
-                            color = TextSecondary, fontSize = 12.sp, fontFamily = FontFamily.Monospace
-                        )
+                if (verificationResult != null) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable { codecExpanded = !codecExpanded }.padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(if (codecExpanded) "▾" else "▸", color = TextSecondary, fontSize = 12.sp, modifier = Modifier.width(16.dp))
+                        Text("codec diagnostics", color = TextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.1.sp)
+                        lastResult?.let {
+                            Spacer(Modifier.width(8.dp))
+                            Text("${it.colorMode} · ${it.decodeTimeMs}ms · ${it.data.size} B", color = TextSecondary, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                        }
+                    }
+                    if (codecExpanded) {
+                        Spacer(Modifier.height(8.dp))
+                        DecodeForensics(lastResult, lastError, decodeHistory, decodeTimeStats, perNcStats)
                     }
                 } else {
-                    Text("Searching… aim at a JABCode", color = TextPrimary, fontSize = 14.sp)
-                }
-                Spacer(Modifier.height(6.dp))
-                HistoryStrip(history = decodeHistory)
-
-                lastResult?.let { result ->
-                    Spacer(Modifier.height(8.dp))
-                    DiagnosticRow("Color Mode", result.colorMode.toString())
-                    DiagnosticRow("Decode Time", "${result.decodeTimeMs}ms")
-                    DiagnosticRow("Position", "${result.position.width()}×${result.position.height()}px")
-                    DiagnosticRow("Data Size", "${result.data.size} bytes")
-                    Spacer(Modifier.height(8.dp))
-                    Text("DECODE-TIME BY Nc (30s window)", color = Orange, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(4.dp))
-                    PerNcStatsTable(perNcStats = perNcStats)
-                    Spacer(Modifier.height(8.dp))
-                    Text("DECODED DATA", color = Orange, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                    Text(result.asString(), color = TextPrimary, fontSize = 13.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.padding(top = 4.dp))
-                    Spacer(Modifier.height(8.dp))
-                    Text("HEX DUMP", color = Orange, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                    Text(result.data.joinToString(" ") { "%02X".format(it) }, color = TextSecondary, fontSize = 11.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.padding(top = 4.dp))
-                }
-                if (lastResult == null && lastError != null) {
-                    Spacer(Modifier.height(8.dp))
-                    Text(lastError, color = WorkloadHard, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                    DecodeForensics(lastResult, lastError, decodeHistory, decodeTimeStats, perNcStats)
                 }
             }
         }
+    }
+}
+
+/** The classic codec forensics — decode summary, history, per-Nc timings, decoded data + hex dump. */
+@Composable
+private fun DecodeForensics(
+    lastResult: DecodeResult?,
+    lastError: String?,
+    decodeHistory: List<DecodeResult>,
+    decodeTimeStats: ScannerViewModel.DecodeTimeStats?,
+    perNcStats: Map<Int, ScannerViewModel.DecodeTimeStats>,
+) {
+    if (lastResult != null) {
+        Text(
+            "✓ ${lastResult.colorMode} · ${decodeSummary(lastResult)} · ${lastResult.decodeTimeMs}ms",
+            color = TextPrimary, fontSize = 14.sp
+        )
+        decodeTimeStats?.takeIf { it.sampleCount >= 2 }?.let { s ->
+            Text(
+                "ms: min ${s.minMs} · max ${s.maxMs} · avg ${s.avgMs} · Δ${s.deltaMs} (n=${s.sampleCount})",
+                color = TextSecondary, fontSize = 12.sp, fontFamily = FontFamily.Monospace
+            )
+        }
+    } else {
+        Text("Searching… aim at a JABCode", color = TextPrimary, fontSize = 14.sp)
+    }
+    Spacer(Modifier.height(6.dp))
+    HistoryStrip(history = decodeHistory)
+
+    lastResult?.let { result ->
+        Spacer(Modifier.height(8.dp))
+        DiagnosticRow("Color Mode", result.colorMode.toString())
+        DiagnosticRow("Decode Time", "${result.decodeTimeMs}ms")
+        DiagnosticRow("Position", "${result.position.width()}×${result.position.height()}px")
+        DiagnosticRow("Data Size", "${result.data.size} bytes")
+        Spacer(Modifier.height(8.dp))
+        Text("DECODE-TIME BY Nc (30s window)", color = Orange, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(4.dp))
+        PerNcStatsTable(perNcStats = perNcStats)
+        Spacer(Modifier.height(8.dp))
+        Text("DECODED DATA", color = Orange, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        Text(result.asString(), color = TextPrimary, fontSize = 13.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.padding(top = 4.dp))
+        Spacer(Modifier.height(8.dp))
+        Text("HEX DUMP", color = Orange, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        Text(result.data.joinToString(" ") { "%02X".format(it) }, color = TextSecondary, fontSize = 11.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.padding(top = 4.dp))
+    }
+    if (lastResult == null && lastError != null) {
+        Spacer(Modifier.height(8.dp))
+        Text(lastError, color = WorkloadHard, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
     }
 }
 
