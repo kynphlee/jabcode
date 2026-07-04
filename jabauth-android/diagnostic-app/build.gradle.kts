@@ -217,6 +217,9 @@ dependencies {
     testImplementation("org.robolectric:robolectric:${rootProject.property("ROBOLECTRIC_VERSION")}")
     testImplementation("com.google.truth:truth:1.1.5")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+    // Generate real X.509 chains to test the PKI stage's real-validator path (Phase 6).
+    testImplementation("org.bouncycastle:bcprov-jdk18on:1.84")
+    testImplementation("org.bouncycastle:bcpkix-jdk18on:1.84")
     testImplementation("com.google.dagger:hilt-android-testing:${rootProject.property("HILT_VERSION")}")
     // Robolectric-hosted Compose render of the themed screens (re-skin smoke).
     // ui-test-junit4 provides createComposeRule(); ui-test-manifest registers
