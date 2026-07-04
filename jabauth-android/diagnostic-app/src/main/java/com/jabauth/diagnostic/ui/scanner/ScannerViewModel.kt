@@ -619,7 +619,7 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
                 
                 _scanResult.value = result
                 _scanError.value = null
-                _verificationResult.value = null
+                _verificationResult.value = scanVerifier.verify(result.data, result.decodeTimeMs)
                 _scanCount.value++
                 // AE lock policy: freeze the now-known-good exposure on the first
                 // successful decode (continuous AE ran until now, so a session
@@ -746,7 +746,7 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
             if (result != null) {
                 _scanResult.value = result
                 _scanError.value = null
-                _verificationResult.value = null
+                _verificationResult.value = scanVerifier.verify(result.data, result.decodeTimeMs)
                 _scanCount.value++
                 performanceTracker.recordDecode(result.decodeTimeMs, success = true)
                 val ncIndex = COLOR_COUNT_TO_NC[result.colorMode.value] ?: -1
