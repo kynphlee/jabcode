@@ -30,6 +30,11 @@ class SettingsRepository(private val context: Context) {
         private val HAPTIC_FEEDBACK = booleanPreferencesKey("haptic_feedback")
         private val MOTION_TELEMETRY = booleanPreferencesKey("motion_telemetry")
         private val MOTION_THROTTLING = booleanPreferencesKey("motion_throttling")
+        // Verification group (Flow C)
+        private val REVOCATION_CHECK = booleanPreferencesKey("revocation_check")
+        private val OFFLINE_HARD_FAIL = booleanPreferencesKey("offline_hard_fail")
+        private val DEFAULT_PROFILE = stringPreferencesKey("default_coa_profile")
+        private val VERIFIER_ATTRS = stringSetPreferencesKey("verifier_attributes")
 
         // Default values
         const val DEFAULT_DECODE_TIMEOUT = 200
@@ -86,6 +91,12 @@ class SettingsRepository(private val context: Context) {
          * the savings are larger.
          */
         val DEFAULT_MOTION_THROTTLING: Boolean = BuildConfig.DEFAULT_MOTION_THROTTLING_ENABLED
+
+        // Verification group defaults (Flow C · design)
+        const val DEFAULT_REVOCATION_CHECK = true
+        const val DEFAULT_OFFLINE_HARD_FAIL = false // false = warn (open-Q3 default); true = hard-fail
+        const val DEFAULT_COA_PROFILE = "FIELD"
+        val DEFAULT_VERIFIER_ATTRIBUTES = setOf("role:inspector", "region:EU")
     }
     
     /**
@@ -99,7 +110,11 @@ class SettingsRepository(private val context: Context) {
         val preferredColorMode: Int? = null,  // null = Auto
         val hapticFeedback: Boolean = DEFAULT_HAPTIC_FEEDBACK,
         val motionTelemetryEnabled: Boolean = DEFAULT_MOTION_TELEMETRY,
-        val motionThrottlingEnabled: Boolean = DEFAULT_MOTION_THROTTLING
+        val motionThrottlingEnabled: Boolean = DEFAULT_MOTION_THROTTLING,
+        val revocationCheck: Boolean = DEFAULT_REVOCATION_CHECK,
+        val offlineHardFail: Boolean = DEFAULT_OFFLINE_HARD_FAIL,
+        val defaultCoaProfile: String = DEFAULT_COA_PROFILE,
+        val verifierAttributes: Set<String> = DEFAULT_VERIFIER_ATTRIBUTES
     )
     
     /**
@@ -122,7 +137,11 @@ class SettingsRepository(private val context: Context) {
                 preferredColorMode = preferences[PREFERRED_COLOR_MODE]?.takeIf { it != -1 },
                 hapticFeedback = preferences[HAPTIC_FEEDBACK] ?: DEFAULT_HAPTIC_FEEDBACK,
                 motionTelemetryEnabled = preferences[MOTION_TELEMETRY] ?: DEFAULT_MOTION_TELEMETRY,
-                motionThrottlingEnabled = preferences[MOTION_THROTTLING] ?: DEFAULT_MOTION_THROTTLING
+                motionThrottlingEnabled = preferences[MOTION_THROTTLING] ?: DEFAULT_MOTION_THROTTLING,
+                revocationCheck = preferences[REVOCATION_CHECK] ?: DEFAULT_REVOCATION_CHECK,
+                offlineHardFail = preferences[OFFLINE_HARD_FAIL] ?: DEFAULT_OFFLINE_HARD_FAIL,
+                defaultCoaProfile = preferences[DEFAULT_PROFILE] ?: DEFAULT_COA_PROFILE,
+                verifierAttributes = preferences[VERIFIER_ATTRS] ?: DEFAULT_VERIFIER_ATTRIBUTES
             )
         }
     
@@ -161,6 +180,16 @@ class SettingsRepository(private val context: Context) {
             preferences[DEBUG_LOGGING] = enabled
         }
     }
+
+    // Verification group updaters (Flow C)
+    suspend fun updateRevocationCheck(enabled: Boolean) =
+        context.dataStore.edit { it[REVOCATION_CHECK] = enabled }.let {}
+    suspend fun updateOfflineHardFail(hardFail: Boolean) =
+        context.dataStore.edit { it[OFFLINE_HARD_FAIL] = hardFail }.let {}
+    suspend fun updateDefaultCoaProfile(profile: String) =
+        context.dataStore.edit { it[DEFAULT_PROFILE] = profile }.let {}
+    suspend fun updateVerifierAttributes(attrs: Set<String>) =
+        context.dataStore.edit { it[VERIFIER_ATTRS] = attrs }.let {}
     
     /**
      * Update preferred color mode

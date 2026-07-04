@@ -73,6 +73,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    // Verification group (Flow C)
+    fun updateRevocationCheck(enabled: Boolean) { viewModelScope.launch { repository.updateRevocationCheck(enabled) } }
+    fun updateOfflineHardFail(hardFail: Boolean) { viewModelScope.launch { repository.updateOfflineHardFail(hardFail) } }
+    fun updateDefaultCoaProfile(profile: String) { viewModelScope.launch { repository.updateDefaultCoaProfile(profile) } }
+    fun updateVerifierAttributes(attrs: Set<String>) { viewModelScope.launch { repository.updateVerifierAttributes(attrs) } }
+
     fun resetToDefaults() {
         viewModelScope.launch {
             repository.resetToDefaults()

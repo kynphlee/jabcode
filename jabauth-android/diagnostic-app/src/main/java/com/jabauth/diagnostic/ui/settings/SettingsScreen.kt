@@ -13,8 +13,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.foundation.clickable
 import com.jabauth.ui.components.JABAuthCard
 import com.jabauth.ui.theme.JABAuthBgBase
+import com.jabauth.ui.theme.ModAbe
+import com.jabauth.ui.theme.VerdictFailed
+import com.jabauth.ui.theme.VerdictUntrusted
 import com.jabauth.ui.theme.JABAuthBgElevated
 import com.jabauth.ui.theme.JABAuthBorder
 import com.jabauth.ui.theme.JABAuthPrimary
@@ -74,6 +78,33 @@ fun SettingsScreen(
             // Each section reveals with a staggered upward-slide + fade. The index
             // counter increments per rendered section so they cascade top -> down.
             var sectionIndex = 0
+
+            // Verification (Flow C · design) — the on-device trust configuration.
+            StaggeredReveal(index = sectionIndex++) {
+                SettingsSection(title = "Verification") {
+                    VerificationNavRow(
+                        label = "Trust Store",
+                        value = "0 anchors · manage",
+                        onClick = { /* manage trust anchors — Error State import flow (follow-up) */ }
+                    )
+                    SwitchSetting(
+                        label = "Revocation Check",
+                        description = "Check OCSP/CRL when the network is reachable",
+                        checked = settings.revocationCheck,
+                        onCheckedChange = { viewModel.updateRevocationCheck(it) }
+                    )
+                    VerificationSegmented(
+                        label = "Offline behavior",
+                        warnSelected = !settings.offlineHardFail,
+                        onWarnSelected = { warn -> viewModel.updateOfflineHardFail(!warn) }
+                    )
+                    VerificationProfileRow(
+                        selected = settings.defaultCoaProfile,
+                        onSelect = { viewModel.updateDefaultCoaProfile(it) }
+                    )
+                    VerificationAttributes(attrs = settings.verifierAttributes)
+                }
+            }
 
             // Decoder Settings
             StaggeredReveal(index = sectionIndex++) {
@@ -354,6 +385,66 @@ private fun SwitchSetting(
                 uncheckedBorderColor = JABAuthTextSecondary
             )
         )
+    }
+}
+
+@Composable
+private fun VerificationNavRow(label: String, value: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable { onClick() },
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(Spacing.xxs)) {
+            Text(label, style = MaterialTheme.typography.headlineSmall, color = JABAuthTextPrimary)
+            Text(value, style = MaterialTheme.typography.bodySmall, color = JABAuthTextSecondary)
+        }
+        Text("›", style = MaterialTheme.typography.headlineSmall, color = JABAuthTextSecondary)
+    }
+}
+
+@Composable
+private fun VerificationSegmented(label: String, warnSelected: Boolean, onWarnSelected: (Boolean) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.xxs)) {
+        Text(label, style = MaterialTheme.typography.bodySmall, color = JABAuthTextSecondary)
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+            Text(
+                "Warn", style = MaterialTheme.typography.headlineSmall,
+                color = if (warnSelected) VerdictUntrusted else JABAuthTextSecondary,
+                modifier = Modifier.clickable { onWarnSelected(true) }
+            )
+            Text(
+                "Hard-fail", style = MaterialTheme.typography.headlineSmall,
+                color = if (!warnSelected) VerdictFailed else JABAuthTextSecondary,
+                modifier = Modifier.clickable { onWarnSelected(false) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun VerificationProfileRow(selected: String, onSelect: (String) -> Unit) {
+    val profiles = listOf("FIELD", "FIELD_HOSTILE", "CONTROLLED", "SERVER")
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable {
+            onSelect(profiles[(profiles.indexOf(selected) + 1).mod(profiles.size)])
+        },
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("Default profile", style = MaterialTheme.typography.headlineSmall, color = JABAuthTextPrimary)
+        Text("$selected  ▾", style = MaterialTheme.typography.bodyMedium, color = JABAuthPrimary)
+    }
+}
+
+@Composable
+private fun VerificationAttributes(attrs: Set<String>) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.xxs)) {
+        Text("Verifier attributes", style = MaterialTheme.typography.headlineSmall, color = JABAuthTextPrimary)
+        Text("identity used for ABE evaluation", style = MaterialTheme.typography.bodySmall, color = JABAuthTextSecondary)
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+            attrs.forEach { a -> Text(a, style = MaterialTheme.typography.bodySmall, color = ModAbe) }
+        }
     }
 }
 
