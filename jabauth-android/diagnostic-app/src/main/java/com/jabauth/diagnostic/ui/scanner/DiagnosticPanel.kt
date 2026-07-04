@@ -1,5 +1,6 @@
 package com.jabauth.diagnostic.ui.scanner
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -44,6 +45,7 @@ internal fun DiagnosticPanel(
     decodeTimeStats: ScannerViewModel.DecodeTimeStats?,
     perNcStats: Map<Int, ScannerViewModel.DecodeTimeStats>,
     verificationResult: VerificationResult? = null,
+    onStageClick: (VerificationStage) -> Unit = {},
     onClose: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -101,9 +103,12 @@ internal fun DiagnosticPanel(
                     Text("VERIFICATION · ${v.verdict}", color = Orange, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     DiagnosticRow("format", StageSummaries.formatLine(v.formatProfile))
                     v.stages.filter { it.stage != VerificationStage.DECODE }.forEach { stage ->
-                        Spacer(Modifier.height(6.dp))
-                        Text(StageSummaries.header(stage), color = Orange, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        StageSummaries.rows(stage).forEach { (label, value) -> DiagnosticRow(label, value) }
+                        // Each stage section is a drill-down entry point (Flow B); the › hints at it.
+                        Column(modifier = Modifier.fillMaxWidth().clickable { onStageClick(stage.stage) }) {
+                            Spacer(Modifier.height(6.dp))
+                            Text("${StageSummaries.header(stage)}  ›", color = Orange, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            StageSummaries.rows(stage).forEach { (label, value) -> DiagnosticRow(label, value) }
+                        }
                     }
                 }
                 if (lastResult == null && lastError != null) {

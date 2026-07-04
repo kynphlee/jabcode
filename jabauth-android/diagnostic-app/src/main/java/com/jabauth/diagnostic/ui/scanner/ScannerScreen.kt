@@ -12,9 +12,17 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import com.jabauth.diagnostic.ui.verify.AbePolicyScreen
+import com.jabauth.diagnostic.ui.verify.CredentialScreen
 import com.jabauth.diagnostic.ui.verify.PipelineStageStrip
+import com.jabauth.diagnostic.ui.verify.TrustAnchorScreen
 import com.jabauth.diagnostic.ui.verify.TrustVerdictBadge
+import com.jabauth.diagnostic.verify.AbeDetail
+import com.jabauth.diagnostic.verify.CertChainDetail
+import com.jabauth.diagnostic.verify.JwtDetail
+import com.jabauth.diagnostic.verify.VerificationStage
 import com.jabauth.ui.components.Badge
+import com.jabauth.ui.theme.JABAuthBgBase
 import com.jabauth.ui.theme.JABAuthPrimary
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -79,6 +87,7 @@ private fun ScannerScreenContent(
         }
     }
     var panelExpanded by remember { mutableStateOf(false) }
+    var drillDownStage by remember { mutableStateOf<VerificationStage?>(null) }
     // True only while the user is actively long-press-resizing the reticle —
     // gates the workload coach (reference-app behaviour: coach shows during
     // resize only, never persistent).
@@ -204,11 +213,26 @@ private fun ScannerScreenContent(
                 decodeTimeStats = decodeTimeStats,
                 perNcStats = perNcStats,
                 verificationResult = verificationResult,
+                onStageClick = { drillDownStage = it },
                 onClose = { panelExpanded = false },
                 modifier = Modifier
                     .fillMaxWidth()
                     .fillMaxHeight(0.6f)
             )
+        }
+
+        // Flow-B drill-down overlay — opened by tapping a HUD stage section. The detail comes straight
+        // from the current verification result (already in scope), so no nav args are needed.
+        val drillDetail = drillDownStage?.let { verificationResult?.stage(it)?.detail }
+        if (drillDetail != null) {
+            Box(Modifier.fillMaxSize().background(JABAuthBgBase)) {
+                when (drillDetail) {
+                    is CertChainDetail -> TrustAnchorScreen(drillDetail, onBack = { drillDownStage = null })
+                    is JwtDetail -> CredentialScreen(drillDetail, onBack = { drillDownStage = null })
+                    is AbeDetail -> AbePolicyScreen(drillDetail, onBack = { drillDownStage = null })
+                    else -> {}
+                }
+            }
         }
     }
 }
