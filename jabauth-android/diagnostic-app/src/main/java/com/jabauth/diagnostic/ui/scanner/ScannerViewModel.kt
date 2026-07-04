@@ -12,6 +12,8 @@ import com.jabauth.diagnostic.metric.deviceVerifyAttemptExporter
 import com.jabauth.diagnostic.util.DiagnosticLogger
 import com.jabauth.diagnostic.util.HapticFeedbackController
 import com.jabauth.diagnostic.util.motion.MotionTelemetryController
+import com.jabauth.diagnostic.ui.errorlog.ErrorLogRepository
+import com.jabauth.diagnostic.ui.errorlog.toErrorEntries
 import com.jabauth.jabcode.DecodeOptions
 import com.jabauth.diagnostic.verify.ScanVerifier
 import com.jabauth.diagnostic.verify.VerificationResult
@@ -67,6 +69,31 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
     internal var scanVerifier: ScanVerifier = ScanVerifier(verifierAttributes = { verifierAttributes })
     private val _verificationResult = MutableStateFlow<VerificationResult?>(null)
     val verificationResult: StateFlow<VerificationResult?> = _verificationResult.asStateFlow()
+
+    // The signature of the failing/degraded stages last fanned to the Error Log. The live analyzer
+    // re-decodes the SAME symbol every frame, so without this guard a persistent PKI WARN would append an
+    // identical entry dozens of times per second. We log only when the set of loggable stages *changes*.
+    private var lastLoggedVerificationSignature: String? = null
+
+    /**
+     * Publish a fresh pre-check [result]: expose it to the Scanner UI AND fan any degraded/failed stage out
+     * to the shared Error Log ([ErrorLogRepository]) as stage-tagged entries (WARN→WARNING, FAIL→ERROR;
+     * PASS/SKIPPED contribute nothing). The Error Log is a separate navigation destination with its own
+     * ViewModel, so the process-wide repository is how a failure surfaced while scanning reaches it. Every
+     * site that sets a verification result routes through here so the log stays in lock-step with the HUD.
+     *
+     * De-duplicated against the previous emission (by content, not the entry's random id/timestamp): a
+     * continuously re-decoded symbol logs its failures once, not once per frame.
+     */
+    private fun setVerificationResult(result: VerificationResult) {
+        _verificationResult.value = result
+        val entries = result.toErrorEntries()
+        val signature = entries.joinToString("|") { "${it.stageTag}/${it.severity}/${it.message}/${it.details}" }
+        if (signature != lastLoggedVerificationSignature) {
+            entries.forEach(ErrorLogRepository::add)
+            lastLoggedVerificationSignature = signature
+        }
+    }
     
     private val _scanError = MutableStateFlow<String?>(null)
     val scanError: StateFlow<String?> = _scanError.asStateFlow()
@@ -191,7 +218,7 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
      */
     fun verifyCurrentScan() {
         val result = _scanResult.value ?: return
-        _verificationResult.value = scanVerifier.verify(result.data, result.decodeTimeMs)
+        setVerificationResult(scanVerifier.verify(result.data, result.decodeTimeMs))
     }
 
     fun onZoomChanged(zoomRatio: Float) {
@@ -623,7 +650,7 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
                 
                 _scanResult.value = result
                 _scanError.value = null
-                _verificationResult.value = scanVerifier.verify(result.data, result.decodeTimeMs)
+                setVerificationResult(scanVerifier.verify(result.data, result.decodeTimeMs))
                 _scanCount.value++
                 // AE lock policy: freeze the now-known-good exposure on the first
                 // successful decode (continuous AE ran until now, so a session
@@ -750,7 +777,7 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
             if (result != null) {
                 _scanResult.value = result
                 _scanError.value = null
-                _verificationResult.value = scanVerifier.verify(result.data, result.decodeTimeMs)
+                setVerificationResult(scanVerifier.verify(result.data, result.decodeTimeMs))
                 _scanCount.value++
                 performanceTracker.recordDecode(result.decodeTimeMs, success = true)
                 val ncIndex = COLOR_COUNT_TO_NC[result.colorMode.value] ?: -1

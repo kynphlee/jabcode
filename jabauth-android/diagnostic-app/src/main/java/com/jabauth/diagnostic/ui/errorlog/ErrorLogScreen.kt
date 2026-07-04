@@ -6,6 +6,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,15 +23,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Error
-import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -47,9 +48,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.jabauth.diagnostic.verify.StageErrorTag
 import com.jabauth.ui.components.Badge
 import com.jabauth.ui.components.FeedItemType
 import com.jabauth.ui.theme.JABAuthBgBase
@@ -57,17 +60,21 @@ import com.jabauth.ui.theme.JABAuthBgElevated
 import com.jabauth.ui.theme.JABAuthTextDim
 import com.jabauth.ui.theme.JABAuthTextPrimary
 import com.jabauth.ui.theme.JABAuthTextSecondary
+import com.jabauth.ui.theme.ModAbe
+import com.jabauth.ui.theme.ModJabcode
+import com.jabauth.ui.theme.ModJwt
+import com.jabauth.ui.theme.ModPki
 import com.jabauth.ui.theme.Spacing
 import kotlinx.coroutines.delay
 
 /**
- * Error Log screen - Timestamped error history
+ * Error Log screen — verification-aware, timestamped error history.
  *
- * Displays chronological list of errors, warnings, and info messages with
- * filtering and clearing capabilities. Styled per DESIGN_SYSTEM.md v1.0.0:
- * severity-filtered cards use the JABAuth feed-item idiom (elevated surface,
- * 3dp left accent strip in the severity colour, tinted icon box) and enter the
- * list with the staggered-reveal motion.
+ * A horizontal **STAGE** filter chip row (`all · decode · pki · jwt · abe`, each chip in its module colour)
+ * filters the list by verification pipeline stage. Each entry is a card carrying two chips — the stage TAG
+ * (module colour) and the severity (ERROR magenta / WARNING amber) — plus timestamp, title and detail, with
+ * a full-height left border in the severity colour (DESIGN_SYSTEM.md v1.0.0 feed-item idiom). Entries enter
+ * with the staggered-reveal motion.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -77,8 +84,6 @@ fun ErrorLogScreen(
 ) {
     val errors by viewModel.errors.collectAsState()
     val filter by viewModel.filter.collectAsState()
-
-    var showFilterMenu by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -90,12 +95,6 @@ fun ErrorLogScreen(
                     actionIconContentColor = JABAuthTextSecondary
                 ),
                 actions = {
-                    IconButton(onClick = { showFilterMenu = true }) {
-                        Icon(
-                            imageVector = Icons.Filled.FilterList,
-                            contentDescription = "Filter"
-                        )
-                    }
                     IconButton(
                         onClick = { viewModel.clearErrors() },
                         enabled = errors.isNotEmpty()
@@ -105,74 +104,97 @@ fun ErrorLogScreen(
                             contentDescription = "Clear All"
                         )
                     }
-
-                    DropdownMenu(
-                        expanded = showFilterMenu,
-                        onDismissRequest = { showFilterMenu = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("All") },
-                            onClick = {
-                                viewModel.setFilter(ErrorFilter.ALL)
-                                showFilterMenu = false
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Errors Only") },
-                            onClick = {
-                                viewModel.setFilter(ErrorFilter.ERRORS_ONLY)
-                                showFilterMenu = false
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Warnings Only") },
-                            onClick = {
-                                viewModel.setFilter(ErrorFilter.WARNINGS_ONLY)
-                                showFilterMenu = false
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Info Only") },
-                            onClick = {
-                                viewModel.setFilter(ErrorFilter.INFO_ONLY)
-                                showFilterMenu = false
-                            }
-                        )
-                        // Crypto-stage facets (Phase 5) — filter the log by verification pipeline stage.
-                        listOf(ErrorFilter.DECODE, ErrorFilter.PKI, ErrorFilter.JWT, ErrorFilter.ABE).forEach { stage ->
-                            DropdownMenuItem(
-                                text = { Text("Stage · ${stage.name}") },
-                                onClick = {
-                                    viewModel.setFilter(stage)
-                                    showFilterMenu = false
-                                }
-                            )
-                        }
-                    }
                 }
             )
         },
         containerColor = JABAuthBgBase,
         modifier = modifier
     ) { padding ->
-        val filteredErrors = errors.filter { filter.accepts(it) }
-
-        if (filteredErrors.isEmpty()) {
-            EmptyState(
-                message = if (errors.isEmpty()) "No errors logged" else "No errors match filter",
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            StageFilterRow(
+                selected = filter,
+                onSelect = viewModel::setFilter,
+                modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm)
             )
-        } else {
-            ErrorLogContent(
-                errors = filteredErrors,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
+
+            val filteredErrors = errors.filter { filter.accepts(it) }
+            if (filteredErrors.isEmpty()) {
+                EmptyState(
+                    message = if (errors.isEmpty()) "No errors logged" else "No errors match filter",
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                ErrorLogContent(
+                    errors = filteredErrors,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The STAGE filter chip row: `all · decode · pki · jwt · abe`. Each stage chip is tinted in its module
+ * colour; the selected chip fills solid (with an on-accent label), the rest read as an outlined tint.
+ * Horizontally scrollable so the row never truncates on a narrow device.
+ */
+@Composable
+private fun StageFilterRow(
+    selected: ErrorFilter,
+    onSelect: (ErrorFilter) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "STAGE",
+            style = MaterialTheme.typography.labelSmall,
+            color = JABAuthTextDim
+        )
+        STAGE_FILTERS.forEach { stageFilter ->
+            FilterChip(
+                label = stageFilter.chipLabel,
+                accent = stageFilter.chipColor,
+                selected = stageFilter == selected,
+                onClick = { onSelect(stageFilter) }
             )
         }
     }
+}
+
+/**
+ * One stage filter chip. Selected → solid accent fill + dark label; unselected → accent @ 0.15 fill,
+ * accent border, accent label. Mirrors the [Badge] geometry (4dp radius, 12x4 padding).
+ */
+@Composable
+private fun FilterChip(
+    label: String,
+    accent: Color,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val shape = RoundedCornerShape(4.dp)
+    val background = if (selected) accent else accent.copy(alpha = 0.15f)
+    val labelColor = if (selected) JABAuthBgBase else accent
+    Text(
+        text = label.uppercase(),
+        style = MaterialTheme.typography.labelMedium,
+        color = labelColor,
+        modifier = modifier
+            .clip(shape)
+            .background(background)
+            .border(width = 1.dp, color = accent, shape = shape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 4.dp)
+    )
 }
 
 @Composable
@@ -198,8 +220,9 @@ private fun ErrorLogContent(
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
-        modifier = modifier.padding(Spacing.md),
-        verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+        modifier = modifier.padding(horizontal = Spacing.md),
+        verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = Spacing.md)
     ) {
         itemsIndexed(errors, key = { _, error -> error.id }) { index, error ->
             StaggeredCardReveal(index = index) {
@@ -210,21 +233,19 @@ private fun ErrorLogContent(
 }
 
 /**
- * Severity-filtered error card in the JABAuth feed-item idiom.
+ * A verification-aware error card in the JABAuth feed-item idiom.
  *
- * Spec (DESIGN_SYSTEM.md v1.0.0 — Feed Item): elevated background, 4dp corner
- * radius, a 3dp full-height left accent strip in the severity colour and a
- * 32x32dp tinted icon box. The card body carries the richer error detail
- * (severity badge, timestamp, source, message, optional details) that a plain
- * [com.jabauth.ui.components.FeedItem] cannot express.
+ * Header row: the stage TAG chip (module colour, present only for pipeline entries) + the severity chip,
+ * then the timestamp. Below: title (message) and the detail line (the stage's real `reason`). A 3dp
+ * full-height left accent strip and a 32dp tinted icon box both take the severity colour, so a failure
+ * reads as red / a warning as amber at a glance.
  */
 @Composable
 private fun ErrorCard(
     error: ErrorEntry,
     modifier: Modifier = Modifier
 ) {
-    val type = error.severity.feedType
-    val accent = type.color
+    val accent = error.severity.feedType.color
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -258,13 +279,21 @@ private fun ErrorCard(
                 modifier = Modifier.padding(start = Spacing.sm),
                 verticalArrangement = Arrangement.spacedBy(Spacing.xs)
             ) {
-                // Header row: severity badge + timestamp.
+                // Header row: stage TAG chip + severity chip on the left, timestamp on the right.
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Badge(text = error.severity.label, color = accent)
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        error.stageTag?.let { tag ->
+                            Badge(text = tag.label, color = tag.color)
+                        }
+                        Badge(text = error.severity.label, color = accent)
+                    }
 
                     Column(horizontalAlignment = Alignment.End) {
                         Text(
@@ -280,21 +309,14 @@ private fun ErrorCard(
                     }
                 }
 
-                // Source.
-                Text(
-                    text = error.source,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = JABAuthTextSecondary
-                )
-
-                // Message.
+                // Title (message).
                 Text(
                     text = error.message,
                     style = MaterialTheme.typography.bodyMedium,
                     color = JABAuthTextPrimary
                 )
 
-                // Details (if available).
+                // Detail line (the stage's real reason, if any).
                 error.details?.let { details ->
                     Text(
                         text = details,
@@ -352,6 +374,45 @@ private val AnimationEasingDecelerate = CubicBezierEasing(0.0f, 0.0f, 0.2f, 1f)
 
 /** 100ms-per-index reveal stagger. */
 private const val StaggerDelayPerIndexMs = 100L
+
+/** The stage filter chips shown in the STAGE row, in pipeline order. */
+private val STAGE_FILTERS = listOf(
+    ErrorFilter.ALL, ErrorFilter.DECODE, ErrorFilter.PKI, ErrorFilter.JWT, ErrorFilter.ABE
+)
+
+/** Chip label for a stage filter (`all` / `decode` / …). */
+private val ErrorFilter.chipLabel: String
+    get() = when (this) {
+        ErrorFilter.ALL -> "all"
+        ErrorFilter.DECODE -> "decode"
+        ErrorFilter.PKI -> "pki"
+        ErrorFilter.JWT -> "jwt"
+        ErrorFilter.ABE -> "abe"
+        else -> name.lowercase()
+    }
+
+/** Chip accent for a stage filter — its module identity colour (ALL uses the neutral primary text hue). */
+private val ErrorFilter.chipColor: Color
+    get() = when (this) {
+        ErrorFilter.DECODE -> ModJabcode
+        ErrorFilter.PKI -> ModPki
+        ErrorFilter.JWT -> ModJwt
+        ErrorFilter.ABE -> ModAbe
+        else -> JABAuthTextSecondary
+    }
+
+/** Stage tag → its module identity colour (drives the card's TAG chip). */
+private val StageErrorTag.color: Color
+    get() = when (this) {
+        StageErrorTag.DECODE -> ModJabcode
+        StageErrorTag.PKI -> ModPki
+        StageErrorTag.JWT -> ModJwt
+        StageErrorTag.ABE -> ModAbe
+    }
+
+/** Stage tag → badge label ([Badge] uppercases for display). */
+private val StageErrorTag.label: String
+    get() = name.lowercase()
 
 /** Severity → feed-item accent type (drives the strip + icon-box colour). */
 private val ErrorSeverity.feedType: FeedItemType
