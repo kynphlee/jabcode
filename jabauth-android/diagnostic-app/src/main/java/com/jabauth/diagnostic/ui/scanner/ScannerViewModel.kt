@@ -58,10 +58,13 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
     private val _scanResult = MutableStateFlow<DecodeResult?>(null)
     val scanResult: StateFlow<DecodeResult?> = _scanResult.asStateFlow()
 
-    // Gated on-device verification pre-check (Phase 2). Runs only on an explicit verifyCurrentScan() so the
-    // live scan stays fast (open-Q5); cleared whenever a new symbol decodes so a stale verdict never lingers.
+    // On-device verification pre-check. The ABE stage adjudicates the sealed policy against the operator's
+    // own attributes (the Settings "Verifier attributes" group), so the verifier's identity — not a hardcoded
+    // set — decides GRANTED/DENIED. Read live via a lambda so a Settings change takes effect on the next scan.
+    @Volatile
+    private var verifierAttributes: Set<String> = SettingsRepository.DEFAULT_VERIFIER_ATTRIBUTES
     @Suppress("MemberVisibilityCanBePrivate")
-    internal var scanVerifier: ScanVerifier = ScanVerifier()
+    internal var scanVerifier: ScanVerifier = ScanVerifier(verifierAttributes = { verifierAttributes })
     private val _verificationResult = MutableStateFlow<VerificationResult?>(null)
     val verificationResult: StateFlow<VerificationResult?> = _verificationResult.asStateFlow()
     
@@ -546,6 +549,7 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
                 hapticFeedbackEnabled = settings.hapticFeedback
                 motionTelemetryEnabled = settings.motionTelemetryEnabled
                 motionThrottlingEnabled = settings.motionThrottlingEnabled
+                verifierAttributes = settings.verifierAttributes
                 
                 val colorModeStr = settings.preferredColorMode?.let { "${it}-color" } ?: "auto-detect"
                 logger.dSync(
