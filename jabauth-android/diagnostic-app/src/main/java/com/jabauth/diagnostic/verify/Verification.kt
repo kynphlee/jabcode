@@ -97,6 +97,7 @@ data class JwtDetail(
     val algorithmAllowed: Boolean,   // allowlist verdict (RS*/ES* only; none/HS* blocked)
     val tokenClass: String?,         // "coa.field.v2" / SESSION / ARTIFACT; null if absent
     val issuer: String?,
+    val issuedAt: String?,           // iat — ISO instant, paired with expiry in the credential meta row
     val expiry: String?,
     val revealedClaims: Map<String, String>,
     val withheldDigests: List<WithheldClaim>,

@@ -3,6 +3,7 @@ package com.jabauth.diagnostic.ui.verify
 import com.google.common.truth.Truth.assertThat
 import com.jabauth.diagnostic.verify.AbeDetail
 import com.jabauth.diagnostic.verify.CertChainDetail
+import com.jabauth.diagnostic.verify.FormatProfile
 import com.jabauth.diagnostic.verify.JwtDetail
 import com.jabauth.diagnostic.verify.RevocationInfo
 import com.jabauth.diagnostic.verify.RevocationStatus
@@ -36,7 +37,7 @@ class VerificationSummaryContentTest {
     }
 
     @Test fun `JWT value is the algorithm`() {
-        val d = JwtDetail("ES256", true, null, null, null, emptyMap(), emptyList())
+        val d = JwtDetail("ES256", true, null, null, null, null, emptyMap(), emptyList())
         assertThat(VerificationSummaryContent.value(stage(VerificationStage.JWT, StageState.PASS, detail = d)))
             .isEqualTo("ES256")
     }
@@ -55,5 +56,12 @@ class VerificationSummaryContentTest {
             .isEqualTo("63ms")
         assertThat(VerificationSummaryContent.value(stage(VerificationStage.ABE, StageState.SKIPPED)))
             .isEqualTo("SKIPPED")
+    }
+
+    @Test fun `formatLine collapses the PROFILE segment when there is no capture profile`() {
+        assertThat(VerificationSummaryContent.formatLine(FormatProfile("v2", null)))
+            .isEqualTo("FORMAT V2 · ON-DEVICE")
+        assertThat(VerificationSummaryContent.formatLine(FormatProfile("v2", "FIELD")))
+            .isEqualTo("FORMAT V2 · PROFILE FIELD · ON-DEVICE")
     }
 }

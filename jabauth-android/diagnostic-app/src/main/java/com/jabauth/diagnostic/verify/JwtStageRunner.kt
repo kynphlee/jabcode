@@ -75,6 +75,7 @@ class JwtStageRunner(
             algorithmAllowed = allowed,
             tokenClass = decoded.getClaim(CLAIM_TOKEN_CLASS).asString(),
             issuer = decoded.issuer,
+            issuedAt = decoded.issuedAt?.toInstant()?.toString(),
             expiry = decoded.expiresAt?.toInstant()?.toString(),
             revealedClaims = revealed,
             withheldDigests = withheld,

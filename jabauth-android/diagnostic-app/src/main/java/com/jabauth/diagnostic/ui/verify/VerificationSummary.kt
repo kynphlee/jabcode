@@ -61,7 +61,7 @@ fun VerificationSummary(
             Text(VerdictVisuals.label(result.verdict).uppercase(), color = verdictColor, fontSize = 14.sp, fontWeight = FontWeight.Bold)
         }
         Text(
-            "FORMAT ${result.formatProfile.payloadVersion.uppercase()} · PROFILE ${result.formatProfile.coaProfile ?: "—"} · ON-DEVICE",
+            VerificationSummaryContent.formatLine(result.formatProfile),
             color = JABAuthTextDim, fontSize = 10.sp, letterSpacing = 0.1.sp, modifier = Modifier.padding(top = 3.dp),
         )
         Spacer(Modifier.height(10.dp))

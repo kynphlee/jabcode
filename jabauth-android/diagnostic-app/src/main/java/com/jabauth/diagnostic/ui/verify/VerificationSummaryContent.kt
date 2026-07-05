@@ -2,6 +2,7 @@ package com.jabauth.diagnostic.ui.verify
 
 import com.jabauth.diagnostic.verify.AbeDetail
 import com.jabauth.diagnostic.verify.CertChainDetail
+import com.jabauth.diagnostic.verify.FormatProfile
 import com.jabauth.diagnostic.verify.JwtDetail
 import com.jabauth.diagnostic.verify.RevocationStatus
 import com.jabauth.diagnostic.verify.StageResult
@@ -14,6 +15,16 @@ import com.jabauth.diagnostic.verify.VerificationStage
  * Kept pure so the content is unit-tested; the composable renders these + the state colours.
  */
 object VerificationSummaryContent {
+
+    /**
+     * The format · profile · on-device subheader, e.g. `FORMAT V2 · PROFILE FIELD · ON-DEVICE`.
+     * The ` · PROFILE …` segment is omitted entirely when no capture profile applies (e.g. a scanned
+     * still has no [FormatProfile.coaProfile]) — a dangling placeholder would read as unfinished.
+     */
+    fun formatLine(fp: FormatProfile): String =
+        "FORMAT ${fp.payloadVersion.uppercase()}" +
+            (fp.coaProfile?.let { " · PROFILE $it" } ?: "") +
+            " · ON-DEVICE"
 
     /** Stage tag (mono caps, in the stage's module colour). */
     fun tag(stage: VerificationStage): String = when (stage) {
