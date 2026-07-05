@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -120,6 +121,13 @@ fun AbePolicyScreen(
             color = verdictColor,
             modifier = Modifier.fillMaxWidth(),
         )
+
+        // DENY EXAMPLE · SAME POLICY — only on a granted verdict (a real deny already teaches Principle A,
+        // so we don't duplicate it). A hypothetical near-miss against the *same* policy, clearly labelled
+        // as an example, that names the one clause it would fail — Principle A, taught by counter-example.
+        if (granted) {
+            AbePolicyContent.denyExample(detail)?.let { example -> DenyExampleSection(example) }
+        }
     }
 }
 
@@ -130,6 +138,56 @@ private fun AttributeChip(attribute: PolicyAttribute) {
         text = attribute.name,
         color = if (attribute.satisfied) VerdictVerified else VerdictFailed,
     )
+}
+
+/**
+ * The **DENY EXAMPLE · SAME POLICY** section — a hypothetical near-miss against the *same* policy, shown
+ * only on a granted verdict to teach Principle A (name the failing clause, not a generic "denied") by
+ * counter-example. Reuses the section frame and the satisfied/missing [AttributeChip]s of the real view;
+ * the "access denied" card is deliberately magenta ([VerdictFailed] @ 0.2 alpha — Principle D) to read as
+ * the alarm it illustrates. Always clearly labelled a *DENY EXAMPLE* — never presented as the real verdict.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun DenyExampleSection(example: AbePolicyContent.DenyExample) {
+    val title = if (example.illustrative) "DENY EXAMPLE · ILLUSTRATIVE" else "DENY EXAMPLE · SAME POLICY"
+    PolicySection(title = title) {
+        // The hypothetical attribute set — same chip language (green satisfied, magenta missing).
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+        ) {
+            example.attributes.forEach { attribute -> AttributeChip(attribute) }
+        }
+
+        // The red "access denied" card — names the one failing clause (Principle A), the whole point.
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = Spacing.sm)
+                .background(
+                    color = VerdictFailed.copy(alpha = 0.2f),
+                    shape = RoundedCornerShape(4.dp),
+                )
+                .padding(Spacing.sm),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                Text(
+                    text = "access denied",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = VerdictFailed,
+                )
+                Text(
+                    text = AbePolicyContent.denyExampleLine(example),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = JABAuthTextCode,
+                    fontFamily = FontFamily.Monospace,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
+    }
 }
 
 /**
