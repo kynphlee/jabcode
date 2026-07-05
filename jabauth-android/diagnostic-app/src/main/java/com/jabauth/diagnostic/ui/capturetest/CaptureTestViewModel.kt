@@ -6,6 +6,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jabauth.diagnostic.benchmark.BenchmarkResult
 import com.jabauth.diagnostic.benchmark.CodecBenchmark
+import com.jabauth.diagnostic.benchmark.VerifyLatencyBenchmark
+import com.jabauth.diagnostic.benchmark.VerifyLatencyReport
 import com.jabauth.diagnostic.data.SettingsRepository
 import com.jabauth.diagnostic.metric.DeviceVerifyAttemptExporter
 import com.jabauth.diagnostic.metric.androidDecodeInternalsExporter
@@ -38,6 +40,9 @@ class CaptureTestViewModel : ViewModel() {
 
     private val _benchmarkState = MutableStateFlow<BenchmarkState>(BenchmarkState.Idle)
     val benchmarkState: StateFlow<BenchmarkState> = _benchmarkState.asStateFlow()
+
+    private val _verifyLatencyState = MutableStateFlow<VerifyLatencyState>(VerifyLatencyState.Idle)
+    val verifyLatencyState: StateFlow<VerifyLatencyState> = _verifyLatencyState.asStateFlow()
 
     /**
      * Run the in-app "Suite B" codec benchmark (decode and encode across all
@@ -119,6 +124,36 @@ class CaptureTestViewModel : ViewModel() {
     }
 
     /**
+     * Run the on-demand **verify-latency-by-profile** benchmark — the "VERIFY LATENCY BY PROFILE · MS"
+     * table above the codec benchmark.
+     *
+     * The crypto columns (pki/jwt/abe) are measured once over an in-code canonical COA and are
+     * profile-independent; the per-profile decode column is sourced from the codec benchmark. To keep a
+     * single source of truth for decode numbers, this reuses the latest [CodecBenchmark] results when a
+     * codec run has already completed ([benchmarkState] is [BenchmarkState.Done]); otherwise it runs the
+     * codec sweep itself first. Runs off the main thread on [Dispatchers.Default] (crypto + codec are
+     * CPU-bound). Ignores re-taps while a run is in flight.
+     *
+     * @param context any Context (used only to read the codec fixtures when a sweep must be run); pass the
+     *   application context to avoid leaking an Activity.
+     */
+    fun runVerifyLatencyBenchmark(context: Context) {
+        if (_verifyLatencyState.value is VerifyLatencyState.Running) return
+        val appContext = context.applicationContext
+        _verifyLatencyState.value = VerifyLatencyState.Running
+        viewModelScope.launch {
+            val report = withContext(Dispatchers.Default) {
+                // Reuse the codec decode medians if they're already measured; else run the sweep once so the
+                // per-profile decode column is real (never fabricated).
+                val codecResults = (_benchmarkState.value as? BenchmarkState.Done)?.results
+                    ?: CodecBenchmark().run(appContext)
+                VerifyLatencyBenchmark().run(codecResults)
+            }
+            _verifyLatencyState.value = VerifyLatencyState.Done(report)
+        }
+    }
+
+    /**
      * Maps a Suite-B decode benchmark name (`decode_ncN`, N=0..7) to its carrier colour count
      * (2,4,8,...,256). Returns null for non-decode cells (e.g. `encode_ncN`), which have no shared
      * VerifyAttempt analogue.
@@ -187,6 +222,16 @@ sealed class BenchmarkState {
     object Idle : BenchmarkState()
     object Running : BenchmarkState()
     data class Done(val results: List<BenchmarkResult>) : BenchmarkState()
+}
+
+/**
+ * Verify-latency-by-profile benchmark lifecycle state. [Done] carries the per-profile [VerifyLatencyReport]
+ * (measured crypto columns + codec-sourced decode column).
+ */
+sealed class VerifyLatencyState {
+    object Idle : VerifyLatencyState()
+    object Running : VerifyLatencyState()
+    data class Done(val report: VerifyLatencyReport) : VerifyLatencyState()
 }
 
 /**
