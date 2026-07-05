@@ -26,10 +26,14 @@ object CredentialContent {
     /** The withheld ("sealed") claims — the SD-JWT digests the holder did not disclose. */
     fun sealedRows(d: JwtDetail): List<WithheldClaim> = d.withheldDigests
 
-    /** The envelope meta rows: `token_class` / `issuer` / `issued/expiry`, each emitted only when non-null. */
+    /**
+     * The envelope meta rows: `token_class` / `issuer` / `issued/expiry`, each emitted only when set.
+     * The `issued/expiry` value renders the full `iat → exp` range when both timestamps are present,
+     * falling back to expiry alone when `iat` is absent (the row still keys off a present expiry).
+     */
     fun metaRows(d: JwtDetail): List<Pair<String, String>> = buildList {
         d.tokenClass?.let { add("token_class" to it) }
         d.issuer?.let { add("issuer" to it) }
-        d.expiry?.let { add("issued/expiry" to it) }
+        d.expiry?.let { exp -> add("issued/expiry" to (d.issuedAt?.let { "$it → $exp" } ?: exp)) }
     }
 }

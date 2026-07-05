@@ -38,7 +38,8 @@ class StageSummariesTest {
 
     @Test fun `JWT rows show algorithm allowlist, token_class, and the disclosure count`() {
         val d = JwtDetail(
-            algorithm = "ES256", algorithmAllowed = true, tokenClass = "ARTIFACT", issuer = "iss", expiry = "exp",
+            algorithm = "ES256", algorithmAllowed = true, tokenClass = "ARTIFACT", issuer = "iss",
+            issuedAt = "iat", expiry = "exp",
             revealedClaims = mapOf("a" to "1", "b" to "2"), withheldDigests = listOf(WithheldClaim("", "dg")),
         )
         val rows = StageSummaries.rows(stage(VerificationStage.JWT, StageState.PASS, null, d))
@@ -48,7 +49,7 @@ class StageSummariesTest {
     }
 
     @Test fun `a rejected algorithm reads as rejected`() {
-        val d = JwtDetail("HS256", false, null, null, null, emptyMap(), emptyList())
+        val d = JwtDetail("HS256", false, null, null, null, null, emptyMap(), emptyList())
         assertThat(StageSummaries.rows(stage(VerificationStage.JWT, StageState.FAIL, null, d)))
             .contains("algorithm" to "HS256 (rejected)")
     }
