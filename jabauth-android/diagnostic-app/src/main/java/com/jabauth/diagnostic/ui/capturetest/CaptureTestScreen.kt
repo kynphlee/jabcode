@@ -22,6 +22,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jabauth.diagnostic.benchmark.BenchmarkResult
+import com.jabauth.diagnostic.benchmark.VerifyLatencyReport
+import com.jabauth.diagnostic.benchmark.VerifyLatencyRow
 import com.jabauth.ui.components.Badge
 import com.jabauth.ui.components.JABAuthCard
 import com.jabauth.ui.components.StatusIndicator
@@ -59,6 +61,7 @@ fun CaptureTestScreen(
     val frameMetrics by viewModel.frameMetrics.collectAsState()
     val captureStats by viewModel.captureStats.collectAsState()
     val benchmarkState by viewModel.benchmarkState.collectAsState()
+    val verifyLatencyState by viewModel.verifyLatencyState.collectAsState()
     val context = LocalContext.current
 
     Scaffold(
@@ -135,6 +138,43 @@ fun CaptureTestScreen(
             if (streamState is StreamState.Stopped && frameMetrics == null) {
                 StaggeredReveal(index = revealIndex++) {
                     InstructionsCard()
+                }
+            }
+
+            // Verify latency by profile — the on-device pre-check pipeline's per-stage
+            // latency (dec/pki/jwt/abe + Σ), grouped by COA capture profile. Sits above
+            // the codec benchmark because it *consumes* the codec decode numbers.
+            StaggeredReveal(index = revealIndex++) {
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    SectionHeader("VERIFY LATENCY BY PROFILE · MS")
+
+                    val verifyRunning = verifyLatencyState is VerifyLatencyState.Running
+                    Button(
+                        onClick = { viewModel.runVerifyLatencyBenchmark(context) },
+                        enabled = !verifyRunning,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = JABAuthPrimary,
+                            contentColor = JABAuthOnPrimary
+                        )
+                    ) {
+                        if (verifyRunning) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                                color = JABAuthOnPrimary
+                            )
+                            Spacer(modifier = Modifier.width(Spacing.xs))
+                            Text("Measuring…")
+                        } else {
+                            Text("Run verify-latency benchmark")
+                        }
+                    }
+
+                    when (val state = verifyLatencyState) {
+                        is VerifyLatencyState.Done -> VerifyLatencyCard(report = state.report)
+                        else -> { /* Idle / Running: button state conveys progress. */ }
+                    }
                 }
             }
 
@@ -328,6 +368,102 @@ private fun BenchmarkModeRow(
 
 private fun formatMedian(ms: Double?): String =
     if (ms == null) "—" else String.format("%.1f", ms)
+
+/**
+ * The "VERIFY LATENCY BY PROFILE · MS" table: one row per COA capture profile with the on-device pre-check
+ * pipeline's per-stage medians — `dec` (decode) / `pki` / `jwt` / `abe` — and their sum `Σ`.
+ *
+ * **Honesty:** the `pki`/`jwt`/`abe` columns are a single real measurement over a canonical COA, repeated
+ * across profiles because the crypto is profile-independent (only decode density varies by profile). The
+ * `dec` column is the codec benchmark's per-Nc decode median for the profile's colour mode; a profile whose
+ * decode has not been measured shows "—" and a "—" Σ (never a fabricated number). The FIELD_HOSTILE note
+ * mirrors the design: it trades decode speed (4-colour, lowest density) for lighting/chroma robustness.
+ */
+@Composable
+private fun VerifyLatencyCard(
+    report: VerifyLatencyReport,
+    modifier: Modifier = Modifier
+) {
+    JABAuthCard(modifier = modifier.fillMaxWidth()) {
+        Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            Row(modifier = Modifier.fillMaxWidth()) {
+                VerifyHeaderCell("profile", weight = 2.2f, alignEnd = false)
+                VerifyHeaderCell("dec")
+                VerifyHeaderCell("pki")
+                VerifyHeaderCell("jwt")
+                VerifyHeaderCell("abe")
+                VerifyHeaderCell("Σ")
+            }
+            for (row in report.rows) {
+                VerifyLatencyDataRow(row)
+            }
+            Text(
+                text = "FIELD_HOSTILE trades decode speed for robustness",
+                style = MaterialTheme.typography.bodySmall,
+                color = JABAuthTextDim
+            )
+            Text(
+                text = "pki · jwt · abe measured once (profile-independent crypto); " +
+                    "dec from the codec benchmark per profile colour mode.",
+                style = MaterialTheme.typography.bodySmall,
+                color = JABAuthTextDim
+            )
+        }
+    }
+}
+
+@Composable
+private fun RowScope.VerifyHeaderCell(
+    text: String,
+    weight: Float = 1f,
+    alignEnd: Boolean = true
+) {
+    Text(
+        text = text,
+        modifier = Modifier.weight(weight),
+        textAlign = if (alignEnd) TextAlign.End else TextAlign.Start,
+        style = MaterialTheme.typography.labelMedium,
+        color = JABAuthTextSecondary
+    )
+}
+
+@Composable
+private fun VerifyLatencyDataRow(
+    row: VerifyLatencyRow,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = row.profile.name,
+            modifier = Modifier.weight(2.2f),
+            style = MaterialTheme.typography.bodyMedium,
+            color = JABAuthTextSecondary
+        )
+        VerifyLatencyValueCell(row.decodeMs)
+        VerifyLatencyValueCell(row.pkiMs)
+        VerifyLatencyValueCell(row.jwtMs)
+        VerifyLatencyValueCell(row.abeMs)
+        VerifyLatencyValueCell(row.totalMs)
+    }
+}
+
+@Composable
+private fun RowScope.VerifyLatencyValueCell(ms: Double?) {
+    Text(
+        text = formatLatencyCell(ms),
+        modifier = Modifier.weight(1f),
+        textAlign = TextAlign.End,
+        style = MaterialTheme.typography.bodyLarge,
+        color = JABAuthTextPrimary
+    )
+}
+
+/** Latency cells render as whole ms (the pipeline budget is discussed in whole-ms terms); "—" when absent. */
+private fun formatLatencyCell(ms: Double?): String =
+    if (ms == null) "—" else "%.0f".format(ms)
 
 @Composable
 private fun StreamStatusCard(
