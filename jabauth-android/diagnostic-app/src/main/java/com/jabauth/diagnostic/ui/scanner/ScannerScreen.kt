@@ -14,16 +14,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import com.jabauth.diagnostic.ui.verify.AbePolicyScreen
 import com.jabauth.diagnostic.ui.verify.CredentialScreen
-import com.jabauth.diagnostic.ui.verify.PipelineStageStrip
 import com.jabauth.diagnostic.ui.verify.TrustAnchorScreen
-import com.jabauth.diagnostic.ui.verify.TrustVerdictBadge
+import com.jabauth.diagnostic.ui.verify.VerdictCard
 import com.jabauth.diagnostic.verify.AbeDetail
 import com.jabauth.diagnostic.verify.CertChainDetail
 import com.jabauth.diagnostic.verify.JwtDetail
 import com.jabauth.diagnostic.verify.VerificationStage
-import com.jabauth.ui.components.Badge
 import com.jabauth.ui.theme.JABAuthBgBase
-import com.jabauth.ui.theme.JABAuthPrimary
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -88,6 +85,12 @@ private fun ScannerScreenContent(
     }
     var panelExpanded by remember { mutableStateOf(false) }
     var drillDownStage by remember { mutableStateOf<VerificationStage?>(null) }
+
+    // Empty-trust-store banner. TODO: drive `trustStoreEmpty` from real trust-store state once an on-device
+    // trust-anchor import flow lands — today Settings hardcodes "0 anchors", so nothing can reach VERIFIED
+    // and this is constant true. `bannerDismissed` hides it for the session (the × affordance).
+    val trustStoreEmpty = true
+    var bannerDismissed by remember { mutableStateOf(false) }
     // True only while the user is actively long-press-resizing the reticle —
     // gates the workload coach (reference-app behaviour: coach shows during
     // resize only, never persistent).
@@ -126,13 +129,30 @@ private fun ScannerScreenContent(
             modifier = Modifier.fillMaxSize()
         )
 
-        // Floating sub-toolbar (Light / Scan image / Help) at the top.
+        // Empty-trust-store warning banner (dismissible, non-blocking) — pinned above the sub-toolbar.
+        val bannerVisible = trustStoreEmpty && !bannerDismissed
+        AnimatedVisibility(
+            visible = bannerVisible,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .padding(top = 8.dp, start = 12.dp, end = 12.dp)
+        ) {
+            TrustStoreBanner(
+                onImport = { /* TODO: wires to the trust-anchor import flow — follow-up */ },
+                onDismiss = { bannerDismissed = true },
+            )
+        }
+
+        // Floating sub-toolbar (Light / Scan image / Help) at the top — nudged down while the banner shows.
         SubToolbar(
             onScanImage = { imagePicker.launch("image/*") },
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
-                .padding(top = 8.dp)
+                .padding(top = if (bannerVisible) 60.dp else 8.dp)
         )
 
         // Workload coach — appears ONLY while resizing the reticle (long-press
@@ -159,15 +179,13 @@ private fun ScannerScreenContent(
         ) {
             ResultChip(result = scanResult, error = scanError, stats = recentStats)
             // The trust verdict runs automatically on a decode (Flow A: auto trigger) and sits beside the
-            // classic decode result; tap it to open the Verification HUD.
+            // classic decode result as a compact card; tap it to open the Verification HUD.
             verificationResult?.let { verdict ->
-                Column(
+                VerdictCard(
+                    verdict = verdict.verdict,
+                    stages = verdict.stages,
                     modifier = Modifier.clickable { panelExpanded = true },
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    TrustVerdictBadge(verdict = verdict.verdict)
-                    PipelineStageStrip(stages = verdict.stages)
-                }
+                )
             }
         }
         if (recentStats.total >= 3) {
