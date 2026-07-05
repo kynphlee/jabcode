@@ -100,4 +100,75 @@ class VerdictRollupTest {
         )
         assertThat(VerdictRollup.verdict(stages, isCoaFormat = true)).isEqualTo(TrustVerdict.FAILED)
     }
+
+    // ── TRUSTED_OFFLINE (A′ — opt-in teal tier; a valid chain to an imported anchor, never VERIFIED) ──
+    private val trustedAnchorPki = CertChainDetail(
+        nodes = emptyList(),
+        revocation = RevocationInfo("OCSP + CRL", RevocationStatus.UNKNOWN_OFFLINE),
+        reachedTrustedAnchor = true,
+    )
+
+    @Test fun `TRUST_ANCHOR opt-in with a trusted anchor and unknown-offline revocation yields TRUSTED_OFFLINE`() {
+        assertThat(
+            VerdictRollup.verdict(
+                decode = P, isCoaFormat = true, pki = W, jwt = P, abe = P,
+                pkiReachedTrustedAnchor = true, pkiRevocation = RevocationStatus.UNKNOWN_OFFLINE,
+                offlinePolicy = OfflineTrustPolicy.TRUST_ANCHOR,
+            ),
+        ).isEqualTo(TrustVerdict.TRUSTED_OFFLINE)
+    }
+
+    @Test fun `the same scan under the default STRICT policy stays UNTRUSTED (opt-in is required)`() {
+        assertThat(
+            VerdictRollup.verdict(
+                decode = P, isCoaFormat = true, pki = W, jwt = P, abe = P,
+                pkiReachedTrustedAnchor = true, pkiRevocation = RevocationStatus.UNKNOWN_OFFLINE,
+                offlinePolicy = OfflineTrustPolicy.STRICT,
+            ),
+        ).isEqualTo(TrustVerdict.UNTRUSTED)
+    }
+
+    @Test fun `TRUST_ANCHOR with an untrusted anchor stays UNTRUSTED (no green for a stranger's cert)`() {
+        assertThat(
+            VerdictRollup.verdict(
+                decode = P, isCoaFormat = true, pki = W, jwt = P, abe = P,
+                pkiReachedTrustedAnchor = false, pkiRevocation = RevocationStatus.UNKNOWN_OFFLINE,
+                offlinePolicy = OfflineTrustPolicy.TRUST_ANCHOR,
+            ),
+        ).isEqualTo(TrustVerdict.UNTRUSTED)
+    }
+
+    @Test fun `a hard FAIL always beats the TRUSTED_OFFLINE tier`() {
+        assertThat(
+            VerdictRollup.verdict(
+                decode = P, isCoaFormat = true, pki = W, jwt = F, abe = P,
+                pkiReachedTrustedAnchor = true, pkiRevocation = RevocationStatus.UNKNOWN_OFFLINE,
+                offlinePolicy = OfflineTrustPolicy.TRUST_ANCHOR,
+            ),
+        ).isEqualTo(TrustVerdict.FAILED)
+    }
+
+    @Test fun `a server-confirmed PKI PASS is VERIFIED, not the offline tier`() {
+        // If PKI actually PASSes (revocation confirmed VALID), the scan is fully VERIFIED — the tier is moot.
+        assertThat(
+            VerdictRollup.verdict(
+                decode = P, isCoaFormat = true, pki = P, jwt = P, abe = P,
+                pkiReachedTrustedAnchor = true, pkiRevocation = RevocationStatus.VALID,
+                offlinePolicy = OfflineTrustPolicy.TRUST_ANCHOR,
+            ),
+        ).isEqualTo(TrustVerdict.VERIFIED)
+    }
+
+    @Test fun `stage-list overload derives TRUSTED_OFFLINE from the PKI detail only under opt-in`() {
+        val stages = listOf(
+            StageResult(VerificationStage.DECODE, StageState.PASS),
+            StageResult(VerificationStage.PKI, StageState.WARN, reason = "trusted anchor; revocation offline", detail = trustedAnchorPki),
+            StageResult(VerificationStage.JWT, StageState.PASS),
+            StageResult(VerificationStage.ABE, StageState.PASS),
+        )
+        assertThat(VerdictRollup.verdict(stages, isCoaFormat = true, offlinePolicy = OfflineTrustPolicy.TRUST_ANCHOR))
+            .isEqualTo(TrustVerdict.TRUSTED_OFFLINE)
+        // …the identical scan under the default strict policy stays UNTRUSTED.
+        assertThat(VerdictRollup.verdict(stages, isCoaFormat = true)).isEqualTo(TrustVerdict.UNTRUSTED)
+    }
 }

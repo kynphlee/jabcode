@@ -33,12 +33,24 @@ enum class StageState { PASS, WARN, FAIL, SKIPPED }
 
 /**
  * The fail-closed rollup verdict shown on the Scanner.
- *  - [VERIFIED]   — all stages pass (green).
- *  - [UNTRUSTED]  — signature-valid but off-trust-list or revocation-indeterminate (amber). NOT a fail.
- *  - [FAILED]     — any hard failure; the failing stage is always named (magenta).
- *  - [NOT_A_COA]  — a cleanly-decoded but non-COA symbol; the classic decode path, never degraded (neutral).
+ *  - [VERIFIED]        — all stages pass incl. PKI *confirmed* (green). Offline this is unreachable — revocation
+ *                        is unconfirmable, so PKI never PASSes; VERIFIED requires the server (Principle F).
+ *  - [TRUSTED_OFFLINE] — the leaf chains to an *imported* anchor and JWT+ABE hold, but revocation is unconfirmed
+ *                        offline. A distinct, lesser tier (teal), emitted ONLY under the opt-in trust-anchor
+ *                        policy ([OfflineTrustPolicy.TRUST_ANCHOR]). Never claims the VERIFIED green.
+ *  - [UNTRUSTED]       — signature-valid but off-trust-list or revocation-indeterminate (amber). NOT a fail.
+ *  - [FAILED]          — any hard failure; the failing stage is always named (magenta).
+ *  - [NOT_A_COA]       — a cleanly-decoded but non-COA symbol; the classic decode path, never degraded (neutral).
  */
-enum class TrustVerdict { VERIFIED, UNTRUSTED, FAILED, NOT_A_COA }
+enum class TrustVerdict { VERIFIED, TRUSTED_OFFLINE, UNTRUSTED, FAILED, NOT_A_COA }
+
+/**
+ * The operator-selected offline trust posture (A′). [STRICT] (default) caps an offline scan at
+ * [TrustVerdict.UNTRUSTED] — importing an anchor de-risks but never greens. [TRUST_ANCHOR] is an informed
+ * opt-in: a valid chain to an imported anchor may reach [TrustVerdict.TRUSTED_OFFLINE] (revocation shown
+ * UNKNOWN·offline), and never [TrustVerdict.VERIFIED] — that still requires server-confirmed revocation.
+ */
+enum class OfflineTrustPolicy { STRICT, TRUST_ANCHOR }
 
 /** The stage a log entry / failure is attributed to. Mirrors the design's `StageErrorTag`. */
 enum class StageErrorTag { DECODE, PKI, JWT, ABE }
@@ -67,6 +79,9 @@ sealed interface StageDetail
 data class CertChainDetail(
     val nodes: List<CertNode>,
     val revocation: RevocationInfo,
+    /** True when the chain PKIX-validated to an anchor in the local trust store — the authoritative path result
+     *  (distinct from [rootTrusted]'s node byte-match). Drives the A′ [TrustVerdict.TRUSTED_OFFLINE] tier. */
+    val reachedTrustedAnchor: Boolean = false,
 ) : StageDetail {
     /** True when the chain's root is an anchor in the app's local trust store (Principle B). */
     val rootTrusted: Boolean get() = nodes.lastOrNull()?.inTrustStore == true

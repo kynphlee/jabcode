@@ -110,6 +110,9 @@ val VerdictUntrusted = Color(0xFFFFAA00)
 val VerdictFailed = Color(0xFFFF006E)
 /** Neutral — informational / in-progress, no verdict yet (cyan). */
 val VerdictNeutral = Color(0xFF00D4FF)
+/** Trusted-offline (A′) — a valid chain to an imported anchor, revocation unconfirmed offline: a distinct,
+ *  deliberately-lesser tier (teal) that is NOT the VERIFIED green. Emitted only under the opt-in policy. */
+val VerdictTrusted = Color(0xFF00BFA5)
 
 // ---------------------------------------------------------------------------
 // Material 3 colour-scheme support tokens

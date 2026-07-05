@@ -13,6 +13,7 @@ class VerdictCopyTest {
 
     @Test fun `each verdict maps to its design-mock subtitle`() {
         assertThat(VerdictCopy.subtitle(TrustVerdict.VERIFIED)).isEqualTo("credential trusted · verified on-device")
+        assertThat(VerdictCopy.subtitle(TrustVerdict.TRUSTED_OFFLINE)).isEqualTo("trusted offline · revocation unchecked")
         assertThat(VerdictCopy.subtitle(TrustVerdict.UNTRUSTED)).isEqualTo("untrusted · tap to see why")
         assertThat(VerdictCopy.subtitle(TrustVerdict.FAILED)).isEqualTo("verification failed · tap for detail")
         assertThat(VerdictCopy.subtitle(TrustVerdict.NOT_A_COA)).isEqualTo("not a COA credential")
@@ -24,6 +25,14 @@ class VerdictCopyTest {
         assertThat(TrustVerdict.values().filter { VerdictCopy.subtitle(it).contains("credential trusted") })
             .containsExactly(TrustVerdict.VERIFIED)
         assertThat(VerdictCopy.subtitle(TrustVerdict.UNTRUSTED)).contains("untrusted")
+    }
+
+    @Test fun `the offline-trusted subtitle carries the revocation caveat and never says verified`() {
+        // A′ honesty: the teal tier is a positive signal, but it must name its reservation and never claim VERIFIED.
+        val s = VerdictCopy.subtitle(TrustVerdict.TRUSTED_OFFLINE)
+        assertThat(s).contains("revocation")
+        assertThat(s).doesNotContain("verified")
+        assertThat(s).doesNotContain("credential trusted")
     }
 
     @Test fun `every verdict has a non-blank subtitle`() {

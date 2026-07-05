@@ -6,6 +6,7 @@ import com.jabauth.diagnostic.verify.TrustVerdict
 import com.jabauth.ui.theme.JABAuthTextDim
 import com.jabauth.ui.theme.VerdictFailed
 import com.jabauth.ui.theme.VerdictNeutral
+import com.jabauth.ui.theme.VerdictTrusted
 import com.jabauth.ui.theme.VerdictUntrusted
 import com.jabauth.ui.theme.VerdictVerified
 
@@ -22,6 +23,7 @@ object VerdictVisuals {
     /** The one-glance label for each rollup verdict (natural case; [Badge] uppercases for display). */
     fun label(verdict: TrustVerdict): String = when (verdict) {
         TrustVerdict.VERIFIED -> "Verified"
+        TrustVerdict.TRUSTED_OFFLINE -> "Trusted · offline"
         TrustVerdict.UNTRUSTED -> "Untrusted"
         TrustVerdict.FAILED -> "Failed"
         TrustVerdict.NOT_A_COA -> "Not a COA"
@@ -30,6 +32,7 @@ object VerdictVisuals {
     /** The signal colour for each rollup verdict. */
     fun color(verdict: TrustVerdict): Color = when (verdict) {
         TrustVerdict.VERIFIED -> VerdictVerified
+        TrustVerdict.TRUSTED_OFFLINE -> VerdictTrusted
         TrustVerdict.UNTRUSTED -> VerdictUntrusted
         TrustVerdict.FAILED -> VerdictFailed
         TrustVerdict.NOT_A_COA -> VerdictNeutral
