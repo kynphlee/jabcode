@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.jabauth.diagnostic.data.SettingsRepository
 import com.jabauth.diagnostic.data.TrustAnchorRepository
+import com.jabauth.diagnostic.verify.OfflineTrustPolicy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -92,6 +93,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun updateOfflineHardFail(hardFail: Boolean) { viewModelScope.launch { repository.updateOfflineHardFail(hardFail) } }
     fun updateDefaultCoaProfile(profile: String) { viewModelScope.launch { repository.updateDefaultCoaProfile(profile) } }
     fun updateVerifierAttributes(attrs: Set<String>) { viewModelScope.launch { repository.updateVerifierAttributes(attrs) } }
+    fun updateOfflineTrustPolicy(policy: OfflineTrustPolicy) { viewModelScope.launch { repository.updateOfflineTrustPolicy(policy) } }
 
     fun resetToDefaults() {
         viewModelScope.launch {

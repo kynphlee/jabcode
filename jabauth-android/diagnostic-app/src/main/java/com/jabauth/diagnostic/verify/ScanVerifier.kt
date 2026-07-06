@@ -39,7 +39,8 @@ class ScanVerifier(
     constructor(
         verifierAttributes: () -> Set<String> = { emptySet() },
         trustStore: TrustStoreManager = TrustStoreManagerImpl(),
-    ) : this(defaultOrchestrator(verifierAttributes, trustStore))
+        offlinePolicy: () -> OfflineTrustPolicy = { OfflineTrustPolicy.STRICT },
+    ) : this(defaultOrchestrator(verifierAttributes, trustStore, offlinePolicy))
 
     /** Verify a decoded symbol's raw [payload] bytes carrying its [decodeLatencyMs]. */
     fun verify(payload: ByteArray, decodeLatencyMs: Long): VerificationResult {
@@ -90,6 +91,7 @@ class ScanVerifier(
         private fun defaultOrchestrator(
             verifierAttributes: () -> Set<String>,
             trustStore: TrustStoreManager,
+            offlinePolicy: () -> OfflineTrustPolicy,
         ): VerificationOrchestrator {
             return CoaVerifier.orchestrator(
                 extractToken = { sym -> v2Section(sym.payload, PayloadFormatV2.SectionType.SDJWT_VC)?.toString(Charsets.UTF_8) },
@@ -99,6 +101,7 @@ class ScanVerifier(
                 extractChain = { sym -> v2Section(sym.payload, PayloadFormatV2.SectionType.TRUST_CHAIN)?.let { parseLeafCertificate(it) }?.let { listOf(it) } },
                 pkiValidator = CertificateChainValidatorImpl(trustStore),
                 pkiTrustStore = trustStore,
+                offlinePolicy = offlinePolicy,
             )
         }
     }

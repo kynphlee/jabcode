@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.foundation.clickable
+import com.jabauth.diagnostic.verify.OfflineTrustPolicy
 import com.jabauth.ui.components.JABAuthCard
 import com.jabauth.ui.theme.JABAuthBgBase
 import com.jabauth.ui.theme.ModAbe
@@ -64,6 +65,32 @@ fun SettingsScreen(
         }
     }
 
+    // A′ Stage 4: the offline-trust-anchor opt-in is consent-gated — enabling it (not disabling) opens a
+    // dialog that names the tradeoff, so the risky mode can never be flipped on silently.
+    var showTrustAnchorConsent by remember { mutableStateOf(false) }
+    if (showTrustAnchorConsent) {
+        AlertDialog(
+            onDismissRequest = { showTrustAnchorConsent = false },
+            title = { Text("Enable offline trust anchor?") },
+            text = {
+                Text(
+                    "A scan that chains to an anchor you imported will read TRUSTED (offline). The device cannot " +
+                        "check revocation offline, so this never reaches VERIFIED — the server confirms that. Enable " +
+                        "only if an unrevoked-but-unverified anchor is acceptable in the field.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.updateOfflineTrustPolicy(OfflineTrustPolicy.TRUST_ANCHOR)
+                    showTrustAnchorConsent = false
+                }) { Text("Enable") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTrustAnchorConsent = false }) { Text("Cancel") }
+            },
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -102,6 +129,16 @@ fun SettingsScreen(
                         label = "Trust Store",
                         value = "$anchorCount ${if (anchorCount == 1) "anchor" else "anchors"} · import",
                         onClick = { certPicker.launch("*/*") }
+                    )
+                    SwitchSetting(
+                        label = "Offline trust anchor",
+                        description = "Let a scan reach TRUSTED (offline) when it chains to an imported anchor — " +
+                            "revocation stays unchecked; never VERIFIED. Off = strict (default).",
+                        checked = settings.offlineTrustPolicy == OfflineTrustPolicy.TRUST_ANCHOR,
+                        onCheckedChange = { enable ->
+                            if (enable) showTrustAnchorConsent = true
+                            else viewModel.updateOfflineTrustPolicy(OfflineTrustPolicy.STRICT)
+                        }
                     )
                     SwitchSetting(
                         label = "Revocation Check",

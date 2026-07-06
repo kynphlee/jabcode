@@ -158,4 +158,35 @@ class VerificationOrchestratorTest {
         ).verify(coa())
         assertThat(r.formatProfile).isEqualTo(FormatProfile("v2", "FIELD"))
     }
+
+    // ── A′: the offline-trust-anchor policy threads through to the rollup ───────
+    private fun trustedAnchorPki() = Runner(
+        StageResult(
+            VerificationStage.PKI, StageState.WARN, reason = "trusted anchor; revocation offline",
+            detail = CertChainDetail(
+                nodes = emptyList(),
+                revocation = RevocationInfo("OCSP + CRL", RevocationStatus.UNKNOWN_OFFLINE),
+                reachedTrustedAnchor = true,
+            ),
+        ),
+    )
+
+    @Test fun `TRUST_ANCHOR opt-in threads through to a TRUSTED_OFFLINE verdict`() {
+        val r = VerificationOrchestrator(
+            trustedAnchorPki(),
+            Runner(result(VerificationStage.JWT, StageState.PASS)),
+            Runner(result(VerificationStage.ABE, StageState.PASS)),
+            offlinePolicy = { OfflineTrustPolicy.TRUST_ANCHOR },
+        ).verify(coa())
+        assertThat(r.verdict).isEqualTo(TrustVerdict.TRUSTED_OFFLINE)
+    }
+
+    @Test fun `the default STRICT policy keeps the same trusted-anchor scan at UNTRUSTED`() {
+        val r = orchestrator(
+            trustedAnchorPki(),
+            Runner(result(VerificationStage.JWT, StageState.PASS)),
+            Runner(result(VerificationStage.ABE, StageState.PASS)),
+        ).verify(coa())
+        assertThat(r.verdict).isEqualTo(TrustVerdict.UNTRUSTED)
+    }
 }

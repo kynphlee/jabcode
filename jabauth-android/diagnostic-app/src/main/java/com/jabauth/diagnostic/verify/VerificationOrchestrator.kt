@@ -20,6 +20,7 @@ class VerificationOrchestrator(
     private val pki: StageRunner,
     private val jwt: StageRunner,
     private val abe: StageRunner,
+    private val offlinePolicy: () -> OfflineTrustPolicy = { OfflineTrustPolicy.STRICT },
 ) {
     /** Produces one crypto stage's [StageResult] for a decoded COA symbol. SAM — trivially faked in tests. */
     fun interface StageRunner {
@@ -70,7 +71,7 @@ class VerificationOrchestrator(
 
     private fun build(stages: List<StageResult>, formatProfile: FormatProfile, isCoaFormat: Boolean) =
         VerificationResult(
-            verdict = VerdictRollup.verdict(stages, isCoaFormat),
+            verdict = VerdictRollup.verdict(stages, isCoaFormat, offlinePolicy()),
             stages = stages,
             formatProfile = formatProfile,
             totalLatencyMs = stages.sumOf { it.latencyMs },

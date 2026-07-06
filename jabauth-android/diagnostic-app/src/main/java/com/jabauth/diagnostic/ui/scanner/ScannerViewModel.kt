@@ -7,6 +7,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.jabauth.diagnostic.data.SettingsRepository
 import com.jabauth.diagnostic.data.TrustAnchorRepository
+import com.jabauth.diagnostic.verify.OfflineTrustPolicy
 import com.jabauth.diagnostic.metric.DeviceVerifyAttempt
 import com.jabauth.diagnostic.metric.DeviceVerifyAttemptExporter
 import com.jabauth.diagnostic.metric.deviceVerifyAttemptExporter
@@ -69,13 +70,22 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
     @Volatile
     private var verifierAttributes: Set<String> = SettingsRepository.DEFAULT_VERIFIER_ATTRIBUTES
 
+    // A′ Stage 4: the operator's offline trust posture, read live by the verifier. Default STRICT (offline caps
+    // at UNTRUSTED); the Settings opt-in flips it to TRUST_ANCHOR so an imported anchor can reach TRUSTED_OFFLINE.
+    @Volatile
+    private var offlineTrustPolicy: OfflineTrustPolicy = SettingsRepository.DEFAULT_OFFLINE_TRUST_POLICY
+
     // A′ Stage 2: the process-wide, persistent trust-anchor set — shared with the import UI and hydrated from
     // DataStore in init(). The verify path reads this exact instance, so an imported anchor lands on the next scan.
     private val trustAnchors = TrustAnchorRepository.get(application)
 
     @Suppress("MemberVisibilityCanBePrivate")
     internal var scanVerifier: ScanVerifier =
-        ScanVerifier(verifierAttributes = { verifierAttributes }, trustStore = trustAnchors.store)
+        ScanVerifier(
+            verifierAttributes = { verifierAttributes },
+            trustStore = trustAnchors.store,
+            offlinePolicy = { offlineTrustPolicy },
+        )
 
     /** The persisted trust-anchor count — drives the empty-trust-store banner (A′ Stage 3). */
     val anchorCount: StateFlow<Int> =
@@ -599,6 +609,7 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
                 motionTelemetryEnabled = settings.motionTelemetryEnabled
                 motionThrottlingEnabled = settings.motionThrottlingEnabled
                 verifierAttributes = settings.verifierAttributes
+                offlineTrustPolicy = settings.offlineTrustPolicy
                 
                 val colorModeStr = settings.preferredColorMode?.let { "${it}-color" } ?: "auto-detect"
                 logger.dSync(

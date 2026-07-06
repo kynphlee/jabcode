@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import com.jabauth.diagnostic.BuildConfig
+import com.jabauth.diagnostic.verify.OfflineTrustPolicy
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
@@ -35,6 +36,7 @@ class SettingsRepository(private val context: Context) {
         private val OFFLINE_HARD_FAIL = booleanPreferencesKey("offline_hard_fail")
         private val DEFAULT_PROFILE = stringPreferencesKey("default_coa_profile")
         private val VERIFIER_ATTRS = stringSetPreferencesKey("verifier_attributes")
+        private val OFFLINE_TRUST_POLICY = stringPreferencesKey("offline_trust_policy")
 
         // Default values
         const val DEFAULT_DECODE_TIMEOUT = 200
@@ -97,6 +99,8 @@ class SettingsRepository(private val context: Context) {
         const val DEFAULT_OFFLINE_HARD_FAIL = false // false = warn (open-Q3 default); true = hard-fail
         const val DEFAULT_COA_PROFILE = "FIELD"
         val DEFAULT_VERIFIER_ATTRIBUTES = setOf("role:inspector", "region:EU")
+        // A′: default STRICT — importing an anchor de-risks but never greens until the operator opts in.
+        val DEFAULT_OFFLINE_TRUST_POLICY = OfflineTrustPolicy.STRICT
     }
     
     /**
@@ -114,7 +118,8 @@ class SettingsRepository(private val context: Context) {
         val revocationCheck: Boolean = DEFAULT_REVOCATION_CHECK,
         val offlineHardFail: Boolean = DEFAULT_OFFLINE_HARD_FAIL,
         val defaultCoaProfile: String = DEFAULT_COA_PROFILE,
-        val verifierAttributes: Set<String> = DEFAULT_VERIFIER_ATTRIBUTES
+        val verifierAttributes: Set<String> = DEFAULT_VERIFIER_ATTRIBUTES,
+        val offlineTrustPolicy: OfflineTrustPolicy = DEFAULT_OFFLINE_TRUST_POLICY
     )
     
     /**
@@ -141,7 +146,10 @@ class SettingsRepository(private val context: Context) {
                 revocationCheck = preferences[REVOCATION_CHECK] ?: DEFAULT_REVOCATION_CHECK,
                 offlineHardFail = preferences[OFFLINE_HARD_FAIL] ?: DEFAULT_OFFLINE_HARD_FAIL,
                 defaultCoaProfile = preferences[DEFAULT_PROFILE] ?: DEFAULT_COA_PROFILE,
-                verifierAttributes = preferences[VERIFIER_ATTRS] ?: DEFAULT_VERIFIER_ATTRIBUTES
+                verifierAttributes = preferences[VERIFIER_ATTRS] ?: DEFAULT_VERIFIER_ATTRIBUTES,
+                offlineTrustPolicy = preferences[OFFLINE_TRUST_POLICY]
+                    ?.let { runCatching { OfflineTrustPolicy.valueOf(it) }.getOrNull() }
+                    ?: DEFAULT_OFFLINE_TRUST_POLICY
             )
         }
     
@@ -190,6 +198,8 @@ class SettingsRepository(private val context: Context) {
         context.dataStore.edit { it[DEFAULT_PROFILE] = profile }.let {}
     suspend fun updateVerifierAttributes(attrs: Set<String>) =
         context.dataStore.edit { it[VERIFIER_ATTRS] = attrs }.let {}
+    suspend fun updateOfflineTrustPolicy(policy: OfflineTrustPolicy) =
+        context.dataStore.edit { it[OFFLINE_TRUST_POLICY] = policy.name }.let {}
     
     /**
      * Update preferred color mode
