@@ -6,6 +6,7 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.jabauth.diagnostic.data.SettingsRepository
+import com.jabauth.diagnostic.data.TrustAnchorRepository
 import com.jabauth.diagnostic.metric.DeviceVerifyAttempt
 import com.jabauth.diagnostic.metric.DeviceVerifyAttemptExporter
 import com.jabauth.diagnostic.metric.deviceVerifyAttemptExporter
@@ -65,8 +66,14 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
     // set — decides GRANTED/DENIED. Read live via a lambda so a Settings change takes effect on the next scan.
     @Volatile
     private var verifierAttributes: Set<String> = SettingsRepository.DEFAULT_VERIFIER_ATTRIBUTES
+
+    // A′ Stage 2: the process-wide, persistent trust-anchor set — shared with the import UI and hydrated from
+    // DataStore in init(). The verify path reads this exact instance, so an imported anchor lands on the next scan.
+    private val trustAnchors = TrustAnchorRepository.get(application)
+
     @Suppress("MemberVisibilityCanBePrivate")
-    internal var scanVerifier: ScanVerifier = ScanVerifier(verifierAttributes = { verifierAttributes })
+    internal var scanVerifier: ScanVerifier =
+        ScanVerifier(verifierAttributes = { verifierAttributes }, trustStore = trustAnchors.store)
     private val _verificationResult = MutableStateFlow<VerificationResult?>(null)
     val verificationResult: StateFlow<VerificationResult?> = _verificationResult.asStateFlow()
 
@@ -562,6 +569,10 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
     private var analyzer: Camera2JABCodeAnalyzer
     
     init {
+        // A′ Stage 2: hydrate the shared trust store from DataStore once, so imported anchors are live for
+        // verification after a process restart. Idempotent — safe alongside any other ViewModel's call.
+        viewModelScope.launch { trustAnchors.ensureHydrated() }
+
         // Initialize analyzer with default settings
         analyzer = createAnalyzer(
             timeout = SettingsRepository.DEFAULT_DECODE_TIMEOUT.toLong(),
