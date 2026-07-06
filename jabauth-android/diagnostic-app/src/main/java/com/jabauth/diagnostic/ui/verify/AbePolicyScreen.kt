@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -23,7 +24,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.jabauth.diagnostic.verify.AbeDetail
 import com.jabauth.diagnostic.verify.PolicyAttribute
 import com.jabauth.ui.components.Badge
@@ -73,12 +76,24 @@ fun AbePolicyScreen(
             .padding(Spacing.md),
         verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
-        // Back affordance.
-        IconButton(onClick = onBack) {
-            Icon(
-                imageVector = Icons.Filled.ArrowBack,
-                contentDescription = "Back",
-                tint = JABAuthTextPrimary,
+        // Back affordance + title — matches the Trust Anchor / Credential drill-downs (this screen was the
+        // only drill-down missing its header row).
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    imageVector = Icons.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = JABAuthTextPrimary,
+                )
+            }
+            Text(
+                "ACCESS POLICY",
+                color = JABAuthTextPrimary,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
             )
         }
 
