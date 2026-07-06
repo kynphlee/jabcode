@@ -58,6 +58,23 @@ class TrustAnchorRepositoryTest {
         assertThat(persistence.map).isEmpty()
     }
 
+    @Test fun `importFrom parses DER bytes and imports the anchor`() = runBlocking<Unit> {
+        val persistence = FakeAnchorPersistence()
+        val repo = TrustAnchorRepository(persistence)
+        val cert = TestCerts.selfSignedEc("From Bytes")
+        assertThat(repo.importFrom(cert.encoded)).isEqualTo(cert)
+        assertThat(repo.store.getAllTrustedCAs()).containsExactly(cert)
+        assertThat(persistence.map).hasSize(1)
+    }
+
+    @Test fun `importFrom returns null and imports nothing for garbage bytes`() = runBlocking<Unit> {
+        val persistence = FakeAnchorPersistence()
+        val repo = TrustAnchorRepository(persistence)
+        assertThat(repo.importFrom("garbage".toByteArray())).isNull()
+        assertThat(repo.store.getAllTrustedCAs()).isEmpty()
+        assertThat(persistence.map).isEmpty()
+    }
+
     @Test fun `fingerprint is a stable SHA-256 hex that differs across certs`() {
         val a = TestCerts.selfSignedEc("A", serial = 1)
         val b = TestCerts.selfSignedEc("B", serial = 2)

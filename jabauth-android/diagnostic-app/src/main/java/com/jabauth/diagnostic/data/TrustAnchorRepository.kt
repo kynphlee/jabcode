@@ -46,6 +46,10 @@ class TrustAnchorRepository internal constructor(private val persistence: Anchor
         persistence.add(alias, cert)
     }
 
+    /** Parse raw cert file bytes (DER/PEM) and import the anchor; returns the imported cert, or null if not a cert. */
+    suspend fun importFrom(bytes: ByteArray): X509Certificate? =
+        CertCodec.parse(bytes)?.also { import(it) }
+
     /** Remove an anchor from both the live [store] and persistence. */
     suspend fun remove(alias: String) {
         store.removeTrustedCA(alias)

@@ -26,7 +26,9 @@ import com.jabauth.jabcode.camera.ImageQualityAnalyzer
 import com.jabauth.jabcode.camera.RoiSpec
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -74,6 +76,15 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
     @Suppress("MemberVisibilityCanBePrivate")
     internal var scanVerifier: ScanVerifier =
         ScanVerifier(verifierAttributes = { verifierAttributes }, trustStore = trustAnchors.store)
+
+    /** The persisted trust-anchor count — drives the empty-trust-store banner (A′ Stage 3). */
+    val anchorCount: StateFlow<Int> =
+        trustAnchors.countFlow.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    private val _importMessage = MutableStateFlow<String?>(null)
+    /** Transient feedback for a trust-anchor import (success/failure); the UI shows it then clears. */
+    val importMessage: StateFlow<String?> = _importMessage.asStateFlow()
+
     private val _verificationResult = MutableStateFlow<VerificationResult?>(null)
     val verificationResult: StateFlow<VerificationResult?> = _verificationResult.asStateFlow()
 
@@ -767,6 +778,29 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
      * isolates decoder logic from the capture pipeline — if nc2 decodes from
      * the file but not the camera, the problem is 100% capture.
      */
+    /**
+     * Import a trust anchor from a picked certificate file (A′ Stage 3): read the bytes, parse DER/PEM, and
+     * write-through to the shared, persistent trust store. Surfaces a transient [importMessage] for the UI.
+     */
+    fun importTrustAnchor(uri: Uri) {
+        viewModelScope.launch {
+            val bytes = withContext(Dispatchers.IO) {
+                runCatching {
+                    getApplication<Application>().contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                }.getOrNull()
+            }
+            val cert = bytes?.let { trustAnchors.importFrom(it) }
+            _importMessage.value = if (cert != null) {
+                "Imported anchor · ${cert.subjectX500Principal.name}"
+            } else {
+                "Not a certificate — expected a DER/PEM .crt/.cer/.pem file"
+            }
+        }
+    }
+
+    /** Clear the transient import feedback after the UI has shown it. */
+    fun clearImportMessage() { _importMessage.value = null }
+
     fun decodeImage(uri: Uri) {
         viewModelScope.launch {
             val bitmap = withContext(Dispatchers.IO) {

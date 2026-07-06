@@ -1,5 +1,8 @@
 package com.jabauth.diagnostic.ui.settings
 
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
@@ -12,6 +15,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.foundation.clickable
 import com.jabauth.ui.components.JABAuthCard
@@ -47,6 +51,18 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = viewModel()
 ) {
     val settings by viewModel.settings.collectAsState()
+    val anchorCount by viewModel.anchorCount.collectAsState()
+    val importMessage by viewModel.importMessage.collectAsState()
+    val context = LocalContext.current
+    val certPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let { viewModel.importTrustAnchor(it) }
+    }
+    LaunchedEffect(importMessage) {
+        importMessage?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+            viewModel.clearImportMessage()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -84,8 +100,8 @@ fun SettingsScreen(
                 SettingsSection(title = "Verification") {
                     VerificationNavRow(
                         label = "Trust Store",
-                        value = "0 anchors · manage",
-                        onClick = { /* manage trust anchors — Error State import flow (follow-up) */ }
+                        value = "$anchorCount ${if (anchorCount == 1) "anchor" else "anchors"} · import",
+                        onClick = { certPicker.launch("*/*") }
                     )
                     SwitchSetting(
                         label = "Revocation Check",

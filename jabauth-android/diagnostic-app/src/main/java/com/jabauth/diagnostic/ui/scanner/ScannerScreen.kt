@@ -1,5 +1,6 @@
 package com.jabauth.diagnostic.ui.scanner
 
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -35,6 +36,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jabauth.diagnostic.ui.permissions.CameraPermissionHandler
@@ -71,6 +73,15 @@ private fun ScannerScreenContent(
     val settings by viewModel.settings.collectAsState(
         initial = com.jabauth.diagnostic.data.SettingsRepository.Settings()
     )
+    val anchorCount by viewModel.anchorCount.collectAsState()
+    val importMessage by viewModel.importMessage.collectAsState()
+    val context = LocalContext.current
+    LaunchedEffect(importMessage) {
+        importMessage?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+            viewModel.clearImportMessage()
+        }
+    }
 
     // Zoom slider is the source of truth for SETTING zoom; pinch updates
     // currentZoom which we fold back into the slider so the two stay in sync.
@@ -86,10 +97,9 @@ private fun ScannerScreenContent(
     var panelExpanded by remember { mutableStateOf(false) }
     var drillDownStage by remember { mutableStateOf<VerificationStage?>(null) }
 
-    // Empty-trust-store banner. TODO: drive `trustStoreEmpty` from real trust-store state once an on-device
-    // trust-anchor import flow lands — today Settings hardcodes "0 anchors", so nothing can reach VERIFIED
-    // and this is constant true. `bannerDismissed` hides it for the session (the × affordance).
-    val trustStoreEmpty = true
+    // Empty-trust-store banner — shown when no anchors are configured (A′ Stage 3: driven from the real
+    // persisted anchor count). `bannerDismissed` hides it for the session (the × affordance).
+    val trustStoreEmpty = anchorCount == 0
     var bannerDismissed by remember { mutableStateOf(false) }
     // True only while the user is actively long-press-resizing the reticle —
     // gates the workload coach (reference-app behaviour: coach shows during
@@ -100,6 +110,11 @@ private fun ScannerScreenContent(
     val imagePicker = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri -> uri?.let { viewModel.decodeImage(it) } }
+
+    // Banner "Import" → pick a certificate file (DER/PEM) and add it as a trust anchor (A′ Stage 3).
+    val certPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri -> uri?.let { viewModel.importTrustAnchor(it) } }
 
     // Full-screen camera with floating controls (QR-Scanner layout).
     Box(
@@ -141,7 +156,7 @@ private fun ScannerScreenContent(
                 .padding(top = 8.dp, start = 12.dp, end = 12.dp)
         ) {
             TrustStoreBanner(
-                onImport = { /* TODO: wires to the trust-anchor import flow — follow-up */ },
+                onImport = { certPicker.launch("*/*") },
                 onDismiss = { bannerDismissed = true },
             )
         }
