@@ -6,6 +6,8 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.jabauth.diagnostic.data.SettingsRepository
+import com.jabauth.diagnostic.data.TrustAnchorRepository
+import com.jabauth.diagnostic.verify.OfflineTrustPolicy
 import com.jabauth.diagnostic.metric.DeviceVerifyAttempt
 import com.jabauth.diagnostic.metric.DeviceVerifyAttemptExporter
 import com.jabauth.diagnostic.metric.deviceVerifyAttemptExporter
@@ -25,7 +27,9 @@ import com.jabauth.jabcode.camera.ImageQualityAnalyzer
 import com.jabauth.jabcode.camera.RoiSpec
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -65,8 +69,32 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
     // set — decides GRANTED/DENIED. Read live via a lambda so a Settings change takes effect on the next scan.
     @Volatile
     private var verifierAttributes: Set<String> = SettingsRepository.DEFAULT_VERIFIER_ATTRIBUTES
+
+    // A′ Stage 4: the operator's offline trust posture, read live by the verifier. Default STRICT (offline caps
+    // at UNTRUSTED); the Settings opt-in flips it to TRUST_ANCHOR so an imported anchor can reach TRUSTED_OFFLINE.
+    @Volatile
+    private var offlineTrustPolicy: OfflineTrustPolicy = SettingsRepository.DEFAULT_OFFLINE_TRUST_POLICY
+
+    // A′ Stage 2: the process-wide, persistent trust-anchor set — shared with the import UI and hydrated from
+    // DataStore in init(). The verify path reads this exact instance, so an imported anchor lands on the next scan.
+    private val trustAnchors = TrustAnchorRepository.get(application)
+
     @Suppress("MemberVisibilityCanBePrivate")
-    internal var scanVerifier: ScanVerifier = ScanVerifier(verifierAttributes = { verifierAttributes })
+    internal var scanVerifier: ScanVerifier =
+        ScanVerifier(
+            verifierAttributes = { verifierAttributes },
+            trustStore = trustAnchors.store,
+            offlinePolicy = { offlineTrustPolicy },
+        )
+
+    /** The persisted trust-anchor count — drives the empty-trust-store banner (A′ Stage 3). */
+    val anchorCount: StateFlow<Int> =
+        trustAnchors.countFlow.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    private val _importMessage = MutableStateFlow<String?>(null)
+    /** Transient feedback for a trust-anchor import (success/failure); the UI shows it then clears. */
+    val importMessage: StateFlow<String?> = _importMessage.asStateFlow()
+
     private val _verificationResult = MutableStateFlow<VerificationResult?>(null)
     val verificationResult: StateFlow<VerificationResult?> = _verificationResult.asStateFlow()
 
@@ -562,6 +590,10 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
     private var analyzer: Camera2JABCodeAnalyzer
     
     init {
+        // A′ Stage 2: hydrate the shared trust store from DataStore once, so imported anchors are live for
+        // verification after a process restart. Idempotent — safe alongside any other ViewModel's call.
+        viewModelScope.launch { trustAnchors.ensureHydrated() }
+
         // Initialize analyzer with default settings
         analyzer = createAnalyzer(
             timeout = SettingsRepository.DEFAULT_DECODE_TIMEOUT.toLong(),
@@ -577,6 +609,7 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
                 motionTelemetryEnabled = settings.motionTelemetryEnabled
                 motionThrottlingEnabled = settings.motionThrottlingEnabled
                 verifierAttributes = settings.verifierAttributes
+                offlineTrustPolicy = settings.offlineTrustPolicy
                 
                 val colorModeStr = settings.preferredColorMode?.let { "${it}-color" } ?: "auto-detect"
                 logger.dSync(
@@ -756,6 +789,29 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
      * isolates decoder logic from the capture pipeline — if nc2 decodes from
      * the file but not the camera, the problem is 100% capture.
      */
+    /**
+     * Import a trust anchor from a picked certificate file (A′ Stage 3): read the bytes, parse DER/PEM, and
+     * write-through to the shared, persistent trust store. Surfaces a transient [importMessage] for the UI.
+     */
+    fun importTrustAnchor(uri: Uri) {
+        viewModelScope.launch {
+            val bytes = withContext(Dispatchers.IO) {
+                runCatching {
+                    getApplication<Application>().contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                }.getOrNull()
+            }
+            val cert = bytes?.let { trustAnchors.importFrom(it) }
+            _importMessage.value = if (cert != null) {
+                "Imported anchor · ${cert.subjectX500Principal.name}"
+            } else {
+                "Not a certificate — expected a DER/PEM .crt/.cer/.pem file"
+            }
+        }
+    }
+
+    /** Clear the transient import feedback after the UI has shown it. */
+    fun clearImportMessage() { _importMessage.value = null }
+
     fun decodeImage(uri: Uri) {
         viewModelScope.launch {
             val bitmap = withContext(Dispatchers.IO) {

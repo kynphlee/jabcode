@@ -27,9 +27,11 @@ object CoaVerifier {
         pkiValidator: CertificateChainValidator? = null,
         pkiTrustStore: TrustStoreManager? = null,
         sdJwt: SdJwtVcService = SdJwtVcService(),
+        offlinePolicy: () -> OfflineTrustPolicy = { OfflineTrustPolicy.STRICT },
     ): VerificationOrchestrator = VerificationOrchestrator(
         pki = PkiStageRunner(extractChain, pkiValidator, pkiTrustStore),
         jwt = JwtStageRunner(extractToken, resolveIssuerKey, sdJwt),
         abe = AbeStageRunner(extractPolicy, verifierAttributes),
+        offlinePolicy = offlinePolicy,
     )
 }

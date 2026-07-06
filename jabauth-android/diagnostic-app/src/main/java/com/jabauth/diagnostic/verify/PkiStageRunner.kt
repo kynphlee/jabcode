@@ -52,7 +52,10 @@ class PkiStageRunner(
         } else {
             "Chain is internally valid but its root is not in the trust store (untrusted anchor)."
         }
-        return StageResult(VerificationStage.PKI, StageState.WARN, reason = reason, detail = detail)
+        return StageResult(
+            VerificationStage.PKI, StageState.WARN, reason = reason,
+            detail = detail.copy(reachedTrustedAnchor = trusted),
+        )
     }
 
     private fun interim() = StageResult(

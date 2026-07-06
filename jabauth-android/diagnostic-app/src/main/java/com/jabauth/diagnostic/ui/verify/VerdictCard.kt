@@ -103,6 +103,7 @@ private fun LabeledStageStrip(stages: List<StageResult>, modifier: Modifier = Mo
 object VerdictCopy {
     fun subtitle(verdict: TrustVerdict): String = when (verdict) {
         TrustVerdict.VERIFIED -> "credential trusted · verified on-device"
+        TrustVerdict.TRUSTED_OFFLINE -> "trusted offline · revocation unchecked"
         TrustVerdict.UNTRUSTED -> "untrusted · tap to see why"
         TrustVerdict.FAILED -> "verification failed · tap for detail"
         TrustVerdict.NOT_A_COA -> "not a COA credential"

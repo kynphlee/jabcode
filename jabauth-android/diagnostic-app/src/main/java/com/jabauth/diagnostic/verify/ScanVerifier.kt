@@ -4,6 +4,7 @@ import com.jabauth.client.abe.ABEPolicy
 import com.jabauth.client.abe.AbeEnvelope
 import com.jabauth.client.abe.AbePolicyParser
 import com.jabauth.client.pki.CertificateChainValidatorImpl
+import com.jabauth.client.pki.TrustStoreManager
 import com.jabauth.client.pki.TrustStoreManagerImpl
 import com.jabauth.client.v2.PayloadFormatV2
 import java.io.ByteArrayInputStream
@@ -35,7 +36,11 @@ class ScanVerifier(
     private val orchestrator: VerificationOrchestrator,
 ) {
     /** Convenience: build the real four-stage pipeline, sourcing the verifier's ABE attributes from [verifierAttributes]. */
-    constructor(verifierAttributes: () -> Set<String> = { emptySet() }) : this(defaultOrchestrator(verifierAttributes))
+    constructor(
+        verifierAttributes: () -> Set<String> = { emptySet() },
+        trustStore: TrustStoreManager = TrustStoreManagerImpl(),
+        offlinePolicy: () -> OfflineTrustPolicy = { OfflineTrustPolicy.STRICT },
+    ) : this(defaultOrchestrator(verifierAttributes, trustStore, offlinePolicy))
 
     /** Verify a decoded symbol's raw [payload] bytes carrying its [decodeLatencyMs]. */
     fun verify(payload: ByteArray, decodeLatencyMs: Long): VerificationResult {
@@ -83,8 +88,11 @@ class ScanVerifier(
             AbeEnvelope.policyOf(v2Section(payload, PayloadFormatV2.SectionType.ABE_SEALED))
                 ?.let { AbePolicyParser.parse(it) }
 
-        private fun defaultOrchestrator(verifierAttributes: () -> Set<String>): VerificationOrchestrator {
-            val trustStore = TrustStoreManagerImpl()
+        private fun defaultOrchestrator(
+            verifierAttributes: () -> Set<String>,
+            trustStore: TrustStoreManager,
+            offlinePolicy: () -> OfflineTrustPolicy,
+        ): VerificationOrchestrator {
             return CoaVerifier.orchestrator(
                 extractToken = { sym -> v2Section(sym.payload, PayloadFormatV2.SectionType.SDJWT_VC)?.toString(Charsets.UTF_8) },
                 resolveIssuerKey = { sym -> v2Section(sym.payload, PayloadFormatV2.SectionType.TRUST_CHAIN)?.let { resolveIssuerKey(it) } },
@@ -93,6 +101,7 @@ class ScanVerifier(
                 extractChain = { sym -> v2Section(sym.payload, PayloadFormatV2.SectionType.TRUST_CHAIN)?.let { parseLeafCertificate(it) }?.let { listOf(it) } },
                 pkiValidator = CertificateChainValidatorImpl(trustStore),
                 pkiTrustStore = trustStore,
+                offlinePolicy = offlinePolicy,
             )
         }
     }
