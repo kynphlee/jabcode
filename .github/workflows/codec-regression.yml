@@ -20,12 +20,14 @@ on:
     paths:
       - 'src/jabcode/**'
       - 'swift-java-wrapper/**'
+      - 'lib/**'
       - '.github/workflows/codec-regression.yml'
   push:
     branches: [main, master, swift-java-poc]
     paths:
       - 'src/jabcode/**'
       - 'swift-java-wrapper/**'
+      - 'lib/**'
       - '.github/workflows/codec-regression.yml'
   workflow_dispatch:
 
@@ -55,6 +57,16 @@ jobs:
       - name: Build core libjabcode (static + shared)
         working-directory: src/jabcode
         run: make all
+
+      # Freshness guard for the VENDORED repo-root lib/libjabcode.so — the copy
+      # panama-wrapper's Maven build loads (jabcode.lib.path=../lib). A stale
+      # pre-#110 (thread-UNSAFE, non-TLS-globals) binary sat there undetected
+      # because nothing compared it against source. This diffs the vendored
+      # .so's defined-global dynamic symbols (type + name) against the build
+      # above and fails on any drift; fix is `make -C src/jabcode refresh-lib`.
+      - name: Check vendored lib/ freshness
+        working-directory: src/jabcode
+        run: make check-lib
 
       # CLI encode/decode tools. The synthetic round-trip drives these exactly as
       # the on-device pipeline does (encode -> PNG -> decode), so a regression in
