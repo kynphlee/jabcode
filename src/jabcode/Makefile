@@ -11,10 +11,17 @@ CORE_DIR := build
 STATIC_LIB := $(CORE_DIR)/libjabcode.a
 SHARED_LIB := $(CORE_DIR)/libjabcode.so
 
+# Repo-root lib/ holds a VENDORED copy of the built library: panama-wrapper's
+# Maven build loads it via jabcode.lib.path=../lib (pom.xml), so it must track
+# this source tree. Refresh it with `make refresh-lib`; CI enforces freshness
+# via `make check-lib` (codec-regression.yml).
+VENDORED_DIR := ../../lib
+VENDORED_SO := $(VENDORED_DIR)/libjabcode.so
+
 SOURCES := $(wildcard *.c)
 OBJECTS := $(SOURCES:.c=.o)
 
-.PHONY: all clean bench bench-concurrent bench-cascade sweep transcode profile test-pn test-symid test-eci test-table15 test-roundtrip test-concurrent
+.PHONY: all clean refresh-lib check-lib bench bench-concurrent bench-cascade sweep transcode profile test-pn test-symid test-eci test-table15 test-roundtrip test-concurrent
 
 all: $(STATIC_LIB) $(SHARED_LIB)
 
@@ -31,8 +38,35 @@ $(SHARED_LIB): $(CORE_DIR) $(OBJECTS)
 %.o: %.c
 	$(CC) -c -I. -I./include $(CFLAGS) $< -o $@
 
+# Refresh the vendored repo-root lib/ from the current source build. This is
+# the ONLY sanctioned way to update lib/libjabcode.{so,a} — hand-copied builds
+# are how the pre-#110 thread-UNSAFE .so sat there undetected for weeks.
+refresh-lib: all
+	cp $(SHARED_LIB) $(STATIC_LIB) $(VENDORED_DIR)/
+	@echo "refreshed $(VENDORED_DIR)/libjabcode.{so,a} from $(CORE_DIR)/"
+
+# Freshness guard for the vendored lib/libjabcode.so (run by codec-regression.yml).
+# Compares the DEFINED-GLOBAL dynamic symbol set — type + name — of the vendored
+# .so against a fresh source build. Symbol names/types are compiler-stable where
+# raw bytes are not, and type covers exactly the rot class that bit us: PR #110
+# turned codec globals _Thread_local (OBJECT -> TLS), so a stale pre-#110 binary
+# diverges here. NOTE: an implementation-only change (same exported symbols)
+# passes this check — the guard is ABI-level, not bit-level; refresh-lib after
+# any codec change regardless.
+check-lib: $(SHARED_LIB)
+	@test -f $(VENDORED_SO) || { echo "check-lib: missing $(VENDORED_SO)"; exit 1; }
+	@readelf --dyn-syms --wide $(SHARED_LIB)  | awk '$$5=="GLOBAL" && $$7!="UND" {print $$4, $$8}' | sort > $(CORE_DIR)/syms_fresh.txt
+	@readelf --dyn-syms --wide $(VENDORED_SO) | awk '$$5=="GLOBAL" && $$7!="UND" {print $$4, $$8}' | sort > $(CORE_DIR)/syms_vendored.txt
+	@if ! diff -u $(CORE_DIR)/syms_vendored.txt $(CORE_DIR)/syms_fresh.txt; then \
+	    echo ""; \
+	    echo "check-lib: FAIL — vendored $(VENDORED_SO) is stale (symbol set differs from source build)."; \
+	    echo "check-lib: run 'make -C src/jabcode refresh-lib' and commit the updated lib/."; \
+	    exit 1; \
+	fi
+	@echo "check-lib: PASS — vendored $(VENDORED_SO) matches the source build's exported symbol set"
+
 clean:
-	rm -f $(STATIC_LIB) $(SHARED_LIB) $(OBJECTS) $(CORE_DIR)/bench_codec $(CORE_DIR)/bench_concurrent $(CORE_DIR)/bench_cascade $(CORE_DIR)/bench_profile $(CORE_DIR)/test_pn_index $(CORE_DIR)/test_symbology_id $(CORE_DIR)/test_eci $(CORE_DIR)/test_table15 $(CORE_DIR)/test_text_roundtrip $(CORE_DIR)/test_concurrent_roundtrip
+	rm -f $(STATIC_LIB) $(SHARED_LIB) $(OBJECTS) $(CORE_DIR)/syms_fresh.txt $(CORE_DIR)/syms_vendored.txt $(CORE_DIR)/bench_codec $(CORE_DIR)/bench_concurrent $(CORE_DIR)/bench_cascade $(CORE_DIR)/bench_profile $(CORE_DIR)/test_pn_index $(CORE_DIR)/test_symbology_id $(CORE_DIR)/test_eci $(CORE_DIR)/test_table15 $(CORE_DIR)/test_text_roundtrip $(CORE_DIR)/test_concurrent_roundtrip
 
 # Suite A: native codec microbenchmark -- encode+decode timing across Nc 0..7.
 # Statically links libjabcode for a self-contained binary (adb-pushable).
