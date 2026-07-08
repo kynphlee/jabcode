@@ -175,8 +175,12 @@ public class JABCodeEncoder {
     }
     
     /**
-     * Encode data with full configuration control
-     * 
+     * Encode data with full configuration control.
+     *
+     * <p>UTF-8 convenience over {@link #encodeBytes(byte[], Config)}. For binary
+     * payloads (ciphertext, compressed or random data), call {@code encodeBytes}
+     * directly — round-tripping such data through {@code String} is lossy.</p>
+     *
      * @param data The data to encode
      * @param config Encoding configuration
      * @return Encoded bitmap data as byte array, or null if encoding fails
@@ -185,7 +189,25 @@ public class JABCodeEncoder {
         if (data == null || data.isEmpty()) {
             throw new IllegalArgumentException("Data cannot be null or empty");
         }
-        
+        return encodeBytes(data.getBytes(StandardCharsets.UTF_8), config);
+    }
+
+    /**
+     * Encode raw bytes into JABCode format — the canonical entry point.
+     *
+     * <p>The native codec's payload model ({@code jab_data} = length + bytes) is
+     * binary-clean; this method preserves that end to end. The {@code String}
+     * overloads are thin UTF-8 adapters over this one.</p>
+     *
+     * @param data The bytes to encode (any content, including non-UTF-8)
+     * @param config Encoding configuration
+     * @return PNG image bytes, or null if encoding fails
+     */
+    public byte[] encodeBytes(byte[] data, Config config) {
+        if (data == null || data.length == 0) {
+            throw new IllegalArgumentException("Data cannot be null or empty");
+        }
+
         try (Arena arena = Arena.ofConfined()) {
             // Create encoder
             MemorySegment enc = jabcode_h.createEncode(
@@ -212,8 +234,7 @@ public class JABCodeEncoder {
                 }
 
                 // Prepare jab_data structure: { int32 length; char data[]; }
-                byte[] bytes = data.getBytes(StandardCharsets.UTF_8);
-                MemorySegment jabData = createJabData(arena, bytes);
+                MemorySegment jabData = createJabData(arena, data);
 
                 // Generate JABCode (0 = success per generateJABCode contract)
                 int result = jabcode_h.generateJABCode(enc, jabData);

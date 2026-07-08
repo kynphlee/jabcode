@@ -145,20 +145,38 @@ public class JABCodeDecoder {
     }
     
     /**
-     * Decoded result containing data and metadata
+     * Decoded result containing data and metadata.
+     *
+     * <p>The canonical payload is {@link #getDataBytes()} — the exact bytes the
+     * native codec decoded, binary-clean. {@link #getData()} is a UTF-8 view for
+     * text payloads; applying it to binary content (ciphertext, compressed data)
+     * is lossy.</p>
      */
     public static class DecodedResult {
-        private final String data;
+        private final byte[] dataBytes;
         private final int symbolCount;
         private final boolean success;
-        
-        public DecodedResult(String data, int symbolCount, boolean success) {
-            this.data = data;
+
+        public DecodedResult(byte[] dataBytes, int symbolCount, boolean success) {
+            this.dataBytes = dataBytes;
             this.symbolCount = symbolCount;
             this.success = success;
         }
-        
-        public String getData() { return data; }
+
+        /** UTF-8 compatibility constructor; prefer the {@code byte[]} form. */
+        public DecodedResult(String data, int symbolCount, boolean success) {
+            this(data == null ? null : data.getBytes(StandardCharsets.UTF_8),
+                 symbolCount, success);
+        }
+
+        /** The decoded payload bytes exactly as the native codec produced them. */
+        public byte[] getDataBytes() { return dataBytes; }
+
+        /** UTF-8 view of the payload; lossy for non-UTF-8 (binary) content. */
+        public String getData() {
+            return dataBytes == null ? null : new String(dataBytes, StandardCharsets.UTF_8);
+        }
+
         public int getSymbolCount() { return symbolCount; }
         public boolean isSuccess() { return success; }
     }
@@ -175,6 +193,34 @@ public class JABCodeDecoder {
     public String decode(byte[] imageData) {
         DecodedResult result = decodeEx(imageData);
         return result.isSuccess() ? result.getData() : null;
+    }
+
+    /**
+     * Decode a JABCode from in-memory PNG bytes, returning the raw payload bytes.
+     *
+     * <p>The binary-clean counterpart of {@link #decode(byte[])}: no UTF-8
+     * interpretation is applied, so ciphertext and other non-text payloads
+     * round-trip exactly.</p>
+     *
+     * @param imageData Raw PNG image bytes
+     * @return Decoded payload bytes, or null if decoding fails
+     */
+    public byte[] decodeBytes(byte[] imageData) {
+        DecodedResult result = decodeEx(imageData);
+        return result.isSuccess() ? result.getDataBytes() : null;
+    }
+
+    /**
+     * Decode a JABCode from an image file, returning the raw payload bytes.
+     *
+     * <p>The binary-clean counterpart of {@link #decodeFromFile(Path)}.</p>
+     *
+     * @param imagePath Path to image file
+     * @return Decoded payload bytes, or null if decoding fails
+     */
+    public byte[] decodeBytesFromFile(Path imagePath) {
+        DecodedResult result = decodeFromFileEx(imagePath, MODE_NORMAL);
+        return result.isSuccess() ? result.getDataBytes() : null;
     }
 
     /**
@@ -200,7 +246,7 @@ public class JABCodeDecoder {
             // Decode the PNG from memory into a bitmap
             MemorySegment bitmap = jabcode_h.readImageFromMemory(buffer, imageData.length);
             if (bitmap == null || bitmap.address() == 0) {
-                return new DecodedResult(null, 0, false);
+                return new DecodedResult((byte[]) null, 0, false);
             }
 
             try {
@@ -211,20 +257,20 @@ public class JABCodeDecoder {
                 // Decode
                 MemorySegment result = jabcode_h.decodeJABCode(bitmap, MODE_NORMAL, status);
                 if (result == null || result.address() == 0) {
-                    return new DecodedResult(null, 0, false);
+                    return new DecodedResult((byte[]) null, 0, false);
                 }
 
                 // Extract decoded data — jab_data struct: { int32 length; char data[]; }
                 int dataLength = result.get(ValueLayout.JAVA_INT, 0);
                 if (dataLength <= 0) {
-                    return new DecodedResult("", 1, true);
+                    return new DecodedResult(new byte[0], 1, true);
                 }
 
                 byte[] decodedBytes = new byte[dataLength];
                 MemorySegment.copy(result, ValueLayout.JAVA_BYTE, 4, decodedBytes, 0, dataLength);
-                String decodedString = new String(decodedBytes, StandardCharsets.UTF_8);
 
-                return new DecodedResult(decodedString, 1, true);
+                // Bytes are the canonical payload; no String round-trip here.
+                return new DecodedResult(decodedBytes, 1, true);
 
             } finally {
                 // readImageFromMemory calloc's the bitmap as a single block we own.
@@ -277,7 +323,7 @@ public class JABCodeDecoder {
             MemorySegment bitmap = jabcode_h.readImage(filenameSegment);
             
             if (bitmap == null || bitmap.address() == 0) {
-                return new DecodedResult(null, 0, false);
+                return new DecodedResult((byte[]) null, 0, false);
             }
             
             try {
@@ -290,28 +336,26 @@ public class JABCodeDecoder {
                 
                 // Check if decoding succeeded - result should not be null
                 if (result == null || result.address() == 0) {
-                    return new DecodedResult(null, 0, false);
+                    return new DecodedResult((byte[]) null, 0, false);
                 }
                 
                 // Extract decoded data
                 // jab_data struct: { int32 length; char data[]; }
                 int dataLength = result.get(ValueLayout.JAVA_INT, 0);
-                
+
                 if (dataLength <= 0) {
-                    return new DecodedResult("", 1, true);
+                    return new DecodedResult(new byte[0], 1, true);
                 }
-                
+
                 // Read data bytes starting at offset 4
                 byte[] decodedBytes = new byte[dataLength];
                 MemorySegment.copy(result, ValueLayout.JAVA_BYTE, 4, decodedBytes, 0, dataLength);
-                
-                String decodedString = new String(decodedBytes, StandardCharsets.UTF_8);
-                
+
                 // Note: The C library allocates the result with malloc
                 // We should ideally free it, but there's no destroyData function
                 // TODO: Check for memory leaks
-                
-                return new DecodedResult(decodedString, 1, true);
+
+                return new DecodedResult(decodedBytes, 1, true);
                 
             } finally {
                 // Free bitmap

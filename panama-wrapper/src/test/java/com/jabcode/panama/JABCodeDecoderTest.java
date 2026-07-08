@@ -85,7 +85,7 @@ class JABCodeDecoderTest {
     
     @Test
     void testDecodeResultWithFailure() {
-        var result = new JABCodeDecoder.DecodedResult(null, 0, false);
+        var result = new JABCodeDecoder.DecodedResult((byte[]) null, 0, false);
         
         assertNull(result.getData());
         assertEquals(0, result.getSymbolCount());
