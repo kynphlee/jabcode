@@ -21,7 +21,7 @@ VENDORED_SO := $(VENDORED_DIR)/libjabcode.so
 SOURCES := $(wildcard *.c)
 OBJECTS := $(SOURCES:.c=.o)
 
-.PHONY: all clean refresh-lib check-lib bench bench-concurrent bench-cascade sweep transcode profile test-pn test-symid test-eci test-table15 test-roundtrip test-concurrent
+.PHONY: all clean refresh-lib check-lib bench bench-concurrent bench-cascade sweep transcode profile test-pn test-symid test-eci test-table15 test-roundtrip test-concurrent test-cascade-hv
 
 all: $(STATIC_LIB) $(SHARED_LIB)
 
@@ -153,6 +153,14 @@ test-table15: $(STATIC_LIB)
 test-roundtrip: $(STATIC_LIB)
 	$(CC) -O2 -std=c11 -I. -I./include test/test_text_roundtrip.c $(STATIC_LIB) -lpng16 -ltiff -lz -lm -o $(CORE_DIR)/test_text_roundtrip
 	$(CORE_DIR)/test_text_roundtrip
+
+# High-version cascade + >8207-byte byte-run regression guard: the numeric
+# shift-to-byte continuation token width (was 5 bits, must be 6) and the
+# per-run continuation-factor reset. Includes the java.util.Random payload
+# that surfaced the bug through the JVM consumers.
+test-cascade-hv: $(STATIC_LIB)
+	$(CC) -O2 -std=c11 -I. -I./include test/test_cascade_highversion.c $(STATIC_LIB) -lpng16 -ltiff -lz -lm -o $(CORE_DIR)/test_cascade_highversion
+	$(CORE_DIR)/test_cascade_highversion
 
 # Codec reentrancy (thread-safety) guard under ThreadSanitizer.
 # Spawns N>=8 pthreads x M>=50 encode->decode round-trips over Nc=1..7 and
