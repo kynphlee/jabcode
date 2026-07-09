@@ -281,7 +281,80 @@ public class JABCodeDecoder {
             throw new RuntimeException("Decoding from byte array failed", e);
         }
     }
-    
+
+    /**
+     * Decode a JABCode directly from raw RGBA8888 pixels — no PNG involved.
+     *
+     * <p>The PNG paths pay a full compress (caller) + decompress (native
+     * {@code readImageFromMemory}) round-trip per decode purely to move pixels
+     * across the FFM boundary. This entry point instead assembles the native
+     * {@code jab_bitmap} struct ({ width, height, bits_per_pixel=32,
+     * bits_per_channel=8, channel_count=4, pixel[] }) in Arena memory and hands
+     * it straight to {@code decodeJABCode} — the same layout the PNG reader
+     * would have produced, minus the codec work. Callers holding a decoded
+     * image (camera frame, {@code BufferedImage} raster) should prefer this.</p>
+     *
+     * @param rgba Pixel data, 4 bytes per pixel in R,G,B,A order, row-major
+     * @param width Image width in pixels
+     * @param height Image height in pixels
+     * @return DecodedResult with data and metadata
+     */
+    public DecodedResult decodeRgbaEx(byte[] rgba, int width, int height) {
+        if (rgba == null || width <= 0 || height <= 0) {
+            throw new IllegalArgumentException("RGBA data and positive dimensions required");
+        }
+        if (rgba.length != (long) width * height * 4) {
+            throw new IllegalArgumentException(
+                "RGBA length " + rgba.length + " != width*height*4 = " + ((long) width * height * 4));
+        }
+
+        try (Arena arena = Arena.ofConfined()) {
+            // jab_bitmap: 5 x int32 header + flexible pixel array (RGBA8888)
+            long headerBytes = 20;
+            MemorySegment bitmap = arena.allocate(headerBytes + rgba.length, 4);
+            bitmap.set(ValueLayout.JAVA_INT, 0, width);
+            bitmap.set(ValueLayout.JAVA_INT, 4, height);
+            bitmap.set(ValueLayout.JAVA_INT, 8, 32);  // BITMAP_BITS_PER_PIXEL
+            bitmap.set(ValueLayout.JAVA_INT, 12, 8);  // BITMAP_BITS_PER_CHANNEL
+            bitmap.set(ValueLayout.JAVA_INT, 16, 4);  // BITMAP_CHANNEL_COUNT
+            MemorySegment.copy(rgba, 0, bitmap, ValueLayout.JAVA_BYTE, headerBytes, rgba.length);
+
+            MemorySegment status = arena.allocate(ValueLayout.JAVA_INT);
+            status.set(ValueLayout.JAVA_INT, 0, -1);
+
+            MemorySegment result = jabcode_h.decodeJABCode(bitmap, MODE_NORMAL, status);
+            if (result == null || result.address() == 0) {
+                return new DecodedResult((byte[]) null, 0, false);
+            }
+
+            int dataLength = result.get(ValueLayout.JAVA_INT, 0);
+            if (dataLength <= 0) {
+                return new DecodedResult(new byte[0], 1, true);
+            }
+
+            byte[] decodedBytes = new byte[dataLength];
+            MemorySegment.copy(result, ValueLayout.JAVA_BYTE, 4, decodedBytes, 0, dataLength);
+
+            // The bitmap is Arena-owned (freed on scope exit); nothing to free here.
+            return new DecodedResult(decodedBytes, 1, true);
+        } catch (Exception e) {
+            throw new RuntimeException("Decoding from RGBA buffer failed", e);
+        }
+    }
+
+    /**
+     * Decode a JABCode from raw RGBA8888 pixels, returning the raw payload bytes.
+     *
+     * @param rgba Pixel data, 4 bytes per pixel in R,G,B,A order, row-major
+     * @param width Image width in pixels
+     * @param height Image height in pixels
+     * @return Decoded payload bytes, or null if decoding fails
+     */
+    public byte[] decodeRgba(byte[] rgba, int width, int height) {
+        DecodedResult result = decodeRgbaEx(rgba, width, height);
+        return result.isSuccess() ? result.getDataBytes() : null;
+    }
+
     /**
      * Decode JABCode from image file
      * 
