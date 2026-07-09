@@ -135,44 +135,6 @@ class VerifyLatencyBenchmark : BenchmarkSuite() {
         return CryptoStageLatency(pkiMs = pkiMs, jwtMs = jwtMs, abeMs = abeMs)
     }
 
-    /** A real v2 COA: SD-JWT VC (signed with [issuerKeys]), the issuer public key as a bare-SPKI TRUST_CHAIN,
-     *  and an ABE_SEALED policy [VERIFIER_ATTRS] satisfies. Pure JDK — the bare SPKI is the legacy TRUST_CHAIN
-     *  the verifier resolves the issuer key from (no BouncyCastle certificate needed on the app classpath). */
-    private fun canonicalV2Coa(issuerKeys: KeyPair): ByteArray {
-        val service = SdJwtVcService()
-        val credential = SdJwtVcRequest.builder()
-            .issuer("https://issuer.jabauth.example")
-            .subject("coa-benchmark")
-            .vct("coa")
-            .expiration(Duration.ofHours(1))
-            .algorithm("ES256")
-            .alwaysVisible(mapOf("origin" to "ai-generated"))
-            .selectivelyDisclosable(mapOf("licenseTerms" to "CC-BY-4.0"))
-            .build()
-        val sections = listOf(
-            Section.of(SectionType.SDJWT_VC, service.issue(credential, issuerKeys.private).toByteArray()),
-            Section.of(SectionType.TRUST_CHAIN, issuerKeys.public.encoded),
-            Section.of(SectionType.ABE_SEALED, abeEnvelope(ABE_POLICY)),
-            Section.of(SectionType.META, "{\"vct\":\"coa\"}".toByteArray()),
-        )
-        return PayloadFormatV2.encode(sections)
-    }
-
-    private fun ecKeyPair(): KeyPair =
-        KeyPairGenerator.getInstance("EC").apply { initialize(ECGenParameterSpec("secp256r1")) }.generateKeyPair()
-
-    /** An ABE1 envelope carrying [policy] cleartext (mirrors the server encoder; ct/policyData are demo bytes). */
-    private fun abeEnvelope(policy: String): ByteArray {
-        val p = policy.toByteArray(StandardCharsets.UTF_8)
-        val ct = byteArrayOf(1, 2, 3, 4)
-        val pd = byteArrayOf(5, 6)
-        return ByteBuffer.allocate(14 + p.size + ct.size + pd.size).apply {
-            put('A'.code.toByte()); put('B'.code.toByte()); put('E'.code.toByte()); put('1'.code.toByte())
-            put(0x01); put(0x01); putShort(p.size.toShort()); putInt(ct.size); putShort(pd.size.toShort())
-            put(p); put(ct); put(pd)
-        }.array()
-    }
-
     private fun logJson(report: VerifyLatencyReport) {
         for (row in report.rows) {
             Log.i(TAG, "BENCHMARK_JSON ${rowJson(row)}")
@@ -201,6 +163,45 @@ class VerifyLatencyBenchmark : BenchmarkSuite() {
         /** Access policy sealed into the canonical COA; [VERIFIER_ATTRS] satisfies it so ABE lands PASS (granted). */
         private const val ABE_POLICY = "role:inspector AND region:EU"
         private val VERIFIER_ATTRS = setOf("role:inspector", "region:EU")
+
+        /** A real v2 COA: SD-JWT VC (signed with [issuerKeys]), the issuer public key as a bare-SPKI TRUST_CHAIN,
+         *  and an ABE_SEALED policy [VERIFIER_ATTRS] satisfies. Pure JDK — the bare SPKI is the legacy TRUST_CHAIN
+         *  the verifier resolves the issuer key from (no BouncyCastle certificate needed on the app classpath).
+         *  Shared with [CarrierComparisonBenchmark], which renders the same blob under both carrier arms. */
+        internal fun canonicalV2Coa(issuerKeys: KeyPair): ByteArray {
+            val service = SdJwtVcService()
+            val credential = SdJwtVcRequest.builder()
+                .issuer("https://issuer.jabauth.example")
+                .subject("coa-benchmark")
+                .vct("coa")
+                .expiration(Duration.ofHours(1))
+                .algorithm("ES256")
+                .alwaysVisible(mapOf("origin" to "ai-generated"))
+                .selectivelyDisclosable(mapOf("licenseTerms" to "CC-BY-4.0"))
+                .build()
+            val sections = listOf(
+                Section.of(SectionType.SDJWT_VC, service.issue(credential, issuerKeys.private).toByteArray()),
+                Section.of(SectionType.TRUST_CHAIN, issuerKeys.public.encoded),
+                Section.of(SectionType.ABE_SEALED, abeEnvelope(ABE_POLICY)),
+                Section.of(SectionType.META, "{\"vct\":\"coa\"}".toByteArray()),
+            )
+            return PayloadFormatV2.encode(sections)
+        }
+
+        internal fun ecKeyPair(): KeyPair =
+            KeyPairGenerator.getInstance("EC").apply { initialize(ECGenParameterSpec("secp256r1")) }.generateKeyPair()
+
+        /** An ABE1 envelope carrying [policy] cleartext (mirrors the server encoder; ct/policyData are demo bytes). */
+        internal fun abeEnvelope(policy: String): ByteArray {
+            val p = policy.toByteArray(StandardCharsets.UTF_8)
+            val ct = byteArrayOf(1, 2, 3, 4)
+            val pd = byteArrayOf(5, 6)
+            return ByteBuffer.allocate(14 + p.size + ct.size + pd.size).apply {
+                put('A'.code.toByte()); put('B'.code.toByte()); put('E'.code.toByte()); put('1'.code.toByte())
+                put(0x01); put(0x01); putShort(p.size.toShort()); putInt(ct.size); putShort(pd.size.toShort())
+                put(p); put(ct); put(pd)
+            }.array()
+        }
 
         /**
          * The colour-mode "Nc" index (0..7) for a [ColorMode], i.e. `log2(value) - 1`:

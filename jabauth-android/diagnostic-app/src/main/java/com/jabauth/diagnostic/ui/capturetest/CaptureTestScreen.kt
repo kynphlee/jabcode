@@ -22,6 +22,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jabauth.diagnostic.benchmark.BenchmarkResult
+import com.jabauth.diagnostic.benchmark.CarrierComparisonBenchmark
+import com.jabauth.diagnostic.benchmark.CarrierComparisonReport
+import com.jabauth.diagnostic.benchmark.CarrierComparisonRow
 import com.jabauth.diagnostic.benchmark.VerifyLatencyReport
 import com.jabauth.diagnostic.benchmark.VerifyLatencyRow
 import com.jabauth.ui.components.Badge
@@ -62,6 +65,7 @@ fun CaptureTestScreen(
     val captureStats by viewModel.captureStats.collectAsState()
     val benchmarkState by viewModel.benchmarkState.collectAsState()
     val verifyLatencyState by viewModel.verifyLatencyState.collectAsState()
+    val carrierState by viewModel.carrierState.collectAsState()
     val context = LocalContext.current
 
     Scaffold(
@@ -173,6 +177,43 @@ fun CaptureTestScreen(
 
                     when (val state = verifyLatencyState) {
                         is VerifyLatencyState.Done -> VerifyLatencyCard(report = state.report)
+                        else -> { /* Idle / Running: button state conveys progress. */ }
+                    }
+                }
+            }
+
+            // Carrier A/B — the string(base64url text) vs binary(raw v2 blob) comparison:
+            // one canonical COA, both wrappings, all four profiles, in-memory encode→decode.
+            // The mobile half of E2eCarrierBenchmark (server JMH).
+            StaggeredReveal(index = revealIndex++) {
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    SectionHeader("CARRIER A/B · STRING VS BINARY")
+
+                    val carrierRunning = carrierState is CarrierComparisonState.Running
+                    Button(
+                        onClick = { viewModel.runCarrierComparisonBenchmark() },
+                        enabled = !carrierRunning,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = JABAuthPrimary,
+                            contentColor = JABAuthOnPrimary
+                        )
+                    ) {
+                        if (carrierRunning) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                                color = JABAuthOnPrimary
+                            )
+                            Spacer(modifier = Modifier.width(Spacing.xs))
+                            Text("Comparing…")
+                        } else {
+                            Text("Run carrier A/B benchmark")
+                        }
+                    }
+
+                    when (val state = carrierState) {
+                        is CarrierComparisonState.Done -> CarrierComparisonCard(report = state.report)
                         else -> { /* Idle / Running: button state conveys progress. */ }
                     }
                 }
@@ -464,6 +505,67 @@ private fun RowScope.VerifyLatencyValueCell(ms: Double?) {
 /** Latency cells render as whole ms (the pipeline budget is discussed in whole-ms terms); "—" when absent. */
 private fun formatLatencyCell(ms: Double?): String =
     if (ms == null) "—" else "%.0f".format(ms)
+
+/**
+ * The "CARRIER A/B · STRING VS BINARY" table: one row per (profile, arm) with the carrier
+ * payload size, the rendered symbol dimensions, and the encode/decode medians. Failed cells
+ * (e.g. capacity exceeded at 4-colour) render "—" — never a fabricated number.
+ */
+@Composable
+private fun CarrierComparisonCard(
+    report: CarrierComparisonReport,
+    modifier: Modifier = Modifier
+) {
+    JABAuthCard(modifier = modifier.fillMaxWidth()) {
+        Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            Row(modifier = Modifier.fillMaxWidth()) {
+                VerifyHeaderCell("profile", weight = 2.0f, alignEnd = false)
+                VerifyHeaderCell("arm", weight = 1.2f, alignEnd = false)
+                VerifyHeaderCell("bytes")
+                VerifyHeaderCell("px")
+                VerifyHeaderCell("enc")
+                VerifyHeaderCell("dec")
+            }
+            for (row in report.rows) {
+                CarrierComparisonDataRow(row)
+            }
+            Text(
+                text = "One v2 blob (${report.blobBytes} B); string = base64url of the same blob. " +
+                    "Same JNI decode path — only the wrapping (and thus symbol density) differs.",
+                style = MaterialTheme.typography.bodySmall,
+                color = JABAuthTextDim
+            )
+        }
+    }
+}
+
+@Composable
+private fun CarrierComparisonDataRow(
+    row: CarrierComparisonRow,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = row.profile.name,
+            modifier = Modifier.weight(2.0f),
+            style = MaterialTheme.typography.bodyMedium,
+            color = JABAuthTextSecondary
+        )
+        Text(
+            text = if (row.arm == CarrierComparisonBenchmark.CarrierArm.BINARY) "bin" else "str",
+            modifier = Modifier.weight(1.2f),
+            style = MaterialTheme.typography.bodyMedium,
+            color = JABAuthTextSecondary
+        )
+        VerifyLatencyValueCell(row.payloadBytes.toDouble())
+        VerifyLatencyValueCell(row.bitmapWidth?.toDouble())
+        VerifyLatencyValueCell(row.encodeMedianMs)
+        VerifyLatencyValueCell(row.decodeMedianMs)
+    }
+}
 
 @Composable
 private fun StreamStatusCard(
