@@ -838,6 +838,11 @@ jab_data* encodeData(jab_data* data, jab_int32 encoded_length,jab_int32* encode_
                         position+=13;
                     }
                     byte_offset=byte_counter;
+                    // A new byte run starts here: reset the continuation multiplier.
+                    // factor is cumulative across the whole message otherwise, so a
+                    // SECOND >8207-byte run would compare against factor*8207 bytes
+                    // it never reaches and stream past the 8207 cap headerless.
+                    factor=1;
                 }
 				if(byte_offset-byte_counter==factor*8207) //byte mode exceeds 2^13 + 15
 				{
@@ -848,8 +853,13 @@ jab_data* encodeData(jab_data* data, jab_int32 encoded_length,jab_int32* encode_
 					}
 					if(encode_seq[counter-(byte_offset-byte_counter)]==2 || encode_seq[counter-(byte_offset-byte_counter)]==9)
 					{
-						convert_dec_to_bin(60,encoded_data->data,position,5);// shift from numeric to byte
-						position+=5;
+						// Shift from numeric to byte: numeric escape "1111" (4 bits)
+						// + "00" (2 bits) = 6-bit token 111100 = 60. This was
+						// written with width 5, dropping one bit and shearing the
+						// entire remaining stream out of alignment — the length
+						// estimator (modeswitch=10 = 6+4) always had it right.
+						convert_dec_to_bin(60,encoded_data->data,position,6);// shift from numeric to byte
+						position+=6;
 					}
 					if(encode_seq[counter-(byte_offset-byte_counter)]==5 || encode_seq[counter-(byte_offset-byte_counter)]==12)
 					{
