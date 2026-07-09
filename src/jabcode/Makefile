@@ -32,8 +32,13 @@ $(STATIC_LIB): $(CORE_DIR) $(OBJECTS)
 	$(AR) cru $@ $(OBJECTS)
 	$(RANLIB) $@
 
+# -soname is load-bearing for self-loading consumers (qrforge NativeJabLib):
+# they System.load() the bundled .so from a temp path, then the jextract
+# bindings dlopen("libjabcode.so") by NAME — glibc only matches the already-
+# loaded library if its DT_SONAME says so. Without it, hosts need
+# LD_LIBRARY_PATH/java.library.path (as the panama-wrapper tests set).
 $(SHARED_LIB): $(CORE_DIR) $(OBJECTS)
-	$(CC) -shared -o $@ $(OBJECTS) -lpng16 -lz
+	$(CC) -shared -Wl,-soname,libjabcode.so -o $@ $(OBJECTS) -lpng16 -lz
 
 %.o: %.c
 	$(CC) -c -I. -I./include $(CFLAGS) $< -o $@
