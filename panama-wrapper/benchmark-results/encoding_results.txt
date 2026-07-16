@@ -1,0 +1,3997 @@
+Compiling benchmark classes...
+Running benchmark: EncodingBenchmark
+Library path: ../lib:
+# JMH version: 1.37
+# VM version: JDK 23.0.1, OpenJDK 64-Bit Server VM, 23.0.1+11-39
+# VM invoker: /home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 5 iterations, 2 s each
+# Measurement: 10 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: com.jabcode.panama.benchmarks.CascadedEncodingBenchmark.encodeCascaded
+# Parameters: (colorMode = 32, symbolCount = 1)
+
+# Run progress: 0.00% complete, ETA 00:54:00
+# Fork: 1 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 32 colors, 1 symbols
+117.764 ms/op
+# Warmup Iteration   2: [BENCH] Mode 32 colors, 1 symbols
+113.065 ms/op
+# Warmup Iteration   3: [BENCH] Mode 32 colors, 1 symbols
+113.972 ms/op
+# Warmup Iteration   4: [BENCH] Mode 32 colors, 1 symbols
+112.574 ms/op
+# Warmup Iteration   5: [BENCH] Mode 32 colors, 1 symbols
+111.303 ms/op
+Iteration   1: [BENCH] Mode 32 colors, 1 symbols
+111.408 ms/op
+Iteration   2: [BENCH] Mode 32 colors, 1 symbols
+115.452 ms/op
+Iteration   3: [BENCH] Mode 32 colors, 1 symbols
+111.447 ms/op
+Iteration   4: [BENCH] Mode 32 colors, 1 symbols
+115.079 ms/op
+Iteration   5: [BENCH] Mode 32 colors, 1 symbols
+112.837 ms/op
+Iteration   6: [BENCH] Mode 32 colors, 1 symbols
+114.184 ms/op
+Iteration   7: [BENCH] Mode 32 colors, 1 symbols
+117.903 ms/op
+Iteration   8: [BENCH] Mode 32 colors, 1 symbols
+111.580 ms/op
+Iteration   9: [BENCH] Mode 32 colors, 1 symbols
+125.649 ms/op
+Iteration  10: [BENCH] Mode 32 colors, 1 symbols
+[BENCHMARK] Cleaned up encoder
+112.441 ms/op
+
+# Run progress: 0.93% complete, ETA 00:54:41
+# Fork: 2 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 32 colors, 1 symbols
+120.241 ms/op
+# Warmup Iteration   2: [BENCH] Mode 32 colors, 1 symbols
+113.981 ms/op
+# Warmup Iteration   3: [BENCH] Mode 32 colors, 1 symbols
+112.626 ms/op
+# Warmup Iteration   4: [BENCH] Mode 32 colors, 1 symbols
+110.685 ms/op
+# Warmup Iteration   5: [BENCH] Mode 32 colors, 1 symbols
+112.125 ms/op
+Iteration   1: [BENCH] Mode 32 colors, 1 symbols
+113.722 ms/op
+Iteration   2: [BENCH] Mode 32 colors, 1 symbols
+112.473 ms/op
+Iteration   3: [BENCH] Mode 32 colors, 1 symbols
+112.071 ms/op
+Iteration   4: [BENCH] Mode 32 colors, 1 symbols
+111.521 ms/op
+Iteration   5: [BENCH] Mode 32 colors, 1 symbols
+111.710 ms/op
+Iteration   6: [BENCH] Mode 32 colors, 1 symbols
+112.768 ms/op
+Iteration   7: [BENCH] Mode 32 colors, 1 symbols
+111.147 ms/op
+Iteration   8: [BENCH] Mode 32 colors, 1 symbols
+111.551 ms/op
+Iteration   9: [BENCH] Mode 32 colors, 1 symbols
+111.823 ms/op
+Iteration  10: [BENCH] Mode 32 colors, 1 symbols
+[BENCHMARK] Cleaned up encoder
+112.778 ms/op
+
+# Run progress: 1.85% complete, ETA 00:54:14
+# Fork: 3 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 32 colors, 1 symbols
+115.309 ms/op
+# Warmup Iteration   2: [BENCH] Mode 32 colors, 1 symbols
+111.524 ms/op
+# Warmup Iteration   3: [BENCH] Mode 32 colors, 1 symbols
+112.002 ms/op
+# Warmup Iteration   4: [BENCH] Mode 32 colors, 1 symbols
+110.737 ms/op
+# Warmup Iteration   5: [BENCH] Mode 32 colors, 1 symbols
+111.538 ms/op
+Iteration   1: [BENCH] Mode 32 colors, 1 symbols
+110.987 ms/op
+Iteration   2: [BENCH] Mode 32 colors, 1 symbols
+110.627 ms/op
+Iteration   3: [BENCH] Mode 32 colors, 1 symbols
+110.753 ms/op
+Iteration   4: [BENCH] Mode 32 colors, 1 symbols
+110.865 ms/op
+Iteration   5: [BENCH] Mode 32 colors, 1 symbols
+112.439 ms/op
+Iteration   6: [BENCH] Mode 32 colors, 1 symbols
+110.618 ms/op
+Iteration   7: [BENCH] Mode 32 colors, 1 symbols
+110.579 ms/op
+Iteration   8: [BENCH] Mode 32 colors, 1 symbols
+110.216 ms/op
+Iteration   9: [BENCH] Mode 32 colors, 1 symbols
+119.901 ms/op
+Iteration  10: [BENCH] Mode 32 colors, 1 symbols
+[BENCHMARK] Cleaned up encoder
+123.458 ms/op
+
+
+Result "com.jabcode.panama.benchmarks.CascadedEncodingBenchmark.encodeCascaded":
+  113.333 ±(99.9%) 2.507 ms/op [Average]
+  (min, avg, max) = (110.216, 113.333, 125.649), stdev = 3.752
+  CI (99.9%): [110.827, 115.840] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 23.0.1, OpenJDK 64-Bit Server VM, 23.0.1+11-39
+# VM invoker: /home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 5 iterations, 2 s each
+# Measurement: 10 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: com.jabcode.panama.benchmarks.CascadedEncodingBenchmark.encodeCascaded
+# Parameters: (colorMode = 32, symbolCount = 2)
+
+# Run progress: 2.78% complete, ETA 00:54:04
+# Fork: 1 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 32 colors, 2 symbols
+<failure>
+
+java.lang.RuntimeException: Cascaded encoding failed for mode 32, symbols 2
+	at com.jabcode.panama.benchmarks.CascadedEncodingBenchmark.encodeCascaded(CascadedEncodingBenchmark.java:98)
+	at com.jabcode.panama.benchmarks.jmh_generated.CascadedEncodingBenchmark_encodeCascaded_jmhTest.encodeCascaded_avgt_jmhStub(CascadedEncodingBenchmark_encodeCascaded_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.CascadedEncodingBenchmark_encodeCascaded_jmhTest.encodeCascaded_AverageTime(CascadedEncodingBenchmark_encodeCascaded_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into the specified code. Use higher symbol version.
+
+# Run progress: 3.70% complete, ETA 00:40:16
+# Fork: 2 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 32 colors, 2 symbols
+<failure>
+
+java.lang.RuntimeException: Cascaded encoding failed for mode 32, symbols 2
+	at com.jabcode.panama.benchmarks.CascadedEncodingBenchmark.encodeCascaded(CascadedEncodingBenchmark.java:98)
+	at com.jabcode.panama.benchmarks.jmh_generated.CascadedEncodingBenchmark_encodeCascaded_jmhTest.encodeCascaded_avgt_jmhStub(CascadedEncodingBenchmark_encodeCascaded_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.CascadedEncodingBenchmark_encodeCascaded_jmhTest.encodeCascaded_AverageTime(CascadedEncodingBenchmark_encodeCascaded_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into the specified code. Use higher symbol version.
+
+# Run progress: 4.63% complete, ETA 00:31:59
+# Fork: 3 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 32 colors, 2 symbols
+<failure>
+
+java.lang.RuntimeException: Cascaded encoding failed for mode 32, symbols 2
+	at com.jabcode.panama.benchmarks.CascadedEncodingBenchmark.encodeCascaded(CascadedEncodingBenchmark.java:98)
+	at com.jabcode.panama.benchmarks.jmh_generated.CascadedEncodingBenchmark_encodeCascaded_jmhTest.encodeCascaded_avgt_jmhStub(CascadedEncodingBenchmark_encodeCascaded_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.CascadedEncodingBenchmark_encodeCascaded_jmhTest.encodeCascaded_AverageTime(CascadedEncodingBenchmark_encodeCascaded_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into the specified code. Use higher symbol version.
+
+
+# JMH version: 1.37
+# VM version: JDK 23.0.1, OpenJDK 64-Bit Server VM, 23.0.1+11-39
+# VM invoker: /home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 5 iterations, 2 s each
+# Measurement: 10 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: com.jabcode.panama.benchmarks.CascadedEncodingBenchmark.encodeCascaded
+# Parameters: (colorMode = 32, symbolCount = 3)
+
+# Run progress: 5.56% complete, ETA 00:26:29
+# Fork: 1 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 32 colors, 3 symbols
+179.032 ms/op
+# Warmup Iteration   2: [BENCH] Mode 32 colors, 3 symbols
+191.800 ms/op
+# Warmup Iteration   3: [BENCH] Mode 32 colors, 3 symbols
+173.218 ms/op
+# Warmup Iteration   4: [BENCH] Mode 32 colors, 3 symbols
+173.890 ms/op
+# Warmup Iteration   5: [BENCH] Mode 32 colors, 3 symbols
+182.326 ms/op
+Iteration   1: [BENCH] Mode 32 colors, 3 symbols
+175.904 ms/op
+Iteration   2: [BENCH] Mode 32 colors, 3 symbols
+174.857 ms/op
+Iteration   3: [BENCH] Mode 32 colors, 3 symbols
+175.372 ms/op
+Iteration   4: [BENCH] Mode 32 colors, 3 symbols
+172.141 ms/op
+Iteration   5: [BENCH] Mode 32 colors, 3 symbols
+171.710 ms/op
+Iteration   6: [BENCH] Mode 32 colors, 3 symbols
+177.113 ms/op
+Iteration   7: [BENCH] Mode 32 colors, 3 symbols
+173.136 ms/op
+Iteration   8: [BENCH] Mode 32 colors, 3 symbols
+178.509 ms/op
+Iteration   9: [BENCH] Mode 32 colors, 3 symbols
+173.195 ms/op
+Iteration  10: [BENCH] Mode 32 colors, 3 symbols
+[BENCHMARK] Cleaned up encoder
+180.678 ms/op
+
+# Run progress: 6.48% complete, ETA 00:30:06
+# Fork: 2 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 32 colors, 3 symbols
+185.535 ms/op
+# Warmup Iteration   2: [BENCH] Mode 32 colors, 3 symbols
+185.454 ms/op
+# Warmup Iteration   3: [BENCH] Mode 32 colors, 3 symbols
+173.504 ms/op
+# Warmup Iteration   4: [BENCH] Mode 32 colors, 3 symbols
+172.233 ms/op
+# Warmup Iteration   5: [BENCH] Mode 32 colors, 3 symbols
+174.740 ms/op
+Iteration   1: [BENCH] Mode 32 colors, 3 symbols
+172.001 ms/op
+Iteration   2: [BENCH] Mode 32 colors, 3 symbols
+172.459 ms/op
+Iteration   3: [BENCH] Mode 32 colors, 3 symbols
+171.784 ms/op
+Iteration   4: [BENCH] Mode 32 colors, 3 symbols
+172.118 ms/op
+Iteration   5: [BENCH] Mode 32 colors, 3 symbols
+173.053 ms/op
+Iteration   6: [BENCH] Mode 32 colors, 3 symbols
+172.023 ms/op
+Iteration   7: [BENCH] Mode 32 colors, 3 symbols
+177.874 ms/op
+Iteration   8: [BENCH] Mode 32 colors, 3 symbols
+171.541 ms/op
+Iteration   9: [BENCH] Mode 32 colors, 3 symbols
+171.518 ms/op
+Iteration  10: [BENCH] Mode 32 colors, 3 symbols
+[BENCHMARK] Cleaned up encoder
+175.139 ms/op
+
+# Run progress: 7.41% complete, ETA 00:32:36
+# Fork: 3 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 32 colors, 3 symbols
+189.036 ms/op
+# Warmup Iteration   2: [BENCH] Mode 32 colors, 3 symbols
+175.890 ms/op
+# Warmup Iteration   3: [BENCH] Mode 32 colors, 3 symbols
+173.674 ms/op
+# Warmup Iteration   4: [BENCH] Mode 32 colors, 3 symbols
+172.006 ms/op
+# Warmup Iteration   5: [BENCH] Mode 32 colors, 3 symbols
+180.381 ms/op
+Iteration   1: [BENCH] Mode 32 colors, 3 symbols
+171.614 ms/op
+Iteration   2: [BENCH] Mode 32 colors, 3 symbols
+171.908 ms/op
+Iteration   3: [BENCH] Mode 32 colors, 3 symbols
+173.457 ms/op
+Iteration   4: [BENCH] Mode 32 colors, 3 symbols
+189.159 ms/op
+Iteration   5: [BENCH] Mode 32 colors, 3 symbols
+171.539 ms/op
+Iteration   6: [BENCH] Mode 32 colors, 3 symbols
+173.063 ms/op
+Iteration   7: [BENCH] Mode 32 colors, 3 symbols
+173.252 ms/op
+Iteration   8: [BENCH] Mode 32 colors, 3 symbols
+173.560 ms/op
+Iteration   9: [BENCH] Mode 32 colors, 3 symbols
+175.891 ms/op
+Iteration  10: [BENCH] Mode 32 colors, 3 symbols
+[BENCHMARK] Cleaned up encoder
+183.130 ms/op
+
+
+Result "com.jabcode.panama.benchmarks.CascadedEncodingBenchmark.encodeCascaded":
+  174.623 ±(99.9%) 2.667 ms/op [Average]
+  (min, avg, max) = (171.518, 174.623, 189.159), stdev = 3.992
+  CI (99.9%): [171.956, 177.291] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 23.0.1, OpenJDK 64-Bit Server VM, 23.0.1+11-39
+# VM invoker: /home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 5 iterations, 2 s each
+# Measurement: 10 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: com.jabcode.panama.benchmarks.CascadedEncodingBenchmark.encodeCascaded
+# Parameters: (colorMode = 32, symbolCount = 5)
+
+# Run progress: 8.33% complete, ETA 00:34:29
+# Fork: 1 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 32 colors, 5 symbols
+448.408 ms/op
+# Warmup Iteration   2: [BENCH] Mode 32 colors, 5 symbols
+433.116 ms/op
+# Warmup Iteration   3: [BENCH] Mode 32 colors, 5 symbols
+439.310 ms/op
+# Warmup Iteration   4: [BENCH] Mode 32 colors, 5 symbols
+433.377 ms/op
+# Warmup Iteration   5: [BENCH] Mode 32 colors, 5 symbols
+437.167 ms/op
+Iteration   1: [BENCH] Mode 32 colors, 5 symbols
+434.840 ms/op
+Iteration   2: [BENCH] Mode 32 colors, 5 symbols
+438.281 ms/op
+Iteration   3: [BENCH] Mode 32 colors, 5 symbols
+434.916 ms/op
+Iteration   4: [BENCH] Mode 32 colors, 5 symbols
+452.300 ms/op
+Iteration   5: [BENCH] Mode 32 colors, 5 symbols
+439.408 ms/op
+Iteration   6: [BENCH] Mode 32 colors, 5 symbols
+476.801 ms/op
+Iteration   7: [BENCH] Mode 32 colors, 5 symbols
+477.434 ms/op
+Iteration   8: [BENCH] Mode 32 colors, 5 symbols
+451.779 ms/op
+Iteration   9: [BENCH] Mode 32 colors, 5 symbols
+439.305 ms/op
+Iteration  10: [BENCH] Mode 32 colors, 5 symbols
+[BENCHMARK] Cleaned up encoder
+438.083 ms/op
+
+# Run progress: 9.26% complete, ETA 00:36:13
+# Fork: 2 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 32 colors, 5 symbols
+459.367 ms/op
+# Warmup Iteration   2: [BENCH] Mode 32 colors, 5 symbols
+438.871 ms/op
+# Warmup Iteration   3: [BENCH] Mode 32 colors, 5 symbols
+435.069 ms/op
+# Warmup Iteration   4: [BENCH] Mode 32 colors, 5 symbols
+436.157 ms/op
+# Warmup Iteration   5: [BENCH] Mode 32 colors, 5 symbols
+436.702 ms/op
+Iteration   1: [BENCH] Mode 32 colors, 5 symbols
+431.882 ms/op
+Iteration   2: [BENCH] Mode 32 colors, 5 symbols
+441.609 ms/op
+Iteration   3: [BENCH] Mode 32 colors, 5 symbols
+438.524 ms/op
+Iteration   4: [BENCH] Mode 32 colors, 5 symbols
+435.009 ms/op
+Iteration   5: [BENCH] Mode 32 colors, 5 symbols
+434.425 ms/op
+Iteration   6: [BENCH] Mode 32 colors, 5 symbols
+434.511 ms/op
+Iteration   7: [BENCH] Mode 32 colors, 5 symbols
+442.134 ms/op
+Iteration   8: [BENCH] Mode 32 colors, 5 symbols
+435.849 ms/op
+Iteration   9: [BENCH] Mode 32 colors, 5 symbols
+437.744 ms/op
+Iteration  10: [BENCH] Mode 32 colors, 5 symbols
+[BENCHMARK] Cleaned up encoder
+452.047 ms/op
+
+# Run progress: 10.19% complete, ETA 00:37:29
+# Fork: 3 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 32 colors, 5 symbols
+456.549 ms/op
+# Warmup Iteration   2: [BENCH] Mode 32 colors, 5 symbols
+447.929 ms/op
+# Warmup Iteration   3: [BENCH] Mode 32 colors, 5 symbols
+433.187 ms/op
+# Warmup Iteration   4: [BENCH] Mode 32 colors, 5 symbols
+439.615 ms/op
+# Warmup Iteration   5: [BENCH] Mode 32 colors, 5 symbols
+449.619 ms/op
+Iteration   1: [BENCH] Mode 32 colors, 5 symbols
+433.150 ms/op
+Iteration   2: [BENCH] Mode 32 colors, 5 symbols
+433.168 ms/op
+Iteration   3: [BENCH] Mode 32 colors, 5 symbols
+432.666 ms/op
+Iteration   4: [BENCH] Mode 32 colors, 5 symbols
+436.394 ms/op
+Iteration   5: [BENCH] Mode 32 colors, 5 symbols
+447.344 ms/op
+Iteration   6: [BENCH] Mode 32 colors, 5 symbols
+443.725 ms/op
+Iteration   7: [BENCH] Mode 32 colors, 5 symbols
+449.838 ms/op
+Iteration   8: [BENCH] Mode 32 colors, 5 symbols
+433.194 ms/op
+Iteration   9: [BENCH] Mode 32 colors, 5 symbols
+432.983 ms/op
+Iteration  10: [BENCH] Mode 32 colors, 5 symbols
+[BENCHMARK] Cleaned up encoder
+439.078 ms/op
+
+
+Result "com.jabcode.panama.benchmarks.CascadedEncodingBenchmark.encodeCascaded":
+  441.614 ±(99.9%) 7.625 ms/op [Average]
+  (min, avg, max) = (431.882, 441.614, 477.434), stdev = 11.413
+  CI (99.9%): [433.989, 449.239] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 23.0.1, OpenJDK 64-Bit Server VM, 23.0.1+11-39
+# VM invoker: /home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 5 iterations, 2 s each
+# Measurement: 10 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: com.jabcode.panama.benchmarks.CascadedEncodingBenchmark.encodeCascaded
+# Parameters: (colorMode = 64, symbolCount = 1)
+
+# Run progress: 11.11% complete, ETA 00:38:26
+# Fork: 1 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 64 colors, 1 symbols
+110.711 ms/op
+# Warmup Iteration   2: [BENCH] Mode 64 colors, 1 symbols
+106.552 ms/op
+# Warmup Iteration   3: [BENCH] Mode 64 colors, 1 symbols
+106.656 ms/op
+# Warmup Iteration   4: [BENCH] Mode 64 colors, 1 symbols
+106.285 ms/op
+# Warmup Iteration   5: [BENCH] Mode 64 colors, 1 symbols
+106.514 ms/op
+Iteration   1: [BENCH] Mode 64 colors, 1 symbols
+105.868 ms/op
+Iteration   2: [BENCH] Mode 64 colors, 1 symbols
+107.605 ms/op
+Iteration   3: [BENCH] Mode 64 colors, 1 symbols
+105.935 ms/op
+Iteration   4: [BENCH] Mode 64 colors, 1 symbols
+107.410 ms/op
+Iteration   5: [BENCH] Mode 64 colors, 1 symbols
+107.081 ms/op
+Iteration   6: [BENCH] Mode 64 colors, 1 symbols
+106.266 ms/op
+Iteration   7: [BENCH] Mode 64 colors, 1 symbols
+106.427 ms/op
+Iteration   8: [BENCH] Mode 64 colors, 1 symbols
+111.775 ms/op
+Iteration   9: [BENCH] Mode 64 colors, 1 symbols
+106.613 ms/op
+Iteration  10: [BENCH] Mode 64 colors, 1 symbols
+[BENCHMARK] Cleaned up encoder
+107.347 ms/op
+
+# Run progress: 12.04% complete, ETA 00:38:51
+# Fork: 2 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 64 colors, 1 symbols
+112.582 ms/op
+# Warmup Iteration   2: [BENCH] Mode 64 colors, 1 symbols
+107.057 ms/op
+# Warmup Iteration   3: [BENCH] Mode 64 colors, 1 symbols
+106.239 ms/op
+# Warmup Iteration   4: [BENCH] Mode 64 colors, 1 symbols
+106.624 ms/op
+# Warmup Iteration   5: [BENCH] Mode 64 colors, 1 symbols
+105.930 ms/op
+Iteration   1: [BENCH] Mode 64 colors, 1 symbols
+106.014 ms/op
+Iteration   2: [BENCH] Mode 64 colors, 1 symbols
+105.931 ms/op
+Iteration   3: [BENCH] Mode 64 colors, 1 symbols
+105.841 ms/op
+Iteration   4: [BENCH] Mode 64 colors, 1 symbols
+106.147 ms/op
+Iteration   5: [BENCH] Mode 64 colors, 1 symbols
+105.927 ms/op
+Iteration   6: [BENCH] Mode 64 colors, 1 symbols
+107.091 ms/op
+Iteration   7: [BENCH] Mode 64 colors, 1 symbols
+107.782 ms/op
+Iteration   8: [BENCH] Mode 64 colors, 1 symbols
+108.394 ms/op
+Iteration   9: [BENCH] Mode 64 colors, 1 symbols
+106.544 ms/op
+Iteration  10: [BENCH] Mode 64 colors, 1 symbols
+[BENCHMARK] Cleaned up encoder
+106.116 ms/op
+
+# Run progress: 12.96% complete, ETA 00:39:07
+# Fork: 3 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 64 colors, 1 symbols
+113.186 ms/op
+# Warmup Iteration   2: [BENCH] Mode 64 colors, 1 symbols
+111.488 ms/op
+# Warmup Iteration   3: [BENCH] Mode 64 colors, 1 symbols
+106.795 ms/op
+# Warmup Iteration   4: [BENCH] Mode 64 colors, 1 symbols
+118.084 ms/op
+# Warmup Iteration   5: [BENCH] Mode 64 colors, 1 symbols
+107.563 ms/op
+Iteration   1: [BENCH] Mode 64 colors, 1 symbols
+106.016 ms/op
+Iteration   2: [BENCH] Mode 64 colors, 1 symbols
+106.306 ms/op
+Iteration   3: [BENCH] Mode 64 colors, 1 symbols
+108.773 ms/op
+Iteration   4: [BENCH] Mode 64 colors, 1 symbols
+106.865 ms/op
+Iteration   5: [BENCH] Mode 64 colors, 1 symbols
+106.243 ms/op
+Iteration   6: [BENCH] Mode 64 colors, 1 symbols
+116.110 ms/op
+Iteration   7: [BENCH] Mode 64 colors, 1 symbols
+109.687 ms/op
+Iteration   8: [BENCH] Mode 64 colors, 1 symbols
+106.195 ms/op
+Iteration   9: [BENCH] Mode 64 colors, 1 symbols
+106.474 ms/op
+Iteration  10: [BENCH] Mode 64 colors, 1 symbols
+[BENCHMARK] Cleaned up encoder
+105.752 ms/op
+
+
+Result "com.jabcode.panama.benchmarks.CascadedEncodingBenchmark.encodeCascaded":
+  107.218 ±(99.9%) 1.427 ms/op [Average]
+  (min, avg, max) = (105.752, 107.218, 116.110), stdev = 2.135
+  CI (99.9%): [105.791, 108.645] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 23.0.1, OpenJDK 64-Bit Server VM, 23.0.1+11-39
+# VM invoker: /home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 5 iterations, 2 s each
+# Measurement: 10 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: com.jabcode.panama.benchmarks.CascadedEncodingBenchmark.encodeCascaded
+# Parameters: (colorMode = 64, symbolCount = 2)
+
+# Run progress: 13.89% complete, ETA 00:39:18
+# Fork: 1 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 64 colors, 2 symbols
+<failure>
+
+java.lang.RuntimeException: Cascaded encoding failed for mode 64, symbols 2
+	at com.jabcode.panama.benchmarks.CascadedEncodingBenchmark.encodeCascaded(CascadedEncodingBenchmark.java:98)
+	at com.jabcode.panama.benchmarks.jmh_generated.CascadedEncodingBenchmark_encodeCascaded_jmhTest.encodeCascaded_avgt_jmhStub(CascadedEncodingBenchmark_encodeCascaded_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.CascadedEncodingBenchmark_encodeCascaded_jmhTest.encodeCascaded_AverageTime(CascadedEncodingBenchmark_encodeCascaded_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into the specified code. Use higher symbol version.
+
+# Run progress: 14.81% complete, ETA 00:36:29
+# Fork: 2 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 64 colors, 2 symbols
+<failure>
+
+java.lang.RuntimeException: Cascaded encoding failed for mode 64, symbols 2
+	at com.jabcode.panama.benchmarks.CascadedEncodingBenchmark.encodeCascaded(CascadedEncodingBenchmark.java:98)
+	at com.jabcode.panama.benchmarks.jmh_generated.CascadedEncodingBenchmark_encodeCascaded_jmhTest.encodeCascaded_avgt_jmhStub(CascadedEncodingBenchmark_encodeCascaded_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.CascadedEncodingBenchmark_encodeCascaded_jmhTest.encodeCascaded_AverageTime(CascadedEncodingBenchmark_encodeCascaded_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into the specified code. Use higher symbol version.
+
+# Run progress: 15.74% complete, ETA 00:33:59
+# Fork: 3 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 64 colors, 2 symbols
+<failure>
+
+java.lang.RuntimeException: Cascaded encoding failed for mode 64, symbols 2
+	at com.jabcode.panama.benchmarks.CascadedEncodingBenchmark.encodeCascaded(CascadedEncodingBenchmark.java:98)
+	at com.jabcode.panama.benchmarks.jmh_generated.CascadedEncodingBenchmark_encodeCascaded_jmhTest.encodeCascaded_avgt_jmhStub(CascadedEncodingBenchmark_encodeCascaded_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.CascadedEncodingBenchmark_encodeCascaded_jmhTest.encodeCascaded_AverageTime(CascadedEncodingBenchmark_encodeCascaded_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into the specified code. Use higher symbol version.
+
+
+# JMH version: 1.37
+# VM version: JDK 23.0.1, OpenJDK 64-Bit Server VM, 23.0.1+11-39
+# VM invoker: /home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 5 iterations, 2 s each
+# Measurement: 10 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: com.jabcode.panama.benchmarks.CascadedEncodingBenchmark.encodeCascaded
+# Parameters: (colorMode = 64, symbolCount = 3)
+
+# Run progress: 16.67% complete, ETA 00:31:46
+# Fork: 1 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 64 colors, 3 symbols
+216.934 ms/op
+# Warmup Iteration   2: [BENCH] Mode 64 colors, 3 symbols
+208.579 ms/op
+# Warmup Iteration   3: [BENCH] Mode 64 colors, 3 symbols
+216.532 ms/op
+# Warmup Iteration   4: [BENCH] Mode 64 colors, 3 symbols
+197.001 ms/op
+# Warmup Iteration   5: [BENCH] Mode 64 colors, 3 symbols
+196.458 ms/op
+Iteration   1: [BENCH] Mode 64 colors, 3 symbols
+207.117 ms/op
+Iteration   2: [BENCH] Mode 64 colors, 3 symbols
+198.303 ms/op
+Iteration   3: [BENCH] Mode 64 colors, 3 symbols
+193.875 ms/op
+Iteration   4: [BENCH] Mode 64 colors, 3 symbols
+193.104 ms/op
+Iteration   5: [BENCH] Mode 64 colors, 3 symbols
+194.143 ms/op
+Iteration   6: [BENCH] Mode 64 colors, 3 symbols
+191.840 ms/op
+Iteration   7: [BENCH] Mode 64 colors, 3 symbols
+192.556 ms/op
+Iteration   8: [BENCH] Mode 64 colors, 3 symbols
+196.505 ms/op
+Iteration   9: [BENCH] Mode 64 colors, 3 symbols
+194.555 ms/op
+Iteration  10: [BENCH] Mode 64 colors, 3 symbols
+[BENCHMARK] Cleaned up encoder
+193.170 ms/op
+
+# Run progress: 17.59% complete, ETA 00:32:17
+# Fork: 2 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 64 colors, 3 symbols
+198.815 ms/op
+# Warmup Iteration   2: [BENCH] Mode 64 colors, 3 symbols
+193.025 ms/op
+# Warmup Iteration   3: [BENCH] Mode 64 colors, 3 symbols
+192.102 ms/op
+# Warmup Iteration   4: [BENCH] Mode 64 colors, 3 symbols
+192.120 ms/op
+# Warmup Iteration   5: [BENCH] Mode 64 colors, 3 symbols
+195.642 ms/op
+Iteration   1: [BENCH] Mode 64 colors, 3 symbols
+193.011 ms/op
+Iteration   2: [BENCH] Mode 64 colors, 3 symbols
+193.254 ms/op
+Iteration   3: [BENCH] Mode 64 colors, 3 symbols
+191.771 ms/op
+Iteration   4: [BENCH] Mode 64 colors, 3 symbols
+192.869 ms/op
+Iteration   5: [BENCH] Mode 64 colors, 3 symbols
+191.902 ms/op
+Iteration   6: [BENCH] Mode 64 colors, 3 symbols
+192.994 ms/op
+Iteration   7: [BENCH] Mode 64 colors, 3 symbols
+197.330 ms/op
+Iteration   8: [BENCH] Mode 64 colors, 3 symbols
+195.657 ms/op
+Iteration   9: [BENCH] Mode 64 colors, 3 symbols
+192.467 ms/op
+Iteration  10: [BENCH] Mode 64 colors, 3 symbols
+[BENCHMARK] Cleaned up encoder
+193.909 ms/op
+
+# Run progress: 18.52% complete, ETA 00:32:41
+# Fork: 3 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 64 colors, 3 symbols
+211.733 ms/op
+# Warmup Iteration   2: [BENCH] Mode 64 colors, 3 symbols
+195.641 ms/op
+# Warmup Iteration   3: [BENCH] Mode 64 colors, 3 symbols
+192.942 ms/op
+# Warmup Iteration   4: [BENCH] Mode 64 colors, 3 symbols
+192.354 ms/op
+# Warmup Iteration   5: [BENCH] Mode 64 colors, 3 symbols
+193.090 ms/op
+Iteration   1: [BENCH] Mode 64 colors, 3 symbols
+197.728 ms/op
+Iteration   2: [BENCH] Mode 64 colors, 3 symbols
+193.322 ms/op
+Iteration   3: [BENCH] Mode 64 colors, 3 symbols
+193.625 ms/op
+Iteration   4: [BENCH] Mode 64 colors, 3 symbols
+192.848 ms/op
+Iteration   5: [BENCH] Mode 64 colors, 3 symbols
+202.136 ms/op
+Iteration   6: [BENCH] Mode 64 colors, 3 symbols
+195.460 ms/op
+Iteration   7: [BENCH] Mode 64 colors, 3 symbols
+198.505 ms/op
+Iteration   8: [BENCH] Mode 64 colors, 3 symbols
+192.616 ms/op
+Iteration   9: [BENCH] Mode 64 colors, 3 symbols
+193.098 ms/op
+Iteration  10: [BENCH] Mode 64 colors, 3 symbols
+[BENCHMARK] Cleaned up encoder
+201.023 ms/op
+
+
+Result "com.jabcode.panama.benchmarks.CascadedEncodingBenchmark.encodeCascaded":
+  195.023 ±(99.9%) 2.354 ms/op [Average]
+  (min, avg, max) = (191.771, 195.023, 207.117), stdev = 3.523
+  CI (99.9%): [192.669, 197.377] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 23.0.1, OpenJDK 64-Bit Server VM, 23.0.1+11-39
+# VM invoker: /home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 5 iterations, 2 s each
+# Measurement: 10 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: com.jabcode.panama.benchmarks.CascadedEncodingBenchmark.encodeCascaded
+# Parameters: (colorMode = 64, symbolCount = 5)
+
+# Run progress: 19.44% complete, ETA 00:33:00
+# Fork: 1 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 64 colors, 5 symbols
+360.862 ms/op
+# Warmup Iteration   2: [BENCH] Mode 64 colors, 5 symbols
+340.855 ms/op
+# Warmup Iteration   3: [BENCH] Mode 64 colors, 5 symbols
+333.747 ms/op
+# Warmup Iteration   4: [BENCH] Mode 64 colors, 5 symbols
+332.290 ms/op
+# Warmup Iteration   5: [BENCH] Mode 64 colors, 5 symbols
+331.981 ms/op
+Iteration   1: [BENCH] Mode 64 colors, 5 symbols
+331.478 ms/op
+Iteration   2: [BENCH] Mode 64 colors, 5 symbols
+331.669 ms/op
+Iteration   3: [BENCH] Mode 64 colors, 5 symbols
+331.835 ms/op
+Iteration   4: [BENCH] Mode 64 colors, 5 symbols
+333.765 ms/op
+Iteration   5: [BENCH] Mode 64 colors, 5 symbols
+335.578 ms/op
+Iteration   6: [BENCH] Mode 64 colors, 5 symbols
+339.562 ms/op
+Iteration   7: [BENCH] Mode 64 colors, 5 symbols
+335.503 ms/op
+Iteration   8: [BENCH] Mode 64 colors, 5 symbols
+340.264 ms/op
+Iteration   9: [BENCH] Mode 64 colors, 5 symbols
+334.069 ms/op
+Iteration  10: [BENCH] Mode 64 colors, 5 symbols
+[BENCHMARK] Cleaned up encoder
+332.079 ms/op
+
+# Run progress: 20.37% complete, ETA 00:33:16
+# Fork: 2 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 64 colors, 5 symbols
+362.567 ms/op
+# Warmup Iteration   2: [BENCH] Mode 64 colors, 5 symbols
+333.414 ms/op
+# Warmup Iteration   3: [BENCH] Mode 64 colors, 5 symbols
+335.042 ms/op
+# Warmup Iteration   4: [BENCH] Mode 64 colors, 5 symbols
+340.605 ms/op
+# Warmup Iteration   5: [BENCH] Mode 64 colors, 5 symbols
+331.464 ms/op
+Iteration   1: [BENCH] Mode 64 colors, 5 symbols
+350.258 ms/op
+Iteration   2: [BENCH] Mode 64 colors, 5 symbols
+342.280 ms/op
+Iteration   3: [BENCH] Mode 64 colors, 5 symbols
+330.946 ms/op
+Iteration   4: [BENCH] Mode 64 colors, 5 symbols
+330.972 ms/op
+Iteration   5: [BENCH] Mode 64 colors, 5 symbols
+339.672 ms/op
+Iteration   6: [BENCH] Mode 64 colors, 5 symbols
+346.173 ms/op
+Iteration   7: [BENCH] Mode 64 colors, 5 symbols
+353.753 ms/op
+Iteration   8: [BENCH] Mode 64 colors, 5 symbols
+368.018 ms/op
+Iteration   9: [BENCH] Mode 64 colors, 5 symbols
+339.867 ms/op
+Iteration  10: [BENCH] Mode 64 colors, 5 symbols
+[BENCHMARK] Cleaned up encoder
+357.671 ms/op
+
+# Run progress: 21.30% complete, ETA 00:33:26
+# Fork: 3 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 64 colors, 5 symbols
+364.497 ms/op
+# Warmup Iteration   2: [BENCH] Mode 64 colors, 5 symbols
+334.421 ms/op
+# Warmup Iteration   3: [BENCH] Mode 64 colors, 5 symbols
+345.995 ms/op
+# Warmup Iteration   4: [BENCH] Mode 64 colors, 5 symbols
+330.067 ms/op
+# Warmup Iteration   5: [BENCH] Mode 64 colors, 5 symbols
+342.826 ms/op
+Iteration   1: [BENCH] Mode 64 colors, 5 symbols
+333.579 ms/op
+Iteration   2: [BENCH] Mode 64 colors, 5 symbols
+331.989 ms/op
+Iteration   3: [BENCH] Mode 64 colors, 5 symbols
+350.517 ms/op
+Iteration   4: [BENCH] Mode 64 colors, 5 symbols
+330.467 ms/op
+Iteration   5: [BENCH] Mode 64 colors, 5 symbols
+331.531 ms/op
+Iteration   6: [BENCH] Mode 64 colors, 5 symbols
+330.007 ms/op
+Iteration   7: [BENCH] Mode 64 colors, 5 symbols
+330.650 ms/op
+Iteration   8: [BENCH] Mode 64 colors, 5 symbols
+329.795 ms/op
+Iteration   9: [BENCH] Mode 64 colors, 5 symbols
+331.788 ms/op
+Iteration  10: [BENCH] Mode 64 colors, 5 symbols
+[BENCHMARK] Cleaned up encoder
+334.475 ms/op
+
+
+Result "com.jabcode.panama.benchmarks.CascadedEncodingBenchmark.encodeCascaded":
+  338.007 ±(99.9%) 6.366 ms/op [Average]
+  (min, avg, max) = (329.795, 338.007, 368.018), stdev = 9.528
+  CI (99.9%): [331.641, 344.373] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 23.0.1, OpenJDK 64-Bit Server VM, 23.0.1+11-39
+# VM invoker: /home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 5 iterations, 2 s each
+# Measurement: 10 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode
+# Parameters: (colorMode = 2, messageSize = 100)
+
+# Run progress: 22.22% complete, ETA 00:33:37
+# Fork: 1 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 2 colors, Size 100 bytes
+9.088 ms/op
+# Warmup Iteration   2: [BENCH] Mode 2 colors, Size 100 bytes
+9.013 ms/op
+# Warmup Iteration   3: [BENCH] Mode 2 colors, Size 100 bytes
+8.480 ms/op
+# Warmup Iteration   4: [BENCH] Mode 2 colors, Size 100 bytes
+8.908 ms/op
+# Warmup Iteration   5: [BENCH] Mode 2 colors, Size 100 bytes
+8.679 ms/op
+Iteration   1: [BENCH] Mode 2 colors, Size 100 bytes
+8.645 ms/op
+Iteration   2: [BENCH] Mode 2 colors, Size 100 bytes
+8.431 ms/op
+Iteration   3: [BENCH] Mode 2 colors, Size 100 bytes
+8.608 ms/op
+Iteration   4: [BENCH] Mode 2 colors, Size 100 bytes
+8.757 ms/op
+Iteration   5: [BENCH] Mode 2 colors, Size 100 bytes
+9.101 ms/op
+Iteration   6: [BENCH] Mode 2 colors, Size 100 bytes
+9.165 ms/op
+Iteration   7: [BENCH] Mode 2 colors, Size 100 bytes
+9.199 ms/op
+Iteration   8: [BENCH] Mode 2 colors, Size 100 bytes
+9.013 ms/op
+Iteration   9: [BENCH] Mode 2 colors, Size 100 bytes
+9.330 ms/op
+Iteration  10: [BENCH] Mode 2 colors, Size 100 bytes
+[BENCHMARK] Cleaned up encoder
+8.886 ms/op
+
+# Run progress: 23.15% complete, ETA 00:33:34
+# Fork: 2 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 2 colors, Size 100 bytes
+9.275 ms/op
+# Warmup Iteration   2: [BENCH] Mode 2 colors, Size 100 bytes
+9.210 ms/op
+# Warmup Iteration   3: [BENCH] Mode 2 colors, Size 100 bytes
+8.955 ms/op
+# Warmup Iteration   4: [BENCH] Mode 2 colors, Size 100 bytes
+9.062 ms/op
+# Warmup Iteration   5: [BENCH] Mode 2 colors, Size 100 bytes
+8.641 ms/op
+Iteration   1: [BENCH] Mode 2 colors, Size 100 bytes
+8.589 ms/op
+Iteration   2: [BENCH] Mode 2 colors, Size 100 bytes
+8.504 ms/op
+Iteration   3: [BENCH] Mode 2 colors, Size 100 bytes
+8.459 ms/op
+Iteration   4: [BENCH] Mode 2 colors, Size 100 bytes
+8.662 ms/op
+Iteration   5: [BENCH] Mode 2 colors, Size 100 bytes
+8.713 ms/op
+Iteration   6: [BENCH] Mode 2 colors, Size 100 bytes
+8.884 ms/op
+Iteration   7: [BENCH] Mode 2 colors, Size 100 bytes
+8.957 ms/op
+Iteration   8: [BENCH] Mode 2 colors, Size 100 bytes
+8.647 ms/op
+Iteration   9: [BENCH] Mode 2 colors, Size 100 bytes
+8.670 ms/op
+Iteration  10: [BENCH] Mode 2 colors, Size 100 bytes
+[BENCHMARK] Cleaned up encoder
+8.629 ms/op
+
+# Run progress: 24.07% complete, ETA 00:33:29
+# Fork: 3 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 2 colors, Size 100 bytes
+9.839 ms/op
+# Warmup Iteration   2: [BENCH] Mode 2 colors, Size 100 bytes
+8.816 ms/op
+# Warmup Iteration   3: [BENCH] Mode 2 colors, Size 100 bytes
+8.602 ms/op
+# Warmup Iteration   4: [BENCH] Mode 2 colors, Size 100 bytes
+8.707 ms/op
+# Warmup Iteration   5: [BENCH] Mode 2 colors, Size 100 bytes
+8.432 ms/op
+Iteration   1: [BENCH] Mode 2 colors, Size 100 bytes
+8.520 ms/op
+Iteration   2: [BENCH] Mode 2 colors, Size 100 bytes
+8.468 ms/op
+Iteration   3: [BENCH] Mode 2 colors, Size 100 bytes
+8.515 ms/op
+Iteration   4: [BENCH] Mode 2 colors, Size 100 bytes
+8.511 ms/op
+Iteration   5: [BENCH] Mode 2 colors, Size 100 bytes
+8.871 ms/op
+Iteration   6: [BENCH] Mode 2 colors, Size 100 bytes
+8.626 ms/op
+Iteration   7: [BENCH] Mode 2 colors, Size 100 bytes
+9.285 ms/op
+Iteration   8: [BENCH] Mode 2 colors, Size 100 bytes
+9.932 ms/op
+Iteration   9: [BENCH] Mode 2 colors, Size 100 bytes
+8.516 ms/op
+Iteration  10: [BENCH] Mode 2 colors, Size 100 bytes
+[BENCHMARK] Cleaned up encoder
+8.499 ms/op
+
+
+Result "com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode":
+  8.786 ±(99.9%) 0.228 ms/op [Average]
+  (min, avg, max) = (8.431, 8.786, 9.932), stdev = 0.341
+  CI (99.9%): [8.559, 9.014] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 23.0.1, OpenJDK 64-Bit Server VM, 23.0.1+11-39
+# VM invoker: /home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 5 iterations, 2 s each
+# Measurement: 10 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode
+# Parameters: (colorMode = 2, messageSize = 1000)
+
+# Run progress: 25.00% complete, ETA 00:33:22
+# Fork: 1 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 2 colors, Size 1000 bytes
+51.172 ms/op
+# Warmup Iteration   2: [BENCH] Mode 2 colors, Size 1000 bytes
+49.232 ms/op
+# Warmup Iteration   3: [BENCH] Mode 2 colors, Size 1000 bytes
+49.634 ms/op
+# Warmup Iteration   4: [BENCH] Mode 2 colors, Size 1000 bytes
+48.053 ms/op
+# Warmup Iteration   5: [BENCH] Mode 2 colors, Size 1000 bytes
+47.975 ms/op
+Iteration   1: [BENCH] Mode 2 colors, Size 1000 bytes
+51.998 ms/op
+Iteration   2: [BENCH] Mode 2 colors, Size 1000 bytes
+52.857 ms/op
+Iteration   3: [BENCH] Mode 2 colors, Size 1000 bytes
+47.864 ms/op
+Iteration   4: [BENCH] Mode 2 colors, Size 1000 bytes
+47.994 ms/op
+Iteration   5: [BENCH] Mode 2 colors, Size 1000 bytes
+54.325 ms/op
+Iteration   6: [BENCH] Mode 2 colors, Size 1000 bytes
+56.822 ms/op
+Iteration   7: [BENCH] Mode 2 colors, Size 1000 bytes
+49.585 ms/op
+Iteration   8: [BENCH] Mode 2 colors, Size 1000 bytes
+47.901 ms/op
+Iteration   9: [BENCH] Mode 2 colors, Size 1000 bytes
+51.858 ms/op
+Iteration  10: [BENCH] Mode 2 colors, Size 1000 bytes
+[BENCHMARK] Cleaned up encoder
+54.255 ms/op
+
+# Run progress: 25.93% complete, ETA 00:33:14
+# Fork: 2 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 2 colors, Size 1000 bytes
+50.020 ms/op
+# Warmup Iteration   2: [BENCH] Mode 2 colors, Size 1000 bytes
+53.405 ms/op
+# Warmup Iteration   3: [BENCH] Mode 2 colors, Size 1000 bytes
+48.304 ms/op
+# Warmup Iteration   4: [BENCH] Mode 2 colors, Size 1000 bytes
+50.599 ms/op
+# Warmup Iteration   5: [BENCH] Mode 2 colors, Size 1000 bytes
+47.833 ms/op
+Iteration   1: [BENCH] Mode 2 colors, Size 1000 bytes
+51.934 ms/op
+Iteration   2: [BENCH] Mode 2 colors, Size 1000 bytes
+49.690 ms/op
+Iteration   3: [BENCH] Mode 2 colors, Size 1000 bytes
+48.550 ms/op
+Iteration   4: [BENCH] Mode 2 colors, Size 1000 bytes
+47.848 ms/op
+Iteration   5: [BENCH] Mode 2 colors, Size 1000 bytes
+48.149 ms/op
+Iteration   6: [BENCH] Mode 2 colors, Size 1000 bytes
+48.939 ms/op
+Iteration   7: [BENCH] Mode 2 colors, Size 1000 bytes
+49.436 ms/op
+Iteration   8: [BENCH] Mode 2 colors, Size 1000 bytes
+50.303 ms/op
+Iteration   9: [BENCH] Mode 2 colors, Size 1000 bytes
+47.706 ms/op
+Iteration  10: [BENCH] Mode 2 colors, Size 1000 bytes
+[BENCHMARK] Cleaned up encoder
+47.909 ms/op
+
+# Run progress: 26.85% complete, ETA 00:33:04
+# Fork: 3 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 2 colors, Size 1000 bytes
+50.825 ms/op
+# Warmup Iteration   2: [BENCH] Mode 2 colors, Size 1000 bytes
+48.108 ms/op
+# Warmup Iteration   3: [BENCH] Mode 2 colors, Size 1000 bytes
+47.909 ms/op
+# Warmup Iteration   4: [BENCH] Mode 2 colors, Size 1000 bytes
+48.280 ms/op
+# Warmup Iteration   5: [BENCH] Mode 2 colors, Size 1000 bytes
+49.245 ms/op
+Iteration   1: [BENCH] Mode 2 colors, Size 1000 bytes
+47.880 ms/op
+Iteration   2: [BENCH] Mode 2 colors, Size 1000 bytes
+47.786 ms/op
+Iteration   3: [BENCH] Mode 2 colors, Size 1000 bytes
+48.431 ms/op
+Iteration   4: [BENCH] Mode 2 colors, Size 1000 bytes
+48.427 ms/op
+Iteration   5: [BENCH] Mode 2 colors, Size 1000 bytes
+51.489 ms/op
+Iteration   6: [BENCH] Mode 2 colors, Size 1000 bytes
+50.717 ms/op
+Iteration   7: [BENCH] Mode 2 colors, Size 1000 bytes
+48.676 ms/op
+Iteration   8: [BENCH] Mode 2 colors, Size 1000 bytes
+52.849 ms/op
+Iteration   9: [BENCH] Mode 2 colors, Size 1000 bytes
+60.646 ms/op
+Iteration  10: [BENCH] Mode 2 colors, Size 1000 bytes
+[BENCHMARK] Cleaned up encoder
+59.734 ms/op
+
+
+Result "com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode":
+  50.752 ±(99.9%) 2.339 ms/op [Average]
+  (min, avg, max) = (47.706, 50.752, 60.646), stdev = 3.500
+  CI (99.9%): [48.413, 53.091] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 23.0.1, OpenJDK 64-Bit Server VM, 23.0.1+11-39
+# VM invoker: /home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 5 iterations, 2 s each
+# Measurement: 10 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode
+# Parameters: (colorMode = 2, messageSize = 10000)
+
+# Run progress: 27.78% complete, ETA 00:32:53
+# Fork: 1 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 2 colors, Size 10000 bytes
+<failure>
+
+java.lang.RuntimeException: Encoding failed for mode 2, size 10000
+	at com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode(EncodingBenchmark.java:87)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_avgt_jmhStub(EncodingBenchmark_encodeByColorMode_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_AverageTime(EncodingBenchmark_encodeByColorMode_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into one symbol. Use more symbols.
+
+# Run progress: 28.70% complete, ETA 00:31:26
+# Fork: 2 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 2 colors, Size 10000 bytes
+<failure>
+
+java.lang.RuntimeException: Encoding failed for mode 2, size 10000
+	at com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode(EncodingBenchmark.java:87)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_avgt_jmhStub(EncodingBenchmark_encodeByColorMode_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_AverageTime(EncodingBenchmark_encodeByColorMode_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into one symbol. Use more symbols.
+
+# Run progress: 29.63% complete, ETA 00:30:04
+# Fork: 3 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 2 colors, Size 10000 bytes
+<failure>
+
+java.lang.RuntimeException: Encoding failed for mode 2, size 10000
+	at com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode(EncodingBenchmark.java:87)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_avgt_jmhStub(EncodingBenchmark_encodeByColorMode_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_AverageTime(EncodingBenchmark_encodeByColorMode_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into one symbol. Use more symbols.
+
+
+# JMH version: 1.37
+# VM version: JDK 23.0.1, OpenJDK 64-Bit Server VM, 23.0.1+11-39
+# VM invoker: /home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 5 iterations, 2 s each
+# Measurement: 10 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode
+# Parameters: (colorMode = 2, messageSize = 100000)
+
+# Run progress: 30.56% complete, ETA 00:28:47
+# Fork: 1 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 2 colors, Size 100000 bytes
+<failure>
+
+java.lang.RuntimeException: Encoding failed for mode 2, size 100000
+	at com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode(EncodingBenchmark.java:87)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_avgt_jmhStub(EncodingBenchmark_encodeByColorMode_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_AverageTime(EncodingBenchmark_encodeByColorMode_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into one symbol. Use more symbols.
+
+# Run progress: 31.48% complete, ETA 00:27:35
+# Fork: 2 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 2 colors, Size 100000 bytes
+<failure>
+
+java.lang.RuntimeException: Encoding failed for mode 2, size 100000
+	at com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode(EncodingBenchmark.java:87)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_avgt_jmhStub(EncodingBenchmark_encodeByColorMode_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_AverageTime(EncodingBenchmark_encodeByColorMode_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into one symbol. Use more symbols.
+
+# Run progress: 32.41% complete, ETA 00:26:27
+# Fork: 3 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 2 colors, Size 100000 bytes
+<failure>
+
+java.lang.RuntimeException: Encoding failed for mode 2, size 100000
+	at com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode(EncodingBenchmark.java:87)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_avgt_jmhStub(EncodingBenchmark_encodeByColorMode_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_AverageTime(EncodingBenchmark_encodeByColorMode_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into one symbol. Use more symbols.
+
+
+# JMH version: 1.37
+# VM version: JDK 23.0.1, OpenJDK 64-Bit Server VM, 23.0.1+11-39
+# VM invoker: /home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 5 iterations, 2 s each
+# Measurement: 10 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode
+# Parameters: (colorMode = 4, messageSize = 100)
+
+# Run progress: 33.33% complete, ETA 00:25:23
+# Fork: 1 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 4 colors, Size 100 bytes
+9.801 ms/op
+# Warmup Iteration   2: [BENCH] Mode 4 colors, Size 100 bytes
+9.404 ms/op
+# Warmup Iteration   3: [BENCH] Mode 4 colors, Size 100 bytes
+9.092 ms/op
+# Warmup Iteration   4: [BENCH] Mode 4 colors, Size 100 bytes
+10.068 ms/op
+# Warmup Iteration   5: [BENCH] Mode 4 colors, Size 100 bytes
+9.565 ms/op
+Iteration   1: [BENCH] Mode 4 colors, Size 100 bytes
+9.111 ms/op
+Iteration   2: [BENCH] Mode 4 colors, Size 100 bytes
+10.620 ms/op
+Iteration   3: [BENCH] Mode 4 colors, Size 100 bytes
+9.422 ms/op
+Iteration   4: [BENCH] Mode 4 colors, Size 100 bytes
+10.605 ms/op
+Iteration   5: [BENCH] Mode 4 colors, Size 100 bytes
+9.309 ms/op
+Iteration   6: [BENCH] Mode 4 colors, Size 100 bytes
+9.131 ms/op
+Iteration   7: [BENCH] Mode 4 colors, Size 100 bytes
+9.077 ms/op
+Iteration   8: [BENCH] Mode 4 colors, Size 100 bytes
+9.134 ms/op
+Iteration   9: [BENCH] Mode 4 colors, Size 100 bytes
+9.092 ms/op
+Iteration  10: [BENCH] Mode 4 colors, Size 100 bytes
+[BENCHMARK] Cleaned up encoder
+9.177 ms/op
+
+# Run progress: 34.26% complete, ETA 00:25:19
+# Fork: 2 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 4 colors, Size 100 bytes
+10.331 ms/op
+# Warmup Iteration   2: [BENCH] Mode 4 colors, Size 100 bytes
+10.058 ms/op
+# Warmup Iteration   3: [BENCH] Mode 4 colors, Size 100 bytes
+9.777 ms/op
+# Warmup Iteration   4: [BENCH] Mode 4 colors, Size 100 bytes
+9.092 ms/op
+# Warmup Iteration   5: [BENCH] Mode 4 colors, Size 100 bytes
+9.960 ms/op
+Iteration   1: [BENCH] Mode 4 colors, Size 100 bytes
+10.243 ms/op
+Iteration   2: [BENCH] Mode 4 colors, Size 100 bytes
+10.520 ms/op
+Iteration   3: [BENCH] Mode 4 colors, Size 100 bytes
+9.840 ms/op
+Iteration   4: [BENCH] Mode 4 colors, Size 100 bytes
+10.677 ms/op
+Iteration   5: [BENCH] Mode 4 colors, Size 100 bytes
+10.187 ms/op
+Iteration   6: [BENCH] Mode 4 colors, Size 100 bytes
+9.363 ms/op
+Iteration   7: [BENCH] Mode 4 colors, Size 100 bytes
+9.206 ms/op
+Iteration   8: [BENCH] Mode 4 colors, Size 100 bytes
+9.954 ms/op
+Iteration   9: [BENCH] Mode 4 colors, Size 100 bytes
+9.278 ms/op
+Iteration  10: [BENCH] Mode 4 colors, Size 100 bytes
+[BENCHMARK] Cleaned up encoder
+9.634 ms/op
+
+# Run progress: 35.19% complete, ETA 00:25:14
+# Fork: 3 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 4 colors, Size 100 bytes
+11.308 ms/op
+# Warmup Iteration   2: [BENCH] Mode 4 colors, Size 100 bytes
+9.754 ms/op
+# Warmup Iteration   3: [BENCH] Mode 4 colors, Size 100 bytes
+9.215 ms/op
+# Warmup Iteration   4: [BENCH] Mode 4 colors, Size 100 bytes
+9.251 ms/op
+# Warmup Iteration   5: [BENCH] Mode 4 colors, Size 100 bytes
+9.328 ms/op
+Iteration   1: [BENCH] Mode 4 colors, Size 100 bytes
+9.185 ms/op
+Iteration   2: [BENCH] Mode 4 colors, Size 100 bytes
+9.090 ms/op
+Iteration   3: [BENCH] Mode 4 colors, Size 100 bytes
+9.520 ms/op
+Iteration   4: [BENCH] Mode 4 colors, Size 100 bytes
+9.165 ms/op
+Iteration   5: [BENCH] Mode 4 colors, Size 100 bytes
+9.084 ms/op
+Iteration   6: [BENCH] Mode 4 colors, Size 100 bytes
+9.357 ms/op
+Iteration   7: [BENCH] Mode 4 colors, Size 100 bytes
+9.081 ms/op
+Iteration   8: [BENCH] Mode 4 colors, Size 100 bytes
+9.053 ms/op
+Iteration   9: [BENCH] Mode 4 colors, Size 100 bytes
+9.239 ms/op
+Iteration  10: [BENCH] Mode 4 colors, Size 100 bytes
+[BENCHMARK] Cleaned up encoder
+9.053 ms/op
+
+
+Result "com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode":
+  9.514 ±(99.9%) 0.363 ms/op [Average]
+  (min, avg, max) = (9.053, 9.514, 10.677), stdev = 0.543
+  CI (99.9%): [9.151, 9.876] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 23.0.1, OpenJDK 64-Bit Server VM, 23.0.1+11-39
+# VM invoker: /home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 5 iterations, 2 s each
+# Measurement: 10 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode
+# Parameters: (colorMode = 4, messageSize = 1000)
+
+# Run progress: 36.11% complete, ETA 00:25:08
+# Fork: 1 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 4 colors, Size 1000 bytes
+60.178 ms/op
+# Warmup Iteration   2: [BENCH] Mode 4 colors, Size 1000 bytes
+56.314 ms/op
+# Warmup Iteration   3: [BENCH] Mode 4 colors, Size 1000 bytes
+57.156 ms/op
+# Warmup Iteration   4: [BENCH] Mode 4 colors, Size 1000 bytes
+58.119 ms/op
+# Warmup Iteration   5: [BENCH] Mode 4 colors, Size 1000 bytes
+62.796 ms/op
+Iteration   1: [BENCH] Mode 4 colors, Size 1000 bytes
+56.691 ms/op
+Iteration   2: [BENCH] Mode 4 colors, Size 1000 bytes
+62.607 ms/op
+Iteration   3: [BENCH] Mode 4 colors, Size 1000 bytes
+64.790 ms/op
+Iteration   4: [BENCH] Mode 4 colors, Size 1000 bytes
+62.536 ms/op
+Iteration   5: [BENCH] Mode 4 colors, Size 1000 bytes
+57.687 ms/op
+Iteration   6: [BENCH] Mode 4 colors, Size 1000 bytes
+56.238 ms/op
+Iteration   7: [BENCH] Mode 4 colors, Size 1000 bytes
+61.673 ms/op
+Iteration   8: [BENCH] Mode 4 colors, Size 1000 bytes
+57.056 ms/op
+Iteration   9: [BENCH] Mode 4 colors, Size 1000 bytes
+58.054 ms/op
+Iteration  10: [BENCH] Mode 4 colors, Size 1000 bytes
+[BENCHMARK] Cleaned up encoder
+58.140 ms/op
+
+# Run progress: 37.04% complete, ETA 00:25:01
+# Fork: 2 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 4 colors, Size 1000 bytes
+61.186 ms/op
+# Warmup Iteration   2: [BENCH] Mode 4 colors, Size 1000 bytes
+61.544 ms/op
+# Warmup Iteration   3: [BENCH] Mode 4 colors, Size 1000 bytes
+69.896 ms/op
+# Warmup Iteration   4: [BENCH] Mode 4 colors, Size 1000 bytes
+61.321 ms/op
+# Warmup Iteration   5: [BENCH] Mode 4 colors, Size 1000 bytes
+57.533 ms/op
+Iteration   1: [BENCH] Mode 4 colors, Size 1000 bytes
+57.848 ms/op
+Iteration   2: [BENCH] Mode 4 colors, Size 1000 bytes
+57.388 ms/op
+Iteration   3: [BENCH] Mode 4 colors, Size 1000 bytes
+58.910 ms/op
+Iteration   4: [BENCH] Mode 4 colors, Size 1000 bytes
+56.061 ms/op
+Iteration   5: [BENCH] Mode 4 colors, Size 1000 bytes
+57.607 ms/op
+Iteration   6: [BENCH] Mode 4 colors, Size 1000 bytes
+58.830 ms/op
+Iteration   7: [BENCH] Mode 4 colors, Size 1000 bytes
+59.448 ms/op
+Iteration   8: [BENCH] Mode 4 colors, Size 1000 bytes
+57.205 ms/op
+Iteration   9: [BENCH] Mode 4 colors, Size 1000 bytes
+57.080 ms/op
+Iteration  10: [BENCH] Mode 4 colors, Size 1000 bytes
+[BENCHMARK] Cleaned up encoder
+63.991 ms/op
+
+# Run progress: 37.96% complete, ETA 00:24:53
+# Fork: 3 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 4 colors, Size 1000 bytes
+66.018 ms/op
+# Warmup Iteration   2: [BENCH] Mode 4 colors, Size 1000 bytes
+59.274 ms/op
+# Warmup Iteration   3: [BENCH] Mode 4 colors, Size 1000 bytes
+56.418 ms/op
+# Warmup Iteration   4: [BENCH] Mode 4 colors, Size 1000 bytes
+61.751 ms/op
+# Warmup Iteration   5: [BENCH] Mode 4 colors, Size 1000 bytes
+62.373 ms/op
+Iteration   1: [BENCH] Mode 4 colors, Size 1000 bytes
+66.003 ms/op
+Iteration   2: [BENCH] Mode 4 colors, Size 1000 bytes
+57.097 ms/op
+Iteration   3: [BENCH] Mode 4 colors, Size 1000 bytes
+59.741 ms/op
+Iteration   4: [BENCH] Mode 4 colors, Size 1000 bytes
+56.803 ms/op
+Iteration   5: [BENCH] Mode 4 colors, Size 1000 bytes
+62.997 ms/op
+Iteration   6: [BENCH] Mode 4 colors, Size 1000 bytes
+64.183 ms/op
+Iteration   7: [BENCH] Mode 4 colors, Size 1000 bytes
+61.357 ms/op
+Iteration   8: [BENCH] Mode 4 colors, Size 1000 bytes
+58.598 ms/op
+Iteration   9: [BENCH] Mode 4 colors, Size 1000 bytes
+61.723 ms/op
+Iteration  10: [BENCH] Mode 4 colors, Size 1000 bytes
+[BENCHMARK] Cleaned up encoder
+60.740 ms/op
+
+
+Result "com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode":
+  59.636 ±(99.9%) 1.913 ms/op [Average]
+  (min, avg, max) = (56.061, 59.636, 66.003), stdev = 2.863
+  CI (99.9%): [57.723, 61.549] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 23.0.1, OpenJDK 64-Bit Server VM, 23.0.1+11-39
+# VM invoker: /home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 5 iterations, 2 s each
+# Measurement: 10 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode
+# Parameters: (colorMode = 4, messageSize = 10000)
+
+# Run progress: 38.89% complete, ETA 00:24:44
+# Fork: 1 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 4 colors, Size 10000 bytes
+<failure>
+
+java.lang.RuntimeException: Encoding failed for mode 4, size 10000
+	at com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode(EncodingBenchmark.java:87)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_avgt_jmhStub(EncodingBenchmark_encodeByColorMode_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_AverageTime(EncodingBenchmark_encodeByColorMode_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into one symbol. Use more symbols.
+
+# Run progress: 39.81% complete, ETA 00:23:48
+# Fork: 2 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 4 colors, Size 10000 bytes
+<failure>
+
+java.lang.RuntimeException: Encoding failed for mode 4, size 10000
+	at com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode(EncodingBenchmark.java:87)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_avgt_jmhStub(EncodingBenchmark_encodeByColorMode_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_AverageTime(EncodingBenchmark_encodeByColorMode_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into one symbol. Use more symbols.
+
+# Run progress: 40.74% complete, ETA 00:22:55
+# Fork: 3 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 4 colors, Size 10000 bytes
+<failure>
+
+java.lang.RuntimeException: Encoding failed for mode 4, size 10000
+	at com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode(EncodingBenchmark.java:87)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_avgt_jmhStub(EncodingBenchmark_encodeByColorMode_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_AverageTime(EncodingBenchmark_encodeByColorMode_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into one symbol. Use more symbols.
+
+
+# JMH version: 1.37
+# VM version: JDK 23.0.1, OpenJDK 64-Bit Server VM, 23.0.1+11-39
+# VM invoker: /home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 5 iterations, 2 s each
+# Measurement: 10 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode
+# Parameters: (colorMode = 4, messageSize = 100000)
+
+# Run progress: 41.67% complete, ETA 00:22:04
+# Fork: 1 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 4 colors, Size 100000 bytes
+<failure>
+
+java.lang.RuntimeException: Encoding failed for mode 4, size 100000
+	at com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode(EncodingBenchmark.java:87)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_avgt_jmhStub(EncodingBenchmark_encodeByColorMode_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_AverageTime(EncodingBenchmark_encodeByColorMode_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into one symbol. Use more symbols.
+
+# Run progress: 42.59% complete, ETA 00:21:15
+# Fork: 2 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 4 colors, Size 100000 bytes
+<failure>
+
+java.lang.RuntimeException: Encoding failed for mode 4, size 100000
+	at com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode(EncodingBenchmark.java:87)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_avgt_jmhStub(EncodingBenchmark_encodeByColorMode_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_AverageTime(EncodingBenchmark_encodeByColorMode_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into one symbol. Use more symbols.
+
+# Run progress: 43.52% complete, ETA 00:20:28
+# Fork: 3 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 4 colors, Size 100000 bytes
+<failure>
+
+java.lang.RuntimeException: Encoding failed for mode 4, size 100000
+	at com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode(EncodingBenchmark.java:87)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_avgt_jmhStub(EncodingBenchmark_encodeByColorMode_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_AverageTime(EncodingBenchmark_encodeByColorMode_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into one symbol. Use more symbols.
+
+
+# JMH version: 1.37
+# VM version: JDK 23.0.1, OpenJDK 64-Bit Server VM, 23.0.1+11-39
+# VM invoker: /home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 5 iterations, 2 s each
+# Measurement: 10 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode
+# Parameters: (colorMode = 8, messageSize = 100)
+
+# Run progress: 44.44% complete, ETA 00:19:43
+# Fork: 1 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 8 colors, Size 100 bytes
+9.751 ms/op
+# Warmup Iteration   2: [BENCH] Mode 8 colors, Size 100 bytes
+9.025 ms/op
+# Warmup Iteration   3: [BENCH] Mode 8 colors, Size 100 bytes
+9.491 ms/op
+# Warmup Iteration   4: [BENCH] Mode 8 colors, Size 100 bytes
+9.791 ms/op
+# Warmup Iteration   5: [BENCH] Mode 8 colors, Size 100 bytes
+8.774 ms/op
+Iteration   1: [BENCH] Mode 8 colors, Size 100 bytes
+8.827 ms/op
+Iteration   2: [BENCH] Mode 8 colors, Size 100 bytes
+9.327 ms/op
+Iteration   3: [BENCH] Mode 8 colors, Size 100 bytes
+8.835 ms/op
+Iteration   4: [BENCH] Mode 8 colors, Size 100 bytes
+8.703 ms/op
+Iteration   5: [BENCH] Mode 8 colors, Size 100 bytes
+8.879 ms/op
+Iteration   6: [BENCH] Mode 8 colors, Size 100 bytes
+9.401 ms/op
+Iteration   7: [BENCH] Mode 8 colors, Size 100 bytes
+9.747 ms/op
+Iteration   8: [BENCH] Mode 8 colors, Size 100 bytes
+9.190 ms/op
+Iteration   9: [BENCH] Mode 8 colors, Size 100 bytes
+8.849 ms/op
+Iteration  10: [BENCH] Mode 8 colors, Size 100 bytes
+[BENCHMARK] Cleaned up encoder
+8.779 ms/op
+
+# Run progress: 45.37% complete, ETA 00:19:37
+# Fork: 2 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 8 colors, Size 100 bytes
+9.670 ms/op
+# Warmup Iteration   2: [BENCH] Mode 8 colors, Size 100 bytes
+9.484 ms/op
+# Warmup Iteration   3: [BENCH] Mode 8 colors, Size 100 bytes
+8.885 ms/op
+# Warmup Iteration   4: [BENCH] Mode 8 colors, Size 100 bytes
+8.813 ms/op
+# Warmup Iteration   5: [BENCH] Mode 8 colors, Size 100 bytes
+9.000 ms/op
+Iteration   1: [BENCH] Mode 8 colors, Size 100 bytes
+9.587 ms/op
+Iteration   2: [BENCH] Mode 8 colors, Size 100 bytes
+8.920 ms/op
+Iteration   3: [BENCH] Mode 8 colors, Size 100 bytes
+8.848 ms/op
+Iteration   4: [BENCH] Mode 8 colors, Size 100 bytes
+8.892 ms/op
+Iteration   5: [BENCH] Mode 8 colors, Size 100 bytes
+9.834 ms/op
+Iteration   6: [BENCH] Mode 8 colors, Size 100 bytes
+8.993 ms/op
+Iteration   7: [BENCH] Mode 8 colors, Size 100 bytes
+8.827 ms/op
+Iteration   8: [BENCH] Mode 8 colors, Size 100 bytes
+8.941 ms/op
+Iteration   9: [BENCH] Mode 8 colors, Size 100 bytes
+8.926 ms/op
+Iteration  10: [BENCH] Mode 8 colors, Size 100 bytes
+[BENCHMARK] Cleaned up encoder
+8.899 ms/op
+
+# Run progress: 46.30% complete, ETA 00:19:29
+# Fork: 3 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 8 colors, Size 100 bytes
+10.520 ms/op
+# Warmup Iteration   2: [BENCH] Mode 8 colors, Size 100 bytes
+9.876 ms/op
+# Warmup Iteration   3: [BENCH] Mode 8 colors, Size 100 bytes
+9.435 ms/op
+# Warmup Iteration   4: [BENCH] Mode 8 colors, Size 100 bytes
+10.028 ms/op
+# Warmup Iteration   5: [BENCH] Mode 8 colors, Size 100 bytes
+9.331 ms/op
+Iteration   1: [BENCH] Mode 8 colors, Size 100 bytes
+8.722 ms/op
+Iteration   2: [BENCH] Mode 8 colors, Size 100 bytes
+8.874 ms/op
+Iteration   3: [BENCH] Mode 8 colors, Size 100 bytes
+9.595 ms/op
+Iteration   4: [BENCH] Mode 8 colors, Size 100 bytes
+9.351 ms/op
+Iteration   5: [BENCH] Mode 8 colors, Size 100 bytes
+9.492 ms/op
+Iteration   6: [BENCH] Mode 8 colors, Size 100 bytes
+9.172 ms/op
+Iteration   7: [BENCH] Mode 8 colors, Size 100 bytes
+8.686 ms/op
+Iteration   8: [BENCH] Mode 8 colors, Size 100 bytes
+9.165 ms/op
+Iteration   9: [BENCH] Mode 8 colors, Size 100 bytes
+9.343 ms/op
+Iteration  10: [BENCH] Mode 8 colors, Size 100 bytes
+[BENCHMARK] Cleaned up encoder
+9.318 ms/op
+
+
+Result "com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode":
+  9.097 ±(99.9%) 0.219 ms/op [Average]
+  (min, avg, max) = (8.686, 9.097, 9.834), stdev = 0.328
+  CI (99.9%): [8.878, 9.317] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 23.0.1, OpenJDK 64-Bit Server VM, 23.0.1+11-39
+# VM invoker: /home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 5 iterations, 2 s each
+# Measurement: 10 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode
+# Parameters: (colorMode = 8, messageSize = 1000)
+
+# Run progress: 47.22% complete, ETA 00:19:20
+# Fork: 1 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 8 colors, Size 1000 bytes
+54.784 ms/op
+# Warmup Iteration   2: [BENCH] Mode 8 colors, Size 1000 bytes
+58.045 ms/op
+# Warmup Iteration   3: [BENCH] Mode 8 colors, Size 1000 bytes
+52.890 ms/op
+# Warmup Iteration   4: [BENCH] Mode 8 colors, Size 1000 bytes
+52.938 ms/op
+# Warmup Iteration   5: [BENCH] Mode 8 colors, Size 1000 bytes
+49.976 ms/op
+Iteration   1: [BENCH] Mode 8 colors, Size 1000 bytes
+53.645 ms/op
+Iteration   2: [BENCH] Mode 8 colors, Size 1000 bytes
+48.329 ms/op
+Iteration   3: [BENCH] Mode 8 colors, Size 1000 bytes
+49.116 ms/op
+Iteration   4: [BENCH] Mode 8 colors, Size 1000 bytes
+47.911 ms/op
+Iteration   5: [BENCH] Mode 8 colors, Size 1000 bytes
+50.478 ms/op
+Iteration   6: [BENCH] Mode 8 colors, Size 1000 bytes
+49.356 ms/op
+Iteration   7: [BENCH] Mode 8 colors, Size 1000 bytes
+48.598 ms/op
+Iteration   8: [BENCH] Mode 8 colors, Size 1000 bytes
+47.914 ms/op
+Iteration   9: [BENCH] Mode 8 colors, Size 1000 bytes
+48.834 ms/op
+Iteration  10: [BENCH] Mode 8 colors, Size 1000 bytes
+[BENCHMARK] Cleaned up encoder
+48.477 ms/op
+
+# Run progress: 48.15% complete, ETA 00:19:11
+# Fork: 2 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 8 colors, Size 1000 bytes
+58.499 ms/op
+# Warmup Iteration   2: [BENCH] Mode 8 colors, Size 1000 bytes
+49.013 ms/op
+# Warmup Iteration   3: [BENCH] Mode 8 colors, Size 1000 bytes
+50.185 ms/op
+# Warmup Iteration   4: [BENCH] Mode 8 colors, Size 1000 bytes
+49.226 ms/op
+# Warmup Iteration   5: [BENCH] Mode 8 colors, Size 1000 bytes
+48.586 ms/op
+Iteration   1: [BENCH] Mode 8 colors, Size 1000 bytes
+49.081 ms/op
+Iteration   2: [BENCH] Mode 8 colors, Size 1000 bytes
+49.312 ms/op
+Iteration   3: [BENCH] Mode 8 colors, Size 1000 bytes
+51.206 ms/op
+Iteration   4: [BENCH] Mode 8 colors, Size 1000 bytes
+48.983 ms/op
+Iteration   5: [BENCH] Mode 8 colors, Size 1000 bytes
+51.945 ms/op
+Iteration   6: [BENCH] Mode 8 colors, Size 1000 bytes
+52.189 ms/op
+Iteration   7: [BENCH] Mode 8 colors, Size 1000 bytes
+58.343 ms/op
+Iteration   8: [BENCH] Mode 8 colors, Size 1000 bytes
+48.179 ms/op
+Iteration   9: [BENCH] Mode 8 colors, Size 1000 bytes
+59.973 ms/op
+Iteration  10: [BENCH] Mode 8 colors, Size 1000 bytes
+[BENCHMARK] Cleaned up encoder
+50.129 ms/op
+
+# Run progress: 49.07% complete, ETA 00:19:01
+# Fork: 3 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 8 colors, Size 1000 bytes
+53.413 ms/op
+# Warmup Iteration   2: [BENCH] Mode 8 colors, Size 1000 bytes
+54.598 ms/op
+# Warmup Iteration   3: [BENCH] Mode 8 colors, Size 1000 bytes
+84.165 ms/op
+# Warmup Iteration   4: [BENCH] Mode 8 colors, Size 1000 bytes
+90.937 ms/op
+# Warmup Iteration   5: [BENCH] Mode 8 colors, Size 1000 bytes
+86.972 ms/op
+Iteration   1: [BENCH] Mode 8 colors, Size 1000 bytes
+57.975 ms/op
+Iteration   2: [BENCH] Mode 8 colors, Size 1000 bytes
+68.109 ms/op
+Iteration   3: [BENCH] Mode 8 colors, Size 1000 bytes
+55.162 ms/op
+Iteration   4: [BENCH] Mode 8 colors, Size 1000 bytes
+53.798 ms/op
+Iteration   5: [BENCH] Mode 8 colors, Size 1000 bytes
+49.877 ms/op
+Iteration   6: [BENCH] Mode 8 colors, Size 1000 bytes
+53.058 ms/op
+Iteration   7: [BENCH] Mode 8 colors, Size 1000 bytes
+74.852 ms/op
+Iteration   8: [BENCH] Mode 8 colors, Size 1000 bytes
+85.313 ms/op
+Iteration   9: [BENCH] Mode 8 colors, Size 1000 bytes
+82.878 ms/op
+Iteration  10: [BENCH] Mode 8 colors, Size 1000 bytes
+[BENCHMARK] Cleaned up encoder
+88.716 ms/op
+
+
+Result "com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode":
+  56.058 ±(99.9%) 7.849 ms/op [Average]
+  (min, avg, max) = (47.911, 56.058, 88.716), stdev = 11.748
+  CI (99.9%): [48.209, 63.907] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 23.0.1, OpenJDK 64-Bit Server VM, 23.0.1+11-39
+# VM invoker: /home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 5 iterations, 2 s each
+# Measurement: 10 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode
+# Parameters: (colorMode = 8, messageSize = 10000)
+
+# Run progress: 50.00% complete, ETA 00:18:50
+# Fork: 1 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 8 colors, Size 10000 bytes
+<failure>
+
+java.lang.RuntimeException: Encoding failed for mode 8, size 10000
+	at com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode(EncodingBenchmark.java:87)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_avgt_jmhStub(EncodingBenchmark_encodeByColorMode_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_AverageTime(EncodingBenchmark_encodeByColorMode_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into one symbol. Use more symbols.
+
+# Run progress: 50.93% complete, ETA 00:18:10
+# Fork: 2 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 8 colors, Size 10000 bytes
+<failure>
+
+java.lang.RuntimeException: Encoding failed for mode 8, size 10000
+	at com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode(EncodingBenchmark.java:87)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_avgt_jmhStub(EncodingBenchmark_encodeByColorMode_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_AverageTime(EncodingBenchmark_encodeByColorMode_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into one symbol. Use more symbols.
+
+# Run progress: 51.85% complete, ETA 00:17:31
+# Fork: 3 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 8 colors, Size 10000 bytes
+<failure>
+
+java.lang.RuntimeException: Encoding failed for mode 8, size 10000
+	at com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode(EncodingBenchmark.java:87)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_avgt_jmhStub(EncodingBenchmark_encodeByColorMode_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_AverageTime(EncodingBenchmark_encodeByColorMode_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into one symbol. Use more symbols.
+
+
+# JMH version: 1.37
+# VM version: JDK 23.0.1, OpenJDK 64-Bit Server VM, 23.0.1+11-39
+# VM invoker: /home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 5 iterations, 2 s each
+# Measurement: 10 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode
+# Parameters: (colorMode = 8, messageSize = 100000)
+
+# Run progress: 52.78% complete, ETA 00:16:53
+# Fork: 1 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 8 colors, Size 100000 bytes
+<failure>
+
+java.lang.RuntimeException: Encoding failed for mode 8, size 100000
+	at com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode(EncodingBenchmark.java:87)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_avgt_jmhStub(EncodingBenchmark_encodeByColorMode_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_AverageTime(EncodingBenchmark_encodeByColorMode_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into one symbol. Use more symbols.
+
+# Run progress: 53.70% complete, ETA 00:16:16
+# Fork: 2 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 8 colors, Size 100000 bytes
+<failure>
+
+java.lang.RuntimeException: Encoding failed for mode 8, size 100000
+	at com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode(EncodingBenchmark.java:87)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_avgt_jmhStub(EncodingBenchmark_encodeByColorMode_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_AverageTime(EncodingBenchmark_encodeByColorMode_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into one symbol. Use more symbols.
+
+# Run progress: 54.63% complete, ETA 00:15:41
+# Fork: 3 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 8 colors, Size 100000 bytes
+<failure>
+
+java.lang.RuntimeException: Encoding failed for mode 8, size 100000
+	at com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode(EncodingBenchmark.java:87)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_avgt_jmhStub(EncodingBenchmark_encodeByColorMode_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_AverageTime(EncodingBenchmark_encodeByColorMode_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into one symbol. Use more symbols.
+
+
+# JMH version: 1.37
+# VM version: JDK 23.0.1, OpenJDK 64-Bit Server VM, 23.0.1+11-39
+# VM invoker: /home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 5 iterations, 2 s each
+# Measurement: 10 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode
+# Parameters: (colorMode = 16, messageSize = 100)
+
+# Run progress: 55.56% complete, ETA 00:15:07
+# Fork: 1 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 16 colors, Size 100 bytes
+9.928 ms/op
+# Warmup Iteration   2: [BENCH] Mode 16 colors, Size 100 bytes
+7.591 ms/op
+# Warmup Iteration   3: [BENCH] Mode 16 colors, Size 100 bytes
+8.056 ms/op
+# Warmup Iteration   4: [BENCH] Mode 16 colors, Size 100 bytes
+7.524 ms/op
+# Warmup Iteration   5: [BENCH] Mode 16 colors, Size 100 bytes
+8.025 ms/op
+Iteration   1: [BENCH] Mode 16 colors, Size 100 bytes
+7.268 ms/op
+Iteration   2: [BENCH] Mode 16 colors, Size 100 bytes
+7.300 ms/op
+Iteration   3: [BENCH] Mode 16 colors, Size 100 bytes
+7.856 ms/op
+Iteration   4: [BENCH] Mode 16 colors, Size 100 bytes
+7.503 ms/op
+Iteration   5: [BENCH] Mode 16 colors, Size 100 bytes
+10.727 ms/op
+Iteration   6: [BENCH] Mode 16 colors, Size 100 bytes
+7.083 ms/op
+Iteration   7: [BENCH] Mode 16 colors, Size 100 bytes
+7.318 ms/op
+Iteration   8: [BENCH] Mode 16 colors, Size 100 bytes
+7.005 ms/op
+Iteration   9: [BENCH] Mode 16 colors, Size 100 bytes
+7.306 ms/op
+Iteration  10: [BENCH] Mode 16 colors, Size 100 bytes
+[BENCHMARK] Cleaned up encoder
+7.138 ms/op
+
+# Run progress: 56.48% complete, ETA 00:14:57
+# Fork: 2 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 16 colors, Size 100 bytes
+8.666 ms/op
+# Warmup Iteration   2: [BENCH] Mode 16 colors, Size 100 bytes
+8.219 ms/op
+# Warmup Iteration   3: [BENCH] Mode 16 colors, Size 100 bytes
+7.539 ms/op
+# Warmup Iteration   4: [BENCH] Mode 16 colors, Size 100 bytes
+7.253 ms/op
+# Warmup Iteration   5: [BENCH] Mode 16 colors, Size 100 bytes
+7.857 ms/op
+Iteration   1: [BENCH] Mode 16 colors, Size 100 bytes
+6.942 ms/op
+Iteration   2: [BENCH] Mode 16 colors, Size 100 bytes
+7.516 ms/op
+Iteration   3: [BENCH] Mode 16 colors, Size 100 bytes
+6.972 ms/op
+Iteration   4: [BENCH] Mode 16 colors, Size 100 bytes
+7.248 ms/op
+Iteration   5: [BENCH] Mode 16 colors, Size 100 bytes
+7.248 ms/op
+Iteration   6: [BENCH] Mode 16 colors, Size 100 bytes
+7.453 ms/op
+Iteration   7: [BENCH] Mode 16 colors, Size 100 bytes
+7.133 ms/op
+Iteration   8: [BENCH] Mode 16 colors, Size 100 bytes
+8.275 ms/op
+Iteration   9: [BENCH] Mode 16 colors, Size 100 bytes
+7.934 ms/op
+Iteration  10: [BENCH] Mode 16 colors, Size 100 bytes
+[BENCHMARK] Cleaned up encoder
+7.409 ms/op
+
+# Run progress: 57.41% complete, ETA 00:14:47
+# Fork: 3 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 16 colors, Size 100 bytes
+10.127 ms/op
+# Warmup Iteration   2: [BENCH] Mode 16 colors, Size 100 bytes
+7.775 ms/op
+# Warmup Iteration   3: [BENCH] Mode 16 colors, Size 100 bytes
+7.129 ms/op
+# Warmup Iteration   4: [BENCH] Mode 16 colors, Size 100 bytes
+8.698 ms/op
+# Warmup Iteration   5: [BENCH] Mode 16 colors, Size 100 bytes
+7.654 ms/op
+Iteration   1: [BENCH] Mode 16 colors, Size 100 bytes
+7.346 ms/op
+Iteration   2: [BENCH] Mode 16 colors, Size 100 bytes
+7.501 ms/op
+Iteration   3: [BENCH] Mode 16 colors, Size 100 bytes
+8.279 ms/op
+Iteration   4: [BENCH] Mode 16 colors, Size 100 bytes
+7.252 ms/op
+Iteration   5: [BENCH] Mode 16 colors, Size 100 bytes
+8.536 ms/op
+Iteration   6: [BENCH] Mode 16 colors, Size 100 bytes
+7.063 ms/op
+Iteration   7: [BENCH] Mode 16 colors, Size 100 bytes
+7.718 ms/op
+Iteration   8: [BENCH] Mode 16 colors, Size 100 bytes
+6.850 ms/op
+Iteration   9: [BENCH] Mode 16 colors, Size 100 bytes
+8.270 ms/op
+Iteration  10: [BENCH] Mode 16 colors, Size 100 bytes
+[BENCHMARK] Cleaned up encoder
+7.082 ms/op
+
+
+Result "com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode":
+  7.551 ±(99.9%) 0.497 ms/op [Average]
+  (min, avg, max) = (6.850, 7.551, 10.727), stdev = 0.743
+  CI (99.9%): [7.054, 8.048] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 23.0.1, OpenJDK 64-Bit Server VM, 23.0.1+11-39
+# VM invoker: /home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 5 iterations, 2 s each
+# Measurement: 10 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode
+# Parameters: (colorMode = 16, messageSize = 1000)
+
+# Run progress: 58.33% complete, ETA 00:14:35
+# Fork: 1 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 16 colors, Size 1000 bytes
+97.614 ms/op
+# Warmup Iteration   2: [BENCH] Mode 16 colors, Size 1000 bytes
+74.923 ms/op
+# Warmup Iteration   3: [BENCH] Mode 16 colors, Size 1000 bytes
+80.149 ms/op
+# Warmup Iteration   4: [BENCH] Mode 16 colors, Size 1000 bytes
+72.077 ms/op
+# Warmup Iteration   5: [BENCH] Mode 16 colors, Size 1000 bytes
+78.440 ms/op
+Iteration   1: [BENCH] Mode 16 colors, Size 1000 bytes
+72.307 ms/op
+Iteration   2: [BENCH] Mode 16 colors, Size 1000 bytes
+75.236 ms/op
+Iteration   3: [BENCH] Mode 16 colors, Size 1000 bytes
+79.531 ms/op
+Iteration   4: [BENCH] Mode 16 colors, Size 1000 bytes
+75.355 ms/op
+Iteration   5: [BENCH] Mode 16 colors, Size 1000 bytes
+72.973 ms/op
+Iteration   6: [BENCH] Mode 16 colors, Size 1000 bytes
+92.742 ms/op
+Iteration   7: [BENCH] Mode 16 colors, Size 1000 bytes
+71.491 ms/op
+Iteration   8: [BENCH] Mode 16 colors, Size 1000 bytes
+83.820 ms/op
+Iteration   9: [BENCH] Mode 16 colors, Size 1000 bytes
+72.697 ms/op
+Iteration  10: [BENCH] Mode 16 colors, Size 1000 bytes
+[BENCHMARK] Cleaned up encoder
+74.738 ms/op
+
+# Run progress: 59.26% complete, ETA 00:14:24
+# Fork: 2 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 16 colors, Size 1000 bytes
+78.918 ms/op
+# Warmup Iteration   2: [BENCH] Mode 16 colors, Size 1000 bytes
+73.674 ms/op
+# Warmup Iteration   3: [BENCH] Mode 16 colors, Size 1000 bytes
+74.306 ms/op
+# Warmup Iteration   4: [BENCH] Mode 16 colors, Size 1000 bytes
+74.371 ms/op
+# Warmup Iteration   5: [BENCH] Mode 16 colors, Size 1000 bytes
+74.105 ms/op
+Iteration   1: [BENCH] Mode 16 colors, Size 1000 bytes
+98.354 ms/op
+Iteration   2: [BENCH] Mode 16 colors, Size 1000 bytes
+81.575 ms/op
+Iteration   3: [BENCH] Mode 16 colors, Size 1000 bytes
+85.006 ms/op
+Iteration   4: [BENCH] Mode 16 colors, Size 1000 bytes
+72.032 ms/op
+Iteration   5: [BENCH] Mode 16 colors, Size 1000 bytes
+77.197 ms/op
+Iteration   6: [BENCH] Mode 16 colors, Size 1000 bytes
+81.833 ms/op
+Iteration   7: [BENCH] Mode 16 colors, Size 1000 bytes
+76.126 ms/op
+Iteration   8: [BENCH] Mode 16 colors, Size 1000 bytes
+85.002 ms/op
+Iteration   9: [BENCH] Mode 16 colors, Size 1000 bytes
+91.144 ms/op
+Iteration  10: [BENCH] Mode 16 colors, Size 1000 bytes
+[BENCHMARK] Cleaned up encoder
+88.367 ms/op
+
+# Run progress: 60.19% complete, ETA 00:14:11
+# Fork: 3 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 16 colors, Size 1000 bytes
+80.066 ms/op
+# Warmup Iteration   2: [BENCH] Mode 16 colors, Size 1000 bytes
+76.931 ms/op
+# Warmup Iteration   3: [BENCH] Mode 16 colors, Size 1000 bytes
+70.201 ms/op
+# Warmup Iteration   4: [BENCH] Mode 16 colors, Size 1000 bytes
+73.818 ms/op
+# Warmup Iteration   5: [BENCH] Mode 16 colors, Size 1000 bytes
+71.118 ms/op
+Iteration   1: [BENCH] Mode 16 colors, Size 1000 bytes
+80.657 ms/op
+Iteration   2: [BENCH] Mode 16 colors, Size 1000 bytes
+73.443 ms/op
+Iteration   3: [BENCH] Mode 16 colors, Size 1000 bytes
+80.834 ms/op
+Iteration   4: [BENCH] Mode 16 colors, Size 1000 bytes
+72.293 ms/op
+Iteration   5: [BENCH] Mode 16 colors, Size 1000 bytes
+75.321 ms/op
+Iteration   6: [BENCH] Mode 16 colors, Size 1000 bytes
+70.681 ms/op
+Iteration   7: [BENCH] Mode 16 colors, Size 1000 bytes
+78.779 ms/op
+Iteration   8: [BENCH] Mode 16 colors, Size 1000 bytes
+71.740 ms/op
+Iteration   9: [BENCH] Mode 16 colors, Size 1000 bytes
+76.240 ms/op
+Iteration  10: [BENCH] Mode 16 colors, Size 1000 bytes
+[BENCHMARK] Cleaned up encoder
+73.824 ms/op
+
+
+Result "com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode":
+  78.711 ±(99.9%) 4.710 ms/op [Average]
+  (min, avg, max) = (70.681, 78.711, 98.354), stdev = 7.049
+  CI (99.9%): [74.001, 83.421] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 23.0.1, OpenJDK 64-Bit Server VM, 23.0.1+11-39
+# VM invoker: /home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 5 iterations, 2 s each
+# Measurement: 10 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode
+# Parameters: (colorMode = 16, messageSize = 10000)
+
+# Run progress: 61.11% complete, ETA 00:13:59
+# Fork: 1 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 16 colors, Size 10000 bytes
+<failure>
+
+java.lang.RuntimeException: Encoding failed for mode 16, size 10000
+	at com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode(EncodingBenchmark.java:87)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_avgt_jmhStub(EncodingBenchmark_encodeByColorMode_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_AverageTime(EncodingBenchmark_encodeByColorMode_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into one symbol with the given ECC level. Please use an ECC level lower than 1 with '--ecc-level 1'
+
+# Run progress: 62.04% complete, ETA 00:13:27
+# Fork: 2 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 16 colors, Size 10000 bytes
+<failure>
+
+java.lang.RuntimeException: Encoding failed for mode 16, size 10000
+	at com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode(EncodingBenchmark.java:87)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_avgt_jmhStub(EncodingBenchmark_encodeByColorMode_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_AverageTime(EncodingBenchmark_encodeByColorMode_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into one symbol with the given ECC level. Please use an ECC level lower than 1 with '--ecc-level 1'
+
+# Run progress: 62.96% complete, ETA 00:12:56
+# Fork: 3 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 16 colors, Size 10000 bytes
+<failure>
+
+java.lang.RuntimeException: Encoding failed for mode 16, size 10000
+	at com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode(EncodingBenchmark.java:87)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_avgt_jmhStub(EncodingBenchmark_encodeByColorMode_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_AverageTime(EncodingBenchmark_encodeByColorMode_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into one symbol with the given ECC level. Please use an ECC level lower than 1 with '--ecc-level 1'
+
+
+# JMH version: 1.37
+# VM version: JDK 23.0.1, OpenJDK 64-Bit Server VM, 23.0.1+11-39
+# VM invoker: /home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 5 iterations, 2 s each
+# Measurement: 10 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode
+# Parameters: (colorMode = 16, messageSize = 100000)
+
+# Run progress: 63.89% complete, ETA 00:12:26
+# Fork: 1 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 16 colors, Size 100000 bytes
+<failure>
+
+java.lang.RuntimeException: Encoding failed for mode 16, size 100000
+	at com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode(EncodingBenchmark.java:87)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_avgt_jmhStub(EncodingBenchmark_encodeByColorMode_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_AverageTime(EncodingBenchmark_encodeByColorMode_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into one symbol. Use more symbols.
+
+# Run progress: 64.81% complete, ETA 00:11:57
+# Fork: 2 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 16 colors, Size 100000 bytes
+<failure>
+
+java.lang.RuntimeException: Encoding failed for mode 16, size 100000
+	at com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode(EncodingBenchmark.java:87)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_avgt_jmhStub(EncodingBenchmark_encodeByColorMode_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_AverageTime(EncodingBenchmark_encodeByColorMode_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into one symbol. Use more symbols.
+
+# Run progress: 65.74% complete, ETA 00:11:28
+# Fork: 3 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 16 colors, Size 100000 bytes
+<failure>
+
+java.lang.RuntimeException: Encoding failed for mode 16, size 100000
+	at com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode(EncodingBenchmark.java:87)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_avgt_jmhStub(EncodingBenchmark_encodeByColorMode_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_AverageTime(EncodingBenchmark_encodeByColorMode_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into one symbol. Use more symbols.
+
+
+# JMH version: 1.37
+# VM version: JDK 23.0.1, OpenJDK 64-Bit Server VM, 23.0.1+11-39
+# VM invoker: /home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 5 iterations, 2 s each
+# Measurement: 10 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode
+# Parameters: (colorMode = 32, messageSize = 100)
+
+# Run progress: 66.67% complete, ETA 00:11:01
+# Fork: 1 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 32 colors, Size 100 bytes
+8.436 ms/op
+# Warmup Iteration   2: [BENCH] Mode 32 colors, Size 100 bytes
+7.995 ms/op
+# Warmup Iteration   3: [BENCH] Mode 32 colors, Size 100 bytes
+7.587 ms/op
+# Warmup Iteration   4: [BENCH] Mode 32 colors, Size 100 bytes
+10.214 ms/op
+# Warmup Iteration   5: [BENCH] Mode 32 colors, Size 100 bytes
+7.544 ms/op
+Iteration   1: [BENCH] Mode 32 colors, Size 100 bytes
+7.426 ms/op
+Iteration   2: [BENCH] Mode 32 colors, Size 100 bytes
+7.309 ms/op
+Iteration   3: [BENCH] Mode 32 colors, Size 100 bytes
+8.095 ms/op
+Iteration   4: [BENCH] Mode 32 colors, Size 100 bytes
+6.858 ms/op
+Iteration   5: [BENCH] Mode 32 colors, Size 100 bytes
+7.448 ms/op
+Iteration   6: [BENCH] Mode 32 colors, Size 100 bytes
+7.311 ms/op
+Iteration   7: [BENCH] Mode 32 colors, Size 100 bytes
+9.023 ms/op
+Iteration   8: [BENCH] Mode 32 colors, Size 100 bytes
+6.684 ms/op
+Iteration   9: [BENCH] Mode 32 colors, Size 100 bytes
+7.954 ms/op
+Iteration  10: [BENCH] Mode 32 colors, Size 100 bytes
+[BENCHMARK] Cleaned up encoder
+6.919 ms/op
+
+# Run progress: 67.59% complete, ETA 00:10:48
+# Fork: 2 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 32 colors, Size 100 bytes
+9.928 ms/op
+# Warmup Iteration   2: [BENCH] Mode 32 colors, Size 100 bytes
+6.934 ms/op
+# Warmup Iteration   3: [BENCH] Mode 32 colors, Size 100 bytes
+7.440 ms/op
+# Warmup Iteration   4: [BENCH] Mode 32 colors, Size 100 bytes
+7.213 ms/op
+# Warmup Iteration   5: [BENCH] Mode 32 colors, Size 100 bytes
+7.416 ms/op
+Iteration   1: [BENCH] Mode 32 colors, Size 100 bytes
+6.858 ms/op
+Iteration   2: [BENCH] Mode 32 colors, Size 100 bytes
+8.431 ms/op
+Iteration   3: [BENCH] Mode 32 colors, Size 100 bytes
+6.722 ms/op
+Iteration   4: [BENCH] Mode 32 colors, Size 100 bytes
+7.805 ms/op
+Iteration   5: [BENCH] Mode 32 colors, Size 100 bytes
+6.895 ms/op
+Iteration   6: [BENCH] Mode 32 colors, Size 100 bytes
+7.126 ms/op
+Iteration   7: [BENCH] Mode 32 colors, Size 100 bytes
+7.083 ms/op
+Iteration   8: [BENCH] Mode 32 colors, Size 100 bytes
+7.742 ms/op
+Iteration   9: [BENCH] Mode 32 colors, Size 100 bytes
+6.969 ms/op
+Iteration  10: [BENCH] Mode 32 colors, Size 100 bytes
+[BENCHMARK] Cleaned up encoder
+7.271 ms/op
+
+# Run progress: 68.52% complete, ETA 00:10:35
+# Fork: 3 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 32 colors, Size 100 bytes
+9.381 ms/op
+# Warmup Iteration   2: [BENCH] Mode 32 colors, Size 100 bytes
+7.868 ms/op
+# Warmup Iteration   3: [BENCH] Mode 32 colors, Size 100 bytes
+7.217 ms/op
+# Warmup Iteration   4: [BENCH] Mode 32 colors, Size 100 bytes
+7.322 ms/op
+# Warmup Iteration   5: [BENCH] Mode 32 colors, Size 100 bytes
+6.857 ms/op
+Iteration   1: [BENCH] Mode 32 colors, Size 100 bytes
+7.260 ms/op
+Iteration   2: [BENCH] Mode 32 colors, Size 100 bytes
+7.144 ms/op
+Iteration   3: [BENCH] Mode 32 colors, Size 100 bytes
+8.076 ms/op
+Iteration   4: [BENCH] Mode 32 colors, Size 100 bytes
+6.640 ms/op
+Iteration   5: [BENCH] Mode 32 colors, Size 100 bytes
+7.388 ms/op
+Iteration   6: [BENCH] Mode 32 colors, Size 100 bytes
+7.645 ms/op
+Iteration   7: [BENCH] Mode 32 colors, Size 100 bytes
+7.796 ms/op
+Iteration   8: [BENCH] Mode 32 colors, Size 100 bytes
+6.901 ms/op
+Iteration   9: [BENCH] Mode 32 colors, Size 100 bytes
+7.583 ms/op
+Iteration  10: [BENCH] Mode 32 colors, Size 100 bytes
+[BENCHMARK] Cleaned up encoder
+7.548 ms/op
+
+
+Result "com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode":
+  7.397 ±(99.9%) 0.369 ms/op [Average]
+  (min, avg, max) = (6.640, 7.397, 9.023), stdev = 0.552
+  CI (99.9%): [7.028, 7.766] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 23.0.1, OpenJDK 64-Bit Server VM, 23.0.1+11-39
+# VM invoker: /home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 5 iterations, 2 s each
+# Measurement: 10 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode
+# Parameters: (colorMode = 32, messageSize = 1000)
+
+# Run progress: 69.44% complete, ETA 00:10:21
+# Fork: 1 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 32 colors, Size 1000 bytes
+80.348 ms/op
+# Warmup Iteration   2: [BENCH] Mode 32 colors, Size 1000 bytes
+74.434 ms/op
+# Warmup Iteration   3: [BENCH] Mode 32 colors, Size 1000 bytes
+67.000 ms/op
+# Warmup Iteration   4: [BENCH] Mode 32 colors, Size 1000 bytes
+70.904 ms/op
+# Warmup Iteration   5: [BENCH] Mode 32 colors, Size 1000 bytes
+68.040 ms/op
+Iteration   1: [BENCH] Mode 32 colors, Size 1000 bytes
+69.188 ms/op
+Iteration   2: [BENCH] Mode 32 colors, Size 1000 bytes
+49.576 ms/op
+Iteration   3: [BENCH] Mode 32 colors, Size 1000 bytes
+47.916 ms/op
+Iteration   4: [BENCH] Mode 32 colors, Size 1000 bytes
+45.779 ms/op
+Iteration   5: [BENCH] Mode 32 colors, Size 1000 bytes
+45.079 ms/op
+Iteration   6: [BENCH] Mode 32 colors, Size 1000 bytes
+51.396 ms/op
+Iteration   7: [BENCH] Mode 32 colors, Size 1000 bytes
+50.716 ms/op
+Iteration   8: [BENCH] Mode 32 colors, Size 1000 bytes
+50.376 ms/op
+Iteration   9: [BENCH] Mode 32 colors, Size 1000 bytes
+46.866 ms/op
+Iteration  10: [BENCH] Mode 32 colors, Size 1000 bytes
+[BENCHMARK] Cleaned up encoder
+47.846 ms/op
+
+# Run progress: 70.37% complete, ETA 00:10:08
+# Fork: 2 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 32 colors, Size 1000 bytes
+51.055 ms/op
+# Warmup Iteration   2: [BENCH] Mode 32 colors, Size 1000 bytes
+45.883 ms/op
+# Warmup Iteration   3: [BENCH] Mode 32 colors, Size 1000 bytes
+43.799 ms/op
+# Warmup Iteration   4: [BENCH] Mode 32 colors, Size 1000 bytes
+43.739 ms/op
+# Warmup Iteration   5: [BENCH] Mode 32 colors, Size 1000 bytes
+44.740 ms/op
+Iteration   1: [BENCH] Mode 32 colors, Size 1000 bytes
+43.089 ms/op
+Iteration   2: [BENCH] Mode 32 colors, Size 1000 bytes
+43.404 ms/op
+Iteration   3: [BENCH] Mode 32 colors, Size 1000 bytes
+48.422 ms/op
+Iteration   4: [BENCH] Mode 32 colors, Size 1000 bytes
+44.174 ms/op
+Iteration   5: [BENCH] Mode 32 colors, Size 1000 bytes
+44.091 ms/op
+Iteration   6: [BENCH] Mode 32 colors, Size 1000 bytes
+45.762 ms/op
+Iteration   7: [BENCH] Mode 32 colors, Size 1000 bytes
+46.127 ms/op
+Iteration   8: [BENCH] Mode 32 colors, Size 1000 bytes
+43.521 ms/op
+Iteration   9: [BENCH] Mode 32 colors, Size 1000 bytes
+45.229 ms/op
+Iteration  10: [BENCH] Mode 32 colors, Size 1000 bytes
+[BENCHMARK] Cleaned up encoder
+43.287 ms/op
+
+# Run progress: 71.30% complete, ETA 00:09:53
+# Fork: 3 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 32 colors, Size 1000 bytes
+47.430 ms/op
+# Warmup Iteration   2: [BENCH] Mode 32 colors, Size 1000 bytes
+43.558 ms/op
+# Warmup Iteration   3: [BENCH] Mode 32 colors, Size 1000 bytes
+43.488 ms/op
+# Warmup Iteration   4: [BENCH] Mode 32 colors, Size 1000 bytes
+48.903 ms/op
+# Warmup Iteration   5: [BENCH] Mode 32 colors, Size 1000 bytes
+55.707 ms/op
+Iteration   1: [BENCH] Mode 32 colors, Size 1000 bytes
+44.557 ms/op
+Iteration   2: [BENCH] Mode 32 colors, Size 1000 bytes
+43.779 ms/op
+Iteration   3: [BENCH] Mode 32 colors, Size 1000 bytes
+45.649 ms/op
+Iteration   4: [BENCH] Mode 32 colors, Size 1000 bytes
+44.707 ms/op
+Iteration   5: [BENCH] Mode 32 colors, Size 1000 bytes
+45.674 ms/op
+Iteration   6: [BENCH] Mode 32 colors, Size 1000 bytes
+43.839 ms/op
+Iteration   7: [BENCH] Mode 32 colors, Size 1000 bytes
+46.209 ms/op
+Iteration   8: [BENCH] Mode 32 colors, Size 1000 bytes
+43.426 ms/op
+Iteration   9: [BENCH] Mode 32 colors, Size 1000 bytes
+45.499 ms/op
+Iteration  10: [BENCH] Mode 32 colors, Size 1000 bytes
+[BENCHMARK] Cleaned up encoder
+43.251 ms/op
+
+
+Result "com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode":
+  46.614 ±(99.9%) 3.256 ms/op [Average]
+  (min, avg, max) = (43.089, 46.614, 69.188), stdev = 4.873
+  CI (99.9%): [43.359, 49.870] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 23.0.1, OpenJDK 64-Bit Server VM, 23.0.1+11-39
+# VM invoker: /home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 5 iterations, 2 s each
+# Measurement: 10 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode
+# Parameters: (colorMode = 32, messageSize = 10000)
+
+# Run progress: 72.22% complete, ETA 00:09:38
+# Fork: 1 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 32 colors, Size 10000 bytes
+<failure>
+
+java.lang.RuntimeException: Encoding failed for mode 32, size 10000
+	at com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode(EncodingBenchmark.java:87)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_avgt_jmhStub(EncodingBenchmark_encodeByColorMode_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_AverageTime(EncodingBenchmark_encodeByColorMode_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into one symbol with the given ECC level. Please use an ECC level lower than 1 with '--ecc-level 1'
+
+# Run progress: 73.15% complete, ETA 00:09:12
+# Fork: 2 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 32 colors, Size 10000 bytes
+<failure>
+
+java.lang.RuntimeException: Encoding failed for mode 32, size 10000
+	at com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode(EncodingBenchmark.java:87)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_avgt_jmhStub(EncodingBenchmark_encodeByColorMode_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_AverageTime(EncodingBenchmark_encodeByColorMode_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into one symbol with the given ECC level. Please use an ECC level lower than 1 with '--ecc-level 1'
+
+# Run progress: 74.07% complete, ETA 00:08:47
+# Fork: 3 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 32 colors, Size 10000 bytes
+<failure>
+
+java.lang.RuntimeException: Encoding failed for mode 32, size 10000
+	at com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode(EncodingBenchmark.java:87)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_avgt_jmhStub(EncodingBenchmark_encodeByColorMode_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_AverageTime(EncodingBenchmark_encodeByColorMode_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into one symbol with the given ECC level. Please use an ECC level lower than 1 with '--ecc-level 1'
+
+
+# JMH version: 1.37
+# VM version: JDK 23.0.1, OpenJDK 64-Bit Server VM, 23.0.1+11-39
+# VM invoker: /home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 5 iterations, 2 s each
+# Measurement: 10 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode
+# Parameters: (colorMode = 32, messageSize = 100000)
+
+# Run progress: 75.00% complete, ETA 00:08:22
+# Fork: 1 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 32 colors, Size 100000 bytes
+<failure>
+
+java.lang.RuntimeException: Encoding failed for mode 32, size 100000
+	at com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode(EncodingBenchmark.java:87)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_avgt_jmhStub(EncodingBenchmark_encodeByColorMode_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_AverageTime(EncodingBenchmark_encodeByColorMode_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into one symbol. Use more symbols.
+
+# Run progress: 75.93% complete, ETA 00:07:57
+# Fork: 2 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 32 colors, Size 100000 bytes
+<failure>
+
+java.lang.RuntimeException: Encoding failed for mode 32, size 100000
+	at com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode(EncodingBenchmark.java:87)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_avgt_jmhStub(EncodingBenchmark_encodeByColorMode_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_AverageTime(EncodingBenchmark_encodeByColorMode_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into one symbol. Use more symbols.
+
+# Run progress: 76.85% complete, ETA 00:07:33
+# Fork: 3 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 32 colors, Size 100000 bytes
+<failure>
+
+java.lang.RuntimeException: Encoding failed for mode 32, size 100000
+	at com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode(EncodingBenchmark.java:87)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_avgt_jmhStub(EncodingBenchmark_encodeByColorMode_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_AverageTime(EncodingBenchmark_encodeByColorMode_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into one symbol. Use more symbols.
+
+
+# JMH version: 1.37
+# VM version: JDK 23.0.1, OpenJDK 64-Bit Server VM, 23.0.1+11-39
+# VM invoker: /home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 5 iterations, 2 s each
+# Measurement: 10 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode
+# Parameters: (colorMode = 64, messageSize = 100)
+
+# Run progress: 77.78% complete, ETA 00:07:10
+# Fork: 1 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 64 colors, Size 100 bytes
+18.212 ms/op
+# Warmup Iteration   2: [BENCH] Mode 64 colors, Size 100 bytes
+15.291 ms/op
+# Warmup Iteration   3: [BENCH] Mode 64 colors, Size 100 bytes
+14.771 ms/op
+# Warmup Iteration   4: [BENCH] Mode 64 colors, Size 100 bytes
+14.792 ms/op
+# Warmup Iteration   5: [BENCH] Mode 64 colors, Size 100 bytes
+15.066 ms/op
+Iteration   1: [BENCH] Mode 64 colors, Size 100 bytes
+14.705 ms/op
+Iteration   2: [BENCH] Mode 64 colors, Size 100 bytes
+14.951 ms/op
+Iteration   3: [BENCH] Mode 64 colors, Size 100 bytes
+14.830 ms/op
+Iteration   4: [BENCH] Mode 64 colors, Size 100 bytes
+14.744 ms/op
+Iteration   5: [BENCH] Mode 64 colors, Size 100 bytes
+14.801 ms/op
+Iteration   6: [BENCH] Mode 64 colors, Size 100 bytes
+15.017 ms/op
+Iteration   7: [BENCH] Mode 64 colors, Size 100 bytes
+15.327 ms/op
+Iteration   8: [BENCH] Mode 64 colors, Size 100 bytes
+15.159 ms/op
+Iteration   9: [BENCH] Mode 64 colors, Size 100 bytes
+15.888 ms/op
+Iteration  10: [BENCH] Mode 64 colors, Size 100 bytes
+[BENCHMARK] Cleaned up encoder
+15.716 ms/op
+
+# Run progress: 78.70% complete, ETA 00:06:56
+# Fork: 2 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 64 colors, Size 100 bytes
+15.976 ms/op
+# Warmup Iteration   2: [BENCH] Mode 64 colors, Size 100 bytes
+15.767 ms/op
+# Warmup Iteration   3: [BENCH] Mode 64 colors, Size 100 bytes
+15.398 ms/op
+# Warmup Iteration   4: [BENCH] Mode 64 colors, Size 100 bytes
+15.058 ms/op
+# Warmup Iteration   5: [BENCH] Mode 64 colors, Size 100 bytes
+14.567 ms/op
+Iteration   1: [BENCH] Mode 64 colors, Size 100 bytes
+14.669 ms/op
+Iteration   2: [BENCH] Mode 64 colors, Size 100 bytes
+14.550 ms/op
+Iteration   3: [BENCH] Mode 64 colors, Size 100 bytes
+14.699 ms/op
+Iteration   4: [BENCH] Mode 64 colors, Size 100 bytes
+14.623 ms/op
+Iteration   5: [BENCH] Mode 64 colors, Size 100 bytes
+14.674 ms/op
+Iteration   6: [BENCH] Mode 64 colors, Size 100 bytes
+14.607 ms/op
+Iteration   7: [BENCH] Mode 64 colors, Size 100 bytes
+15.301 ms/op
+Iteration   8: [BENCH] Mode 64 colors, Size 100 bytes
+14.534 ms/op
+Iteration   9: [BENCH] Mode 64 colors, Size 100 bytes
+14.943 ms/op
+Iteration  10: [BENCH] Mode 64 colors, Size 100 bytes
+[BENCHMARK] Cleaned up encoder
+14.740 ms/op
+
+# Run progress: 79.63% complete, ETA 00:06:41
+# Fork: 3 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 64 colors, Size 100 bytes
+15.712 ms/op
+# Warmup Iteration   2: [BENCH] Mode 64 colors, Size 100 bytes
+14.816 ms/op
+# Warmup Iteration   3: [BENCH] Mode 64 colors, Size 100 bytes
+15.008 ms/op
+# Warmup Iteration   4: [BENCH] Mode 64 colors, Size 100 bytes
+14.746 ms/op
+# Warmup Iteration   5: [BENCH] Mode 64 colors, Size 100 bytes
+15.676 ms/op
+Iteration   1: [BENCH] Mode 64 colors, Size 100 bytes
+14.840 ms/op
+Iteration   2: [BENCH] Mode 64 colors, Size 100 bytes
+14.559 ms/op
+Iteration   3: [BENCH] Mode 64 colors, Size 100 bytes
+15.013 ms/op
+Iteration   4: [BENCH] Mode 64 colors, Size 100 bytes
+14.687 ms/op
+Iteration   5: [BENCH] Mode 64 colors, Size 100 bytes
+14.652 ms/op
+Iteration   6: [BENCH] Mode 64 colors, Size 100 bytes
+15.845 ms/op
+Iteration   7: [BENCH] Mode 64 colors, Size 100 bytes
+15.342 ms/op
+Iteration   8: [BENCH] Mode 64 colors, Size 100 bytes
+15.944 ms/op
+Iteration   9: [BENCH] Mode 64 colors, Size 100 bytes
+14.807 ms/op
+Iteration  10: [BENCH] Mode 64 colors, Size 100 bytes
+[BENCHMARK] Cleaned up encoder
+14.609 ms/op
+
+
+Result "com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode":
+  14.959 ±(99.9%) 0.281 ms/op [Average]
+  (min, avg, max) = (14.534, 14.959, 15.944), stdev = 0.421
+  CI (99.9%): [14.678, 15.241] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 23.0.1, OpenJDK 64-Bit Server VM, 23.0.1+11-39
+# VM invoker: /home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 5 iterations, 2 s each
+# Measurement: 10 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode
+# Parameters: (colorMode = 64, messageSize = 1000)
+
+# Run progress: 80.56% complete, ETA 00:06:25
+# Fork: 1 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 64 colors, Size 1000 bytes
+47.410 ms/op
+# Warmup Iteration   2: [BENCH] Mode 64 colors, Size 1000 bytes
+45.682 ms/op
+# Warmup Iteration   3: [BENCH] Mode 64 colors, Size 1000 bytes
+45.694 ms/op
+# Warmup Iteration   4: [BENCH] Mode 64 colors, Size 1000 bytes
+46.841 ms/op
+# Warmup Iteration   5: [BENCH] Mode 64 colors, Size 1000 bytes
+45.494 ms/op
+Iteration   1: [BENCH] Mode 64 colors, Size 1000 bytes
+45.563 ms/op
+Iteration   2: [BENCH] Mode 64 colors, Size 1000 bytes
+51.143 ms/op
+Iteration   3: [BENCH] Mode 64 colors, Size 1000 bytes
+46.463 ms/op
+Iteration   4: [BENCH] Mode 64 colors, Size 1000 bytes
+45.608 ms/op
+Iteration   5: [BENCH] Mode 64 colors, Size 1000 bytes
+47.662 ms/op
+Iteration   6: [BENCH] Mode 64 colors, Size 1000 bytes
+45.571 ms/op
+Iteration   7: [BENCH] Mode 64 colors, Size 1000 bytes
+45.490 ms/op
+Iteration   8: [BENCH] Mode 64 colors, Size 1000 bytes
+45.402 ms/op
+Iteration   9: [BENCH] Mode 64 colors, Size 1000 bytes
+46.023 ms/op
+Iteration  10: [BENCH] Mode 64 colors, Size 1000 bytes
+[BENCHMARK] Cleaned up encoder
+45.558 ms/op
+
+# Run progress: 81.48% complete, ETA 00:06:10
+# Fork: 2 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 64 colors, Size 1000 bytes
+48.109 ms/op
+# Warmup Iteration   2: [BENCH] Mode 64 colors, Size 1000 bytes
+46.321 ms/op
+# Warmup Iteration   3: [BENCH] Mode 64 colors, Size 1000 bytes
+46.588 ms/op
+# Warmup Iteration   4: [BENCH] Mode 64 colors, Size 1000 bytes
+46.166 ms/op
+# Warmup Iteration   5: [BENCH] Mode 64 colors, Size 1000 bytes
+45.803 ms/op
+Iteration   1: [BENCH] Mode 64 colors, Size 1000 bytes
+48.051 ms/op
+Iteration   2: [BENCH] Mode 64 colors, Size 1000 bytes
+46.263 ms/op
+Iteration   3: [BENCH] Mode 64 colors, Size 1000 bytes
+46.000 ms/op
+Iteration   4: [BENCH] Mode 64 colors, Size 1000 bytes
+46.827 ms/op
+Iteration   5: [BENCH] Mode 64 colors, Size 1000 bytes
+45.539 ms/op
+Iteration   6: [BENCH] Mode 64 colors, Size 1000 bytes
+45.867 ms/op
+Iteration   7: [BENCH] Mode 64 colors, Size 1000 bytes
+45.675 ms/op
+Iteration   8: [BENCH] Mode 64 colors, Size 1000 bytes
+47.805 ms/op
+Iteration   9: [BENCH] Mode 64 colors, Size 1000 bytes
+47.200 ms/op
+Iteration  10: [BENCH] Mode 64 colors, Size 1000 bytes
+[BENCHMARK] Cleaned up encoder
+46.083 ms/op
+
+# Run progress: 82.41% complete, ETA 00:05:54
+# Fork: 3 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 64 colors, Size 1000 bytes
+52.104 ms/op
+# Warmup Iteration   2: [BENCH] Mode 64 colors, Size 1000 bytes
+46.933 ms/op
+# Warmup Iteration   3: [BENCH] Mode 64 colors, Size 1000 bytes
+45.895 ms/op
+# Warmup Iteration   4: [BENCH] Mode 64 colors, Size 1000 bytes
+45.680 ms/op
+# Warmup Iteration   5: [BENCH] Mode 64 colors, Size 1000 bytes
+45.842 ms/op
+Iteration   1: [BENCH] Mode 64 colors, Size 1000 bytes
+45.408 ms/op
+Iteration   2: [BENCH] Mode 64 colors, Size 1000 bytes
+46.014 ms/op
+Iteration   3: [BENCH] Mode 64 colors, Size 1000 bytes
+45.367 ms/op
+Iteration   4: [BENCH] Mode 64 colors, Size 1000 bytes
+45.651 ms/op
+Iteration   5: [BENCH] Mode 64 colors, Size 1000 bytes
+45.598 ms/op
+Iteration   6: [BENCH] Mode 64 colors, Size 1000 bytes
+47.314 ms/op
+Iteration   7: [BENCH] Mode 64 colors, Size 1000 bytes
+45.356 ms/op
+Iteration   8: [BENCH] Mode 64 colors, Size 1000 bytes
+45.464 ms/op
+Iteration   9: [BENCH] Mode 64 colors, Size 1000 bytes
+45.795 ms/op
+Iteration  10: [BENCH] Mode 64 colors, Size 1000 bytes
+[BENCHMARK] Cleaned up encoder
+45.568 ms/op
+
+
+Result "com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode":
+  46.244 ±(99.9%) 0.810 ms/op [Average]
+  (min, avg, max) = (45.356, 46.244, 51.143), stdev = 1.213
+  CI (99.9%): [45.434, 47.055] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 23.0.1, OpenJDK 64-Bit Server VM, 23.0.1+11-39
+# VM invoker: /home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 5 iterations, 2 s each
+# Measurement: 10 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode
+# Parameters: (colorMode = 64, messageSize = 10000)
+
+# Run progress: 83.33% complete, ETA 00:05:37
+# Fork: 1 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 64 colors, Size 10000 bytes
+187.943 ms/op
+# Warmup Iteration   2: [BENCH] Mode 64 colors, Size 10000 bytes
+180.324 ms/op
+# Warmup Iteration   3: [BENCH] Mode 64 colors, Size 10000 bytes
+184.460 ms/op
+# Warmup Iteration   4: [BENCH] Mode 64 colors, Size 10000 bytes
+187.682 ms/op
+# Warmup Iteration   5: [BENCH] Mode 64 colors, Size 10000 bytes
+180.986 ms/op
+Iteration   1: [BENCH] Mode 64 colors, Size 10000 bytes
+184.230 ms/op
+Iteration   2: [BENCH] Mode 64 colors, Size 10000 bytes
+181.066 ms/op
+Iteration   3: [BENCH] Mode 64 colors, Size 10000 bytes
+181.795 ms/op
+Iteration   4: [BENCH] Mode 64 colors, Size 10000 bytes
+181.023 ms/op
+Iteration   5: [BENCH] Mode 64 colors, Size 10000 bytes
+182.102 ms/op
+Iteration   6: [BENCH] Mode 64 colors, Size 10000 bytes
+202.027 ms/op
+Iteration   7: [BENCH] Mode 64 colors, Size 10000 bytes
+194.802 ms/op
+Iteration   8: [BENCH] Mode 64 colors, Size 10000 bytes
+182.386 ms/op
+Iteration   9: [BENCH] Mode 64 colors, Size 10000 bytes
+186.571 ms/op
+Iteration  10: [BENCH] Mode 64 colors, Size 10000 bytes
+[BENCHMARK] Cleaned up encoder
+185.823 ms/op
+
+# Run progress: 84.26% complete, ETA 00:05:21
+# Fork: 2 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 64 colors, Size 10000 bytes
+202.823 ms/op
+# Warmup Iteration   2: [BENCH] Mode 64 colors, Size 10000 bytes
+186.114 ms/op
+# Warmup Iteration   3: [BENCH] Mode 64 colors, Size 10000 bytes
+187.771 ms/op
+# Warmup Iteration   4: [BENCH] Mode 64 colors, Size 10000 bytes
+190.580 ms/op
+# Warmup Iteration   5: [BENCH] Mode 64 colors, Size 10000 bytes
+215.143 ms/op
+Iteration   1: [BENCH] Mode 64 colors, Size 10000 bytes
+182.662 ms/op
+Iteration   2: [BENCH] Mode 64 colors, Size 10000 bytes
+182.866 ms/op
+Iteration   3: [BENCH] Mode 64 colors, Size 10000 bytes
+188.959 ms/op
+Iteration   4: [BENCH] Mode 64 colors, Size 10000 bytes
+182.430 ms/op
+Iteration   5: [BENCH] Mode 64 colors, Size 10000 bytes
+181.470 ms/op
+Iteration   6: [BENCH] Mode 64 colors, Size 10000 bytes
+193.261 ms/op
+Iteration   7: [BENCH] Mode 64 colors, Size 10000 bytes
+190.180 ms/op
+Iteration   8: [BENCH] Mode 64 colors, Size 10000 bytes
+182.154 ms/op
+Iteration   9: [BENCH] Mode 64 colors, Size 10000 bytes
+186.122 ms/op
+Iteration  10: [BENCH] Mode 64 colors, Size 10000 bytes
+[BENCHMARK] Cleaned up encoder
+188.516 ms/op
+
+# Run progress: 85.19% complete, ETA 00:05:04
+# Fork: 3 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 64 colors, Size 10000 bytes
+194.559 ms/op
+# Warmup Iteration   2: [BENCH] Mode 64 colors, Size 10000 bytes
+184.733 ms/op
+# Warmup Iteration   3: [BENCH] Mode 64 colors, Size 10000 bytes
+188.311 ms/op
+# Warmup Iteration   4: [BENCH] Mode 64 colors, Size 10000 bytes
+193.966 ms/op
+# Warmup Iteration   5: [BENCH] Mode 64 colors, Size 10000 bytes
+195.337 ms/op
+Iteration   1: [BENCH] Mode 64 colors, Size 10000 bytes
+184.369 ms/op
+Iteration   2: [BENCH] Mode 64 colors, Size 10000 bytes
+184.795 ms/op
+Iteration   3: [BENCH] Mode 64 colors, Size 10000 bytes
+181.099 ms/op
+Iteration   4: [BENCH] Mode 64 colors, Size 10000 bytes
+181.028 ms/op
+Iteration   5: [BENCH] Mode 64 colors, Size 10000 bytes
+181.230 ms/op
+Iteration   6: [BENCH] Mode 64 colors, Size 10000 bytes
+182.084 ms/op
+Iteration   7: [BENCH] Mode 64 colors, Size 10000 bytes
+181.830 ms/op
+Iteration   8: [BENCH] Mode 64 colors, Size 10000 bytes
+183.064 ms/op
+Iteration   9: [BENCH] Mode 64 colors, Size 10000 bytes
+186.658 ms/op
+Iteration  10: [BENCH] Mode 64 colors, Size 10000 bytes
+[BENCHMARK] Cleaned up encoder
+194.832 ms/op
+
+
+Result "com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode":
+  185.381 ±(99.9%) 3.445 ms/op [Average]
+  (min, avg, max) = (181.023, 185.381, 202.027), stdev = 5.156
+  CI (99.9%): [181.936, 188.826] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 23.0.1, OpenJDK 64-Bit Server VM, 23.0.1+11-39
+# VM invoker: /home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 5 iterations, 2 s each
+# Measurement: 10 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode
+# Parameters: (colorMode = 64, messageSize = 100000)
+
+# Run progress: 86.11% complete, ETA 00:04:47
+# Fork: 1 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 64 colors, Size 100000 bytes
+<failure>
+
+java.lang.RuntimeException: Encoding failed for mode 64, size 100000
+	at com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode(EncodingBenchmark.java:87)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_avgt_jmhStub(EncodingBenchmark_encodeByColorMode_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_AverageTime(EncodingBenchmark_encodeByColorMode_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into one symbol. Use more symbols.
+
+# Run progress: 87.04% complete, ETA 00:04:25
+# Fork: 2 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 64 colors, Size 100000 bytes
+<failure>
+
+java.lang.RuntimeException: Encoding failed for mode 64, size 100000
+	at com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode(EncodingBenchmark.java:87)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_avgt_jmhStub(EncodingBenchmark_encodeByColorMode_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_AverageTime(EncodingBenchmark_encodeByColorMode_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into one symbol. Use more symbols.
+
+# Run progress: 87.96% complete, ETA 00:04:04
+# Fork: 3 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 64 colors, Size 100000 bytes
+<failure>
+
+java.lang.RuntimeException: Encoding failed for mode 64, size 100000
+	at com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode(EncodingBenchmark.java:87)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_avgt_jmhStub(EncodingBenchmark_encodeByColorMode_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_AverageTime(EncodingBenchmark_encodeByColorMode_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into one symbol. Use more symbols.
+
+
+# JMH version: 1.37
+# VM version: JDK 23.0.1, OpenJDK 64-Bit Server VM, 23.0.1+11-39
+# VM invoker: /home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 5 iterations, 2 s each
+# Measurement: 10 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode
+# Parameters: (colorMode = 128, messageSize = 100)
+
+# Run progress: 88.89% complete, ETA 00:03:43
+# Fork: 1 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 128 colors, Size 100 bytes
+26.885 ms/op
+# Warmup Iteration   2: [BENCH] Mode 128 colors, Size 100 bytes
+27.238 ms/op
+# Warmup Iteration   3: [BENCH] Mode 128 colors, Size 100 bytes
+26.645 ms/op
+# Warmup Iteration   4: [BENCH] Mode 128 colors, Size 100 bytes
+26.266 ms/op
+# Warmup Iteration   5: [BENCH] Mode 128 colors, Size 100 bytes
+26.709 ms/op
+Iteration   1: [BENCH] Mode 128 colors, Size 100 bytes
+28.009 ms/op
+Iteration   2: [BENCH] Mode 128 colors, Size 100 bytes
+25.718 ms/op
+Iteration   3: [BENCH] Mode 128 colors, Size 100 bytes
+26.341 ms/op
+Iteration   4: [BENCH] Mode 128 colors, Size 100 bytes
+25.932 ms/op
+Iteration   5: [BENCH] Mode 128 colors, Size 100 bytes
+25.752 ms/op
+Iteration   6: [BENCH] Mode 128 colors, Size 100 bytes
+25.625 ms/op
+Iteration   7: [BENCH] Mode 128 colors, Size 100 bytes
+25.311 ms/op
+Iteration   8: [BENCH] Mode 128 colors, Size 100 bytes
+27.089 ms/op
+Iteration   9: [BENCH] Mode 128 colors, Size 100 bytes
+26.357 ms/op
+Iteration  10: [BENCH] Mode 128 colors, Size 100 bytes
+[BENCHMARK] Cleaned up encoder
+26.344 ms/op
+
+# Run progress: 89.81% complete, ETA 00:03:25
+# Fork: 2 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 128 colors, Size 100 bytes
+27.848 ms/op
+# Warmup Iteration   2: [BENCH] Mode 128 colors, Size 100 bytes
+25.893 ms/op
+# Warmup Iteration   3: [BENCH] Mode 128 colors, Size 100 bytes
+25.955 ms/op
+# Warmup Iteration   4: [BENCH] Mode 128 colors, Size 100 bytes
+26.100 ms/op
+# Warmup Iteration   5: [BENCH] Mode 128 colors, Size 100 bytes
+25.663 ms/op
+Iteration   1: [BENCH] Mode 128 colors, Size 100 bytes
+25.743 ms/op
+Iteration   2: [BENCH] Mode 128 colors, Size 100 bytes
+29.148 ms/op
+Iteration   3: [BENCH] Mode 128 colors, Size 100 bytes
+26.949 ms/op
+Iteration   4: [BENCH] Mode 128 colors, Size 100 bytes
+26.261 ms/op
+Iteration   5: [BENCH] Mode 128 colors, Size 100 bytes
+29.477 ms/op
+Iteration   6: [BENCH] Mode 128 colors, Size 100 bytes
+27.443 ms/op
+Iteration   7: [BENCH] Mode 128 colors, Size 100 bytes
+27.371 ms/op
+Iteration   8: [BENCH] Mode 128 colors, Size 100 bytes
+26.284 ms/op
+Iteration   9: [BENCH] Mode 128 colors, Size 100 bytes
+25.973 ms/op
+Iteration  10: [BENCH] Mode 128 colors, Size 100 bytes
+[BENCHMARK] Cleaned up encoder
+27.422 ms/op
+
+# Run progress: 90.74% complete, ETA 00:03:08
+# Fork: 3 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 128 colors, Size 100 bytes
+29.048 ms/op
+# Warmup Iteration   2: [BENCH] Mode 128 colors, Size 100 bytes
+26.739 ms/op
+# Warmup Iteration   3: [BENCH] Mode 128 colors, Size 100 bytes
+27.616 ms/op
+# Warmup Iteration   4: [BENCH] Mode 128 colors, Size 100 bytes
+27.784 ms/op
+# Warmup Iteration   5: [BENCH] Mode 128 colors, Size 100 bytes
+26.501 ms/op
+Iteration   1: [BENCH] Mode 128 colors, Size 100 bytes
+26.404 ms/op
+Iteration   2: [BENCH] Mode 128 colors, Size 100 bytes
+25.805 ms/op
+Iteration   3: [BENCH] Mode 128 colors, Size 100 bytes
+25.747 ms/op
+Iteration   4: [BENCH] Mode 128 colors, Size 100 bytes
+27.409 ms/op
+Iteration   5: [BENCH] Mode 128 colors, Size 100 bytes
+26.331 ms/op
+Iteration   6: [BENCH] Mode 128 colors, Size 100 bytes
+25.334 ms/op
+Iteration   7: [BENCH] Mode 128 colors, Size 100 bytes
+25.643 ms/op
+Iteration   8: [BENCH] Mode 128 colors, Size 100 bytes
+25.994 ms/op
+Iteration   9: [BENCH] Mode 128 colors, Size 100 bytes
+25.909 ms/op
+Iteration  10: [BENCH] Mode 128 colors, Size 100 bytes
+[BENCHMARK] Cleaned up encoder
+25.741 ms/op
+
+
+Result "com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode":
+  26.496 ±(99.9%) 0.692 ms/op [Average]
+  (min, avg, max) = (25.311, 26.496, 29.477), stdev = 1.035
+  CI (99.9%): [25.804, 27.187] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 23.0.1, OpenJDK 64-Bit Server VM, 23.0.1+11-39
+# VM invoker: /home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 5 iterations, 2 s each
+# Measurement: 10 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode
+# Parameters: (colorMode = 128, messageSize = 1000)
+
+# Run progress: 91.67% complete, ETA 00:02:50
+# Fork: 1 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 128 colors, Size 1000 bytes
+62.860 ms/op
+# Warmup Iteration   2: [BENCH] Mode 128 colors, Size 1000 bytes
+61.482 ms/op
+# Warmup Iteration   3: [BENCH] Mode 128 colors, Size 1000 bytes
+64.798 ms/op
+# Warmup Iteration   4: [BENCH] Mode 128 colors, Size 1000 bytes
+57.585 ms/op
+# Warmup Iteration   5: [BENCH] Mode 128 colors, Size 1000 bytes
+57.020 ms/op
+Iteration   1: [BENCH] Mode 128 colors, Size 1000 bytes
+61.045 ms/op
+Iteration   2: [BENCH] Mode 128 colors, Size 1000 bytes
+59.651 ms/op
+Iteration   3: [BENCH] Mode 128 colors, Size 1000 bytes
+59.689 ms/op
+Iteration   4: [BENCH] Mode 128 colors, Size 1000 bytes
+57.753 ms/op
+Iteration   5: [BENCH] Mode 128 colors, Size 1000 bytes
+56.913 ms/op
+Iteration   6: [BENCH] Mode 128 colors, Size 1000 bytes
+56.784 ms/op
+Iteration   7: [BENCH] Mode 128 colors, Size 1000 bytes
+57.224 ms/op
+Iteration   8: [BENCH] Mode 128 colors, Size 1000 bytes
+57.033 ms/op
+Iteration   9: [BENCH] Mode 128 colors, Size 1000 bytes
+57.949 ms/op
+Iteration  10: [BENCH] Mode 128 colors, Size 1000 bytes
+[BENCHMARK] Cleaned up encoder
+57.458 ms/op
+
+# Run progress: 92.59% complete, ETA 00:02:32
+# Fork: 2 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 128 colors, Size 1000 bytes
+60.322 ms/op
+# Warmup Iteration   2: [BENCH] Mode 128 colors, Size 1000 bytes
+57.323 ms/op
+# Warmup Iteration   3: [BENCH] Mode 128 colors, Size 1000 bytes
+57.619 ms/op
+# Warmup Iteration   4: [BENCH] Mode 128 colors, Size 1000 bytes
+57.095 ms/op
+# Warmup Iteration   5: [BENCH] Mode 128 colors, Size 1000 bytes
+57.106 ms/op
+Iteration   1: [BENCH] Mode 128 colors, Size 1000 bytes
+56.906 ms/op
+Iteration   2: [BENCH] Mode 128 colors, Size 1000 bytes
+61.884 ms/op
+Iteration   3: [BENCH] Mode 128 colors, Size 1000 bytes
+60.029 ms/op
+Iteration   4: [BENCH] Mode 128 colors, Size 1000 bytes
+60.671 ms/op
+Iteration   5: [BENCH] Mode 128 colors, Size 1000 bytes
+58.189 ms/op
+Iteration   6: [BENCH] Mode 128 colors, Size 1000 bytes
+57.490 ms/op
+Iteration   7: [BENCH] Mode 128 colors, Size 1000 bytes
+61.035 ms/op
+Iteration   8: [BENCH] Mode 128 colors, Size 1000 bytes
+59.875 ms/op
+Iteration   9: [BENCH] Mode 128 colors, Size 1000 bytes
+56.973 ms/op
+Iteration  10: [BENCH] Mode 128 colors, Size 1000 bytes
+[BENCHMARK] Cleaned up encoder
+57.188 ms/op
+
+# Run progress: 93.52% complete, ETA 00:02:14
+# Fork: 3 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 128 colors, Size 1000 bytes
+63.178 ms/op
+# Warmup Iteration   2: [BENCH] Mode 128 colors, Size 1000 bytes
+64.284 ms/op
+# Warmup Iteration   3: [BENCH] Mode 128 colors, Size 1000 bytes
+57.382 ms/op
+# Warmup Iteration   4: [BENCH] Mode 128 colors, Size 1000 bytes
+57.012 ms/op
+# Warmup Iteration   5: [BENCH] Mode 128 colors, Size 1000 bytes
+56.793 ms/op
+Iteration   1: [BENCH] Mode 128 colors, Size 1000 bytes
+61.626 ms/op
+Iteration   2: [BENCH] Mode 128 colors, Size 1000 bytes
+57.951 ms/op
+Iteration   3: [BENCH] Mode 128 colors, Size 1000 bytes
+63.739 ms/op
+Iteration   4: [BENCH] Mode 128 colors, Size 1000 bytes
+60.182 ms/op
+Iteration   5: [BENCH] Mode 128 colors, Size 1000 bytes
+57.975 ms/op
+Iteration   6: [BENCH] Mode 128 colors, Size 1000 bytes
+60.996 ms/op
+Iteration   7: [BENCH] Mode 128 colors, Size 1000 bytes
+56.789 ms/op
+Iteration   8: [BENCH] Mode 128 colors, Size 1000 bytes
+57.195 ms/op
+Iteration   9: [BENCH] Mode 128 colors, Size 1000 bytes
+57.013 ms/op
+Iteration  10: [BENCH] Mode 128 colors, Size 1000 bytes
+[BENCHMARK] Cleaned up encoder
+58.278 ms/op
+
+
+Result "com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode":
+  58.783 ±(99.9%) 1.279 ms/op [Average]
+  (min, avg, max) = (56.784, 58.783, 63.739), stdev = 1.914
+  CI (99.9%): [57.504, 60.062] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 23.0.1, OpenJDK 64-Bit Server VM, 23.0.1+11-39
+# VM invoker: /home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 5 iterations, 2 s each
+# Measurement: 10 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode
+# Parameters: (colorMode = 128, messageSize = 10000)
+
+# Run progress: 94.44% complete, ETA 00:01:55
+# Fork: 1 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 128 colors, Size 10000 bytes
+176.754 ms/op
+# Warmup Iteration   2: [BENCH] Mode 128 colors, Size 10000 bytes
+176.827 ms/op
+# Warmup Iteration   3: [BENCH] Mode 128 colors, Size 10000 bytes
+171.713 ms/op
+# Warmup Iteration   4: [BENCH] Mode 128 colors, Size 10000 bytes
+185.353 ms/op
+# Warmup Iteration   5: [BENCH] Mode 128 colors, Size 10000 bytes
+170.888 ms/op
+Iteration   1: [BENCH] Mode 128 colors, Size 10000 bytes
+168.112 ms/op
+Iteration   2: [BENCH] Mode 128 colors, Size 10000 bytes
+168.413 ms/op
+Iteration   3: [BENCH] Mode 128 colors, Size 10000 bytes
+169.146 ms/op
+Iteration   4: [BENCH] Mode 128 colors, Size 10000 bytes
+175.445 ms/op
+Iteration   5: [BENCH] Mode 128 colors, Size 10000 bytes
+180.226 ms/op
+Iteration   6: [BENCH] Mode 128 colors, Size 10000 bytes
+177.435 ms/op
+Iteration   7: [BENCH] Mode 128 colors, Size 10000 bytes
+169.745 ms/op
+Iteration   8: [BENCH] Mode 128 colors, Size 10000 bytes
+167.938 ms/op
+Iteration   9: [BENCH] Mode 128 colors, Size 10000 bytes
+170.868 ms/op
+Iteration  10: [BENCH] Mode 128 colors, Size 10000 bytes
+[BENCHMARK] Cleaned up encoder
+174.125 ms/op
+
+# Run progress: 95.37% complete, ETA 00:01:37
+# Fork: 2 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 128 colors, Size 10000 bytes
+174.349 ms/op
+# Warmup Iteration   2: [BENCH] Mode 128 colors, Size 10000 bytes
+170.046 ms/op
+# Warmup Iteration   3: [BENCH] Mode 128 colors, Size 10000 bytes
+194.253 ms/op
+# Warmup Iteration   4: [BENCH] Mode 128 colors, Size 10000 bytes
+189.754 ms/op
+# Warmup Iteration   5: [BENCH] Mode 128 colors, Size 10000 bytes
+192.959 ms/op
+Iteration   1: [BENCH] Mode 128 colors, Size 10000 bytes
+190.268 ms/op
+Iteration   2: [BENCH] Mode 128 colors, Size 10000 bytes
+193.176 ms/op
+Iteration   3: [BENCH] Mode 128 colors, Size 10000 bytes
+182.993 ms/op
+Iteration   4: [BENCH] Mode 128 colors, Size 10000 bytes
+186.269 ms/op
+Iteration   5: [BENCH] Mode 128 colors, Size 10000 bytes
+176.441 ms/op
+Iteration   6: [BENCH] Mode 128 colors, Size 10000 bytes
+167.594 ms/op
+Iteration   7: [BENCH] Mode 128 colors, Size 10000 bytes
+168.088 ms/op
+Iteration   8: [BENCH] Mode 128 colors, Size 10000 bytes
+168.242 ms/op
+Iteration   9: [BENCH] Mode 128 colors, Size 10000 bytes
+167.993 ms/op
+Iteration  10: [BENCH] Mode 128 colors, Size 10000 bytes
+[BENCHMARK] Cleaned up encoder
+167.762 ms/op
+
+# Run progress: 96.30% complete, ETA 00:01:18
+# Fork: 3 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 128 colors, Size 10000 bytes
+181.985 ms/op
+# Warmup Iteration   2: [BENCH] Mode 128 colors, Size 10000 bytes
+169.645 ms/op
+# Warmup Iteration   3: [BENCH] Mode 128 colors, Size 10000 bytes
+174.966 ms/op
+# Warmup Iteration   4: [BENCH] Mode 128 colors, Size 10000 bytes
+169.024 ms/op
+# Warmup Iteration   5: [BENCH] Mode 128 colors, Size 10000 bytes
+168.190 ms/op
+Iteration   1: [BENCH] Mode 128 colors, Size 10000 bytes
+173.233 ms/op
+Iteration   2: [BENCH] Mode 128 colors, Size 10000 bytes
+173.099 ms/op
+Iteration   3: [BENCH] Mode 128 colors, Size 10000 bytes
+169.591 ms/op
+Iteration   4: [BENCH] Mode 128 colors, Size 10000 bytes
+169.647 ms/op
+Iteration   5: [BENCH] Mode 128 colors, Size 10000 bytes
+168.763 ms/op
+Iteration   6: [BENCH] Mode 128 colors, Size 10000 bytes
+169.239 ms/op
+Iteration   7: [BENCH] Mode 128 colors, Size 10000 bytes
+169.232 ms/op
+Iteration   8: [BENCH] Mode 128 colors, Size 10000 bytes
+170.977 ms/op
+Iteration   9: [BENCH] Mode 128 colors, Size 10000 bytes
+167.768 ms/op
+Iteration  10: [BENCH] Mode 128 colors, Size 10000 bytes
+[BENCHMARK] Cleaned up encoder
+185.973 ms/op
+
+
+Result "com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode":
+  173.593 ±(99.9%) 4.900 ms/op [Average]
+  (min, avg, max) = (167.594, 173.593, 193.176), stdev = 7.333
+  CI (99.9%): [168.694, 178.493] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 23.0.1, OpenJDK 64-Bit Server VM, 23.0.1+11-39
+# VM invoker: /home/kynphlee/tools/compilers/java/jdk-23.0.1/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib --enable-native-access=ALL-UNNAMED -Djava.library.path=../lib
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 5 iterations, 2 s each
+# Measurement: 10 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode
+# Parameters: (colorMode = 128, messageSize = 100000)
+
+# Run progress: 97.22% complete, ETA 00:00:58
+# Fork: 1 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 128 colors, Size 100000 bytes
+<failure>
+
+java.lang.RuntimeException: Encoding failed for mode 128, size 100000
+	at com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode(EncodingBenchmark.java:87)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_avgt_jmhStub(EncodingBenchmark_encodeByColorMode_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_AverageTime(EncodingBenchmark_encodeByColorMode_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into one symbol. Use more symbols.
+
+# Run progress: 98.15% complete, ETA 00:00:38
+# Fork: 2 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 128 colors, Size 100000 bytes
+<failure>
+
+java.lang.RuntimeException: Encoding failed for mode 128, size 100000
+	at com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode(EncodingBenchmark.java:87)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_avgt_jmhStub(EncodingBenchmark_encodeByColorMode_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_AverageTime(EncodingBenchmark_encodeByColorMode_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into one symbol. Use more symbols.
+
+# Run progress: 99.07% complete, ETA 00:00:19
+# Fork: 3 of 3
+# Warmup Iteration   1: [BENCHMARK] Initialized encoder
+[BENCH] Mode 128 colors, Size 100000 bytes
+<failure>
+
+java.lang.RuntimeException: Encoding failed for mode 128, size 100000
+	at com.jabcode.panama.benchmarks.EncodingBenchmark.encodeByColorMode(EncodingBenchmark.java:87)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_avgt_jmhStub(EncodingBenchmark_encodeByColorMode_jmhTest.java:314)
+	at com.jabcode.panama.benchmarks.jmh_generated.EncodingBenchmark_encodeByColorMode_jmhTest.encodeByColorMode_AverageTime(EncodingBenchmark_encodeByColorMode_jmhTest.java:234)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+
+
+JABCode Error: Message does not fit into one symbol. Use more symbols.
+
+
+# Run complete. Total time: 00:34:23
+
+REMEMBER: The numbers below are just data. To gain reusable insights, you need to follow up on
+why the numbers are the way they are. Use profilers (see -prof, -lprof), design factorial
+experiments, perform baseline and negative tests that provide experimental control, make sure
+the benchmarking environment is safe on JVM/OS/HW level, ask for reviews from the domain experts.
+Do not assume the numbers tell you what you want them to tell.
+
+NOTE: Current JVM experimentally supports Compiler Blackholes, and they are in use. Please exercise
+extra caution when trusting the results, look into the generated code to check the benchmark still
+works, and factor in a small probability of new VM bugs. Additionally, while comparisons between
+different JVMs are already problematic, the performance difference caused by different Blackhole
+modes can be very significant. Please make sure you use the consistent Blackhole mode for comparisons.
+
+Benchmark                                 (colorMode)  (messageSize)  (symbolCount)  Mode  Cnt    Score   Error  Units
+CascadedEncodingBenchmark.encodeCascaded           32            N/A              1  avgt   30  113.333 ± 2.507  ms/op
+CascadedEncodingBenchmark.encodeCascaded           32            N/A              3  avgt   30  174.623 ± 2.667  ms/op
+CascadedEncodingBenchmark.encodeCascaded           32            N/A              5  avgt   30  441.614 ± 7.625  ms/op
+CascadedEncodingBenchmark.encodeCascaded           64            N/A              1  avgt   30  107.218 ± 1.427  ms/op
+CascadedEncodingBenchmark.encodeCascaded           64            N/A              3  avgt   30  195.023 ± 2.354  ms/op
+CascadedEncodingBenchmark.encodeCascaded           64            N/A              5  avgt   30  338.007 ± 6.366  ms/op
+EncodingBenchmark.encodeByColorMode                 2            100            N/A  avgt   30    8.786 ± 0.228  ms/op
+EncodingBenchmark.encodeByColorMode                 2           1000            N/A  avgt   30   50.752 ± 2.339  ms/op
+EncodingBenchmark.encodeByColorMode                 4            100            N/A  avgt   30    9.514 ± 0.363  ms/op
+EncodingBenchmark.encodeByColorMode                 4           1000            N/A  avgt   30   59.636 ± 1.913  ms/op
+EncodingBenchmark.encodeByColorMode                 8            100            N/A  avgt   30    9.097 ± 0.219  ms/op
+EncodingBenchmark.encodeByColorMode                 8           1000            N/A  avgt   30   56.058 ± 7.849  ms/op
+EncodingBenchmark.encodeByColorMode                16            100            N/A  avgt   30    7.551 ± 0.497  ms/op
+EncodingBenchmark.encodeByColorMode                16           1000            N/A  avgt   30   78.711 ± 4.710  ms/op
+EncodingBenchmark.encodeByColorMode                32            100            N/A  avgt   30    7.397 ± 0.369  ms/op
+EncodingBenchmark.encodeByColorMode                32           1000            N/A  avgt   30   46.614 ± 3.256  ms/op
+EncodingBenchmark.encodeByColorMode                64            100            N/A  avgt   30   14.959 ± 0.281  ms/op
+EncodingBenchmark.encodeByColorMode                64           1000            N/A  avgt   30   46.244 ± 0.810  ms/op
+EncodingBenchmark.encodeByColorMode                64          10000            N/A  avgt   30  185.381 ± 3.445  ms/op
+EncodingBenchmark.encodeByColorMode               128            100            N/A  avgt   30   26.496 ± 0.692  ms/op
+EncodingBenchmark.encodeByColorMode               128           1000            N/A  avgt   30   58.783 ± 1.279  ms/op
+EncodingBenchmark.encodeByColorMode               128          10000            N/A  avgt   30  173.593 ± 4.900  ms/op
+
+Benchmark result is saved to results/per-nc-encode.json
+Benchmark complete!
