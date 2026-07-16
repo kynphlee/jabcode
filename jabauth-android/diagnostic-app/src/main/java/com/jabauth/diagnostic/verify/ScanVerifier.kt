@@ -40,7 +40,26 @@ class ScanVerifier(
         verifierAttributes: () -> Set<String> = { emptySet() },
         trustStore: TrustStoreManager = TrustStoreManagerImpl(),
         offlinePolicy: () -> OfflineTrustPolicy = { OfflineTrustPolicy.STRICT },
-    ) : this(defaultOrchestrator(verifierAttributes, trustStore, offlinePolicy))
+        trustList: TrustListLookup? = null,
+    ) : this(defaultOrchestrator(verifierAttributes, trustStore, offlinePolicy, trustList))
+
+    /**
+     * Device trust-list wiring (the D-trust-anchor-direction ADR): the cached signed list, its
+     * URI, and the JABAuth list-signing public key (provisioned like any trust anchor). When a
+     * mark carries `ISSUER_KEY_ID`, the issuer key resolves from the cache under the signed
+     * `max_staleness` floor — offline, no network on the verify path. Unconfigured, STALE, or
+     * UNTRUSTED all resolve to no key (fail-closed): the JWT stage then fails honestly.
+     */
+    data class TrustListLookup(
+        val listUri: String,
+        val cache: com.jabauth.client.trust.TrustListCache,
+        val listSignerKey: PublicKey,
+        val resolver: com.jabauth.client.trust.TrustAnchorResolver =
+            com.jabauth.client.trust.TrustAnchorResolver(),
+    ) {
+        fun resolve(thumbprint: ByteArray): com.jabauth.client.trust.TrustAnchorResolver.Resolution =
+            resolver.resolve(thumbprint, listUri, cache, listSignerKey)
+    }
 
     /** Verify a decoded symbol's raw [payload] bytes carrying its [decodeLatencyMs]. */
     fun verify(payload: ByteArray, decodeLatencyMs: Long): VerificationResult {
@@ -92,10 +111,20 @@ class ScanVerifier(
             verifierAttributes: () -> Set<String>,
             trustStore: TrustStoreManager,
             offlinePolicy: () -> OfflineTrustPolicy,
+            trustList: TrustListLookup?,
         ): VerificationOrchestrator {
             return CoaVerifier.orchestrator(
                 extractToken = { sym -> v2Section(sym.payload, PayloadFormatV2.SectionType.SDJWT_VC)?.toString(Charsets.UTF_8) },
-                resolveIssuerKey = { sym -> v2Section(sym.payload, PayloadFormatV2.SectionType.TRUST_CHAIN)?.let { resolveIssuerKey(it) } },
+                resolveIssuerKey = { sym ->
+                    // Exactly one anchor per mark: a trust-list mark (ISSUER_KEY_ID) never
+                    // falls back to TRUST_CHAIN — unresolved is unresolved (fail-closed).
+                    val keyId = v2Section(sym.payload, PayloadFormatV2.SectionType.ISSUER_KEY_ID)
+                    if (keyId != null) {
+                        trustList?.resolve(keyId)?.issuerKey
+                    } else {
+                        v2Section(sym.payload, PayloadFormatV2.SectionType.TRUST_CHAIN)?.let { resolveIssuerKey(it) }
+                    }
+                },
                 extractPolicy = { sym -> extractPolicy(sym.payload) },
                 verifierAttributes = verifierAttributes,
                 extractChain = { sym -> v2Section(sym.payload, PayloadFormatV2.SectionType.TRUST_CHAIN)?.let { parseLeafCertificate(it) }?.let { listOf(it) } },

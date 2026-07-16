@@ -26,12 +26,15 @@ import java.util.Date
  * asymmetric-only allowlist (blocks `none`/HS*) and the fail-closed key/alg
  * type check — the same algorithm-confusion protections as the server.
  *
- * Key Binding (holder proof-of-possession via a KB-JWT) is intentionally out of
- * scope for this increment, matching the server.
+ * Key Binding (RFC 9901, WP-C): a record carrying a `cnf` claim is holder-bound —
+ * [verify] REJECTS it fail-closed (otherwise a cloned record sidesteps binding by
+ * omitting the proof); [verifyPresentation] validates the credential AND the
+ * holder's KB-JWT via [KeyBindingJwtService]. Bearer records verify unchanged.
  */
 class SdJwtVcService {
 
     private val decoder = SDObjectDecoder()
+    private val keyBinding = KeyBindingJwtService()
 
     /**
      * Issue an SD-JWT VC. The returned combined serialization
@@ -96,6 +99,50 @@ class SdJwtVcService {
      * a failed [Verification].
      */
     fun verify(sdJwt: String, publicKey: PublicKey): Verification {
+        val credential = verifyCredential(sdJwt, publicKey)
+        if (!credential.valid) {
+            return credential
+        }
+        // Fail-closed holder binding (parity with the server): a record carrying `cnf`
+        // verifies ONLY through verifyPresentation with a valid KB-JWT.
+        if (credential.disclosedClaims.containsKey(CLAIM_CNF)) {
+            return Verification.invalid(
+                "Record is holder-bound (cnf); present it with a KB-JWT via verifyPresentation"
+            )
+        }
+        return credential
+    }
+
+    /**
+     * Verify a holder-bound presentation (RFC 9901): the credential's issuer signature AND
+     * the holder's KB-JWT over the verifier's [audience]/[nonce]. Bearer records (no `cnf`)
+     * also pass here with [kbJwt] null — one entry point for both classes.
+     */
+    fun verifyPresentation(
+        sdJwt: String,
+        publicKey: PublicKey,
+        kbJwt: String?,
+        audience: String,
+        nonce: String,
+    ): Verification {
+        val credential = verifyCredential(sdJwt, publicKey)
+        if (!credential.valid) {
+            return credential
+        }
+        val cnf = credential.disclosedClaims[CLAIM_CNF] ?: return credential // bearer
+        val jkt = (cnf as? Map<*, *>)?.get(CNF_JKT) as? String
+            ?: return Verification.invalid("Malformed cnf claim (expected cnf.jkt)")
+        if (kbJwt.isNullOrBlank()) {
+            return Verification.invalid("Record is holder-bound but no KB-JWT was presented")
+        }
+        val kb = keyBinding.verify(kbJwt, jkt, audience, nonce, sdJwt)
+        if (!kb.valid) {
+            return Verification.invalid("KB-JWT rejected: ${kb.reason}")
+        }
+        return credential
+    }
+
+    private fun verifyCredential(sdJwt: String, publicKey: PublicKey): Verification {
         return try {
             val parsed = SDJWT.parse(sdJwt)
             // Decode (not verify) first to read the alg header for the allowlist.
@@ -182,14 +229,18 @@ class SdJwtVcService {
         }
     }
 
-    private companion object {
-        const val CLAIM_VCT = "vct"
-        const val CLAIM_ISS = "iss"
-        const val CLAIM_SUB = "sub"
-        const val CLAIM_IAT = "iat"
-        const val CLAIM_EXP = "exp"
-        const val CLAIM_NBF = "nbf"
-        const val CLAIM_SD = "_sd"
-        const val CLAIM_SD_ALG = "_sd_alg"
+    companion object {
+        /** Holder-binding claim (RFC 7800 `cnf` with a `jkt` thumbprint member, WP-C). */
+        const val CLAIM_CNF = "cnf"
+        const val CNF_JKT = "jkt"
+
+        private const val CLAIM_VCT = "vct"
+        private const val CLAIM_ISS = "iss"
+        private const val CLAIM_SUB = "sub"
+        private const val CLAIM_IAT = "iat"
+        private const val CLAIM_EXP = "exp"
+        private const val CLAIM_NBF = "nbf"
+        private const val CLAIM_SD = "_sd"
+        private const val CLAIM_SD_ALG = "_sd_alg"
     }
 }
