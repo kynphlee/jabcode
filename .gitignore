@@ -124,3 +124,10 @@ src/jabcode/test/test_*
 # regenerated on demand via `degrade.py --full`. The 144-image SAMPLE set under
 # robustness/r0/synthetic/out/ IS tracked; only the out-full/ bulk is ignored.
 robustness/r0/synthetic/out-full/
+/.claude/skills/ecosystem-research/references/product-modules.md
+/.claude/skills/ecosystem-research/references/research-priorities.md
+/.claude/skills/ecosystem-research/references/shared-macro-lexicon.md
+/.claude/skills/ecosystem-research/references/source-quality-tiers.md
+/.claude/skills/ecosystem-research/references/validation-checklist.md
+/.claude/skills/ecosystem-research/SKILL.md
+/.claude/worktrees/android-crypto-bump/
