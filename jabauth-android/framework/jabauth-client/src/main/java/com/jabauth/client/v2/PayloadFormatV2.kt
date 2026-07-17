@@ -35,7 +35,16 @@ object PayloadFormatV2 {
 
     /** Canonical v2 section types; [code] is the on-wire type byte. */
     enum class SectionType(val code: Int) {
-        TRUST_CHAIN(0x01), SDJWT_VC(0x02), ABE_SEALED(0x03), META(0x04), EXT(0x05);
+        TRUST_CHAIN(0x01), SDJWT_VC(0x02), ABE_SEALED(0x03), META(0x04), EXT(0x05),
+
+        /**
+         * Compact trust-list anchor (the D-trust-anchor-direction ADR): the issuer signing
+         * key's RFC 7638 JWK SHA-256 thumbprint, raw 32 bytes. Carried INSTEAD of
+         * [TRUST_CHAIN] by trust-list tenants — the verifier resolves the issuer key from a
+         * cached signed trust list and confirms the resolved key re-derives this thumbprint.
+         * Exactly one anchor section (this or TRUST_CHAIN) per mark.
+         */
+        ISSUER_KEY_ID(0x06);
 
         companion object {
             /** Known type for a code, or null for an unknown (forward-compat) type. */
