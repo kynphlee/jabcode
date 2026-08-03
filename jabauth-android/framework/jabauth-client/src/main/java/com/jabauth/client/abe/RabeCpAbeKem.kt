@@ -17,13 +17,43 @@ import java.util.UUID
  * timeout/executor wrapping is omitted — it is JVM-side DoS hardening, not part of the KEM
  * crypto. Input-size limits are still enforced by [JnaBoundaryValidator].
  */
-class RabeCpAbeKem {
+class RabeCpAbeKem private constructor(
+    /**
+     * An issuer's public parameters, when this instance is a **reader** rather than an authority.
+     * Non-null puts the KEM in reader mode: it can decapsulate with a provisioned key and can never
+     * mint one, because it holds no master secret to mint from.
+     */
+    private val importedPublicParams: ByteArray?
+) {
+
+    /** Authority mode: generates its own `(pk, msk)` on first use. Unchanged historical behaviour. */
+    constructor() : this(null)
 
     private var pk: ByteArray? = null   // public key
     private var msk: ByteArray? = null  // master secret key
 
-    /** Encapsulate a fresh 32-byte symmetric key under [policy]. */
+    /** True when this instance can only decrypt — no master secret, so no key issuance. */
+    val isReaderOnly: Boolean get() = importedPublicParams != null
+
+    companion object {
+        /**
+         * A decrypt-only KEM bound to [issuerPublicParams] — the cross-party reader.
+         *
+         * This is the shape a holder device wants: it never calls `setup()`, so it never fabricates a
+         * master secret it would only misuse. Decapsulation succeeds exactly when the provisioned key
+         * descends from the same authority and its attributes satisfy the policy; anything else is a
+         * cryptographic denial, which is the honest answer.
+         */
+        @JvmStatic
+        fun reader(issuerPublicParams: ByteArray): RabeCpAbeKem {
+            require(issuerPublicParams.isNotEmpty()) { "issuerPublicParams must not be empty" }
+            return RabeCpAbeKem(issuerPublicParams.copyOf())
+        }
+    }
+
+    /** Encapsulate a fresh 32-byte symmetric key under [policy]. Authority mode only. */
     fun encapsulate(policy: String): EncapsulatedSecret {
+        check(!isReaderOnly) { "Reader-only KEM cannot encapsulate: it holds no master secret" }
         try {
             ensureInitialized()
             val rabePolicy = toRabeHumanPolicy(policy)
@@ -57,8 +87,9 @@ class RabeCpAbeKem {
         }
     }
 
-    /** Issue a user key for [attributes]. */
+    /** Issue a user key for [attributes]. Authority mode only — minting requires the master secret. */
     fun generateUserKey(attributes: RabeAttributeSet): UserKey {
+        check(!isReaderOnly) { "Reader-only KEM cannot issue user keys: it holds no master secret" }
         JnaBoundaryValidator.validateAttributeCount(attributes.attributes.size)
         try {
             ensureInitialized()
@@ -75,6 +106,11 @@ class RabeCpAbeKem {
     }
 
     private fun ensureInitialized() {
+        // Reader mode: adopt the issuer's public parameters and stop. No setup(), no master secret.
+        importedPublicParams?.let {
+            if (pk == null) pk = it
+            return
+        }
         if (pk == null || msk == null) {
             try {
                 val keys = RabeKemNative.setup()

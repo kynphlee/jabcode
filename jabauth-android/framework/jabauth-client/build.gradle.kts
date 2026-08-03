@@ -35,6 +35,18 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+            all {
+                // Point JNA at a host build of librabe_kem so unit tests can exercise the REAL CP-ABE
+                // KEM. Unset (CI without the native lib) simply leaves the native-gated assertions
+                // skipped; the wire-format assertions still run unconditionally.
+                it.systemProperty("jna.library.path", System.getenv("RABE_NATIVE_DIR") ?: "")
+            }
+        }
+    }
 }
 
 dependencies {
@@ -73,6 +85,10 @@ dependencies {
     testImplementation("com.google.truth:truth:1.1.5")
     testImplementation("org.bouncycastle:bcprov-jdk18on:1.84")
     testImplementation("org.bouncycastle:bcpkix-jdk18on:1.84")
+    // JVM (non-@aar) JNA so unit tests can load the host-native librabe_kem and exercise the REAL
+    // CP-ABE KEM. The @aar variant above is Android-only and supplies no JVM runtime, which would
+    // otherwise leave cross-party decrypt asserted rather than proven. Test scope only.
+    testImplementation("net.java.dev.jna:jna:5.14.0")
     
     // Instrumented Testing
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
