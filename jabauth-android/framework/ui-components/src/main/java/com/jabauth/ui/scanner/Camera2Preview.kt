@@ -695,14 +695,44 @@ private class Camera2Controller(
              * the loser here — the palette separates largely on green, so a
              * 19% green deficit attacks exactly the classifier's axis.
              *
+             * REVERTED to cloudy_d65 2026-08-06 (experiment #4). auto_lock really
+             * does produce neutral whites — that half of experiment #2 replicated —
+             * and it DECODES MUCH WORSE. Diagnostic app, 16-colour ECC3 single
+             * symbol, centred, 30s window, C/A/C/A alternated, each run's build
+             * verified from its own startup log:
+             *
+             *   cloudy_d65   54/58 = 93.1%   58/58 = 100.0%   pooled 96.6%
+             *   auto_lock    43/58 = 74.1%   40/57 =  70.2%   pooled 72.2%
+             *
+             *   24.4pp gap · complete separation (worst cloudy_d65 run beats the
+             *   best auto_lock run by 19pp) · failures 4/116 vs 32/115 ·
+             *   Fisher exact p = 1.3e-07
+             *
+             * WHY the "correct" white balance loses: a classifier does not care
+             * whether white renders as white. It cares whether palette entries stay
+             * FAR APART. CLOUDY_DAYLIGHT pins a fixed ~6500K preset, so the OEM's
+             * calibrated colour matrix applies a consistent de-mixing that keeps the
+             * 16 palette colours spread; the cost is a white-point error a human
+             * reads as a magenta cast. auto_lock converges to whatever neutralises
+             * the scene's white — which fixes the whites we were measuring AND
+             * compresses the channel differences the decoder classifies on. At 16
+             * colours, where the palette includes white and the entries crowd, that
+             * compression decides it. At 4 colours BOTH strategies hit 100% and the
+             * difference is invisible — which is exactly why experiment #2's
+             * colour-metric evidence looked so convincing.
+             *
+             * LESSON: white-point accuracy is not palette separability. Do not tune
+             * this constant on colour metrics (chroma / RGB neutrality / clip%).
+             * Tune it on DECODE RATE at >= 16 colours, alternated against a control,
+             * with every run's build identified from its own log.
+             *
              * AE-lock behaviour is preserved unchanged across all strategies
              * (one variable at a time). To A/B on-device, set wbStrategy to:
-             *   "cloudy_d65"      — experiment #1 (magenta cast, see above)
-             *   "auto_lock"       — OEM AUTO AWB, lock on convergence (PR #36;
-             *                       experiment #2 — this build's default)
+             *   "cloudy_d65"      — best measured decode rate; this build's default
+             *   "auto_lock"       — neutral whites, ~24pp WORSE decoding (#164/#166)
              *   "manual_identity" — the prior identity-CCM path (green cast)
              */
-            val wbStrategy = "auto_lock"
+            val wbStrategy = "cloudy_d65"
             Log.i(TAG, "JABCodeWB: wbStrategy=$wbStrategy")
             when (wbStrategy) {
                 "auto_lock" -> {
