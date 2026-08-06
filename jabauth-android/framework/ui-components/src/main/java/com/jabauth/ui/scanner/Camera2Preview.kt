@@ -676,13 +676,33 @@ private class Camera2Controller(
              * mode we set NO COLOR_CORRECTION_* override — doing so would
              * replace the preset's matrix with identity again.
              *
+             * Experiment #2 (2026-08-06): cloudy_d65 OVERSHOT. A four-app
+             * survey of one scene — this scanner, the diagnostic app,
+             * Fraunhofer's reference app and the OEM camera, all pointed at
+             * the same on-screen JABCode — measured the studio's white UI
+             * panels (the brightest 15% of frame, which should be neutral):
+             *
+             *   this scanner   R/G 1.169  B/G 1.185   <- 19% green deficit
+             *   diagnostic     R/G 1.100  B/G 1.218   <- 22%
+             *   Fraunhofer     R/G 1.011  B/G 1.043   <- neutral
+             *   OEM camera     R/G 0.990  B/G 1.040   <- neutral
+             *
+             * So the 2026-05-30 GREEN cast was traded for a MAGENTA one of
+             * similar magnitude: the premise that CLOUDY_DAYLIGHT matches an
+             * sRGB-D65 monitor does not hold on this sensor/panel pair. Both
+             * reference implementations run OEM AUTO and both land neutral,
+             * which is the strongest evidence available. 4-colour decoding is
+             * the loser here — the palette separates largely on green, so a
+             * 19% green deficit attacks exactly the classifier's axis.
+             *
              * AE-lock behaviour is preserved unchanged across all strategies
              * (one variable at a time). To A/B on-device, set wbStrategy to:
-             *   "cloudy_d65"      — experiment #1 (this build's default)
-             *   "auto_lock"       — OEM AUTO AWB, lock on convergence (PR #36)
+             *   "cloudy_d65"      — experiment #1 (magenta cast, see above)
+             *   "auto_lock"       — OEM AUTO AWB, lock on convergence (PR #36;
+             *                       experiment #2 — this build's default)
              *   "manual_identity" — the prior identity-CCM path (green cast)
              */
-            val wbStrategy = "cloudy_d65"
+            val wbStrategy = "auto_lock"
             Log.i(TAG, "JABCodeWB: wbStrategy=$wbStrategy")
             when (wbStrategy) {
                 "auto_lock" -> {
@@ -821,7 +841,7 @@ private class Camera2Controller(
                 backgroundHandler
             )
 
-            Log.d(TAG, "Camera2 preview started: AF=${if (autoFocusEnabled) "ON" else "OFF"}, AE=${if (aeMode == CameraMetadata.CONTROL_AE_MODE_ON_LOW_LIGHT_BOOST_BRIGHTNESS_PRIORITY) "ON_LLB" else "ON"} (EVbias=${aeBiasStops}stop), AWB=cloudy_d65, AE_meter=centre-third, AE_lock=${if (applyConvergenceLocks) "LOCKED(decode-driven)" else "continuous"}")
+            Log.d(TAG, "Camera2 preview started: AF=${if (autoFocusEnabled) "ON" else "OFF"}, AE=${if (aeMode == CameraMetadata.CONTROL_AE_MODE_ON_LOW_LIGHT_BOOST_BRIGHTNESS_PRIORITY) "ON_LLB" else "ON"} (EVbias=${aeBiasStops}stop), AWB=$wbStrategy, AE_meter=centre-third, AE_lock=${if (applyConvergenceLocks) "LOCKED(decode-driven)" else "continuous"}")
             
         } catch (e: CameraAccessException) {
             Log.e(TAG, "Start repeating request failed", e)
