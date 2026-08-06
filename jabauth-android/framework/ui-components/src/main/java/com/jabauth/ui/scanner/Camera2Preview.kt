@@ -267,13 +267,40 @@ private class Camera2Controller(
     @Volatile
     private var exposureCompensationValue: Int = initialExposureCompensation
 
-    // WS-camera-ae-bias: deliberate NEGATIVE exposure bias, in EV *stops*,
-    // converted to device steps at request time. Biasing dark keeps the JABCode
-    // palette saturated (the decoder's brightness-normalised metric handles dim
-    // input); biasing bright collapses magenta into the white attractor — a
-    // deterministic decode failure. Too-dark is recoverable, too-bright is not.
-    // Tune here from one trace to the next; -1.0 = half exposure.
-    private val aeBiasStops: Float = -1.0f
+    // WS-camera-ae-bias: exposure bias in EV *stops*, converted to device steps
+    // at request time.
+    //
+    // The original -1.0 rested on an asymmetric-risk argument: biasing dark keeps
+    // the JABCode palette saturated (the decoder's brightness-normalised metric
+    // handles dim input), while biasing bright collapses magenta into the white
+    // attractor — a deterministic decode failure. Too-dark recoverable,
+    // too-bright not.
+    //
+    // Experiment #3 (2026-08-06) tests that premise and finds it does not hold
+    // on-screen. With AWB corrected (experiment #2) the same four-app survey of
+    // one scene measured:
+    //
+    //   this scanner  mean 85.5   clip-hi 0.00%   chroma  7.9   <- LOWEST
+    //   Fraunhofer    mean 152.8  clip-hi 0.16%   chroma 15.3
+    //   OEM camera    mean 117.9  clip-hi 0.32%   chroma 15.1
+    //
+    // So the bias is NOT keeping the palette saturated — it has the least colour
+    // separation of the four — and it is nowhere near the white attractor it was
+    // defending against (0.00% of pixels clipped). Under-exposure pushes signal
+    // toward the noise floor, where quantisation compresses exactly the channel
+    // differences the classifier needs; brightness normalisation cannot recover
+    // separation that was never captured.
+    //
+    // Set to 0.0 to REMOVE the override rather than swap one magic number for
+    // another: let the device's own AE land, then decide from measurement whether
+    // any bias is warranted. If clip-hi rises materially while chroma does not,
+    // the original argument was right for this medium and this should go to -0.5
+    // rather than back to -1.0.
+    //
+    // Scene-dependent: AE meters on the centre-third, so a code that FILLS the
+    // frame meters on the code itself while a small code meters on its
+    // surroundings. Re-measure per medium. -1.0 = half exposure.
+    private val aeBiasStops: Float = 0.0f
 
     private val backgroundThread = HandlerThread("Camera2Background").apply { start() }
     private val backgroundHandler = Handler(backgroundThread.looper)
