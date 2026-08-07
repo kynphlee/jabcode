@@ -49,6 +49,9 @@ public final class JabCodeLimits {
      */
     public static final int ECC_MIN = 1;
 
+    /** Per-symbol sentinel: inherit the host symbol's ECC level (spec SE flag). */
+    public static final int ECC_INHERIT = 0;
+
     /**
      * Maximum LDPC ECC level per ISO/IEC 23634:2022 Table 20 (levels 1..10).
      *
@@ -117,6 +120,29 @@ public final class JabCodeLimits {
      * @return the validated ECC level
      * @throws IllegalArgumentException if outside the allowed range
      */
+    /**
+     * Validate a PER-SYMBOL error correction level.
+     *
+     * <p>Differs from {@link #validateEccLevel(int)} by one value: <b>0 is
+     * legal here and means "inherit from the host symbol"</b> — the spec's
+     * {@code SE} (same error correction level) flag. The C encoder treats a
+     * slave's level 0 as "use the host's" ({@code setSlaveMetadata}), so a
+     * cascade can leave most symbols at 0 and override only where it matters.
+     * A scalar level, having no host to inherit from, must still be 1..10.</p>
+     *
+     * @param eccLevel Level in {@code 0..10}
+     * @return {@code eccLevel} unchanged
+     * @throws IllegalArgumentException if outside {@code 0..10}
+     */
+    public static int validateSymbolEccLevel(int eccLevel) {
+        if (eccLevel < ECC_INHERIT || eccLevel > ECC_MAX) {
+            throw new IllegalArgumentException(
+                "Per-symbol ECC level must be between " + ECC_INHERIT + " and "
+                    + ECC_MAX + " (0 = inherit from host), got: " + eccLevel);
+        }
+        return eccLevel;
+    }
+
     public static int validateEccLevel(int eccLevel) {
         if (eccLevel < ECC_MIN || eccLevel > ECC_MAX) {
             throw new IllegalArgumentException(

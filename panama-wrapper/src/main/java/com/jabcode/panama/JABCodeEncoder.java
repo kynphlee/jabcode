@@ -34,6 +34,7 @@ public class JABCodeEncoder {
         private final int masterSymbolHeight;
         private final List<SymbolVersion> symbolVersions;
         private final List<Integer> symbolPositions;
+        private final List<Integer> symbolEccLevels;
 
         private Config(Builder builder) {
             this.colorNumber = builder.colorNumber;
@@ -47,6 +48,9 @@ public class JABCodeEncoder {
                 : null;
             this.symbolPositions = builder.symbolPositions != null
                 ? Collections.unmodifiableList(builder.symbolPositions)
+                : null;
+            this.symbolEccLevels = builder.symbolEccLevels != null
+                ? Collections.unmodifiableList(builder.symbolEccLevels)
                 : null;
         }
 
@@ -66,6 +70,14 @@ public class JABCodeEncoder {
          */
         public List<Integer> getSymbolPositions() { return symbolPositions; }
 
+        /**
+         * Per-symbol ECC levels, or {@code null} to apply {@link #getEccLevel()}
+         * uniformly to every symbol.
+         *
+         * @return An unmodifiable list of levels, or {@code null}
+         */
+        public List<Integer> getSymbolEccLevels() { return symbolEccLevels; }
+
         public static Builder builder() {
             return new Builder();
         }
@@ -83,6 +95,7 @@ public class JABCodeEncoder {
             private int masterSymbolHeight = 0;    // Auto height
             private List<SymbolVersion> symbolVersions; // Symbol versions for cascade
             private List<Integer> symbolPositions; // Lattice slots; null = sequential
+            private List<Integer> symbolEccLevels = null;
 
             public Builder colorNumber(int colorNumber) {
                 // Allowed JABCode color modes (Nc=0..7 → 2,4,8,16,32,64,128,256).
@@ -198,6 +211,40 @@ public class JABCodeEncoder {
                 return this;
             }
 
+            /**
+             * Set a per-symbol error correction level for a cascade.
+             *
+             * <p>Without this, {@link #eccLevel(int)} applies to <b>every</b>
+             * symbol. With it, each symbol takes its own level and
+             * <b>{@code 0} means "inherit from the host symbol"</b> — the
+             * spec's {@code SE} flag, which the codec resolves per docking
+             * pair.</p>
+             *
+             * <p>The list length must equal {@code symbolNumber}; that is
+             * checked in {@link #build()} rather than here, since the two
+             * setters may be called in either order.</p>
+             *
+             * @param eccLevels One level per symbol, index 0 = primary, or
+             *                  {@code null} to apply the scalar level uniformly
+             * @return This builder
+             * @throws IllegalArgumentException if a level is outside {@code 0..10}
+             */
+            public Builder symbolEccLevels(List<Integer> eccLevels) {
+                if (eccLevels != null && !eccLevels.isEmpty()) {
+                    for (Integer level : eccLevels) {
+                        if (level == null) {
+                            throw new IllegalArgumentException(
+                                "Symbol ECC levels must not contain null");
+                        }
+                        JabCodeLimits.validateSymbolEccLevel(level);
+                    }
+                    this.symbolEccLevels = List.copyOf(eccLevels);
+                } else {
+                    this.symbolEccLevels = null;
+                }
+                return this;
+            }
+
             public Config build() {
                 // Validate: if symbolNumber > 1, versions should be provided
                 if (symbolNumber > 1 && symbolVersions == null) {
@@ -211,6 +258,12 @@ public class JABCodeEncoder {
                 if (symbolPositions != null && symbolPositions.size() != symbolNumber) {
                     throw new IllegalArgumentException(
                         "Symbol position count (" + symbolPositions.size() +
+                        ") must match symbol count (" + symbolNumber + ")");
+                }
+                // Same rule, same reason, for per-symbol ECC.
+                if (symbolEccLevels != null && symbolEccLevels.size() != symbolNumber) {
+                    throw new IllegalArgumentException(
+                        "Symbol ECC level count (" + symbolEccLevels.size() +
                         ") must match symbol count (" + symbolNumber + ")");
                 }
                 return new Config(this);
@@ -304,13 +357,7 @@ public class JABCodeEncoder {
                     setSymbolPositions(enc, symbolPositionCount(config), config.getSymbolPositions());
                 }
 
-                // Set ECC level (symbol_ecc_levels pointer at offset 40 in jab_encode)
-                long eccLevelsAddress = enc.get(ValueLayout.ADDRESS, 40).address();
-                if (eccLevelsAddress != 0) {
-                    MemorySegment.ofAddress(eccLevelsAddress)
-                        .reinterpret(config.getSymbolNumber())
-                        .set(ValueLayout.JAVA_BYTE, 0, (byte) config.getEccLevel());
-                }
+                setSymbolEccLevels(enc, config);
 
                 // Prepare jab_data structure: { int32 length; char data[]; }
                 MemorySegment jabData = createJabData(arena, data);
@@ -395,27 +442,8 @@ public class JABCodeEncoder {
                     setSymbolPositions(enc, symbolPositionCount(config), config.getSymbolPositions());
                 }
 
-                // Set ECC level in encoder struct
-                // struct layout: color_number(0), symbol_number(4), module_size(8), 
-                //                master_width(12), master_height(16), padding(20),
-                //                palette*(24), symbol_versions*(32), symbol_ecc_levels*(40)
-                long eccLevelsOffset = 40; // Offset to symbol_ecc_levels pointer on 64-bit
-                long eccLevelsAddress = enc.get(ValueLayout.ADDRESS, eccLevelsOffset).address();
-                if (eccLevelsAddress != 0) {
-                    // Create writable segment from pointer (size = symbol_number bytes)
-                    MemorySegment eccLevelsArray = MemorySegment.ofAddress(eccLevelsAddress)
-                        .reinterpret(config.getSymbolNumber());
-                    // Set first symbol's ECC level
-                    eccLevelsArray.set(ValueLayout.JAVA_BYTE, 0, (byte) config.getEccLevel());
-                    
-                    // Verify ECC level was set
-                    byte actualEccLevel = eccLevelsArray.get(ValueLayout.JAVA_BYTE, 0);
-                    System.err.println("[ENCODER] ECC level set: requested=" + config.getEccLevel() + 
-                        ", actual=" + actualEccLevel);
-                } else {
-                    System.err.println("[ENCODER] WARNING: ECC levels array is NULL!");
-                }
-                
+                setSymbolEccLevels(enc, config);
+
                 // Prepare data
                 byte[] bytes = data.getBytes(StandardCharsets.UTF_8);
                 MemorySegment jabData = createJabData(arena, bytes);
@@ -570,6 +598,43 @@ public class JABCodeEncoder {
      * @param positions Caller-supplied lattice slots, or {@code null} for the
      *                  sequential default
      */
+    /**
+     * Write the error correction level for EVERY symbol.
+     *
+     * <p>{@code symbol_ecc_levels} is a byte array at offset 40, one entry per
+     * symbol. Both call sites previously wrote index 0 only, leaving every
+     * slave unset — and {@code wcwr_for_level()} normalises an unset level to
+     * {@code DEFAULT_ECC_LEVEL} (3). So a cascade requested at ECC 10 protected
+     * the primary at 10 and all its slaves at 3, silently. Measured against the
+     * native encoder the divergence reaches 1298 bytes of capacity, in both
+     * directions, because a level below 3 was also being raised.</p>
+     *
+     * <p>Slaves are NOT left at 0 to inherit: inheritance resolves per docking
+     * pair, so a chain would drift from the requested level the further it got
+     * from the primary. Writing the level explicitly makes "ECC 10" mean ECC 10
+     * everywhere. A caller wanting per-symbol control — including the spec's
+     * {@code 0 = inherit} — supplies {@link Config.Builder#symbolEccLevels}.</p>
+     *
+     * @param enc    Native encoder memory segment
+     * @param config Encoding configuration
+     */
+    private void setSymbolEccLevels(MemorySegment enc, Config config) {
+        long eccLevelsAddress = enc.get(ValueLayout.ADDRESS, 40).address();
+        if (eccLevelsAddress == 0) {
+            System.err.println("[ENCODER] WARNING: symbol_ecc_levels pointer is NULL!");
+            return;
+        }
+
+        int count = config.getSymbolNumber();
+        List<Integer> perSymbol = config.getSymbolEccLevels();
+        MemorySegment eccLevels = MemorySegment.ofAddress(eccLevelsAddress).reinterpret(count);
+
+        for (int i = 0; i < count; i++) {
+            int level = perSymbol != null ? perSymbol.get(i) : config.getEccLevel();
+            eccLevels.set(ValueLayout.JAVA_BYTE, i, (byte) level);
+        }
+    }
+
     private void setSymbolPositions(MemorySegment enc, int count, List<Integer> positions) {
         // symbol_positions is at offset 48 (int32* pointer)
         long positionsOffset = 48;
