@@ -6,6 +6,7 @@ import java.lang.foreign.*;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Collections;
+import java.util.HashSet;
 
 /**
  * High-level Java API for encoding JABCode barcodes using Panama FFM.
@@ -32,7 +33,8 @@ public class JABCodeEncoder {
         private final int masterSymbolWidth;
         private final int masterSymbolHeight;
         private final List<SymbolVersion> symbolVersions;
-        
+        private final List<Integer> symbolPositions;
+
         private Config(Builder builder) {
             this.colorNumber = builder.colorNumber;
             this.eccLevel = builder.eccLevel;
@@ -40,11 +42,14 @@ public class JABCodeEncoder {
             this.moduleSize = builder.moduleSize;
             this.masterSymbolWidth = builder.masterSymbolWidth;
             this.masterSymbolHeight = builder.masterSymbolHeight;
-            this.symbolVersions = builder.symbolVersions != null 
+            this.symbolVersions = builder.symbolVersions != null
                 ? Collections.unmodifiableList(builder.symbolVersions)
                 : null;
+            this.symbolPositions = builder.symbolPositions != null
+                ? Collections.unmodifiableList(builder.symbolPositions)
+                : null;
         }
-        
+
         public int getColorNumber() { return colorNumber; }
         public int getEccLevel() { return eccLevel; }
         public int getSymbolNumber() { return symbolNumber; }
@@ -52,7 +57,15 @@ public class JABCodeEncoder {
         public int getMasterSymbolWidth() { return masterSymbolWidth; }
         public int getMasterSymbolHeight() { return masterSymbolHeight; }
         public List<SymbolVersion> getSymbolVersions() { return symbolVersions; }
-        
+
+        /**
+         * The caller-supplied lattice slots, or {@code null} for the default
+         * sequential layout ({@code 0,1,2,...}).
+         *
+         * @return An unmodifiable list of positions, or {@code null}
+         */
+        public List<Integer> getSymbolPositions() { return symbolPositions; }
+
         public static Builder builder() {
             return new Builder();
         }
@@ -69,7 +82,8 @@ public class JABCodeEncoder {
             private int masterSymbolWidth = 0;     // Auto width
             private int masterSymbolHeight = 0;    // Auto height
             private List<SymbolVersion> symbolVersions; // Symbol versions for cascade
-            
+            private List<Integer> symbolPositions; // Lattice slots; null = sequential
+
             public Builder colorNumber(int colorNumber) {
                 // Allowed JABCode color modes (Nc=0..7 → 2,4,8,16,32,64,128,256).
                 // The historical Annex-G list started at 4 (omitting 2-color/Mode 0),
@@ -134,7 +148,56 @@ public class JABCodeEncoder {
                 }
                 return this;
             }
-            
+
+            /**
+             * Set explicit symbol positions — the lattice slot each symbol
+             * occupies in a multi-symbol cascade.
+             *
+             * <p>A position is an index into the codec's 61-slot placement
+             * lattice ({@code jab_symbol_pos}, {@code src/jabcode/encoder.h}),
+             * so the range is {@code 0..60}. Slot {@code 0} is the master
+             * symbol's; the codec insists a multi-symbol code contain it.</p>
+             *
+             * <p>Leaving this unset keeps the historical layout — sequential
+             * slots {@code 0,1,2,...,n-1} — so existing callers are
+             * unaffected.</p>
+             *
+             * <p>Only what the wrapper can cheaply check is checked here:
+             * range and uniqueness. Whether the chosen slots actually form a
+             * valid cascade — each slave docked to a host, docked sides of
+             * matching size — is left to the layer above and, ultimately, to
+             * the codec's own {@code assignDockedSymbols} /
+             * {@code checkDockedSymbolSize}.</p>
+             *
+             * @param positions Lattice slots, one per symbol; {@code null} or
+             *                  empty restores the sequential default
+             * @return This builder instance
+             * @throws IllegalArgumentException if a position is outside
+             *         {@code 0..60} or appears twice
+             */
+            public Builder symbolPositions(List<Integer> positions) {
+                if (positions != null && !positions.isEmpty()) {
+                    // Count is checked in build(), not here: symbolNumber may
+                    // not have been set yet on this builder.
+                    var seen = new HashSet<Integer>();
+                    for (Integer position : positions) {
+                        if (position == null) {
+                            throw new IllegalArgumentException(
+                                "Symbol positions must not contain null");
+                        }
+                        JabCodeLimits.validateSymbolPosition(position);
+                        if (!seen.add(position)) {
+                            throw new IllegalArgumentException(
+                                "Duplicate symbol position: " + position);
+                        }
+                    }
+                    this.symbolPositions = List.copyOf(positions);
+                } else {
+                    this.symbolPositions = null;
+                }
+                return this;
+            }
+
             public Config build() {
                 // Validate: if symbolNumber > 1, versions should be provided
                 if (symbolNumber > 1 && symbolVersions == null) {
@@ -142,6 +205,13 @@ public class JABCodeEncoder {
                     // Native encoder requires version configuration for cascades
                     System.err.println("[WARNING] Multi-symbol encoding without explicit " +
                         "symbol versions may fail. Consider using symbolVersions().");
+                }
+                // One position per symbol, or none at all. Deferred to build()
+                // so the two setters can be called in either order.
+                if (symbolPositions != null && symbolPositions.size() != symbolNumber) {
+                    throw new IllegalArgumentException(
+                        "Symbol position count (" + symbolPositions.size() +
+                        ") must match symbol count (" + symbolNumber + ")");
                 }
                 return new Config(this);
             }
@@ -223,6 +293,15 @@ public class JABCodeEncoder {
                 // Configure multi-symbol cascade versions when provided
                 if (config.getSymbolVersions() != null) {
                     setSymbolVersions(enc, config.getSymbolVersions());
+                }
+
+                // Lay the cascade out. Positions used to be written from inside
+                // setSymbolVersions; they are their own step now so a caller can
+                // choose a layout without also pinning versions. The trigger is
+                // unchanged for the default path -- nothing is written unless
+                // versions or positions were configured.
+                if (config.getSymbolVersions() != null || config.getSymbolPositions() != null) {
+                    setSymbolPositions(enc, symbolPositionCount(config), config.getSymbolPositions());
                 }
 
                 // Set ECC level (symbol_ecc_levels pointer at offset 40 in jab_encode)
@@ -310,7 +389,12 @@ public class JABCodeEncoder {
                 if (config.getSymbolVersions() != null) {
                     setSymbolVersions(enc, config.getSymbolVersions());
                 }
-                
+
+                // Set symbol positions -- caller-supplied layout, else sequential
+                if (config.getSymbolVersions() != null || config.getSymbolPositions() != null) {
+                    setSymbolPositions(enc, symbolPositionCount(config), config.getSymbolPositions());
+                }
+
                 // Set ECC level in encoder struct
                 // struct layout: color_number(0), symbol_number(4), module_size(8), 
                 //                master_width(12), master_height(16), padding(20),
@@ -443,28 +527,67 @@ public class JABCodeEncoder {
             // Write y (height version)
             versionsArray.set(ValueLayout.JAVA_INT, offset + 4, version.getY());
             
-            System.err.println("[ENCODER] Set symbol " + i + " version: " + 
+            System.err.println("[ENCODER] Set symbol " + i + " version: " +
                 version.getX() + "×" + version.getY());
         }
-        
-        // Also initialize symbol_positions array (offset 48)
-        // This is required to avoid "Duplicate symbol position" error
+    }
+
+    /**
+     * How many slots of {@code symbol_positions} to write.
+     *
+     * <p>Normally {@code symbolNumber}, which {@code createEncode} sized the
+     * array to. Explicit versions are preferred when present because that is
+     * the length the pre-split code used, and {@code symbolVersions()} may
+     * have been set against a different {@code symbolNumber}; writing the
+     * shorter of the two keeps us inside the allocation either way.</p>
+     *
+     * @param config Encoding configuration
+     * @return Number of positions to write
+     */
+    private int symbolPositionCount(Config config) {
+        List<SymbolVersion> versions = config.getSymbolVersions();
+        return versions != null
+            ? Math.min(versions.size(), config.getSymbolNumber())
+            : config.getSymbolNumber();
+    }
+
+    /**
+     * Set symbol positions in the native encoder structure.
+     *
+     * <p>{@code symbol_positions} is an int32 array at offset 48, one lattice
+     * slot per symbol. The array must be written for any multi-symbol code —
+     * an unwritten array leaves every symbol claiming slot 0, which the codec
+     * rejects with "Duplicate symbol position".</p>
+     *
+     * <p>When {@code positions} is {@code null} the historical sequential
+     * layout is emitted ({@code 0,1,2,...,count-1}), keeping every existing
+     * caller byte-identical. Supplied positions have already been range- and
+     * duplicate-checked by {@link Config.Builder#symbolPositions(List)}; the
+     * codec still owns adjacency and docked-size validation.</p>
+     *
+     * @param enc       Native encoder memory segment
+     * @param count     Number of symbols to write positions for
+     * @param positions Caller-supplied lattice slots, or {@code null} for the
+     *                  sequential default
+     */
+    private void setSymbolPositions(MemorySegment enc, int count, List<Integer> positions) {
+        // symbol_positions is at offset 48 (int32* pointer)
         long positionsOffset = 48;
         long positionsAddress = enc.get(ValueLayout.ADDRESS, positionsOffset).address();
-        
+
         if (positionsAddress == 0) {
             System.err.println("[ENCODER] WARNING: symbol_positions pointer is NULL!");
             return;
         }
-        
+
         // symbol_positions is int32 array
         MemorySegment positionsArray = MemorySegment.ofAddress(positionsAddress)
-            .reinterpret(4 * versions.size());
-        
-        // Set sequential positions: 0, 1, 2, ...
-        for (int i = 0; i < versions.size(); i++) {
-            positionsArray.set(ValueLayout.JAVA_INT, i * 4, i);
-            System.err.println("[ENCODER] Set symbol " + i + " position: " + i);
+            .reinterpret(4L * count);
+
+        for (int i = 0; i < count; i++) {
+            int position = positions != null ? positions.get(i) : i;
+            positionsArray.set(ValueLayout.JAVA_INT, i * 4L, position);
+            System.err.println("[ENCODER] Set symbol " + i + " position: " + position);
         }
     }
 }

@@ -20,6 +20,8 @@ import java.util.Set;
  *   <li><b>Symbol number</b> — {@code 1..61} (master plus up to 60 docked
  *       slaves).</li>
  *   <li><b>Symbol version</b> — {@code 1..32} per axis.</li>
+ *   <li><b>Symbol position</b> — {@code 0..60}, an index into the 61-slot
+ *       placement lattice.</li>
  * </ul>
  *
  * <p>This class is not instantiable; it exposes constants and {@code validate*}
@@ -72,6 +74,25 @@ public final class JabCodeLimits {
 
     /** Maximum symbol version per axis. */
     public static final int VERSION_MAX = 32;
+
+    /** Minimum symbol position — the master symbol's lattice slot. */
+    public static final int POSITION_MIN = 0;
+
+    /**
+     * Maximum symbol position — the last slot of the placement lattice.
+     *
+     * <p>The lattice is {@code jab_symbol_pos[MAX_SYMBOL_NUMBER]}
+     * ({@code src/jabcode/encoder.h:111}), i.e. 61 entries indexed
+     * {@code 0..60}. {@link #SYMBOL_MAX} counts symbols; this bounds the
+     * <em>index</em>, hence {@code SYMBOL_MAX - 1}.</p>
+     *
+     * <p><b>Deliberately stricter than the codec.</b> The C guard at
+     * {@code src/jabcode/encoder.c:2173} reads
+     * {@code > MAX_SYMBOL_NUMBER}, so index 61 slips past it and is then
+     * dereferenced as {@code jab_symbol_pos[61]} — one past the end of the
+     * table. The wrapper rejects 61 rather than reproduce that read.</p>
+     */
+    public static final int POSITION_MAX = SYMBOL_MAX - 1;
 
     /**
      * Validates a colour number against {@link #COLOR_NUMBERS}.
@@ -139,5 +160,28 @@ public final class JabCodeLimits {
                     + VERSION_MAX + ", got: " + value);
         }
         return value;
+    }
+
+    /**
+     * Validates one symbol position against
+     * {@code [POSITION_MIN, POSITION_MAX]}.
+     *
+     * <p>This is the range check only. Whether a set of positions forms a
+     * legal cascade — every slave adjacent to a host, sides matching — is a
+     * layout question the codec answers; see {@link #POSITION_MAX} for why
+     * the upper bound is one below the codec's own guard.</p>
+     *
+     * @param position the lattice index to validate
+     * @return the validated position
+     * @throws IllegalArgumentException if outside the allowed range
+     */
+    public static int validateSymbolPosition(int position) {
+        if (position < POSITION_MIN || position > POSITION_MAX) {
+            throw new IllegalArgumentException(
+                "Symbol position must be between " + POSITION_MIN + " and "
+                    + POSITION_MAX + " (index into the " + SYMBOL_MAX
+                    + "-slot placement lattice), got: " + position);
+        }
+        return position;
     }
 }
