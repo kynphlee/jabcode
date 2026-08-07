@@ -5,6 +5,8 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jabauth.diagnostic.benchmark.BenchmarkResult
+import com.jabauth.diagnostic.benchmark.CarrierComparisonBenchmark
+import com.jabauth.diagnostic.benchmark.CarrierComparisonReport
 import com.jabauth.diagnostic.benchmark.CodecBenchmark
 import com.jabauth.diagnostic.benchmark.VerifyLatencyBenchmark
 import com.jabauth.diagnostic.benchmark.VerifyLatencyReport
@@ -43,6 +45,9 @@ class CaptureTestViewModel : ViewModel() {
 
     private val _verifyLatencyState = MutableStateFlow<VerifyLatencyState>(VerifyLatencyState.Idle)
     val verifyLatencyState: StateFlow<VerifyLatencyState> = _verifyLatencyState.asStateFlow()
+
+    private val _carrierState = MutableStateFlow<CarrierComparisonState>(CarrierComparisonState.Idle)
+    val carrierState: StateFlow<CarrierComparisonState> = _carrierState.asStateFlow()
 
     /**
      * Run the in-app "Suite B" codec benchmark (decode and encode across all
@@ -154,6 +159,23 @@ class CaptureTestViewModel : ViewModel() {
     }
 
     /**
+     * Run the on-demand **string-vs-binary carrier A/B** benchmark — the "CARRIER A/B" table.
+     * One canonical v2 blob, both wrappings (raw binary vs base64url text), all four
+     * [com.jabauth.jabcode.CoaProfile]s; fully in-memory (encode → decode), no camera, no Context.
+     * Runs on [Dispatchers.Default]; ignores re-taps while a run is in flight.
+     */
+    fun runCarrierComparisonBenchmark() {
+        if (_carrierState.value is CarrierComparisonState.Running) return
+        _carrierState.value = CarrierComparisonState.Running
+        viewModelScope.launch {
+            val report = withContext(Dispatchers.Default) {
+                CarrierComparisonBenchmark().run()
+            }
+            _carrierState.value = CarrierComparisonState.Done(report)
+        }
+    }
+
+    /**
      * Maps a Suite-B decode benchmark name (`decode_ncN`, N=0..7) to its carrier colour count
      * (2,4,8,...,256). Returns null for non-decode cells (e.g. `encode_ncN`), which have no shared
      * VerifyAttempt analogue.
@@ -232,6 +254,16 @@ sealed class VerifyLatencyState {
     object Idle : VerifyLatencyState()
     object Running : VerifyLatencyState()
     data class Done(val report: VerifyLatencyReport) : VerifyLatencyState()
+}
+
+/**
+ * Carrier string-vs-binary A/B benchmark lifecycle state. [Done] carries the per-profile×arm
+ * [CarrierComparisonReport] (sizes, symbol dimensions, encode/decode medians).
+ */
+sealed class CarrierComparisonState {
+    object Idle : CarrierComparisonState()
+    object Running : CarrierComparisonState()
+    data class Done(val report: CarrierComparisonReport) : CarrierComparisonState()
 }
 
 /**
