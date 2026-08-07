@@ -17,10 +17,23 @@
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
         
+        <!-- screenOrientation="portrait" is the app-wide DEFAULT: Dashboard,
+             Errors, Test and Settings are portrait-only Compose and stay that
+             way. The Scanner screen alone lifts the lock at runtime via
+             setRequestedOrientation (see ScannerOrientation.kt) and restores
+             this value on the way out.
+
+             configChanges is what makes that safe: without it, every rotation
+             would destroy and recreate MainActivity, tearing down the camera
+             session and the Compose scanner state with it. Handling the config
+             change here keeps the CameraDevice, the capture session and the
+             ImageReader alive across a rotation — Compose just re-lays-out and
+             Camera2Preview re-applies its TextureView transform. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:screenOrientation="portrait">
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

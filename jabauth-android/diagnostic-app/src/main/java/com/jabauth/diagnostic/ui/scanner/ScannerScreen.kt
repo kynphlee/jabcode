@@ -36,8 +36,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import android.content.res.Configuration
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jabauth.diagnostic.ui.permissions.CameraPermissionHandler
 import com.jabauth.ui.scanner.Camera2Preview
@@ -59,6 +61,14 @@ fun ScannerScreen(
 private fun ScannerScreenContent(
     viewModel: ScannerViewModel
 ) {
+    // The scanner is the ONLY screen that leaves portrait: a wide symbol needs
+    // the analysis frame's long axis across its long axis, which portrait can
+    // never provide. Restored on the way out — every other tab stays portrait.
+    UnlockOrientationWhileVisible()
+
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
     val scanResult by viewModel.scanResult.collectAsState()
     val verificationResult by viewModel.verificationResult.collectAsState()
     val scanError by viewModel.scanError.collectAsState()
@@ -130,7 +140,7 @@ private fun ScannerScreenContent(
             onZoomChanged = { viewModel.onZoomChanged(it) },
             onLowLightBoostSupported = { viewModel.onLowLightBoostSupported(it) },
             onLowLightBoostStateChanged = { viewModel.onLowLightBoostStateChanged(it) },
-            onSensorOrientation = { viewModel.onSensorOrientation(it) },
+            onFrameRotation = { viewModel.onFrameRotation(it) },
             aeLocked = aeLocked,
             modifier = Modifier.fillMaxSize()
         )
@@ -241,9 +251,13 @@ private fun ScannerScreenContent(
                 verificationResult = verificationResult,
                 onStageClick = { drillDownStage = it },
                 onClose = { panelExpanded = false },
+                // 60% of a portrait screen is a comfortable sheet; 60% of a
+                // landscape one is a couple of rows. The panel scrolls either
+                // way, but in landscape it needs most of the height to be
+                // usable at all.
                 modifier = Modifier
                     .fillMaxWidth()
-                    .fillMaxHeight(0.6f)
+                    .fillMaxHeight(if (isLandscape) 0.9f else 0.6f)
             )
         }
 

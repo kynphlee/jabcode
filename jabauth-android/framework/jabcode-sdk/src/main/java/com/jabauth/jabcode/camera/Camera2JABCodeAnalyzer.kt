@@ -11,17 +11,24 @@ import com.jabauth.jabcode.JABCodeDecoder
 
 /**
  * Decode region-of-interest. Expressed in the preview **view's** normalized
- * coordinate space (0..1, portrait, origin top-left) — i.e. the same space the
- * on-screen reticle lives in — plus the geometry needed to map it onto the
+ * coordinate space (0..1, origin top-left) — i.e. the same space the on-screen
+ * reticle lives in — plus the geometry needed to map it onto the
  * sensor-orientation analysis bitmap:
  *
- *  - [viewAspect]       preview view width / height (e.g. 1080/2340)
- *  - [sensorOrientation] CameraCharacteristics.SENSOR_ORIENTATION in degrees
+ *  - [viewAspect]           preview view width / height (e.g. 1080/2340)
+ *  - [frameRotationDegrees] clockwise degrees that bring the analysis frame
+ *    into the view's CURRENT orientation
  *
- * The analyzer rotates the landscape analysis frame by [sensorOrientation] to
- * display orientation, centre-crops it to [viewAspect] (the preview is
+ * The analyzer rotates the landscape analysis frame by [frameRotationDegrees]
+ * to display orientation, centre-crops it to [viewAspect] (the preview is
  * FILL_CENTER, so that centred crop **is** what the user sees), then crops to
  * the normalized rect — making the reticle map 1:1 onto the decoder input.
+ *
+ * [frameRotationDegrees] is *not* `SENSOR_ORIENTATION`. Sensor orientation
+ * alone is only correct while the view is in the device's natural (portrait)
+ * orientation; once the scanner may rotate, the display's own rotation has to
+ * be folded in. The caller supplies the already-combined value — see
+ * `com.jabauth.ui.scanner.relativeFrameRotation`.
  */
 data class RoiSpec(
     val left: Float,
@@ -29,7 +36,7 @@ data class RoiSpec(
     val right: Float,
     val bottom: Float,
     val viewAspect: Float,
-    val sensorOrientation: Int
+    val frameRotationDegrees: Int
 )
 
 /**
@@ -196,7 +203,7 @@ class Camera2JABCodeAnalyzer(
                     cropToRoi(bitmap, roiSpec).also {
                         Log.d(TAG, "Frame $frameCount: ROI_CROP ${bitmap.width}x${bitmap.height} -> ${it.width}x${it.height} " +
                                    "roi=[${roiSpec.left},${roiSpec.top},${roiSpec.right},${roiSpec.bottom}] " +
-                                   "viewAspect=${roiSpec.viewAspect} sensorOri=${roiSpec.sensorOrientation}")
+                                   "viewAspect=${roiSpec.viewAspect} frameRot=${roiSpec.frameRotationDegrees}")
                     }
                 } catch (e: Exception) {
                     Log.w(TAG, "Frame $frameCount: ROI crop failed (${e.message}); decoding full frame")
@@ -295,8 +302,10 @@ class Camera2JABCodeAnalyzer(
      * crop to the normalized ROI — so the on-screen reticle maps 1:1.
      */
     private fun cropToRoi(src: Bitmap, spec: RoiSpec): Bitmap {
-        // 1) Rotate the sensor-orientation (landscape) frame to display/portrait.
-        val deg = ((spec.sensorOrientation % 360) + 360) % 360
+        // 1) Rotate the sensor-orientation (landscape) frame to the view's
+        //    CURRENT orientation. In portrait this is typically 90 degrees; in
+        //    landscape it is 0 or 180, so the frame is used as-is or inverted.
+        val deg = ((spec.frameRotationDegrees % 360) + 360) % 360
         val rotated: Bitmap = if (deg != 0) {
             val m = Matrix().apply { postRotate(deg.toFloat()) }
             Bitmap.createBitmap(src, 0, 0, src.width, src.height, m, true)
