@@ -38,6 +38,45 @@ import kotlin.math.roundToInt
 // change it publishes the rect normalized to 0..1 of the view, plus the view's
 // aspect ratio, which the analyzer uses to crop the frame 1:1 to the reticle.
 
+/** Default reticle side as a fraction of the container's SHORT edge. */
+private const val DEFAULT_ROI_SHORT_EDGE_FRACTION = 0.82f
+
+internal fun shortEdgeOf(size: IntSize): Float =
+    minOf(size.width, size.height).toFloat()
+
+/**
+ * The starting reticle: a centred square sized off the container's SHORT edge.
+ *
+ * It used to be sized off the container's WIDTH, which is the same thing in
+ * portrait but produces a box taller than the screen the moment the scanner is
+ * allowed to rotate (0.82 * 2340 > 1080), pushing the top edge off-screen.
+ */
+internal fun defaultRoi(size: IntSize): Rect {
+    val side = shortEdgeOf(size) * DEFAULT_ROI_SHORT_EDGE_FRACTION
+    val left = (size.width - side) / 2f
+    val top = (size.height - side) / 2f
+    return Rect(left, top, left + side, top + side)
+}
+
+/**
+ * Carry an existing reticle across a container resize (i.e. a rotation).
+ *
+ * The user's chosen SIZE is preserved relative to the container's short edge —
+ * the axis the reticle is scaled from — and the box is re-centred so it always
+ * fits the new container. Without this the rect keeps its old pixel geometry
+ * and ends up partly or wholly off-screen after a rotation.
+ */
+internal fun refitRoi(current: Rect, from: IntSize, to: IntSize): Rect {
+    val fromShort = shortEdgeOf(from)
+    if (fromShort <= 0f) return defaultRoi(to)
+    val scale = shortEdgeOf(to) / fromShort
+    val halfW = (current.width / 2f * scale).coerceAtMost(to.width / 2f)
+    val halfH = (current.height / 2f * scale).coerceAtMost(to.height / 2f)
+    val cx = to.width / 2f
+    val cy = to.height / 2f
+    return Rect(cx - halfW, cy - halfH, cx + halfW, cy + halfH)
+}
+
 @Composable
 internal fun RoiReticle(
     onRoiChange: (Float, Float, Float, Float, Float) -> Unit,
@@ -48,21 +87,24 @@ internal fun RoiReticle(
     val density = LocalDensity.current
     val minPx = with(density) { 110.dp.toPx() }
     var box by remember { mutableStateOf(IntSize.Zero) }
+    var previousBox by remember { mutableStateOf(IntSize.Zero) }
     var roi by remember { mutableStateOf<Rect?>(null) }
     // Snapshot of the reticle's geometry when a resize starts — drawn as a faint
     // "ghost" so the user can compare the new vs old size before releasing.
     var ghostRoi by remember { mutableStateOf<Rect?>(null) }
 
-    fun defaultRoi(size: IntSize): Rect {
-        val w = size.width * 0.82f          // 82% of width, square (px)
-        val left = (size.width - w) / 2f
-        val top = (size.height - w) / 2f
-        return Rect(left, top, left + w, top + w)
-    }
-
-    // Initialize the ROI once the container is measured.
+    // Initialize the ROI once the container is measured, and re-fit it on every
+    // later size change — which, now that the scanner may rotate, means every
+    // rotation.
     LaunchedEffect(box) {
-        if (box != IntSize.Zero && roi == null) roi = defaultRoi(box)
+        if (box == IntSize.Zero) return@LaunchedEffect
+        val current = roi
+        roi = if (current == null || previousBox == IntSize.Zero) {
+            defaultRoi(box)
+        } else {
+            refitRoi(current, previousBox, box)
+        }
+        previousBox = box
     }
     // Publish the normalized ROI (+ view aspect) whenever it changes.
     LaunchedEffect(roi, box) {
@@ -174,15 +216,21 @@ internal fun RoiReticle(
             }
 
             // Reset ↺ — centred just below the reticle, clear of the corners.
+            // In landscape the reticle nearly fills the (short) height, so the
+            // gap below it can be smaller than the button; clamp inside the
+            // container so the control never lands off-screen. Worst case it
+            // overlaps the reticle's bottom edge, which is still reachable.
             IconButton(
                 onClick = {
                     onResetZoom()
                     if (box != IntSize.Zero) roi = defaultRoi(box)
                 },
                 modifier = Modifier.offset {
+                    val gap = with(density) { 8.dp.toPx() }
+                    val maxY = (box.height - handlePx).coerceAtLeast(0f)
                     IntOffset(
                         ((r.left + r.right) / 2f - handlePx / 2f).roundToInt(),
-                        (r.bottom + with(density) { 8.dp.toPx() }).roundToInt()
+                        (r.bottom + gap).coerceAtMost(maxY).roundToInt()
                     )
                 }
             ) {

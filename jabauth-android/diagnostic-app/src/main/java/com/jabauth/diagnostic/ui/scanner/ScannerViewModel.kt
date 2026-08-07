@@ -157,12 +157,15 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
 
     // Decode region-of-interest (the on-screen reticle). The UI pushes a
     // normalized rect + view aspect via setRoi(); the analyzer's roiProvider
-    // reads it (combined with sensorOrientation) each frame and crops the
+    // reads it (combined with frameRotationDegrees) each frame and crops the
     // analysis frame to it. workloadPct mirrors the reference app: the % is the
     // ROI's area as a fraction of the frame — bigger reticle, more to process.
     private data class RoiInput(val l: Float, val t: Float, val r: Float, val b: Float, val viewAspect: Float)
     @Volatile private var roiInput: RoiInput? = null
-    @Volatile private var sensorOrientation: Int = 90  // back-camera default; set on camera open
+    // Clockwise degrees to bring the analysis frame into the view's CURRENT
+    // orientation. 90 is the portrait back-camera default; Camera2Preview
+    // republishes it on every rotation now that the scanner may be landscape.
+    @Volatile private var frameRotationDegrees: Int = 90
 
     // R4 measure-first acquisition: the analyzer computes per-frame image-quality
     // metrics and invokes onQualityUpdate IMMEDIATELY BEFORE it decodes that same
@@ -771,9 +774,9 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
                 )
             },
             // Decode region-of-interest: built fresh each frame from the reticle
-            // (roiInput) + the live sensor orientation. null ⇒ full-frame decode.
+            // (roiInput) + the live frame rotation. null ⇒ full-frame decode.
             roiProvider = {
-                roiInput?.let { RoiSpec(it.l, it.t, it.r, it.b, it.viewAspect, sensorOrientation) }
+                roiInput?.let { RoiSpec(it.l, it.t, it.r, it.b, it.viewAspect, frameRotationDegrees) }
             },
             // nc2 anti-fabrication consensus (diagnostic-app opt-in): an 8-colour
             // decode is trusted only once 2 frames agree byte-identically.
@@ -874,11 +877,12 @@ class ScannerViewModel(application: Application) : AndroidViewModel(application)
         analyzer.analyze(reader)
     }
 
-    /** Camera reports its sensor orientation once it opens; needed to map the
-     *  portrait reticle onto the landscape analysis frame. */
-    fun onSensorOrientation(deg: Int) {
-        sensorOrientation = deg
-        Log.i("ScannerViewModel", "ROI sensorOrientation=$deg")
+    /** Camera reports the rotation that brings the analysis frame into the
+     *  view's current orientation — on open and on every display rotation.
+     *  Needed to map the on-screen reticle onto the analysis frame. */
+    fun onFrameRotation(deg: Int) {
+        frameRotationDegrees = deg
+        Log.i("ScannerViewModel", "ROI frameRotationDegrees=$deg")
     }
 
     /**

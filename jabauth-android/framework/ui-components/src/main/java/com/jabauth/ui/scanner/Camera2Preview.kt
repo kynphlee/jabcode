@@ -12,6 +12,7 @@ import android.hardware.camera2.params.OutputConfiguration
 import android.hardware.camera2.params.RggbChannelVector
 import android.hardware.camera2.params.MeteringRectangle
 import android.hardware.camera2.params.SessionConfiguration
+import android.hardware.display.DisplayManager
 import android.media.ImageReader
 import android.os.Build
 import android.os.Handler
@@ -19,6 +20,7 @@ import android.os.HandlerThread
 import android.os.SystemClock
 import java.util.concurrent.Executor
 import android.util.Log
+import android.util.Size
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import android.view.Surface
@@ -33,7 +35,135 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import com.jabauth.jabcode.camera.CameraDeviceProfiler
 import com.jabauth.jabcode.camera.metadata.MetadataExtractor
+import com.jabauth.jabcode.camera.transform.OrientationCalculator
+import kotlin.math.abs
+
+/**
+ * Aspect-ratio equality tolerance used when negotiating the analysis stream
+ * size.
+ *
+ * 2% is wide enough to admit the macroblock-padded sizes some HALs advertise
+ * in place of a clean 16:9 — 1920x1088 is 1.31% off — and far too narrow for a
+ * 4:3 size to masquerade as 16:9 (that is 25% off). The looser band matters:
+ * on a device whose only near-16:9 option is 1920x1088, a tighter tolerance
+ * would reject it and fall back to 1280x720, trading a fractional-percent
+ * reticle mis-map for a resolution that cannot decode a dense symbol at all.
+ */
+private const val ASPECT_EPSILON = 0.02f
+
+/**
+ * Pick the analysis (ImageReader) stream size from the sizes the camera
+ * actually advertises for YUV_420_888, instead of hardcoding one.
+ *
+ * ### Why this matters: pixels per module
+ *
+ * ISO/IEC 23634 §4.5.2 asks for roughly **>= 5 px per module** for reliable
+ * JAB Code decoding, and this project's own field calibration agrees: ~4.9
+ * px/module reads, ~3.3 px/module fails. That makes the analysis stream's
+ * resolution a hard ceiling on how dense a symbol the app can ever read:
+ *
+ * ```
+ *   1280x720   ->  256 x 144 modules   (the previous hardcoded value)
+ *   1920x1080  ->  384 x 216 modules   (this change)
+ * ```
+ *
+ * A 12-symbol cascade measuring 260 x 216 modules exceeds the 720p ceiling on
+ * BOTH axes, which is why it could not be read at all. Note the frame-level
+ * ceiling above is an upper bound the full pipeline does not reach: the
+ * preview is FILL_CENTER and the analyzer crops the frame to the *view*
+ * aspect, so on a 19.5:9 phone only ~82% of the frame's short axis survives to
+ * the decoder. See the report in the PR description for the end-to-end number.
+ *
+ * ### Why the width is capped
+ *
+ * [maxWidth] is a deliberate ceiling, not an oversight:
+ *
+ *  - Camera2's guaranteed stream combinations only promise a 1080p YUV stream
+ *    alongside a PRIV preview on LIMITED/LEGACY hardware. Asking for a larger
+ *    YUV output can fail session configuration outright on those devices.
+ *  - Every analysed frame goes through a YUV->NV21->JPEG->Bitmap round trip
+ *    (`CameraUtils.imageToBitmap`); its cost scales with pixel count, and the
+ *    1280x720 value this replaces was itself chosen to cut that cost. Raising
+ *    the cap further is the obvious next lever, but it must be justified by a
+ *    measured on-device frame time, not assumed.
+ *
+ * @param supported sizes advertised for [android.graphics.ImageFormat.YUV_420_888]
+ * @param targetAspect the preview stream's aspect ratio. The analysis stream is
+ *        deliberately held to the SAME aspect as the preview: the ROI mapping in
+ *        `Camera2JABCodeAnalyzer.cropToRoi` assumes the analysis frame and the
+ *        preview cover an identical field of view, so letting the two diverge
+ *        would silently mis-map the on-screen reticle onto the decoded region.
+ * @param maxWidth inclusive ceiling on the chosen width (see above)
+ * @param fallback returned when [supported] is empty or nothing fits the cap
+ */
+internal fun chooseAnalysisSize(
+    supported: List<Size>,
+    targetAspect: Float,
+    maxWidth: Int,
+    fallback: Size
+): Size {
+    // The configuration map reports sizes in sensor (landscape) orientation, so
+    // width >= height; anything else is a portrait-only oddity we skip.
+    val candidates = supported.filter {
+        it.width in 1..maxWidth && it.height in 1..it.width
+    }
+    if (candidates.isEmpty()) return fallback
+
+    fun aspectOf(s: Size) = s.width.toFloat() / s.height.toFloat()
+    fun areaOf(s: Size) = s.width.toLong() * s.height.toLong()
+
+    // Prefer the LARGEST size that matches the preview's aspect ratio. If the
+    // device advertises none, fall back to the size whose aspect is closest to
+    // it, largest first among equally-close ones.
+    val sameAspect = candidates.filter { abs(aspectOf(it) - targetAspect) <= ASPECT_EPSILON }
+    return if (sameAspect.isNotEmpty()) {
+        sameAspect.maxByOrNull { areaOf(it) } ?: fallback
+    } else {
+        candidates.minWithOrNull(
+            compareBy<Size> { abs(aspectOf(it) - targetAspect) }
+                .thenByDescending { areaOf(it) }
+        ) ?: fallback
+    }
+}
+
+/**
+ * Degrees the analysis frame must be rotated **clockwise** to be upright in the
+ * device's CURRENT display orientation.
+ *
+ * `SENSOR_ORIENTATION` alone answers this only while the display sits in its
+ * natural (portrait) orientation. Once the scanner is allowed to rotate, the
+ * display's own rotation has to be folded in, otherwise a landscape frame gets
+ * rotated as though the phone were still upright and the reticle-to-frame
+ * mapping is off by 90 degrees.
+ *
+ * The arithmetic itself is NOT reimplemented here: it delegates to the SDK's
+ * [OrientationCalculator], which is the repository's existing single source of
+ * truth for it (and agrees with the CameraX / ML Kit convention — the back
+ * camera faces opposite the display, so its sensor rotation and the display
+ * rotation subtract; a front camera's add). This wrapper exists only to map
+ * Camera2's `LENS_FACING` onto that API and to give the mapping a test seam.
+ *
+ * @param sensorOrientationDegrees `CameraCharacteristics.SENSOR_ORIENTATION`
+ * @param surfaceRotationDegrees the display rotation in degrees (0/90/180/270),
+ *        i.e. `Surface.ROTATION_*` multiplied by 90
+ */
+internal fun relativeFrameRotation(
+    sensorOrientationDegrees: Int,
+    surfaceRotationDegrees: Int,
+    isFrontFacing: Boolean
+): Int = OrientationCalculator().calculatePreviewRotation(
+    sensorOrientation = sensorOrientationDegrees,
+    deviceRotation = surfaceRotationDegrees,
+    cameraFacing = if (isFrontFacing) {
+        CameraDeviceProfiler.Facing.FRONT
+    } else {
+        // BACK also covers EXTERNAL/UNKNOWN, which the calculator treats
+        // identically. This preview only ever opens cameraIdList[0].
+        CameraDeviceProfiler.Facing.BACK
+    }
+)
 
 /**
  * Camera2Preview - Raw Camera2 API preview component
@@ -77,9 +207,12 @@ fun Camera2Preview(
     onLowLightBoostSupported: ((Boolean) -> Unit)? = null,
     /** Tier-1 HUD: LLB state transitions (0=INACTIVE, 1=ACTIVE). */
     onLowLightBoostStateChanged: ((Int) -> Unit)? = null,
-    /** Reports CameraCharacteristics.SENSOR_ORIENTATION (deg) once the camera
-     *  opens — needed to map the on-screen reticle onto the analysis frame. */
-    onSensorOrientation: ((Int) -> Unit)? = null,
+    /** Reports the rotation (deg, clockwise) that brings the analysis frame
+     *  into the CURRENT display orientation — see [relativeFrameRotation].
+     *  Needed to map the on-screen reticle onto the analysis frame. Fires when
+     *  the camera opens and again on every display-rotation change, so a
+     *  scanner that is free to rotate keeps a correct mapping. */
+    onFrameRotation: ((Int) -> Unit)? = null,
     /** External zoom control (e.g. the zoom slider). 1.0 = no zoom;
      *  clamped to the device's max digital zoom. Pinch-to-zoom still works
      *  independently and reports back via onZoomChanged. */
@@ -98,7 +231,7 @@ fun Camera2Preview(
             context, windowManager,
             onFrameAvailable, autoFocus, exposureCompensation,
             onZoomChanged, onLowLightBoostSupported, onLowLightBoostStateChanged,
-            onSensorOrientation
+            onFrameRotation
         )
     }
     
@@ -176,25 +309,42 @@ private class Camera2Controller(
     private val onZoomChanged: ((Float) -> Unit)? = null,
     private val onLowLightBoostSupported: ((Boolean) -> Unit)? = null,
     private val onLowLightBoostStateChanged: ((Int) -> Unit)? = null,
-    private val onSensorOrientation: ((Int) -> Unit)? = null
+    private val onFrameRotation: ((Int) -> Unit)? = null
 ) {
     companion object {
         private const val TAG = "Camera2Controller"
         // Heartbeat throttle for 3A telemetry (an AF/AE state change always logs;
         // between changes, emit at most one line per this interval).
         private const val TELEMETRY_3A_INTERVAL_MS = 1000L
-        // WS-camera-1-2: split preview and analysis resolutions.
-        // Preview at 1920x1080 (TextureView display surface) preserves the
-        // existing viewfinder quality. Analysis at 1280x720 reduces the
-        // per-frame YUV->ARGB bitmap conversion cost by ~2.25x while still
-        // providing ~6 px/module at typical scanning distance (JABCode is
-        // 21 modules per side; at 40% frame fill on a 1280-wide stream
-        // that's 512 px / 21 = ~24 px/module — well above the 3-px
-        // decoder minimum). See docs/camera-control-audit.md issue B.
+
+        // WS-camera-1-2 split the preview and analysis resolutions; the preview
+        // (TextureView display surface) stays at 1920x1080.
         private const val PREVIEW_WIDTH = 1920
         private const val PREVIEW_HEIGHT = 1080
-        private const val ANALYSIS_WIDTH = 1280
-        private const val ANALYSIS_HEIGHT = 720
+
+        // Analysis stream. WS-camera-1-2 pinned this at 1280x720 to cut the
+        // per-frame YUV->Bitmap conversion cost, on the assumption that a
+        // scanned symbol is a single ~21-module JAB Code. That assumption does
+        // not hold for cascades: at ~5 px/module (ISO/IEC 23634 §4.5.2, and
+        // this project's own 4.9-reads / 3.3-fails field calibration) the
+        // analysis stream is a hard ceiling on symbol density —
+        //
+        //     1280x720   ->  256 x 144 modules
+        //     1920x1080  ->  384 x 216 modules
+        //
+        // — and a 12-symbol 260x216-module cascade is outside the 720p ceiling
+        // on both axes, so it could never be read at any distance or zoom.
+        //
+        // The size is now NEGOTIATED from the camera's own
+        // StreamConfigurationMap (see chooseAnalysisSize) rather than
+        // hardcoded; these constants are the target aspect / cap / fallback.
+        // ANALYSIS_MAX_WIDTH is capped at 1920 on purpose — see the
+        // chooseAnalysisSize KDoc for the two reasons (guaranteed Camera2
+        // stream combinations on LIMITED/LEGACY hardware, and the unmeasured
+        // per-frame conversion cost above 1080p).
+        private const val ANALYSIS_MAX_WIDTH = 1920
+        private const val ANALYSIS_FALLBACK_WIDTH = 1920
+        private const val ANALYSIS_FALLBACK_HEIGHT = 1080
     }
     
     private var cameraDevice: CameraDevice? = null
@@ -224,6 +374,28 @@ private class Camera2Controller(
     private var sensorOrientation: Int = 0
     private var currentTextureView: TextureView? = null
     private var cameraCharacteristics: CameraCharacteristics? = null
+
+    // Last value handed to onFrameRotation, so a display change that does not
+    // actually alter the relative rotation costs nothing downstream.
+    private var lastReportedFrameRotation: Int = -1
+
+    // Display-rotation listener. onSurfaceTextureSizeChanged covers a
+    // portrait<->landscape flip (the view's dimensions swap), but NOT a 180
+    // degree one — landscape-left to landscape-right leaves the TextureView
+    // exactly the same size while inverting the frame. Without this listener
+    // that case would silently keep the previous rotation and mis-map the ROI.
+    private val displayManager =
+        context.getSystemService(Context.DISPLAY_SERVICE) as? DisplayManager
+    private var displayListenerRegistered = false
+    private val displayListener = object : DisplayManager.DisplayListener {
+        override fun onDisplayAdded(displayId: Int) {}
+        override fun onDisplayRemoved(displayId: Int) {}
+        override fun onDisplayChanged(displayId: Int) {
+            val tv = currentTextureView ?: return
+            if (tv.display?.displayId != displayId) return
+            updateTransform(tv, tv.width, tv.height)
+        }
+    }
 
     // WS-camera-3 Low Light Boost AE Mode (Android 15+, API 35).
     // Detected once per session in openCamera() from the camera's AE
@@ -378,24 +550,40 @@ private class Camera2Controller(
         }
     }
 
+    /** Idempotent; paired with [unregisterDisplayListener]. */
+    private fun registerDisplayListener() {
+        if (displayListenerRegistered) return
+        displayManager?.registerDisplayListener(displayListener, backgroundHandler)
+        displayListenerRegistered = true
+    }
+
+    private fun unregisterDisplayListener() {
+        if (!displayListenerRegistered) return
+        displayManager?.unregisterDisplayListener(displayListener)
+        displayListenerRegistered = false
+    }
+
     fun openCamera(textureView: TextureView, viewWidth: Int, viewHeight: Int) {
         currentTextureView = textureView
-        
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) 
+
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA)
             != PackageManager.PERMISSION_GRANTED) {
             Log.e(TAG, "Camera permission not granted")
             return
         }
-        
+
+        registerDisplayListener()
+
         val manager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
         try {
             val cameraId = manager.cameraIdList[0]  // Back camera
             
-            // Get sensor orientation for rotation compensation
+            // Get sensor orientation for rotation compensation. The rotation the
+            // ROI mapping needs is display-relative, so it is reported from
+            // updateTransform() (called on open and on every rotation), not here.
             val characteristics = manager.getCameraCharacteristics(cameraId)
             cameraCharacteristics = characteristics
             sensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0
-            onSensorOrientation?.invoke(sensorOrientation)
 
             // WS-camera-3: detect Low Light Boost AE Mode capability (API 35+).
             // Google's own docs list "scanning QR codes in low light" as a
@@ -451,8 +639,22 @@ private class Camera2Controller(
             val texture = textureView.surfaceTexture
             texture?.setDefaultBufferSize(PREVIEW_WIDTH, PREVIEW_HEIGHT)
 
-            // Setup ImageReader for analysis frames at the smaller
-            // analysis resolution to reduce per-frame conversion cost.
+            // Negotiate the analysis stream size from what this camera actually
+            // advertises for YUV_420_888, rather than assuming a fixed value.
+            // Held to the PREVIEW's aspect ratio on purpose — the analyzer's ROI
+            // mapping assumes both streams cover the same field of view.
+            val analysisSize = chooseAnalysisSize(
+                supported = characteristics
+                    .get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+                    ?.getOutputSizes(ImageFormat.YUV_420_888)
+                    ?.toList()
+                    .orEmpty(),
+                targetAspect = PREVIEW_WIDTH.toFloat() / PREVIEW_HEIGHT,
+                maxWidth = ANALYSIS_MAX_WIDTH,
+                fallback = Size(ANALYSIS_FALLBACK_WIDTH, ANALYSIS_FALLBACK_HEIGHT)
+            )
+
+            // Setup ImageReader for analysis frames.
             //
             // maxImages = 4 (was 2): the analyzer uses acquireLatestImage()
             // which auto-drops queued backlog, so the buffer count's job is
@@ -461,11 +663,11 @@ private class Camera2Controller(
             // a single slow decode caused the HAL to block on its third
             // outgoing frame (no buffer available to write into), cascading
             // into AE/AWB drift and the intermittent stutter documented in
-            // docs/camera-control-audit.md issue E. At 1280x720 YUV_420_888
-            // each buffer is ~1.4 MB; 4 buffers ~= 5.6 MB — well within
-            // memory budget.
+            // docs/camera-control-audit.md issue E. At 1920x1080 YUV_420_888
+            // each buffer is ~3.1 MB; 4 buffers ~= 12.4 MB — still well within
+            // memory budget (it was ~5.6 MB at the old 1280x720).
             imageReader = ImageReader.newInstance(
-                ANALYSIS_WIDTH, ANALYSIS_HEIGHT,
+                analysisSize.width, analysisSize.height,
                 ImageFormat.YUV_420_888,
                 4  // 4-deep buffer pool — see comment above
             ).apply {
@@ -475,8 +677,17 @@ private class Camera2Controller(
                 }, backgroundHandler)
             }
 
-            Log.d(TAG, "ImageReader initialized: ${imageReader?.width}x${imageReader?.height}, format=${imageReader?.imageFormat} (expected: ${ANALYSIS_WIDTH}x${ANALYSIS_HEIGHT}, YUV=${ImageFormat.YUV_420_888})")
-            
+            // The module ceiling below is the FRAME-level bound at ~5 px/module
+            // (ISO/IEC 23634 §4.5.2). The decoder sees less: the preview is
+            // FILL_CENTER and the analyzer crops to the view aspect and then to
+            // the reticle, so treat this as an upper bound, not a promise.
+            Log.i(
+                TAG,
+                "Analysis stream negotiated: ${analysisSize.width}x${analysisSize.height} " +
+                    "(cap ${ANALYSIS_MAX_WIDTH}px wide, YUV_420_888) — frame-level ceiling " +
+                    "~${analysisSize.width / 5} x ${analysisSize.height / 5} modules at 5 px/module"
+            )
+
             // Open camera
             manager.openCamera(cameraId, object : CameraDevice.StateCallback() {
                 override fun onOpened(camera: CameraDevice) {
@@ -887,6 +1098,7 @@ private class Camera2Controller(
      */
     fun releaseCamera() {
         try {
+            unregisterDisplayListener()
             captureSession?.close()
             captureSession = null
             cameraDevice?.close()
@@ -916,9 +1128,10 @@ private class Camera2Controller(
 
     fun close() {
         try {
+            unregisterDisplayListener()
             captureSession?.close()
             captureSession = null
-            
+
             cameraDevice?.close()
             cameraDevice = null
             
@@ -934,22 +1147,26 @@ private class Camera2Controller(
     }
     
     /**
-     * Compute relative rotation between sensor orientation and display rotation
-     * Following official Android Camera2 pattern from developer.android.com
+     * Compute the rotation between the sensor's frame and the CURRENT display
+     * orientation. Delegates to [relativeFrameRotation] (the CameraX /
+     * ML Kit convention).
+     *
+     * Note this used to add the display rotation for a back camera instead of
+     * subtracting it (the front-facing case). While the scanner was locked to
+     * portrait the two agreed — surfaceRotationDegrees was always 0 — so the
+     * error was invisible; it only surfaces once the scanner may rotate.
+     * `isRotationRequired` below is unaffected either way, because the two
+     * formulas differ by 2 * surfaceRotationDegrees, which is always 0 mod 180.
      */
     private fun computeRelativeRotation(surfaceRotationDegrees: Int): Int {
         val characteristics = cameraCharacteristics ?: return 0
-        
-        val sensorOrientationDegrees = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0
-        
-        // Reverse device orientation for front-facing cameras
-        val sign = if (characteristics.get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_FRONT) {
-            1
-        } else {
-            -1
-        }
-        
-        return (sensorOrientationDegrees - (surfaceRotationDegrees * sign) + 360) % 360
+        return relativeFrameRotation(
+            sensorOrientationDegrees =
+                characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0,
+            surfaceRotationDegrees = surfaceRotationDegrees,
+            isFrontFacing = characteristics.get(CameraCharacteristics.LENS_FACING) ==
+                CameraCharacteristics.LENS_FACING_FRONT
+        )
     }
     
     /**
@@ -973,14 +1190,24 @@ private class Camera2Controller(
         val surfaceRotation = windowManager.defaultDisplay.rotation
         val surfaceRotationDegrees = surfaceRotation * 90
         
-        // Camera output is always landscape (1280x720)
+        // Camera output is always in sensor (landscape) orientation.
         val previewWidth = PREVIEW_WIDTH
         val previewHeight = PREVIEW_HEIGHT
         
         // Determine if rotation swaps dimensions
         val relativeRotation = computeRelativeRotation(surfaceRotationDegrees)
         val isRotationRequired = relativeRotation % 180 != 0
-        
+
+        // Publish the frame rotation to the ROI mapping. This runs on camera
+        // open, on every TextureView size change (portrait <-> landscape) and
+        // from the display listener (the 180-degree flips that do not resize
+        // the view), so the analyzer's rotation never goes stale.
+        if (relativeRotation != lastReportedFrameRotation) {
+            lastReportedFrameRotation = relativeRotation
+            Log.i(TAG, "Frame rotation -> ${relativeRotation}deg (surfaceRot=${surfaceRotationDegrees}deg, sensorOri=${sensorOrientation}deg)")
+            onFrameRotation?.invoke(relativeRotation)
+        }
+
         // Calculate scale factors to reverse TextureView's default scaling
         var scaleX: Float
         var scaleY: Float
