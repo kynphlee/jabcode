@@ -357,6 +357,7 @@ public class JABCodeEncoder {
                     setSymbolPositions(enc, symbolPositionCount(config), config.getSymbolPositions());
                 }
 
+                setModuleSize(enc, config);
                 setSymbolEccLevels(enc, config);
 
                 // Prepare jab_data structure: { int32 length; char data[]; }
@@ -438,6 +439,7 @@ public class JABCodeEncoder {
                     setSymbolPositions(enc, symbolPositionCount(config), config.getSymbolPositions());
                 }
 
+                setModuleSize(enc, config);
                 setSymbolEccLevels(enc, config);
 
                 // Prepare data
@@ -488,6 +490,30 @@ public class JABCodeEncoder {
         return jabData;
     }
     
+    /**
+     * Writes {@code jab_encode.module_size} — the pixel size of one module.
+     *
+     * <p>This field was mapped and never written. The Builder validated it, the Config stored it and
+     * exposed a getter, and nothing read that getter: sweeping module sizes 1..1024 produced a
+     * byte-identical 252x252 image every time, because {@code createEncode} leaves the field at its
+     * default of 12 and the encoder reads it verbatim.
+     *
+     * <p>The offset is not a new discovery — the struct comment in
+     * {@link #getBitmapFromEncoder(MemorySegment)} has documented {@code int32 module_size (8)} all
+     * along. The map was right; only the write was missing.
+     *
+     * <p>The encoder consults this only when {@code master_symbol_width} and
+     * {@code master_symbol_height} are both zero ({@code encoder.c:1692-1704}), which is always the
+     * case here — the wrapper drives geometry from symbol versions, not pixel dimensions. Callers
+     * wanting an exact pixel size should still set the master width/height, which take precedence.
+     */
+    private void setModuleSize(MemorySegment enc, Config config) {
+        enc.set(ValueLayout.JAVA_INT, MODULE_SIZE_OFFSET, config.getModuleSize());
+    }
+
+    /** Byte offset of {@code jab_encode.module_size}: the third {@code int32} field. */
+    private static final long MODULE_SIZE_OFFSET = 8;
+
     /**
      * Get bitmap pointer from jab_encode struct.
      * The bitmap field is at offset 64 (on 64-bit systems with 8-byte alignment).
