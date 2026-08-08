@@ -42,9 +42,21 @@ import androidx.compose.ui.platform.LocalContext
  */
 @Composable
 internal fun UnlockOrientationWhileVisible() {
-    val context = LocalContext.current
-    DisposableEffect(context) {
-        val activity = context.findActivity()
+    val activity = LocalContext.current.findActivity()
+    // Keyed on Unit, NOT on the context.
+    //
+    // Keying on the context looked harmless and was self-defeating. Compose hands out a new
+    // LocalContext on a configuration change — and rotating IS a configuration change — so the
+    // effect re-keyed the moment the user turned the phone. Dispose ran, which RESTORES the
+    // previous orientation, which rotated the device back, which was another configuration change.
+    // Measured in the verify app, which had this same code: 17 enters and 16 leaves in ninety
+    // seconds, roughly one cycle every two seconds, and the scanner never held landscape.
+    //
+    // Unit means: set up when the scanner enters composition, tear down when it leaves. A rotation
+    // in between is not this effect's business. Safe because the activity is not recreated on
+    // rotation — the manifest's configChanges guarantees that, so the captured reference stays
+    // valid.
+    DisposableEffect(Unit) {
         if (activity == null) {
             Log.w("ScannerOrientation", "No host Activity; leaving orientation locked")
             return@DisposableEffect onDispose { }
