@@ -3,6 +3,12 @@ package com.jabauth.diagnostic.ui.scanner
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.graphics.Color
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.filled.FlashOn
+import androidx.compose.material.icons.filled.FlashOff
+import androidx.compose.material.icons.Icons
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -115,6 +121,11 @@ private fun ScannerScreenContent(
     // gates the workload coach (reference-app behaviour: coach shows during
     // resize only, never persistent).
     var isResizing by remember { mutableStateOf(false) }
+    // Torch. torchAvailable stays false until the camera reports FLASH_INFO_AVAILABLE, so the
+    // control is absent rather than dead on a device without a flash — a button that is present
+    // and does nothing cannot be told from a dark room.
+    var torchOn by remember { mutableStateOf(false) }
+    var torchAvailable by remember { mutableStateOf(false) }
 
     // "Scan image" → pick a PNG and decode it camera-free (decoder isolation test).
     val imagePicker = rememberLauncherForActivityResult(
@@ -142,6 +153,8 @@ private fun ScannerScreenContent(
             onLowLightBoostStateChanged = { viewModel.onLowLightBoostStateChanged(it) },
             onFrameRotation = { viewModel.onFrameRotation(it) },
             aeLocked = aeLocked,
+            torchEnabled = torchOn,
+            onTorchAvailable = { torchAvailable = it },
             modifier = Modifier.fillMaxSize()
         )
 
@@ -220,6 +233,26 @@ private fun ScannerScreenContent(
                     .align(Alignment.BottomEnd)
                     .padding(end = 16.dp, bottom = 120.dp)
             )
+        }
+
+        // Light. Placed top-right rather than in the bottom strip: that strip is the zoom slider
+        // and the panel toggle, both of which the user reaches while framing, and a torch is a
+        // set-once control. Only shown once the camera reports a flash unit.
+        if (torchAvailable) {
+            IconButton(
+                onClick = { torchOn = !torchOn },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp),
+            ) {
+                Icon(
+                    imageVector = if (torchOn) Icons.Filled.FlashOn else Icons.Filled.FlashOff,
+                    contentDescription = if (torchOn) "Turn light off" else "Turn light on",
+                    // Orange is this app's scanner accent — the colour the reticle already uses, so an
+                    // active torch reads as the same kind of state as an active reticle.
+                    tint = if (torchOn) Orange else Color.White,
+                )
+            }
         }
 
         // Zoom slider pinned at the bottom (− ──●── +).
