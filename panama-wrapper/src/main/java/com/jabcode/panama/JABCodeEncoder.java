@@ -414,9 +414,6 @@ public class JABCodeEncoder {
         }
         
         try (Arena arena = Arena.ofConfined()) {
-            System.err.println("[ENCODER] Config: colorNumber=" + config.getColorNumber() + 
-                ", eccLevel=" + config.getEccLevel() + ", symbolNumber=" + config.getSymbolNumber());
-            
             // Create encoder
             MemorySegment enc = jabcode_h.createEncode(
                 config.getColorNumber(),
@@ -429,7 +426,6 @@ public class JABCodeEncoder {
             
             // Verify color_number was set correctly in struct (offset 0)
             int actualColorNumber = enc.get(ValueLayout.JAVA_INT, 0);
-            System.err.println("[ENCODER] After createEncode: color_number in struct = " + actualColorNumber);
             
             try {
                 // Set symbol versions if provided (for multi-symbol cascades)
@@ -536,8 +532,14 @@ public class JABCodeEncoder {
         long versionsAddress = enc.get(ValueLayout.ADDRESS, versionsOffset).address();
         
         if (versionsAddress == 0) {
-            System.err.println("[ENCODER] WARNING: symbol_versions pointer is NULL!");
-            return;
+            // Printing and returning here would encode SOMETHING — at whatever the codec
+            // left in the struct. For symbol_versions that means every slave silently at
+            // DEFAULT_ECC_LEVEL, which is the defect PR #169 fixed, reachable by a second
+            // route. A null array pointer is an unrecoverable ABI mismatch, not a warning.
+            throw new IllegalStateException(
+                "Native symbol_versions pointer is NULL — the jabcode struct layout does not "
+                    + "match these bindings. Re-generate the jextract bindings against the "
+                    + "vendored libjabcode.so.");
         }
         
         // Each vector2d is 8 bytes (2 int32s)
@@ -554,9 +556,6 @@ public class JABCodeEncoder {
             versionsArray.set(ValueLayout.JAVA_INT, offset, version.getX());
             // Write y (height version)
             versionsArray.set(ValueLayout.JAVA_INT, offset + 4, version.getY());
-            
-            System.err.println("[ENCODER] Set symbol " + i + " version: " +
-                version.getX() + "×" + version.getY());
         }
     }
 
@@ -621,8 +620,14 @@ public class JABCodeEncoder {
     private void setSymbolEccLevels(MemorySegment enc, Config config) {
         long eccLevelsAddress = enc.get(ValueLayout.ADDRESS, 40).address();
         if (eccLevelsAddress == 0) {
-            System.err.println("[ENCODER] WARNING: symbol_ecc_levels pointer is NULL!");
-            return;
+            // Printing and returning here would encode SOMETHING — at whatever the codec
+            // left in the struct. For symbol_ecc_levels that means every slave silently at
+            // DEFAULT_ECC_LEVEL, which is the defect PR #169 fixed, reachable by a second
+            // route. A null array pointer is an unrecoverable ABI mismatch, not a warning.
+            throw new IllegalStateException(
+                "Native symbol_ecc_levels pointer is NULL — the jabcode struct layout does not "
+                    + "match these bindings. Re-generate the jextract bindings against the "
+                    + "vendored libjabcode.so.");
         }
 
         int count = config.getSymbolNumber();
@@ -641,8 +646,14 @@ public class JABCodeEncoder {
         long positionsAddress = enc.get(ValueLayout.ADDRESS, positionsOffset).address();
 
         if (positionsAddress == 0) {
-            System.err.println("[ENCODER] WARNING: symbol_positions pointer is NULL!");
-            return;
+            // Printing and returning here would encode SOMETHING — at whatever the codec
+            // left in the struct. For symbol_positions that means every slave silently at
+            // DEFAULT_ECC_LEVEL, which is the defect PR #169 fixed, reachable by a second
+            // route. A null array pointer is an unrecoverable ABI mismatch, not a warning.
+            throw new IllegalStateException(
+                "Native symbol_positions pointer is NULL — the jabcode struct layout does not "
+                    + "match these bindings. Re-generate the jextract bindings against the "
+                    + "vendored libjabcode.so.");
         }
 
         // symbol_positions is int32 array
@@ -652,7 +663,6 @@ public class JABCodeEncoder {
         for (int i = 0; i < count; i++) {
             int position = positions != null ? positions.get(i) : i;
             positionsArray.set(ValueLayout.JAVA_INT, i * 4L, position);
-            System.err.println("[ENCODER] Set symbol " + i + " position: " + position);
         }
     }
 }
