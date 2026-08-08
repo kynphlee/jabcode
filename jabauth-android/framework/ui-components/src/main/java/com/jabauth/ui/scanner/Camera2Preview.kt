@@ -385,6 +385,13 @@ private class Camera2Controller(
     // CLOUDY_DAYLIGHT preset regardless, so this flag only gates CONTROL_AE_LOCK.
     private var convergenceLocksApplied: Boolean = false
     private var activeRepeatingSurface: Surface? = null
+
+    /** The live repeating request, kept so a torch toggle can amend it in place. */
+    private var activeRequestBuilder: CaptureRequest.Builder? = null
+
+    /** The live capture callback. Reused when reissuing, so amending the request does
+     *  not silently stop the AE/LLB observation the rest of the class depends on. */
+    private var activeCaptureCallback: CameraCaptureSession.CaptureCallback? = null
     private var imageReader: ImageReader? = null
     private var previewSurface: Surface? = null
     private var sensorOrientation: Int = 0
@@ -575,14 +582,41 @@ private class Camera2Controller(
     fun setTorchEnabled(enabled: Boolean) {
         if (enabled == torchApplied) return
         if (enabled && !flashAvailable) {
-            Log.i(TAG, "setTorchEnabled(true) ignored — device reports no flash unit")
+            Log.w(TAG, "setTorchEnabled(true) ignored — device reports no flash unit")
             return
         }
         torchApplied = enabled
-        Log.i(TAG, "setTorchEnabled($enabled); reissuing repeating request")
-        val surface = activeRepeatingSurface ?: previewSurface ?: return
-        backgroundHandler?.post {
-            startRepeatingRequest(surface, applyConvergenceLocks = convergenceLocksApplied)
+
+        // Amend the LIVE request rather than rebuilding it.
+        //
+        // The first cut posted a full startRepeatingRequest() to the background handler. That was
+        // wrong twice over. It logged "reissuing" BEFORE resolving the surface, so a null surface,
+        // a null handler or a null session all read as success — and measured on device, the
+        // rebuild often did not run at all: two toggles produced no restart, and on another run
+        // both restarts landed at the same millisecond, well after the user had toggled back off.
+        // The handler is shared with frame analysis, so a rebuild queues behind decode work.
+        //
+        // A torch toggle does not need the request rebuilt; it needs one key changed. Setting
+        // FLASH_MODE on the request already in flight and reissuing it is both cheaper and
+        // immediate.
+        val builder = activeRequestBuilder
+        val session = captureSession
+        if (builder == null || session == null) {
+            Log.w(TAG, "setTorchEnabled($enabled): no live request (builder=${builder != null}, " +
+                "session=${session != null}); torch will apply when the session starts")
+            return
+        }
+        builder.set(
+            CaptureRequest.FLASH_MODE,
+            if (enabled) CaptureRequest.FLASH_MODE_TORCH else CaptureRequest.FLASH_MODE_OFF,
+        )
+        try {
+            session.setRepeatingRequest(builder.build(), activeCaptureCallback, backgroundHandler)
+            Log.i(TAG, "setTorchEnabled($enabled): FLASH_MODE applied to the live request")
+        } catch (e: CameraAccessException) {
+            Log.e(TAG, "setTorchEnabled($enabled) failed to reissue", e)
+        } catch (e: IllegalStateException) {
+            Log.e(TAG, "setTorchEnabled($enabled) on a closed session", e)
         }
     }
 
@@ -844,6 +878,7 @@ private class Camera2Controller(
         
         try {
             val requestBuilder = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
+            activeRequestBuilder = requestBuilder
             requestBuilder.addTarget(surface)
             requestBuilder.addTarget(reader.surface)
             
@@ -1137,6 +1172,7 @@ private class Camera2Controller(
                 }
             }
 
+            activeCaptureCallback = captureCallback
             session.setRepeatingRequest(
                 requestBuilder.build(),
                 captureCallback,
