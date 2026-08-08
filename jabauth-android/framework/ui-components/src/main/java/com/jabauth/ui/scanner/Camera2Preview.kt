@@ -222,6 +222,16 @@ fun Camera2Preview(
      *  known-good (decoded) exposure. Replaces the old lock-on-first-convergence
      *  latch that froze the startup scene (washed out if started pointed away). */
     aeLocked: Boolean = false,
+    /** Torch (flash held on) for scanning a printed symbol in poor light. Ignored on
+     *  devices without a flash unit — see [onTorchAvailable], which is how a caller
+     *  learns whether to offer the control at all rather than showing one that does
+     *  nothing. */
+    torchEnabled: Boolean = false,
+    /** Reports once per camera open whether this device HAS a flash unit
+     *  (FLASH_INFO_AVAILABLE). A UI that offers a torch button on a device with no
+     *  flash is worse than one that omits it: the user cannot tell a broken feature
+     *  from a dark room. */
+    onTorchAvailable: ((Boolean) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -231,7 +241,8 @@ fun Camera2Preview(
             context, windowManager,
             onFrameAvailable, autoFocus, exposureCompensation,
             onZoomChanged, onLowLightBoostSupported, onLowLightBoostStateChanged,
-            onFrameRotation
+            onFrameRotation,
+            onTorchAvailable
         )
     }
     
@@ -253,6 +264,10 @@ fun Camera2Preview(
     // Drive AE lock from the decode-driven policy: continuous AE until the first
     // successful decode, then lock; re-arm on sustained failure / exposure shift.
     // Replaces the old lock-on-first-convergence latch (the wash-out root cause).
+    LaunchedEffect(torchEnabled) {
+        camera2Controller.setTorchEnabled(torchEnabled)
+    }
+
     LaunchedEffect(aeLocked) {
         camera2Controller.setAeLocked(aeLocked)
     }
@@ -309,7 +324,8 @@ private class Camera2Controller(
     private val onZoomChanged: ((Float) -> Unit)? = null,
     private val onLowLightBoostSupported: ((Boolean) -> Unit)? = null,
     private val onLowLightBoostStateChanged: ((Int) -> Unit)? = null,
-    private val onFrameRotation: ((Int) -> Unit)? = null
+    private val onFrameRotation: ((Int) -> Unit)? = null,
+    private val onTorchAvailable: ((Boolean) -> Unit)? = null
 ) {
     companion object {
         private const val TAG = "Camera2Controller"
@@ -531,6 +547,12 @@ private class Camera2Controller(
         applyCropRegion(zoomRatio.coerceIn(1.0f, maxDigitalZoom))
     }
 
+    /** Whether the torch is currently requested. */
+    private var torchApplied: Boolean = false
+
+    /** Whether this device has a flash unit at all, read once on camera open. */
+    private var flashAvailable: Boolean = false
+
     /**
      * Apply or release CONTROL_AE_LOCK, driven by the ViewModel's
      * lock-on-decode-success policy. Continuous AE (locked=false) lets exposure
@@ -540,6 +562,30 @@ private class Camera2Controller(
      * CLOUDY_DAYLIGHT preset either way, so colour stability for decoding is
      * unaffected by this toggle.
      */
+    /**
+     * Turn the torch on or off.
+     *
+     * <p>Applied as FLASH_MODE_TORCH on the repeating request rather than through
+     * CameraManager.setTorchMode, which throws once this app holds the camera — the torch has to
+     * be part of the session that owns the device, not a second claim on it.
+     *
+     * <p>Silently a no-op on a device with no flash unit; callers learn that from
+     * onTorchAvailable and should not offer the control at all in that case.
+     */
+    fun setTorchEnabled(enabled: Boolean) {
+        if (enabled == torchApplied) return
+        if (enabled && !flashAvailable) {
+            Log.i(TAG, "setTorchEnabled(true) ignored — device reports no flash unit")
+            return
+        }
+        torchApplied = enabled
+        Log.i(TAG, "setTorchEnabled($enabled); reissuing repeating request")
+        val surface = activeRepeatingSurface ?: previewSurface ?: return
+        backgroundHandler?.post {
+            startRepeatingRequest(surface, applyConvergenceLocks = convergenceLocksApplied)
+        }
+    }
+
     fun setAeLocked(locked: Boolean) {
         if (locked == convergenceLocksApplied) return
         convergenceLocksApplied = locked
@@ -584,6 +630,13 @@ private class Camera2Controller(
             val characteristics = manager.getCameraCharacteristics(cameraId)
             cameraCharacteristics = characteristics
             sensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0
+
+            // Flash capability, read once per open. Reported so a caller can decide whether to
+            // OFFER a torch control at all — a button that is present and does nothing is worse
+            // than an absent one, because the user cannot tell it from a dark room.
+            flashAvailable = characteristics.get(CameraCharacteristics.FLASH_INFO_AVAILABLE) ?: false
+            Log.i(TAG, "Flash unit available: $flashAvailable")
+            onTorchAvailable?.invoke(flashAvailable)
 
             // WS-camera-3: detect Low Light Boost AE Mode capability (API 35+).
             // Google's own docs list "scanning QR codes in low light" as a
@@ -801,6 +854,14 @@ private class Camera2Controller(
                 CaptureRequest.CONTROL_AF_MODE_OFF
             }
             requestBuilder.set(CaptureRequest.CONTROL_AF_MODE, afMode)
+
+            // Torch. Set on EVERY repeating request rather than once, because the request is
+            // rebuilt on zoom, AE-lock and rotation changes — a torch applied once would switch
+            // itself off the next time the user pinched.
+            requestBuilder.set(
+                CaptureRequest.FLASH_MODE,
+                if (torchApplied) CaptureRequest.FLASH_MODE_TORCH else CaptureRequest.FLASH_MODE_OFF,
+            )
             
             // Enable auto-exposure. When the device supports Low Light
             // Boost AE Mode (API 35+, detected in openCamera), opt in —
