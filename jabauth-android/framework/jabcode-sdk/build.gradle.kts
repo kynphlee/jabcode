@@ -52,7 +52,17 @@ android {
                 cppFlags += listOf("-std=c11", "-O3", "-fPIC")
                 arguments += listOf(
                     "-DMOBILE_BUILD=ON",
-                    "-DBUILD_SHARED_LIBS=ON"
+                    "-DBUILD_SHARED_LIBS=ON",
+                    // 16 KB page alignment, required by Android 15 (API 35) and enforced by Play
+                    // for anything targeting it. NDK r27 SUPPORTS this but does not default to it
+                    // — r28 does — so without the explicit flag the linker emits LOAD segments
+                    // aligned to 4 KB and the library will not load on a 16 KB-page device.
+                    //
+                    // The failure mode is why it went unnoticed: nothing in the build objects.
+                    // assembleRelease is green, the AAR is well-formed, and the app installs.
+                    // Only Android complains, at install time, in a dialog the developer sees and
+                    // CI never does.
+                    "-DCMAKE_SHARED_LINKER_FLAGS=-Wl,-z,max-page-size=16384"
                 )
             }
         }
