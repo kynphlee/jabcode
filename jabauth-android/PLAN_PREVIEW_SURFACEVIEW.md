@@ -5,29 +5,53 @@
 
 ## Why
 
-The reader's scanner renders fewer frames than the device's own camera app, on the same phone,
-in the same 35-second window, pointed at the same room.
-
-| SM-S918U (Snapdragon 8 Gen 2) | Surface | Janky | p95 | p99 | Frames / 35s |
-| --- | --- | --- | --- | --- | --- |
-| Samsung camera | `SurfaceView` | 0.47% | 8 ms | 11 ms | **640** |
-| jabauth-verify | `TextureView` | 2.46% | 10 ms | 17 ms | **529** |
-
-The jank percentages are close enough to argue about. The frame counts are not: 18.3 fps against
-15.1 fps, a 17% shortfall against a control running on the same hardware at the same moment. That
-is what a user reports as "jitter when I move the phone", and it is why a 2.46% jank reading kept
-being dismissed as acceptable — the number that mattered was the one nobody was reading.
+The reader's camera preview is a `TextureView`, so every camera frame is a texture upload and a
+composite on the render thread that is also drawing the HUD and the reticle. The platform camera
+app gives its preview a dedicated `SurfaceView` layer, which the compositor handles without the
+app being involved at all.
 
 Confirmed at runtime, not inferred from source. `dumpsys SurfaceFlinger` shows the camera app
-owning a dedicated layer:
+owning its own layer:
 
 ```
 Layer [1343] SurfaceView[com.sec.android.app.camera/...]@0(BLAST)#1343
 ```
 
-while jabauth-verify has no surface layer at all — the preview is a `TextureView` composited
-inside the activity's own window, so every camera frame is a texture upload and a composite on the
-render thread that is also drawing the HUD and the reticle.
+while jabauth-verify has no surface layer — its preview lives inside the activity's own window.
+
+### What the stock camera can and cannot tell us
+
+An earlier draft of this plan claimed the app renders 529 frames in 35 seconds against the stock
+camera's 640, and called that a 17% shortfall. **That comparison was invalid and has been
+withdrawn.**
+
+Measured afterwards: the stock camera renders **0 frames** when held still, on both phones, while
+plainly showing a live preview. Its preview never touches app-side rendering, so `gfxinfo` was
+only ever counting its chrome — autofocus indicators and exposure readouts, which update when the
+phone moves. The two numbers are different quantities:
+
+| | what its frame count contains |
+| --- | --- |
+| jabauth-verify | UI **plus preview compositing** |
+| stock camera | UI chrome only |
+
+The stock camera is therefore evidence for the architectural claim — a `SurfaceView` preview costs
+the hosting app nothing — and is **not** a valid control for frame rate or jank, because it is not
+doing the work our app is doing.
+
+### What the justification actually rests on
+
+1. The architectural difference, verified in `SurfaceFlinger` on the device.
+2. Its consequence: preview compositing competes with HUD drawing on one thread, which is the
+   shape of the reported symptom (smooth when still, jittery when moved, worse the longer the
+   scanner has been open).
+3. A before-and-after on **our own app**, which is the only comparison where both arms do the same
+   work. That measurement does not exist yet, and producing it is Phase 0.
+
+This is worth stating plainly because the investigation that led here killed four hypotheses --
+gradient scrims, thermal throttling, AE lock thrashing, motion-gate recomposition -- each of which
+looked convincing until it was measured against something. A fifth belief that cannot be measured
+is not an improvement on those.
 
 ## What is not at risk
 
@@ -73,18 +97,23 @@ the same reason it needs a hand-built rotation matrix.
 Each phase ends at a gate. A phase that cannot pass its gate stops the plan rather than
 proceeding on optimism.
 
-### Phase 0 — establish the target on both devices (no code)
+### Phase 0 — establish OUR OWN baseline (no code)
 
-The measurement above exists for one phone. The SM-S938U (8 Elite) has never been compared against
-its own stock camera, and an earlier "fix" on that device was declared verified on a single
-unreplicated sample and later disproved. Do not repeat that.
+Not a stock-camera comparison; see above for why that cannot work. The baseline has to be the
+thing that will change, measured the way Phase 3 will measure it.
 
-- Run the stock-camera control on SM-S938U, same protocol: 35 s, moving, `dumpsys gfxinfo`.
-- Record frames rendered, not only jank percentage.
+- Both phones, both states: held still, and moved continuously. Movement matters — every reading
+  taken on a desk showed near-zero jank while the reported fault was happening.
+- Minimum three samples per cell, interleaved. Single pairs produced two wrong conclusions during
+  the investigation behind this plan.
+- Record frames rendered, jank percentage, p95, p99 and GPU p90 for every sample, plus whether
+  the app was freshly installed. Readings taken immediately after an `adb install` ran 9-15% janky
+  and settled to ~2% once ART had compiled; that artifact accounted for most of the variance
+  originally mistaken for signal.
 
-**Gate:** a recorded frame-count delta for both phones. If the S938U matches its stock camera, the
-change is worth doing but is an older-device fix, and should be scheduled as such rather than
-sold as a general performance win.
+**Gate:** a table with a median and a spread for each cell, on both devices. If the spread swamps
+the difference Phase 3 hopes to show, say so now and either widen the sample or abandon the plan
+-- do not proceed to a change whose benefit the instrument cannot resolve.
 
 ### Phase 1 — split `updateTransform` (pure refactor)
 
@@ -112,16 +141,17 @@ succeeds against a known symbol.
 **Gate:** preview is visible, right way up, and correctly cropped in all four display rotations,
 on both back and front cameras, on both phones.
 
-### Phase 3 — verify against the control
+### Phase 3 — verify against the Phase 0 baseline
 
-- Interleaved A/B against the stock camera, minimum three samples each, alternating so thermal
-  drift and scene changes hit both arms equally. One pair of runs is not a result; that error was
-  made twice in the investigation that produced this plan.
+- Interleaved A/B of the `TextureView` and `SurfaceView` builds, minimum three samples each,
+  alternating so thermal drift and scene changes hit both arms equally. One pair of runs is not a
+  result; that error was made twice in the investigation that produced this plan.
 - Decode success rate measured before and after against a fixed symbol at a fixed distance.
 
-**Gate:** frame count within 5% of the stock camera on both phones, **and** decode success rate no
-worse than the `TextureView` baseline. A smoother preview that reads fewer symbols is a
-regression, not a fix.
+**Gate:** a measurable improvement against the Phase 0 baseline on the SM-S918U, outside that
+cell's recorded spread, **and** decode success rate no worse. A smoother preview that reads fewer
+symbols is a regression, not a fix. The comparison is our app against our app; the stock camera
+appears nowhere in this gate.
 
 ### Phase 4 — re-vendor into the reader
 
@@ -152,8 +182,7 @@ abandoned.
 
 ## What would falsify the premise
 
-If Phase 0 shows the SM-S938U already matching its stock camera, and Phase 3 shows the S918U
-still short of its control after the swap, then `TextureView` was not the constraint and the
-remaining cost is elsewhere — most likely the per-frame YUV-to-Bitmap conversion in the analysis
+If Phase 0's spread swamps any plausible improvement, or Phase 3 shows no movement outside that
+spread, then `TextureView` was not the constraint and the remaining cost is elsewhere — most likely the per-frame YUV-to-Bitmap conversion in the analysis
 path, which this plan does not touch. Say so and stop, rather than continuing to tune a surface
 that was never the problem.
