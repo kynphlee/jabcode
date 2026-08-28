@@ -338,6 +338,19 @@ fun Camera2Preview(
                     // the HUD and reticle stay visible. Without this a SurfaceView punches
                     // through and hides them.
                     setZOrderMediaOverlay(true)
+                    // Pin the buffer geometry BEFORE the surface exists, and never touch it again.
+                    //
+                    // This used to be set from inside openCamera, i.e. from surfaceCreated — so
+                    // the surface was first created with a default buffer sized to the view, and
+                    // the code then changed the geometry underneath it. Android answers a buffer
+                    // change by RECREATING the surface, which fires surfaceDestroyed and
+                    // surfaceCreated, which called openCamera, which set the size again. Every
+                    // layout pass tore down and rebuilt the capture session.
+                    //
+                    // Fixed here, a view resize is only a change of destination rectangle: the
+                    // compositor scales the same buffer into the new bounds. Rotating the phone
+                    // stops costing a session reconfigure, which is what made it visibly stall.
+                    holder.setFixedSize(PREVIEW_WIDTH, PREVIEW_HEIGHT)
                     holder.addCallback(object : SurfaceHolder.Callback {
                         override fun surfaceCreated(holder: SurfaceHolder) {
                             // Reached both on first show AND after every resize. openCamera is
@@ -814,10 +827,8 @@ private class Camera2Controller(
                 true
             })
             
-            // Preview buffer sized to the preview resolution. On a SurfaceView this is the
-            // holder's job rather than a SurfaceTexture's, and the compositor scales the result
-            // to the view — which is exactly why the view is sized to the right aspect.
-            surfaceView.holder.setFixedSize(PREVIEW_WIDTH, PREVIEW_HEIGHT)
+            // Buffer geometry is pinned once, where the SurfaceView is built. Setting it here
+            // as well is what recreated the surface mid-open — see the comment at the factory.
 
             // Negotiate the analysis stream size from what this camera actually
             // advertises for YUV_420_888, rather than assuming a fixed value.
@@ -899,7 +910,6 @@ private class Camera2Controller(
         val reader = imageReader ?: return
 
         try {
-            surfaceView.holder.setFixedSize(PREVIEW_WIDTH, PREVIEW_HEIGHT)
             val surface = surfaceView.holder.surface
             previewSurface = surface  // Store for auto-focus updates
 
