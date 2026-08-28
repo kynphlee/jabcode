@@ -336,23 +336,18 @@ class Camera2JABCodeAnalyzer(
             src
         }
 
-        // 2) Centre-crop to the preview view's aspect ratio. The preview is
-        //    FILL_CENTER, so this centred crop is exactly the on-screen image.
+        // 2) Un-letterbox the reticle's VIEW fractions into FRAME fractions. The preview FITS
+        //    the view (whole frame visible, bars on one axis), so parts of the view are bars
+        //    that address no frame at all. PreviewSizing owns this geometry for both the
+        //    display and this mapping; a null means the reticle lies wholly in the bars, and
+        //    the decoder gets the full frame rather than an invented sliver at the edge.
         val rw = rotated.width
         val rh = rotated.height
         val rotAspect = rw.toFloat() / rh.toFloat()
         val viewAspect = if (spec.viewAspect > 0f) spec.viewAspect else rotAspect
-        val visW: Int
-        val visH: Int
-        if (rotAspect > viewAspect) {
-            visH = rh
-            visW = Math.round(rh * viewAspect)
-        } else {
-            visW = rw
-            visH = Math.round(rw / viewAspect)
-        }
-        val visLeft = (rw - visW) / 2
-        val visTop = (rh - visH) / 2
+        val mapped = com.jabauth.jabcode.camera.transform.PreviewSizing.frameRectFor(
+            viewAspect, rotAspect, spec.left, spec.top, spec.right, spec.bottom,
+        ) ?: floatArrayOf(0f, 0f, 1f, 1f)
 
         // 3) Apply the normalized ROI within that visible region, EXPANDED by a
         //    quiet-zone margin (ROI_QUIET_ZONE_PAD per side). A reticle drawn
@@ -360,20 +355,20 @@ class Camera2JABCodeAnalyzer(
         //    so we pad outward; the surround re-admitted is a thin ring, not the
         //    whole frame, so the false-positive rejection is mostly retained.
         //    Clamp + floor a minimum so a degenerate reticle can't give a 0 crop.
-        val roiW = (spec.right - spec.left) * visW
-        val roiH = (spec.bottom - spec.top) * visH
+        val roiW = (mapped[2] - mapped[0]) * rw
+        val roiH = (mapped[3] - mapped[1]) * rh
         val padX = roiW * ROI_QUIET_ZONE_PAD
         val padY = roiH * ROI_QUIET_ZONE_PAD
-        var l = (visLeft + spec.left * visW - padX).toInt()
-        var t = (visTop + spec.top * visH - padY).toInt()
-        var r = (visLeft + spec.right * visW + padX).toInt()
-        var b = (visTop + spec.bottom * visH + padY).toInt()
+        var l = (mapped[0] * rw - padX).toInt()
+        var t2 = (mapped[1] * rh - padY).toInt()
+        var r = (mapped[2] * rw + padX).toInt()
+        var b = (mapped[3] * rh + padY).toInt()
         l = l.coerceIn(0, rw - 2)
-        t = t.coerceIn(0, rh - 2)
+        t2 = t2.coerceIn(0, rh - 2)
         r = r.coerceIn(l + 1, rw)
-        b = b.coerceIn(t + 1, rh)
+        b = b.coerceIn(t2 + 1, rh)
 
-        var crop = Bitmap.createBitmap(rotated, l, t, r - l, b - t)
+        var crop = Bitmap.createBitmap(rotated, l, t2, r - l, b - t2)
         // createBitmap may return the source instance when the rect is the whole
         // bitmap — copy so the crop is always independent of src/rotated and the
         // recycle bookkeeping above stays correct.
