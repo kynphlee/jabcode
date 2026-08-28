@@ -27,10 +27,9 @@ import android.view.SurfaceHolder
 import android.view.SurfaceView
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.foundation.layout.requiredSize
-import com.jabauth.jabcode.camera.transform.CentreCropSizing
+import androidx.compose.foundation.layout.size
+import com.jabauth.jabcode.camera.transform.PreviewSizing
 import com.jabauth.jabcode.camera.transform.FrameRotationPublisher
 import android.view.View
 import android.view.WindowManager
@@ -307,16 +306,18 @@ fun Camera2Preview(
         }
     }
     
-    // The preview is sized to COVER its parent, which is what the TextureView matrix did with
-    // maxOf(scaleX, scaleY). It cannot letterbox: the reticle publishes its rect as a fraction of
-    // the view, so a black bar would be a region of the view addressing no part of the sensor
-    // frame — a decoder that mysteriously stops rather than a layout that visibly slips.
+    // The preview FITS its parent: the whole sensor frame, letterboxed, the SAME extent in
+    // both orientations. Rotation is therefore a non-event for the framing — the bars swap
+    // sides and nothing else changes — which is what the platform camera does, confirmed by
+    // watching frame extracts of both apps rather than by statistics. The two earlier designs
+    // died on those extracts: cover-fill JUMPED between a portrait crop and a landscape crop,
+    // and animating that jump smeared 800ms of wrong-aspect distortion across the transition.
     //
-    // The aspect starts at the portrait default and is corrected the moment the camera reports
-    // its rotation. Nothing here rotates pixels; a SurfaceView's buffer transform is the
-    // compositor's job, and this only has to anticipate the shape that comes out.
+    // The bars show the Box background behind this composable. The reticle's view-fraction
+    // coordinates are un-letterboxed in cropToRoi via PreviewSizing.frameRectFor — the display
+    // half here and the mapping half there MUST agree, and PreviewSizingTest holds them to it.
     var previewAspect by remember {
-        mutableStateOf(CentreCropSizing.aspectFor(PREVIEW_WIDTH, PREVIEW_HEIGHT, 90))
+        mutableStateOf(PreviewSizing.aspectFor(PREVIEW_WIDTH, PREVIEW_HEIGHT, 90))
     }
     DisposableEffect(camera2Controller) {
         camera2Controller.onPreviewAspect = { previewAspect = it }
@@ -324,12 +325,10 @@ fun Camera2Preview(
     }
 
     BoxWithConstraints(
-        // clipToBounds is load-bearing, not tidiness: the surface is deliberately larger than
-        // this box on one axis and the overflow has to be cut, not drawn.
-        modifier = modifier.clipToBounds(),
+        modifier = modifier,
         contentAlignment = Alignment.Center,
     ) {
-        val size = CentreCropSizing.cover(constraints.maxWidth, constraints.maxHeight, previewAspect)
+        val size = PreviewSizing.fit(constraints.maxWidth, constraints.maxHeight, previewAspect)
         val density = LocalDensity.current
         AndroidView(
             factory = { ctx ->
@@ -380,21 +379,7 @@ fun Camera2Preview(
                     })
                 }
             },
-            // requiredSize, NOT size.
-            //
-            // Modifier.size is subject to the constraints coming down from the parent. This
-            // surface is deliberately LARGER than its parent on one axis — that is the whole
-            // point of covering — so `size` had its request silently reduced to the parent's
-            // bounds and the buffer was stretched to fit instead of cropped.
-            //
-            // Measured: cover() asked for 1316x2340 in a 1080x2340 window and the view laid out
-            // at 1080x2340, squeezing a 1920x1080 buffer into the wrong shape. Portrait's
-            // distortion was mild enough to pass for normal; landscape's was not, which is why it
-            // presented as "skews when I rotate" rather than "is always wrong".
-            //
-            // requiredSize ignores the incoming constraints, which is exactly what is wanted
-            // here and the reason clipToBounds sits on the parent.
-            modifier = with(density) { Modifier.requiredSize(size.width.toDp(), size.height.toDp()) },
+            modifier = with(density) { Modifier.size(size.width.toDp(), size.height.toDp()) },
         )
     }
 }
@@ -1443,7 +1428,7 @@ private class Camera2Controller(
         val relativeRotation = computeRelativeRotation(surfaceRotationDegrees)
         frameRotationPublisher.publish(relativeRotation)
         onPreviewAspect?.invoke(
-            CentreCropSizing.aspectFor(PREVIEW_WIDTH, PREVIEW_HEIGHT, relativeRotation)
+            PreviewSizing.aspectFor(PREVIEW_WIDTH, PREVIEW_HEIGHT, relativeRotation)
         )
     }
 }
