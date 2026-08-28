@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.ImageFormat
 import android.graphics.Rect
-import android.graphics.SurfaceTexture
 import android.hardware.camera2.*
 import android.hardware.camera2.params.ColorSpaceTransform
 import android.hardware.camera2.params.OutputConfiguration
@@ -24,7 +23,14 @@ import android.util.Size
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import android.view.Surface
-import android.view.TextureView
+import android.view.SurfaceHolder
+import android.view.SurfaceView
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.layout.size
+import com.jabauth.jabcode.camera.transform.CentreCropSizing
 import com.jabauth.jabcode.camera.transform.FrameRotationPublisher
 import android.view.View
 import android.view.WindowManager
@@ -197,6 +203,11 @@ internal fun relativeFrameRotation(
  * @param exposureCompensation Exposure compensation in EV steps (-2 to +2, default: 0)
  * @param modifier Compose modifier
  */
+// The preview stream's resolution. At file scope because two places need it: the controller
+// configures the camera with it, and the composable derives the surface's aspect from it.
+private const val PREVIEW_WIDTH = 1920
+private const val PREVIEW_HEIGHT = 1080
+
 @Composable
 fun Camera2Preview(
     onFrameAvailable: ((ImageReader) -> Unit)? = null,
@@ -296,24 +307,58 @@ fun Camera2Preview(
         }
     }
     
-    AndroidView(
-        factory = { ctx ->
-            TextureView(ctx).apply {
-                surfaceTextureListener = object : TextureView.SurfaceTextureListener {
-                    override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
-                        camera2Controller.openCamera(this@apply, width, height)
-                    }
-                    
-                    override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {
-                        camera2Controller.updateTransform(this@apply, width, height)
-                    }
-                    override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean = true
-                    override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
+    // The preview is sized to COVER its parent, which is what the TextureView matrix did with
+    // maxOf(scaleX, scaleY). It cannot letterbox: the reticle publishes its rect as a fraction of
+    // the view, so a black bar would be a region of the view addressing no part of the sensor
+    // frame — a decoder that mysteriously stops rather than a layout that visibly slips.
+    //
+    // The aspect starts at the portrait default and is corrected the moment the camera reports
+    // its rotation. Nothing here rotates pixels; a SurfaceView's buffer transform is the
+    // compositor's job, and this only has to anticipate the shape that comes out.
+    var previewAspect by remember {
+        mutableStateOf(CentreCropSizing.aspectFor(PREVIEW_WIDTH, PREVIEW_HEIGHT, 90))
+    }
+    DisposableEffect(camera2Controller) {
+        camera2Controller.onPreviewAspect = { previewAspect = it }
+        onDispose { camera2Controller.onPreviewAspect = null }
+    }
+
+    BoxWithConstraints(
+        // clipToBounds is load-bearing, not tidiness: the surface is deliberately larger than
+        // this box on one axis and the overflow has to be cut, not drawn.
+        modifier = modifier.clipToBounds(),
+        contentAlignment = Alignment.Center,
+    ) {
+        val size = CentreCropSizing.cover(constraints.maxWidth, constraints.maxHeight, previewAspect)
+        val density = LocalDensity.current
+        AndroidView(
+            factory = { ctx ->
+                SurfaceView(ctx).apply {
+                    // Above the window's own background but BELOW everything drawn after it, so
+                    // the HUD and reticle stay visible. Without this a SurfaceView punches
+                    // through and hides them.
+                    setZOrderMediaOverlay(true)
+                    holder.addCallback(object : SurfaceHolder.Callback {
+                        override fun surfaceCreated(holder: SurfaceHolder) {
+                            camera2Controller.openCamera(this@apply, width, height)
+                        }
+
+                        override fun surfaceChanged(h: SurfaceHolder, f: Int, w: Int, ht: Int) {
+                            camera2Controller.publishFrameRotation()
+                        }
+
+                        // Unlike a TextureView, a SurfaceView loses its surface when it leaves the
+                        // screen and gets a fresh one on return — so this is the real teardown
+                        // signal, and surfaceCreated is the real re-open signal.
+                        override fun surfaceDestroyed(holder: SurfaceHolder) {
+                            camera2Controller.releaseCamera()
+                        }
+                    })
                 }
-            }
-        },
-        modifier = modifier
-    )
+            },
+            modifier = with(density) { Modifier.size(size.width.toDp(), size.height.toDp()) },
+        )
+    }
 }
 
 private class Camera2Controller(
@@ -336,8 +381,7 @@ private class Camera2Controller(
 
         // WS-camera-1-2 split the preview and analysis resolutions; the preview
         // (TextureView display surface) stays at 1920x1080.
-        private const val PREVIEW_WIDTH = 1920
-        private const val PREVIEW_HEIGHT = 1080
+        // moved to file scope — the composable sizes the surface from these too
 
         // Analysis stream. WS-camera-1-2 pinned this at 1280x720 to cut the
         // per-frame YUV->Bitmap conversion cost, on the assumption that a
@@ -396,7 +440,10 @@ private class Camera2Controller(
     private var imageReader: ImageReader? = null
     private var previewSurface: Surface? = null
     private var sensorOrientation: Int = 0
-    private var currentTextureView: TextureView? = null
+    private var currentSurfaceView: SurfaceView? = null
+
+    /** Told when the display aspect changes, so the composable can resize the surface. */
+    var onPreviewAspect: ((Float) -> Unit)? = null
     private var cameraCharacteristics: CameraCharacteristics? = null
 
     // Telling the analyzer which way up the frames are. Its own object because it is the
@@ -409,11 +456,10 @@ private class Camera2Controller(
         onFrameRotation?.invoke(deg)
     }
 
-    // Display-rotation listener. onSurfaceTextureSizeChanged covers a
-    // portrait<->landscape flip (the view's dimensions swap), but NOT a 180
-    // degree one — landscape-left to landscape-right leaves the TextureView
-    // exactly the same size while inverting the frame. Without this listener
-    // that case would silently keep the previous rotation and mis-map the ROI.
+    // Display-rotation listener. surfaceChanged covers a portrait<->landscape flip (the view's
+    // dimensions swap), but NOT a 180 degree one — landscape-left to landscape-right leaves the
+    // surface exactly the same size while inverting the frame. Without this listener that case
+    // would silently keep the previous rotation and mis-map the ROI.
     private val displayManager =
         context.getSystemService(Context.DISPLAY_SERVICE) as? DisplayManager
     private var displayListenerRegistered = false
@@ -421,9 +467,9 @@ private class Camera2Controller(
         override fun onDisplayAdded(displayId: Int) {}
         override fun onDisplayRemoved(displayId: Int) {}
         override fun onDisplayChanged(displayId: Int) {
-            val tv = currentTextureView ?: return
-            if (tv.display?.displayId != displayId) return
-            updateTransform(tv, tv.width, tv.height)
+            val sv = currentSurfaceView ?: return
+            if (sv.display?.displayId != displayId) return
+            publishFrameRotation()
         }
     }
 
@@ -650,8 +696,8 @@ private class Camera2Controller(
         displayListenerRegistered = false
     }
 
-    fun openCamera(textureView: TextureView, viewWidth: Int, viewHeight: Int) {
-        currentTextureView = textureView
+    fun openCamera(surfaceView: SurfaceView, viewWidth: Int, viewHeight: Int) {
+        currentSurfaceView = surfaceView
 
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA)
             != PackageManager.PERMISSION_GRANTED) {
@@ -667,7 +713,7 @@ private class Camera2Controller(
             
             // Get sensor orientation for rotation compensation. The rotation the
             // ROI mapping needs is display-relative, so it is reported from
-            // updateTransform() (called on open and on every rotation), not here.
+            // publishFrameRotation() (called on open and on every rotation), not here.
             val characteristics = manager.getCameraCharacteristics(cameraId)
             cameraCharacteristics = characteristics
             sensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0
@@ -724,14 +770,15 @@ private class Camera2Controller(
                         return true
                     }
                 })
-            textureView.setOnTouchListener(View.OnTouchListener { _, event: MotionEvent ->
+            surfaceView.setOnTouchListener(View.OnTouchListener { _, event: MotionEvent ->
                 scaleGestureDetector.onTouchEvent(event)
                 true
             })
             
-            // Preview surface buffer sized to the preview resolution.
-            val texture = textureView.surfaceTexture
-            texture?.setDefaultBufferSize(PREVIEW_WIDTH, PREVIEW_HEIGHT)
+            // Preview buffer sized to the preview resolution. On a SurfaceView this is the
+            // holder's job rather than a SurfaceTexture's, and the compositor scales the result
+            // to the view — which is exactly why the view is sized to the right aspect.
+            surfaceView.holder.setFixedSize(PREVIEW_WIDTH, PREVIEW_HEIGHT)
 
             // Negotiate the analysis stream size from what this camera actually
             // advertises for YUV_420_888, rather than assuming a fixed value.
@@ -786,10 +833,10 @@ private class Camera2Controller(
             manager.openCamera(cameraId, object : CameraDevice.StateCallback() {
                 override fun onOpened(camera: CameraDevice) {
                     cameraDevice = camera
-                    createCaptureSession(textureView)
+                    createCaptureSession(surfaceView)
                     
                     // Apply transform after camera opens
-                    updateTransform(textureView, viewWidth, viewHeight)
+                    publishFrameRotation()
                 }
                 
                 override fun onDisconnected(camera: CameraDevice) {
@@ -808,14 +855,13 @@ private class Camera2Controller(
         }
     }
     
-    private fun createCaptureSession(textureView: TextureView) {
+    private fun createCaptureSession(surfaceView: SurfaceView) {
         val camera = cameraDevice ?: return
         val reader = imageReader ?: return
 
         try {
-            val texture = textureView.surfaceTexture
-            texture?.setDefaultBufferSize(PREVIEW_WIDTH, PREVIEW_HEIGHT)
-            val surface = Surface(texture)
+            surfaceView.holder.setFixedSize(PREVIEW_WIDTH, PREVIEW_HEIGHT)
+            val surface = surfaceView.holder.surface
             previewSurface = surface  // Store for auto-focus updates
 
             val stateCallback = object : CameraCaptureSession.StateCallback() {
@@ -1216,17 +1262,22 @@ private class Camera2Controller(
     }
 
     /**
-     * Re-open the camera on the retained TextureView after returning from the
-     * background (ON_START). TextureView keeps its SurfaceTexture across
-     * background, so onSurfaceTextureAvailable does NOT re-fire. Guards on
-     * cameraDevice != null so the first-launch ON_START doesn't double-open.
+     * Re-open the camera after returning from the background (ON_START).
+     *
+     * Mostly redundant now and deliberately kept. A SurfaceView DESTROYS its surface when it
+     * leaves the screen and gets a fresh one on return, so surfaceCreated is the real re-open
+     * signal — where a TextureView kept its SurfaceTexture and never re-fired, which is why this
+     * hook existed. It stays as a backstop for the ordering not being guaranteed, and guards
+     * twice: on cameraDevice != null so a first-launch ON_START cannot double-open, and on the
+     * surface actually being valid so it cannot race surfaceCreated.
      */
     fun reopen() {
         if (cameraDevice != null) return
-        val tv = currentTextureView ?: return
-        if (tv.isAvailable) {
+        val sv = currentSurfaceView ?: return
+        // A SurfaceView with no valid surface is mid-teardown; surfaceCreated will re-open it.
+        if (sv.holder.surface?.isValid == true) {
             Log.i(TAG, "Camera2 reopen on foreground")
-            openCamera(tv, tv.width, tv.height)
+            openCamera(sv, sv.width, sv.height)
         }
     }
 
@@ -1274,114 +1325,28 @@ private class Camera2Controller(
     }
     
     /**
-     * Update TextureView transform with proper rotation and scaling compensation
-     * 
-     * Implements official Android Camera2 preview scaling pattern to handle:
-     * - Aspect ratio preservation
-     * - Sensor orientation vs display rotation delta
-     * - Dimension swapping when rotation is required
-     * 
-     * Based on: https://developer.android.com/codelabs/android-camera2-preview
+     * Tell the analyzer which way up the frames are, and the composable what shape to be.
+     *
+     * This was `updateTransform`, and it also built a Matrix that reversed `TextureView`'s
+     * stretch and rotated the preview to match the display. Both halves of that matrix are gone:
+     * a `SurfaceView` is composited by SurfaceFlinger, which applies the buffer transform itself,
+     * and the fill is now a measured size rather than a scale. What remains is the half that was
+     * never about the surface at all.
+     *
+     * Runs on camera open, on every surface change (portrait <-> landscape) and from the display
+     * listener — which catches the 180-degree flips that leave the view exactly the same size
+     * while inverting the frame, and would otherwise mis-map the ROI in silence.
      */
-    fun updateTransform(textureView: TextureView, viewWidth: Int, viewHeight: Int) {
-        if (viewWidth == 0 || viewHeight == 0) return
-        
-        val characteristics = cameraCharacteristics ?: run {
-            Log.w(TAG, "Cannot update transform: camera characteristics not available")
+    fun publishFrameRotation() {
+        if (cameraCharacteristics == null) {
+            Log.w(TAG, "Cannot publish frame rotation: camera characteristics not available")
             return
         }
-        
-        val surfaceRotation = windowManager.defaultDisplay.rotation
-        val surfaceRotationDegrees = surfaceRotation * 90
-        
-        // Camera output is always in sensor (landscape) orientation.
-        val previewWidth = PREVIEW_WIDTH
-        val previewHeight = PREVIEW_HEIGHT
-        
-        // Determine if rotation swaps dimensions
+        val surfaceRotationDegrees = windowManager.defaultDisplay.rotation * 90
         val relativeRotation = computeRelativeRotation(surfaceRotationDegrees)
-        val isRotationRequired = relativeRotation % 180 != 0
-
-        // JOB 1 of this function: tell the analyzer which way up the frames are. Surface-
-        // independent — it needs the display rotation and the camera characteristics, nothing
-        // about how the preview is drawn. Runs on camera open, on every view size change
-        // (portrait <-> landscape) and from the display listener (the 180-degree flips that do
-        // not resize the view), so the analyzer's rotation never goes stale.
         frameRotationPublisher.publish(relativeRotation)
-
-        // JOB 2, everything below: make the picture look right in a TextureView. This half is
-        // the only part tied to the surface type.
-
-        // Calculate scale factors to reverse TextureView's default scaling
-        var scaleX: Float
-        var scaleY: Float
-        
-        if (sensorOrientation == 0) {
-            // Sensor orientation 0° (rare, e.g., Chromebooks)
-            scaleX = if (!isRotationRequired) {
-                viewWidth.toFloat() / previewHeight
-            } else {
-                viewWidth.toFloat() / previewWidth
-            }
-            
-            scaleY = if (!isRotationRequired) {
-                viewHeight.toFloat() / previewWidth
-            } else {
-                viewHeight.toFloat() / previewHeight
-            }
-        } else {
-            // Sensor orientation 90° or 270° (standard phones/tablets)
-            scaleX = if (isRotationRequired) {
-                viewWidth.toFloat() / previewHeight
-            } else {
-                viewWidth.toFloat() / previewWidth
-            }
-            
-            scaleY = if (isRotationRequired) {
-                viewHeight.toFloat() / previewWidth
-            } else {
-                viewHeight.toFloat() / previewHeight
-            }
-        }
-        
-        // Use uniform scale to fill view while maintaining aspect ratio
-        val finalScale = maxOf(scaleX, scaleY)
-        
-        val halfWidth = viewWidth / 2f
-        val halfHeight = viewHeight / 2f
-        
-        val matrix = android.graphics.Matrix()
-        
-        // Apply scaling based on rotation requirement
-        if (isRotationRequired) {
-            // Dimensions are swapped - use inverse scaling
-            matrix.setScale(
-                1 / scaleX * finalScale,
-                1 / scaleY * finalScale,
-                halfWidth,
-                halfHeight
-            )
-        } else {
-            // Dimensions not swapped - compensate for aspect ratio difference
-            matrix.setScale(
-                viewHeight / viewWidth.toFloat() / scaleY * finalScale,
-                viewWidth / viewHeight.toFloat() / scaleX * finalScale,
-                halfWidth,
-                halfHeight
-            )
-        }
-        
-        // Rotate to compensate for display rotation
-        matrix.postRotate(
-            -surfaceRotationDegrees.toFloat(),
-            halfWidth,
-            halfHeight
+        onPreviewAspect?.invoke(
+            CentreCropSizing.aspectFor(PREVIEW_WIDTH, PREVIEW_HEIGHT, relativeRotation)
         )
-        
-        textureView.setTransform(matrix)
-        
-        Log.d(TAG, "Transform updated: surfaceRot=${surfaceRotationDegrees}°, sensorOri=${sensorOrientation}°, " +
-                   "relativeRot=${relativeRotation}°, rotRequired=${isRotationRequired}, " +
-                   "scaleX=${scaleX}, scaleY=${scaleY}, finalScale=${finalScale}")
     }
 }
