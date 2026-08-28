@@ -135,16 +135,34 @@ class Camera2JABCodeAnalyzerTest {
         verifyNoInteractions(onDecodeSuccess)
     }
 
+    /**
+     * A throttled frame must still be DECODED-skipped, not DRAINED-skipped.
+     *
+     * This test previously asserted the opposite — that a throttled frame never touches the
+     * ImageReader at all — and in doing so it pinned the bug in place. The reader's pool is four
+     * deep; a frame dropped without acquiring leaves its buffer held, and four of those stall the
+     * HAL into dequeue timeouts. Measured on an SM-S918U: 60 timeouts and 74 dropped frames in 50
+     * seconds, which is what the reported stutter was.
+     *
+     * The old assertion passed for years because the throttle never fired in the field — the
+     * per-frame cost was 590ms against a 300ms window. It only became reachable when the quality
+     * analysis got 225x faster, at which point the test would have caught the regression if it
+     * had been asserting the right thing.
+     */
     @Test
-    fun `analyze throttles frames based on analyzeIntervalMs`() {
+    fun `a throttled frame skips the decode but still returns its buffer`() {
         whenever(mockImageReader.acquireLatestImage()).thenReturn(mockImage)
 
-        // First analysis should process
         analyzer.analyze(mockImageReader)
         verify(mockImageReader, times(1)).acquireLatestImage()
+        verify(mockDecoder, times(1)).decode(any(), any())
 
-        // Immediate second analysis should be throttled (within 100ms interval)
+        // Immediately again: inside the interval, so the decode is skipped...
         analyzer.analyze(mockImageReader)
-        verify(mockImageReader, times(1)).acquireLatestImage() // Still 1, not 2
+        verify(mockDecoder, times(1)).decode(any(), any())
+
+        // ...but the buffer is still acquired and closed, or the pool starves.
+        verify(mockImageReader, times(2)).acquireLatestImage()
+        verify(mockImage, times(2)).close()
     }
 }

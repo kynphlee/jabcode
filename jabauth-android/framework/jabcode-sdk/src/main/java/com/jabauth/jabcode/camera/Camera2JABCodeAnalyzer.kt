@@ -144,10 +144,30 @@ class Camera2JABCodeAnalyzer(
         android.os.Trace.beginSection("Camera2JABCodeAnalyzer.analyze")
         try {
             frameCount++
-            
+
             // Frame throttling - prevent CPU overload
             val currentTimestamp = System.currentTimeMillis()
             if (currentTimestamp - lastAnalyzedTimestamp < options.analyzeIntervalMs) {
+                // Drain the buffer even though this frame is not being analysed.
+                //
+                // The ImageReader's pool is FOUR deep. Returning here without acquiring leaves
+                // this frame's buffer held by the queue, and once four accumulate the HAL cannot
+                // dequeue one to write the next frame into. It waits, times out, and drops the
+                // frame at the source:
+                //
+                //   E Camera3-OutputStream: Can't dequeue next output buffer: Connection timed out
+                //   E CameraDeviceClient: notifyError: errorCode=5, errorStreamId=1
+                //
+                // Measured on an SM-S918U before this line existed: 60 dequeue timeouts and 74
+                // dropped frames in 50 seconds, which is what the stutter was.
+                //
+                // acquireLatestImage closes everything staler than the newest, so one call and
+                // one close returns the whole backlog rather than a single slot.
+                //
+                // This was harmless for as long as the throttle never fired — the per-frame cost
+                // was 590ms against a 300ms window, so the branch was unreachable. Making the
+                // quality analysis 225x faster brought the cycle under the window and woke it up.
+                imageReader.acquireLatestImage()?.close()
                 Log.v(TAG, "Frame $frameCount throttled (interval: ${currentTimestamp - lastAnalyzedTimestamp}ms < ${options.analyzeIntervalMs}ms)")
                 return
             }
@@ -185,12 +205,15 @@ class Camera2JABCodeAnalyzer(
 
             Log.d(TAG, "Frame $frameCount: Bitmap created ${bitmap.width}x${bitmap.height} (${bitmapTime}ms)")
             
-            // Pixel validation (Priority 2 diagnostic)
-            val firstPixel = bitmap.getPixel(0, 0)
-            val r = (firstPixel shr 16) and 0xFF
-            val g = (firstPixel shr 8) and 0xFF
-            val b = firstPixel and 0xFF
-            Log.d(TAG, "Frame $frameCount: First pixel RGB=($r,$g,$b), center pixel RGB=(${(bitmap.getPixel(bitmap.width/2, bitmap.height/2) shr 16) and 0xFF},${(bitmap.getPixel(bitmap.width/2, bitmap.height/2) shr 8) and 0xFF},${bitmap.getPixel(bitmap.width/2, bitmap.height/2) and 0xFF})")
+            // Pixel probe, kept as a diagnostic but no longer three lookups of the same
+            // pixel inside one log call: the centre was fetched three times to shift and mask it
+            // three ways, on every frame, whether or not the log was consumed.
+            if (Log.isLoggable(TAG, Log.DEBUG)) {
+                val first = bitmap.getPixel(0, 0)
+                val centre = bitmap.getPixel(bitmap.width / 2, bitmap.height / 2)
+                fun rgb(p: Int) = "(${(p shr 16) and 0xFF},${(p shr 8) and 0xFF},${p and 0xFF})"
+                Log.d(TAG, "Frame $frameCount: First pixel RGB=${rgb(first)}, centre RGB=${rgb(centre)}")
+            }
 
             // Decode region-of-interest: when the reticle is active, hand the
             // decoder ONLY its region. This excludes the surrounding screen/desk

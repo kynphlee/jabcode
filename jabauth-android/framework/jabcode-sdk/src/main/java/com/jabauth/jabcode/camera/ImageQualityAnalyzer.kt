@@ -111,23 +111,44 @@ class ImageQualityAnalyzer {
     }
     
     /**
-     * Analyze image quality from Bitmap
-     * 
-     * @param bitmap Source image
-     * @return QualityMetrics with normalized values
+     * Buffer for [android.graphics.Bitmap.getPixels], reused across frames.
+     *
+     * The scanner analyses a frame several times a second and each crop is the same size, so a
+     * fresh 4 MB array per frame is churn the GC does not need. Reallocated only when the crop
+     * size changes.
+     */
+    private var pixelBuffer: IntArray = IntArray(0)
+
+    /**
+     * Analyze image quality from Bitmap.
+     *
+     * ## What changed, and why it was 451ms
+     *
+     * The three metrics used to walk the bitmap independently through `Bitmap.getPixel`, one JNI
+     * crossing per pixel. Brightness and contrast sampled every tenth pixel; focus did not sample
+     * at all, so on a 989x989 crop it made 978,121 individual calls and then convolved all of
+     * them. Measured on an SM-S918U: **451ms per frame**, against 52ms for the JABCode decode it
+     * was supposed to be assisting — 76% of the scanner's per-frame budget spent on three floats.
+     *
+     * Now: one `getPixels` into a reused buffer, then [QualityMath] over a sampled grid.
      */
     fun analyze(bitmap: Bitmap): QualityMetrics {
-        val brightness = calculateBrightness(bitmap)
-        val focus = calculateFocus(bitmap)
-        val contrast = calculateContrast(bitmap)
-        
+        val w = bitmap.width
+        val h = bitmap.height
+        if (w <= 0 || h <= 0) return QualityMetrics(0f, 0f, 0f)
+
+        if (pixelBuffer.size < w * h) pixelBuffer = IntArray(w * h)
+        bitmap.getPixels(pixelBuffer, 0, w, 0, 0, w, h)
+
+        val raw = QualityMath.analyse(pixelBuffer, w, h, SAMPLE_SIZE)
+
         return QualityMetrics(
-            brightness = (brightness / BRIGHTNESS_MAX).coerceIn(0f, 1f),
-            focus = (focus / FOCUS_THRESHOLD).coerceIn(0f, 1f),
-            contrast = (contrast / CONTRAST_MAX).coerceIn(0f, 1f)
+            brightness = (raw.brightness / BRIGHTNESS_MAX).coerceIn(0f, 1f),
+            focus = (raw.focusVariance / FOCUS_THRESHOLD).coerceIn(0f, 1f),
+            contrast = (raw.contrast / CONTRAST_MAX).coerceIn(0f, 1f)
         )
     }
-    
+
     /**
      * Analyze image quality from CameraX ImageProxy
      * 
@@ -143,151 +164,5 @@ class ImageQualityAnalyzer {
         } finally {
             bitmap.recycle()
         }
-    }
-    
-    /**
-     * Calculate brightness (average luminosity)
-     * 
-     * Uses standard luminosity formula with RGB weighting:
-     * L = 0.299*R + 0.587*G + 0.114*B
-     * 
-     * Samples every Nth pixel for performance.
-     * 
-     * @param bitmap Source image
-     * @return Average luminosity (0-255)
-     */
-    private fun calculateBrightness(bitmap: Bitmap): Float {
-        val width = bitmap.width
-        val height = bitmap.height
-        
-        var totalBrightness = 0L
-        var pixelCount = 0
-        
-        for (y in 0 until height step SAMPLE_SIZE) {
-            for (x in 0 until width step SAMPLE_SIZE) {
-                val pixel = bitmap.getPixel(x, y)
-                val r = (pixel shr 16) and 0xFF
-                val g = (pixel shr 8) and 0xFF
-                val b = pixel and 0xFF
-                
-                // Standard luminosity formula (perceived brightness)
-                val luminosity = (0.299 * r + 0.587 * g + 0.114 * b).toInt()
-                totalBrightness += luminosity
-                pixelCount++
-            }
-        }
-        
-        return if (pixelCount > 0) {
-            (totalBrightness.toFloat() / pixelCount)
-        } else {
-            0f
-        }
-    }
-    
-    /**
-     * Calculate focus quality using Laplacian variance
-     * 
-     * Measures edge sharpness by applying Laplacian kernel.
-     * Blurry images have low variance (smooth edges).
-     * Sharp images have high variance (crisp edges).
-     * 
-     * Uses 3x3 Laplacian kernel:
-     * ```
-     * [-1 -1 -1]
-     * [-1  8 -1]
-     * [-1 -1 -1]
-     * ```
-     * 
-     * @param bitmap Source image
-     * @return Laplacian variance (higher = sharper)
-     */
-    private fun calculateFocus(bitmap: Bitmap): Float {
-        val width = bitmap.width
-        val height = bitmap.height
-        
-        // Convert to grayscale for simpler processing
-        val grayPixels = IntArray(width * height)
-        for (y in 0 until height) {
-            for (x in 0 until width) {
-                val pixel = bitmap.getPixel(x, y)
-                val r = (pixel shr 16) and 0xFF
-                val g = (pixel shr 8) and 0xFF
-                val b = pixel and 0xFF
-                grayPixels[y * width + x] = ((r + g + b) / 3)
-            }
-        }
-        
-        // Apply Laplacian kernel
-        var laplacianSum = 0.0
-        for (y in 1 until height - 1) {
-            for (x in 1 until width - 1) {
-                val idx = y * width + x
-                
-                // 3x3 Laplacian kernel
-                val laplacian = abs(
-                    -grayPixels[idx - width - 1] - grayPixels[idx - width] - grayPixels[idx - width + 1] +
-                    -grayPixels[idx - 1] + 8 * grayPixels[idx] - grayPixels[idx + 1] +
-                    -grayPixels[idx + width - 1] - grayPixels[idx + width] - grayPixels[idx + width + 1]
-                )
-                laplacianSum += laplacian * laplacian
-            }
-        }
-        
-        // Variance of Laplacian
-        val variance = laplacianSum / ((width - 2) * (height - 2))
-        return variance.toFloat()
-    }
-    
-    /**
-     * Calculate contrast (standard deviation of pixel intensities)
-     * 
-     * Measures spread of pixel values across the image.
-     * Flat images (same color everywhere) have low contrast.
-     * High-contrast images have wide value distribution.
-     * 
-     * Uses two-pass algorithm:
-     * 1. Calculate mean intensity
-     * 2. Calculate standard deviation from mean
-     * 
-     * Samples every Nth pixel for performance.
-     * 
-     * @param bitmap Source image
-     * @return Standard deviation of intensities (0-255)
-     */
-    private fun calculateContrast(bitmap: Bitmap): Float {
-        val width = bitmap.width
-        val height = bitmap.height
-        
-        // First pass: calculate mean
-        var sum = 0L
-        var count = 0
-        for (y in 0 until height step SAMPLE_SIZE) {
-            for (x in 0 until width step SAMPLE_SIZE) {
-                val pixel = bitmap.getPixel(x, y)
-                val r = (pixel shr 16) and 0xFF
-                val g = (pixel shr 8) and 0xFF
-                val b = pixel and 0xFF
-                val gray = (r + g + b) / 3
-                sum += gray
-                count++
-            }
-        }
-        val mean = sum.toFloat() / count
-        
-        // Second pass: calculate standard deviation
-        var varianceSum = 0.0
-        for (y in 0 until height step SAMPLE_SIZE) {
-            for (x in 0 until width step SAMPLE_SIZE) {
-                val pixel = bitmap.getPixel(x, y)
-                val r = (pixel shr 16) and 0xFF
-                val g = (pixel shr 8) and 0xFF
-                val b = pixel and 0xFF
-                val gray = (r + g + b) / 3
-                val diff = gray - mean
-                varianceSum += diff * diff
-            }
-        }
-        val stdDev = sqrt(varianceSum / count)
-        return stdDev.toFloat()
     }
 }
