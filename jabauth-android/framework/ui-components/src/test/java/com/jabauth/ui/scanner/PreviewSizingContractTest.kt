@@ -66,6 +66,47 @@ class PreviewSizingContractTest {
         )
     }
 
+    /**
+     * The buffer geometry is pinned once, before the surface exists.
+     *
+     * Android answers a buffer-size change by RECREATING the surface. Setting it from inside
+     * openCamera — which is reached FROM surfaceCreated — therefore fired surfaceDestroyed and
+     * surfaceCreated, which called openCamera, which set it again: every layout pass tore down
+     * and rebuilt the capture session, and rotating the phone visibly stalled while it did.
+     *
+     * The count is the assertion. A second call site anywhere reintroduces the loop, and it will
+     * look like a stall rather than like a bug in this line.
+     */
+    @Test
+    fun `the preview buffer size is set exactly once`() {
+        val calls = source.readText().lines().withIndex()
+            .filter { (_, l) -> l.contains("setFixedSize(") && !l.trimStart().startsWith("//") }
+            .map { (i, l) -> "L${i + 1}: ${l.trim()}" }
+        assertEquals(
+            "setFixedSize must be called exactly once, where the SurfaceView is constructed.\n" +
+                "Calling it after the surface exists recreates the surface and rebuilds the\n" +
+                "capture session on every layout pass.\n" + calls.joinToString("\n"),
+            1, calls.size,
+        )
+    }
+
+    /**
+     * And it must run BEFORE the callback that consumes the surface is registered, or the first
+     * surfaceCreated still arrives against a default buffer.
+     */
+    @Test
+    fun `the buffer size is pinned before the surface callback is registered`() {
+        val text = source.readText()
+        val fixed = text.indexOf("setFixedSize(")
+        val callback = text.indexOf("holder.addCallback(")
+        assertTrue("could not locate both setFixedSize and addCallback", fixed > 0 && callback > 0)
+        assertTrue(
+            "setFixedSize runs after addCallback, so the first surfaceCreated fires against a " +
+                "default buffer and the geometry changes underneath it",
+            fixed < callback,
+        )
+    }
+
     /** The overflow only works if something cuts it. */
     @Test
     fun `the parent clips, or the surface spills across the screen`() {
