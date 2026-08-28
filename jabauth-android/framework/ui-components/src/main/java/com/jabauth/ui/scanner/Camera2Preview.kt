@@ -29,7 +29,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.requiredSize
 import com.jabauth.jabcode.camera.transform.CentreCropSizing
 import com.jabauth.jabcode.camera.transform.FrameRotationPublisher
 import android.view.View
@@ -340,6 +340,8 @@ fun Camera2Preview(
                     setZOrderMediaOverlay(true)
                     holder.addCallback(object : SurfaceHolder.Callback {
                         override fun surfaceCreated(holder: SurfaceHolder) {
+                            // Reached both on first show AND after every resize. openCamera is
+                            // guarded so the second case rebuilds only the session.
                             camera2Controller.openCamera(this@apply, width, height)
                         }
 
@@ -347,16 +349,39 @@ fun Camera2Preview(
                             camera2Controller.publishFrameRotation()
                         }
 
-                        // Unlike a TextureView, a SurfaceView loses its surface when it leaves the
-                        // screen and gets a fresh one on return — so this is the real teardown
-                        // signal, and surfaceCreated is the real re-open signal.
+                        // A surface going away is NOT the camera going away.
+                        //
+                        // This called releaseCamera(), which closes the CameraDevice. That is
+                        // wrong: a SurfaceView destroys and recreates its surface on any size
+                        // change, not only when it leaves the screen — and this preview resizes
+                        // during layout, because it is deliberately larger than its parent. The
+                        // result was a teardown/reopen cycle that ended with the camera released
+                        // and the screen black.
+                        //
+                        // The session targets this surface and cannot outlive it; the device can.
+                        // Releasing the device is the lifecycle observer's job (ON_STOP), which
+                        // is the only place that actually knows the scanner is leaving.
                         override fun surfaceDestroyed(holder: SurfaceHolder) {
-                            camera2Controller.releaseCamera()
+                            camera2Controller.releaseSessionOnly()
                         }
                     })
                 }
             },
-            modifier = with(density) { Modifier.size(size.width.toDp(), size.height.toDp()) },
+            // requiredSize, NOT size.
+            //
+            // Modifier.size is subject to the constraints coming down from the parent. This
+            // surface is deliberately LARGER than its parent on one axis — that is the whole
+            // point of covering — so `size` had its request silently reduced to the parent's
+            // bounds and the buffer was stretched to fit instead of cropped.
+            //
+            // Measured: cover() asked for 1316x2340 in a 1080x2340 window and the view laid out
+            // at 1080x2340, squeezing a 1920x1080 buffer into the wrong shape. Portrait's
+            // distortion was mild enough to pass for normal; landscape's was not, which is why it
+            // presented as "skews when I rotate" rather than "is always wrong".
+            //
+            // requiredSize ignores the incoming constraints, which is exactly what is wanted
+            // here and the reason clipToBounds sits on the parent.
+            modifier = with(density) { Modifier.requiredSize(size.width.toDp(), size.height.toDp()) },
         )
     }
 }
@@ -705,6 +730,20 @@ private class Camera2Controller(
             return
         }
 
+        // The device may already be open.
+        //
+        // This is reached from surfaceCreated, which fires on first show AND after every surface
+        // resize — and a SurfaceView resizes whenever its layout does. Re-opening an open camera
+        // races the close, so a resize rebuilds only what actually died with the old surface:
+        // the capture session.
+        cameraDevice?.let {
+            Log.i(TAG, "Surface replaced; rebuilding the capture session on the open camera")
+            releaseSessionOnly()
+            createCaptureSession(surfaceView)
+            publishFrameRotation()
+            return
+        }
+
         registerDisplayListener()
 
         val manager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
@@ -866,6 +905,28 @@ private class Camera2Controller(
 
             val stateCallback = object : CameraCaptureSession.StateCallback() {
                 override fun onConfigured(session: CameraCaptureSession) {
+                    // The device can be gone by the time this lands.
+                    //
+                    // Configuring a session is asynchronous, and a SurfaceView destroys and
+                    // recreates its surface whenever its size changes — which now happens during
+                    // layout, because the preview is deliberately sized larger than its parent.
+                    // surfaceDestroyed calls releaseCamera(), which closes the device, and this
+                    // callback then arrives for a session belonging to it:
+                    //
+                    //   java.lang.IllegalStateException: CameraDevice was already closed
+                    //       at Camera2Controller.startRepeatingRequest
+                    //
+                    // A TextureView kept one SurfaceTexture for its lifetime, so this race did
+                    // not exist before the surface swap. Closing the orphaned session rather than
+                    // just dropping it: it holds buffers, and this path is reached precisely when
+                    // another session is about to want them.
+                    if (cameraDevice == null) {
+                        Log.i(TAG, "Session configured after the camera closed; discarding it")
+                        try { session.close() } catch (e: Exception) {
+                            Log.w(TAG, "Orphaned session would not close", e)
+                        }
+                        return
+                    }
                     captureSession = session
                     startRepeatingRequest(surface)
                 }
@@ -930,6 +991,8 @@ private class Camera2Controller(
         activeRepeatingSurface = surface
         
         try {
+            // Re-checked here as well as at the call sites: every caller is asynchronous, and the
+            // device can close between the null-check above and this line.
             val requestBuilder = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
             activeRequestBuilder = requestBuilder
             requestBuilder.addTarget(surface)
@@ -1234,6 +1297,12 @@ private class Camera2Controller(
 
             Log.d(TAG, "Camera2 preview started: AF=${if (autoFocusEnabled) "ON" else "OFF"}, AE=${if (aeMode == CameraMetadata.CONTROL_AE_MODE_ON_LOW_LIGHT_BOOST_BRIGHTNESS_PRIORITY) "ON_LLB" else "ON"} (EVbias=${aeBiasStops}stop), AWB=$wbStrategy, AE_meter=centre-third, AE_lock=${if (applyConvergenceLocks) "LOCKED(decode-driven)" else "continuous"}")
             
+        } catch (e: IllegalStateException) {
+            // The device closed between the guard above and this call. Every caller of this
+            // function is asynchronous, so that window cannot be closed by checking harder — only
+            // by surviving it. Unhandled, it reaches the default handler on Camera2Background and
+            // takes the process down; the surface that replaced this one will open its own camera.
+            Log.w(TAG, "Repeating request abandoned — camera closed underneath it: ${e.message}")
         } catch (e: CameraAccessException) {
             Log.e(TAG, "Start repeating request failed", e)
         }
@@ -1246,6 +1315,24 @@ private class Camera2Controller(
      * teardown (incl. background-thread quit) for final disposal — quitting the
      * thread there is exactly why a naive close-on-background hung on return.
      */
+    /**
+     * Drop the capture session but keep the camera open.
+     *
+     * What a surface teardown costs. The session holds this surface as a target and cannot
+     * survive it, but the device, the reader and the background thread are all still good — and
+     * re-opening a camera is expensive and racy, which is what made the previous behaviour show
+     * up as a black preview rather than a flicker.
+     */
+    fun releaseSessionOnly() {
+        try {
+            captureSession?.close()
+            captureSession = null
+            Log.d(TAG, "Capture session closed; camera device kept open")
+        } catch (e: Exception) {
+            Log.w(TAG, "Error closing capture session", e)
+        }
+    }
+
     fun releaseCamera() {
         try {
             unregisterDisplayListener()
