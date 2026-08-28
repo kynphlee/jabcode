@@ -25,6 +25,7 @@ import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import android.view.Surface
 import android.view.TextureView
+import com.jabauth.jabcode.camera.transform.FrameRotationPublisher
 import android.view.View
 import android.view.WindowManager
 import androidx.compose.runtime.*
@@ -398,9 +399,15 @@ private class Camera2Controller(
     private var currentTextureView: TextureView? = null
     private var cameraCharacteristics: CameraCharacteristics? = null
 
-    // Last value handed to onFrameRotation, so a display change that does not
-    // actually alter the relative rotation costs nothing downstream.
-    private var lastReportedFrameRotation: Int = -1
+    // Telling the analyzer which way up the frames are. Its own object because it is the
+    // DECODER's input, not the preview's appearance: publishing the wrong rotation does not
+    // smudge the picture, it maps the reticle onto the wrong part of the sensor frame and the
+    // scanner quietly stops reading. See FrameRotationPublisher for why that is worth separating
+    // from the display transform it used to share a function with.
+    private val frameRotationPublisher = FrameRotationPublisher { deg ->
+        Log.i(TAG, "Frame rotation -> ${deg}deg (sensorOri=${sensorOrientation}deg)")
+        onFrameRotation?.invoke(deg)
+    }
 
     // Display-rotation listener. onSurfaceTextureSizeChanged covers a
     // portrait<->landscape flip (the view's dimensions swap), but NOT a 180
@@ -1295,15 +1302,15 @@ private class Camera2Controller(
         val relativeRotation = computeRelativeRotation(surfaceRotationDegrees)
         val isRotationRequired = relativeRotation % 180 != 0
 
-        // Publish the frame rotation to the ROI mapping. This runs on camera
-        // open, on every TextureView size change (portrait <-> landscape) and
-        // from the display listener (the 180-degree flips that do not resize
-        // the view), so the analyzer's rotation never goes stale.
-        if (relativeRotation != lastReportedFrameRotation) {
-            lastReportedFrameRotation = relativeRotation
-            Log.i(TAG, "Frame rotation -> ${relativeRotation}deg (surfaceRot=${surfaceRotationDegrees}deg, sensorOri=${sensorOrientation}deg)")
-            onFrameRotation?.invoke(relativeRotation)
-        }
+        // JOB 1 of this function: tell the analyzer which way up the frames are. Surface-
+        // independent — it needs the display rotation and the camera characteristics, nothing
+        // about how the preview is drawn. Runs on camera open, on every view size change
+        // (portrait <-> landscape) and from the display listener (the 180-degree flips that do
+        // not resize the view), so the analyzer's rotation never goes stale.
+        frameRotationPublisher.publish(relativeRotation)
+
+        // JOB 2, everything below: make the picture look right in a TextureView. This half is
+        // the only part tied to the surface type.
 
         // Calculate scale factors to reverse TextureView's default scaling
         var scaleX: Float
