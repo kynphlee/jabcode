@@ -114,7 +114,25 @@ android {
             isReturnDefaultValues = true
         }
     }
+
+    // The AAR bundles libjabcode-mobile.so for three ABIs. That code is MIT-licensed
+    // (Fraunhofer SIT + Kendall Fleming) and MIT requires its notice to accompany every
+    // copy — an AAR IS a copy. AGP packages src/main/resources/** into the AAR's
+    // classes.jar, so staging the notices there puts them inside the shipped artifact
+    // rather than only in the repository, where they would satisfy nothing.
+    //
+    // Staged by a task rather than committed under resources/ so there is exactly ONE
+    // copy of each file (jabauth-android/LICENSE and NOTICE) and it cannot drift.
+    sourceSets["main"].resources.srcDir(layout.buildDirectory.dir("licensing-resources"))
 }
+
+// See the sourceSets comment above.
+val stageLicensingNotices by tasks.registering(Copy::class) {
+    description = "Stages LICENSE and NOTICE into the AAR's classes.jar META-INF."
+    from(rootProject.file("LICENSE"), rootProject.file("NOTICE"))
+    into(layout.buildDirectory.dir("licensing-resources/META-INF"))
+}
+tasks.named("preBuild") { dependsOn(stageLicensingNotices) }
 
 dependencies {
     // Framework dependencies

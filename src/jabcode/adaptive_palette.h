@@ -1,4 +1,12 @@
 /**
+ * libjabcode - JABCode Encoding/Decoding Library
+ *
+ * Copyright (c) 2026 Kendall Fleming. All rights reserved.
+ * Added in this fork; NOT part of the Fraunhofer SIT original.
+ * See LICENSE file for full terms of use and distribution.
+ */
+
+/**
  * Adaptive Palette System for JABCode High-Color Mode Camera Decoding
  * 
  * Enables runtime palette learning from captured images to handle

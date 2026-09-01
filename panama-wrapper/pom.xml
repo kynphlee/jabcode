@@ -13,10 +13,14 @@
     <description>Pure Java wrapper for JABCode using Project Panama (Foreign Function &amp; Memory API)</description>
     <url>https://github.com/jabcode/jabcode</url>
 
+    <!-- Was "Apache License, Version 2.0" — a third distinct licence claim in a repository
+         whose only LICENSE file said LGPL-2.1, over bindings whose sole purpose is calling
+         that codec. Now matches the repository root, which is MIT. This POM is embedded in
+         the shipped jar (META-INF/maven/...), so the claim travels with the artifact. -->
     <licenses>
         <license>
-            <name>Apache License, Version 2.0</name>
-            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <name>MIT License</name>
+            <url>https://opensource.org/licenses/MIT</url>
             <distribution>repo</distribution>
         </license>
     </licenses>
