@@ -1,10 +1,10 @@
 /**
  * libjabcode - JABCode Encoding/Decoding Library
  *
- * Copyright 2016 by Fraunhofer SIT. All rights reserved.
+ * Copyright (c) 2026 Kendall Fleming. All rights reserved.
+ * Added in this fork; NOT part of the Fraunhofer SIT original.
  * See LICENSE file for full terms of use and distribution.
  *
- * Contact: Huajian Liu <liu@sit.fraunhofer.de>
  *          Waldemar Berchtold <waldemar.berchtold@sit.fraunhofer.de>
  *
  * @file detector_synthetic.c

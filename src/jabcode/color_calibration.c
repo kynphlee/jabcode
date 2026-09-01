@@ -1,3 +1,11 @@
+/**
+ * libjabcode - JABCode Encoding/Decoding Library
+ *
+ * Copyright (c) 2026 Kendall Fleming. All rights reserved.
+ * Added in this fork; NOT part of the Fraunhofer SIT original.
+ * See LICENSE file for full terms of use and distribution.
+ */
+
 #include "color_calibration.h"
 #include <string.h>
 #include <stdlib.h>

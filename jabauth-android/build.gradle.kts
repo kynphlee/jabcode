@@ -30,12 +30,25 @@ subprojects {
                             pom {
                                 name.set("JABAuth ${project.name}")
                                 description.set("JABAuth Framework - ${project.name} module")
-                                url.set("https://github.com/yourorg/jabauth-android")
-                                
+                                url.set("https://github.com/kynphlee/jabcode")
+
+                                // PROPRIETARY, not MIT. This previously declared "MIT License"
+                                // while the repository's only LICENSE file was LGPL-2.1 — a
+                                // machine-readable claim contradicting the file it pointed at,
+                                // riding along with an AAR that carries three native libraries
+                                // and no notice at all.
+                                //
+                                // The repository root is now MIT (see the root LICENSE for why
+                                // the LGPL text was stale), but this subtree is expressly carved
+                                // OUT of that grant: it is the commercial SDK. The MIT-licensed
+                                // codec it embeds is attributed in NOTICE, which ships in the AAR.
                                 licenses {
                                     license {
-                                        name.set("MIT License")
-                                        url.set("https://opensource.org/licenses/MIT")
+                                        name.set("Proprietary — All Rights Reserved")
+                                        comments.set(
+                                            "Proprietary to Kendall Fleming. The embedded JAB Code " +
+                                            "native libraries are MIT-licensed; see NOTICE in the AAR."
+                                        )
                                     }
                                 }
                             }

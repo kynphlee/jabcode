@@ -347,7 +347,19 @@ apps:diagnostic-app
 
 ## License
 
-MIT License - See LICENSE file for details
+**Proprietary — all rights reserved.** See [LICENSE](LICENSE) in this directory.
+
+This subtree is expressly excluded from the MIT License at the repository root.
+That root grant covers the JAB Code codec and its wrappers; it does not extend
+to this SDK.
+
+The AAR artifacts built here embed the codec as three per-ABI native libraries,
+which **are** MIT-licensed (Fraunhofer SIT and Kendall Fleming). Their required
+attribution is in [NOTICE](NOTICE) and is packaged into the AAR.
+
+> This section previously read "MIT License - See LICENSE file for details",
+> which was wrong twice over: the file it pointed at was LGPL-2.1, and this
+> subtree was never intended to be open source.
 
 ---
 

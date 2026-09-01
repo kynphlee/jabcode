@@ -1,4 +1,12 @@
 /**
+ * libjabcode - JABCode Encoding/Decoding Library
+ *
+ * Copyright (c) 2026 Kendall Fleming. All rights reserved.
+ * Added in this fork; NOT part of the Fraunhofer SIT original.
+ * See LICENSE file for full terms of use and distribution.
+ */
+
+/**
  * K-d Tree Implementation for Fast Color Quantization
  * 
  * Uses median-split k-d tree in LAB color space for O(log n) nearest-neighbor lookup
