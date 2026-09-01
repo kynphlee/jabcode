@@ -4,6 +4,12 @@ plugins {
     id("jacoco")
 }
 
+// Staging target for the licence notices packaged into the AAR: the CONVENTIONAL Java
+// resources dir, gitignored. Registering a build-dir source via sourceSets was tried and
+// AGP silently ignored it, shipping a notice-less AAR on a green build.
+// jabauth-android/{LICENSE,NOTICE} remain the single source of truth.
+val licensingStageDir: File = file("src/main/resources/META-INF")
+
 android {
     namespace = "com.jabauth.client"
     compileSdk = rootProject.property("COMPILE_SDK").toString().toInt()
@@ -47,7 +53,34 @@ android {
             }
         }
     }
+
+    // This module ships librabe_kem.so for three ABIs via src/main/jniLibs/, which AGP
+    // packages into the AAR's jni/. That is MIT-licensed code (the rabe crate plus ~50
+    // statically-linked crates, all permissive), and MIT requires its notice to travel
+    // with every copy.
+    //
+    // Easy to miss: the AAR previously committed under aar-artifacts/ predates the
+    // jniLibs and contains NO .so, so auditing that stale artifact shows nothing to
+    // attribute. The obligation appears the moment the module is rebuilt.
+    //
+    // No sourceSets override: src/main/resources is already the convention, and AGP
+    // packages it into classes.jar. See licensingStageDir above.
 }
+
+val stageLicensingNotices by tasks.registering(Copy::class) {
+    description = "Stages LICENSE and NOTICE into the AAR's classes.jar META-INF."
+    // The .txt suffix and the -jabauth-client discriminator are LOAD-BEARING: AGP's
+    // default packagingOptions EXCLUDES bare META-INF/LICENSE and META-INF/NOTICE by
+    // name, to avoid collisions when merging many libraries. Staging them under those
+    // names produces a green build and an AAR with no notice in it.
+    from(rootProject.file("LICENSE")) { rename { "LICENSE-jabauth-client.txt" } }
+    from(rootProject.file("NOTICE")) { rename { "NOTICE-jabauth-client.txt" } }
+    into(licensingStageDir)
+}
+
+// Hook the task that actually CONSUMES Java resources, not preBuild.
+tasks.matching { it.name.startsWith("process") && it.name.endsWith("JavaRes") }
+    .configureEach { dependsOn(stageLicensingNotices) }
 
 dependencies {
     // Framework dependencies

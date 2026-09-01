@@ -59,3 +59,8 @@ obj/
 
 # Maven
 maven-repo/
+
+# Licence notices staged into AARs by stageLicensingNotices (see module build files).
+# Canonical copies live at jabauth-android/{LICENSE,NOTICE}; these are generated.
+framework/*/src/main/resources/META-INF/LICENSE-*.txt
+framework/*/src/main/resources/META-INF/NOTICE-*.txt

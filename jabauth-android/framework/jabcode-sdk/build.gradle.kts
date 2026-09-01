@@ -4,6 +4,17 @@ plugins {
     id("jacoco")
 }
 
+// Staging target for the licence notices packaged into the AAR. This is the CONVENTIONAL
+// Java-resources directory, not a build-dir source registered via sourceSets. Two other
+// approaches were tried and both FAILED SILENTLY or obscurely:
+//   1. srcDir(layout.buildDirectory.dir(...))  -> AGP accepted the Provider, ignored it,
+//      and shipped an AAR with no notice on a green build.
+//   2. srcDir(<eagerly resolved File in build/>) -> also not packaged.
+// A probe file placed here, by contrast, provably reaches classes.jar/META-INF/.
+// The directory is gitignored; jabauth-android/{LICENSE,NOTICE} remain the single source
+// of truth and are copied in by stageLicensingNotices below.
+val licensingStageDir: File = file("src/main/resources/META-INF")
+
 android {
     namespace = "com.jabauth.jabcode"
     compileSdk = rootProject.property("COMPILE_SDK").toString().toInt()
@@ -118,21 +129,25 @@ android {
     // The AAR bundles libjabcode-mobile.so for three ABIs. That code is MIT-licensed
     // (Fraunhofer SIT + Kendall Fleming) and MIT requires its notice to accompany every
     // copy — an AAR IS a copy. AGP packages src/main/resources/** into the AAR's
-    // classes.jar, so staging the notices there puts them inside the shipped artifact
-    // rather than only in the repository, where they would satisfy nothing.
+    // classes.jar, so the notices staged there ride inside the shipped artifact rather
+    // than sitting only in the repository, where they would satisfy nothing.
     //
-    // Staged by a task rather than committed under resources/ so there is exactly ONE
-    // copy of each file (jabauth-android/LICENSE and NOTICE) and it cannot drift.
-    sourceSets["main"].resources.srcDir(layout.buildDirectory.dir("licensing-resources"))
+    // No sourceSets override is needed: src/main/resources is already the convention.
+    // See the licensingStageDir comment at the top of this file for the two approaches
+    // that failed silently before this one.
 }
 
-// See the sourceSets comment above.
 val stageLicensingNotices by tasks.registering(Copy::class) {
     description = "Stages LICENSE and NOTICE into the AAR's classes.jar META-INF."
-    from(rootProject.file("LICENSE"), rootProject.file("NOTICE"))
-    into(layout.buildDirectory.dir("licensing-resources/META-INF"))
+    from(rootProject.file("LICENSE")) { rename { "LICENSE-jabauth-sdk.txt" } }
+    from(rootProject.file("NOTICE")) { rename { "NOTICE-jabauth-sdk.txt" } }
+    into(licensingStageDir)
 }
-tasks.named("preBuild") { dependsOn(stageLicensingNotices) }
+
+// Hook the task that actually CONSUMES Java resources. preBuild ordering does not
+// guarantee the staged files exist before they are read.
+tasks.matching { it.name.startsWith("process") && it.name.endsWith("JavaRes") }
+    .configureEach { dependsOn(stageLicensingNotices) }
 
 dependencies {
     // Framework dependencies

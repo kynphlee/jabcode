@@ -1,15 +1,29 @@
 NOTICE
 ======
 
-The AAR artifacts built from this subtree embed the JAB Code codec, compiled
-from src/jabcode/ in this repository, as three per-ABI native libraries:
+The AAR artifacts built from this subtree embed TWO native libraries, each for
+three ABIs (arm64-v8a, armeabi-v7a, x86_64). Both are MIT-licensed, and MIT
+requires its notice to accompany every copy — an AAR IS a copy.
 
-    jni/arm64-v8a/libjabcode-mobile.so
-    jni/armeabi-v7a/libjabcode-mobile.so
-    jni/x86_64/libjabcode-mobile.so
+  jabcode-sdk     jni/*/libjabcode-mobile.so
+                  The JAB Code codec, compiled from src/jabcode/ in this repo.
 
-That code is MIT-licensed. Its notice is reproduced below because the MIT
-License requires it to accompany every copy, and an AAR IS a copy.
+  jabauth-client  jni/*/librabe_kem.so
+                  The Rabe CP-ABE KEM, from src/main/jniLibs/. A Rust cdylib:
+                  because it is statically linked, its whole crate tree is
+                  compiled into the binary. The rabe crate (Bethencourt-Sahai-
+                  Waters CP-ABE) is MIT; its ~50 dependencies are all permissive
+                  (MIT, Apache-2.0, BSD-2/3-Clause, Unlicense, BSL-1.0). No
+                  copyleft licence appears anywhere in that tree. The full
+                  per-crate table is maintained in the jab-auth-framework
+                  NOTICE, generated from native/rabe-kem/Cargo.lock.
+
+                  Note: the AAR previously committed under aar-artifacts/
+                  predates these jniLibs and contains no .so at all, so an audit
+                  of that stale artifact shows nothing to attribute. The
+                  obligation appears on rebuild.
+
+The MIT text below covers both.
 
 MIT License
 
