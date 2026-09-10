@@ -26,6 +26,55 @@
  * @param color_number the number of colors
  * @param palette the color palette
 */
+/**
+ * @brief Is the DERIVED-PALETTE (palette-free) profile active?
+ *
+ * PROTOTYPE — file-transfer profile. The colour palette in a JAB Code symbol is not what DEFINES
+ * the colours: genColorPalette() computes them deterministically from color_number alone, and the
+ * decoder calls the very same function. The embedded swatches exist to CALIBRATE — to map observed
+ * colours (printed, lit, photographed, gamut-shifted) back to intended ones. On a pure file→file
+ * path there is no distortion to calibrate away, so the swatches can be omitted and their modules
+ * returned to data: (min(Nc,64)-2)*4 modules, which is 248 for Nc>=64 — 56%% of a 21x21 symbol and
+ * the direct cause of the measured 32c->64c capacity inversion at small versions.
+ *
+ * Signalled OUT OF BAND, by environment variable, on purpose:
+ *   - Every one of the 3-bit Nc slots is already taken (0=2 .. 7=256 colours), so there is no spare
+ *     value to mark the variant in-band without a format change.
+ *   - A file profile is an application-controlled transport: both ends already agree on it.
+ *   - Keeping the public structs and function signatures untouched means the vendored Panama
+ *     bindings and JAR keep working unchanged — no jextract regeneration for a measurement.
+ * A self-describing in-band signal is a separate design question, and only worth answering if the
+ * measured gain justifies it.
+ *
+ * NOT safe for camera paths (screen or print) without measurement: there the swatches are the
+ * calibration anchor that adaptive_palette_learn_transform() consumes.
+ */
+jab_boolean isDerivedPaletteModeEnabled(void)
+{
+	static jab_int32 cached = -1;
+	if(cached < 0)
+	{
+		const char* v = getenv("JABCODE_DERIVED_PALETTE");
+		cached = (v != NULL && v[0] == '1') ? 1 : 0;
+	}
+	return (jab_boolean)cached;
+}
+
+/**
+ * @brief Derived-palette profile, for a specific colour count.
+ *
+ * Scoped to Nc >= 16 deliberately, and the boundary is not arbitrary: genColorPalette() only
+ * builds the RGB cube for 16/32/64/128/256 (its switch returns for anything else), so 4- and
+ * 8-colour symbols have NO derivable palette to fall back on — enabling the profile for them
+ * yields an all-zero palette and a symbol that cannot be decoded (measured: 4c/8c dropped to 0 B).
+ * They are also the two ISO/IEC 23634 standard modes, and their palettes are cheap (8 and 24
+ * modules), so there is nothing to win and conformance to lose.
+ */
+jab_boolean isDerivedPalette(jab_int32 color_number)
+{
+	return isDerivedPaletteModeEnabled() && color_number >= 16;
+}
+
 void genColorPalette(jab_int32 color_number, jab_byte* palette)
 {
 	if(color_number < 8)
@@ -661,7 +710,9 @@ jab_int32 getSymbolCapacity(jab_encode* enc, jab_int32 index)
 		nb_modules_fp = 4 * 7;
 	}
     //number of modules for color palette
-    jab_int32 nb_modules_palette = enc->color_number > 64 ? (64-2)*COLOR_PALETTE_NUMBER : (enc->color_number-2)*COLOR_PALETTE_NUMBER;
+    //Derived-palette profile reclaims every palette module for data (see isDerivedPaletteMode).
+    jab_int32 nb_modules_palette = isDerivedPalette(enc->color_number) ? 0 :
+                                   (enc->color_number > 64 ? (64-2)*COLOR_PALETTE_NUMBER : (enc->color_number-2)*COLOR_PALETTE_NUMBER);
 	//number of modules for alignment pattern
 	jab_int32 side_size_x = VERSION2SIZE(enc->symbol_versions[index].x);
 	jab_int32 side_size_y = VERSION2SIZE(enc->symbol_versions[index].y);
@@ -1058,7 +1109,7 @@ void placeMasterMetadataPartII(jab_encode* enc)
     jab_int32 y = MASTER_METADATA_Y;
     jab_int32 module_count = 0;
     //skip PartI and color palette
-    jab_int32 color_palette_size = MIN(enc->color_number-2, 64-2);
+    jab_int32 color_palette_size = isDerivedPalette(enc->color_number) ? 0 : MIN(enc->color_number-2, 64-2);
     jab_int32 module_offset = MASTER_METADATA_PART1_MODULE_NUMBER + color_palette_size*COLOR_PALETTE_NUMBER;
     for(jab_int32 i=0; i<module_offset; i++)
 	{
@@ -1443,8 +1494,9 @@ jab_boolean createMatrix(jab_encode* enc, jab_int32 index, jab_data* ecc_encoded
 				metadata_index += 3;
 			}
 		}
-		//color palette
-		for(jab_int32 i=2; i<MIN(enc->color_number, 64); i++)	//skip the first two colors in finder pattern
+		//color palette — omitted entirely in the derived-palette profile; the decoder
+		//reconstructs it with genColorPalette(), and these modules carry data instead.
+		for(jab_int32 i=2; !isDerivedPalette(enc->color_number) && i<MIN(enc->color_number, 64); i++)	//skip the first two colors in finder pattern
 		{
 			// FIX: For 16+ colors, use sequential indexing instead of placement mapping
 			jab_int32 pal_idx = (enc->color_number <= 8) ? (master_palette_placement_index[0][i]%enc->color_number) : i;
