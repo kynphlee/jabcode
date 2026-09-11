@@ -81,6 +81,34 @@ jab_boolean isDerivedPalette(jab_int32 color_number)
 	return isDerivedPaletteModeEnabled() && color_number >= 16;
 }
 
+/**
+ * @brief The smallest side-version whose symbol can actually be DECODED at this colour count.
+ *
+ * Not a style rule — a correctness one. The embedded colour palette occupies
+ * (min(Nc,64)-2)*COLOR_PALETTE_NUMBER modules: 56 at 16 colours, 120 at 32, and 248 from 64
+ * colours upward. A side-version 1 symbol has only 441 modules in total, 68 of them finder
+ * pattern, so a 248-module palette cannot be placed coherently and the encoder emits a symbol
+ * that NO decoder can read. Measured: pinned v1 round-trips cleanly at 4/8/16/32 colours for
+ * every payload size up to capacity, and fails to decode at 64/128/256.
+ *
+ * Under the derived-palette profile no swatches are placed at all, so the constraint disappears
+ * and v1 is decodable at every colour count (measured: 64c/128c/256c at v1 round-trip with
+ * JABCODE_DERIVED_PALETTE=1). The rule therefore keys on whether a palette is EMBEDDED, not on
+ * the colour count alone.
+ *
+ * Note this is deliberately narrower than setMasterSymbolVersion's auto-sizing floor, which
+ * starts at version 2 for every Nc >= 16 to avoid a masking fixed point. That floor governs what
+ * the encoder CHOOSES; this governs what it REFUSES. Keeping them separate means a pinned
+ * configuration that demonstrably works (v1 at 16 or 32 colours) is not rejected for the sake of
+ * symmetry.
+ */
+jab_int32 minDecodableVersion(jab_int32 color_number)
+{
+	if(isDerivedPalette(color_number))
+		return 1;
+	return (color_number >= 64) ? 2 : 1;
+}
+
 void genColorPalette(jab_int32 color_number, jab_byte* palette)
 {
 	if(color_number < 8)
@@ -2224,6 +2252,26 @@ jab_boolean fitDataIntoSymbols(jab_encode* enc, jab_data* encoded_data)
 */
 jab_boolean InitSymbols(jab_encode* enc)
 {
+	/* An explicitly pinned version bypasses setMasterSymbolVersion's floor entirely, so it is
+	 * the one path that can ask for a geometry the codec cannot render readably. Refuse it here,
+	 * loudly, instead of emitting a symbol that encodes and then cannot be decoded — a silent
+	 * undecodable artifact is the worst possible failure, because it looks like success.
+	 * Version 0 means "auto-size"; that path is floored by setMasterSymbolVersion. */
+	for(jab_int32 i=0; i<enc->symbol_number; i++)
+	{
+		jab_int32 min_v = minDecodableVersion(enc->color_number);
+		if(enc->symbol_versions[i].x != 0 && enc->symbol_versions[i].x < min_v)
+		{
+			JAB_REPORT_ERROR(("Symbol %d: side-version %d cannot hold the %d-colour palette and would not be decodable. Use side-version %d or higher, a lower colour count, or enable the derived-palette profile.", i, enc->symbol_versions[i].x, enc->color_number, min_v))
+			return JAB_FAILURE;
+		}
+		if(enc->symbol_versions[i].y != 0 && enc->symbol_versions[i].y < min_v)
+		{
+			JAB_REPORT_ERROR(("Symbol %d: side-version %d cannot hold the %d-colour palette and would not be decodable. Use side-version %d or higher, a lower colour count, or enable the derived-palette profile.", i, enc->symbol_versions[i].y, enc->color_number, min_v))
+			return JAB_FAILURE;
+		}
+	}
+
 	//check all information for multi-symbol code are valid
 	if(enc->symbol_number > 1)
 	{
