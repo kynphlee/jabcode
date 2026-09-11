@@ -1557,7 +1557,13 @@ jab_boolean createMatrix(jab_encode* enc, jab_int32 index, jab_data* ecc_encoded
     	//color palette
         jab_int32 width=enc->symbols[index].side_size.x;
         jab_int32 height=enc->symbols[index].side_size.y;
-        for (jab_int32 i=2; i<MIN(enc->color_number, 64); i++)	//skip the first two colors in alignment pattern
+        //Derived-palette profile: slaves omit their swatches exactly as the master does. This
+        //guard is not optional — getSymbolCapacity() already excludes palette modules for EVERY
+        //symbol (it makes no master/slave distinction), so placing them here anyway would let the
+        //capacity accounting and the module map disagree, and a cascade would encode but never
+        //decode. Measured before this fix: 3-symbol cascades failed at 16c/64c/256c with the
+        //profile on, while single symbols were fine.
+        for (jab_int32 i=2; !isDerivedPalette(enc->color_number) && i<MIN(enc->color_number, 64); i++)	//skip the first two colors in alignment pattern
         {
         	//left
 			enc->symbols[index].matrix  [slave_palette_position[i-2].y*width + slave_palette_position[i-2].x] = palette_index[(enc->color_number <= 8) ? (slave_palette_placement_index[i] % enc->color_number) : i];

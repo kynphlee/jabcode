@@ -594,6 +594,19 @@ jab_int32 readColorPaletteInSlave(jab_bitmap* matrix, jab_decoded_symbol* symbol
 		return FATAL_ERROR;
     }
 
+	/* Derived-palette profile: the slave carries no swatches either, so rebuild the palette
+	 * algorithmically and consume no modules — the mirror of the master path above. */
+	if(isDerivedPalette(color_number))
+	{
+		jab_byte derived[256 * 3] = {0};
+		genColorPalette(color_number, derived);
+		for(jab_int32 panel = 0; panel < COLOR_PALETTE_NUMBER; panel++)
+		{
+			memcpy(symbol->palette + panel * color_number * 3, derived, color_number * 3);
+		}
+		return JAB_SUCCESS;
+	}
+
     //read colors from alignment patterns
     jab_int32 color_index;			//the color index number in color palette
 	for(jab_int32 i=0; i<COLOR_PALETTE_NUMBER; i++)
