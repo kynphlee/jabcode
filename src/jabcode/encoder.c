@@ -49,7 +49,7 @@
  * NOT safe for camera paths (screen or print) without measurement: there the swatches are the
  * calibration anchor that adaptive_palette_learn_transform() consumes.
  */
-jab_boolean isDerivedPaletteModeEnabled(void)
+static jab_boolean isDerivedPaletteModeEnabled(void)
 {
 	static jab_int32 cached = -1;
 	if(cached < 0)
