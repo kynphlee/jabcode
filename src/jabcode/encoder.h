@@ -299,5 +299,7 @@ extern void getNextMetadataModuleInMaster(jab_int32 matrix_height, jab_int32 mat
  * palette and recover indices the encoder never places in the matrix
  * (specifically palette[1] for color_number > 8). */
 extern void genColorPalette(jab_int32 color_number, jab_byte* palette);
+/* PROTOTYPE file-transfer profile: omit palette swatches, derive them instead. See encoder.c. */
+extern jab_boolean isDerivedPalette(jab_int32 color_number);
 
 #endif

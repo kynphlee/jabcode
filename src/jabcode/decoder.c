@@ -456,6 +456,22 @@ jab_int32 readColorPaletteInMaster(jab_bitmap* matrix, jab_decoded_symbol* symbo
 		return FATAL_ERROR;
 	}
 
+	/* Derived-palette profile (JABCODE_DERIVED_PALETTE=1): the symbol carries NO palette
+	 * swatches, so reconstruct the palette algorithmically — exactly what the encoder did —
+	 * and consume no metadata modules, leaving them to the data stream. Both sides compute
+	 * the same RGB cube from color_number, which is why the swatches were only ever a
+	 * CALIBRATION aid and are redundant on an undistorted file path. */
+	if(isDerivedPalette(color_number))
+	{
+		jab_byte derived[256 * 3] = {0};
+		genColorPalette(color_number, derived);
+		for(jab_int32 panel = 0; panel < COLOR_PALETTE_NUMBER; panel++)
+		{
+			memcpy(symbol->palette + panel * color_number * 3, derived, color_number * 3);
+		}
+		return JAB_SUCCESS;	//cursor untouched: no palette modules were placed
+	}
+
 	//read colors from finder patterns
 	jab_int32 color_index;			//the color index number in color palette
 	for(jab_int32 i=0; i<COLOR_PALETTE_NUMBER; i++)
