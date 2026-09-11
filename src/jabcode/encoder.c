@@ -51,7 +51,13 @@
  */
 static jab_boolean isDerivedPaletteModeEnabled(void)
 {
-	static jab_int32 cached = -1;
+	/* _Thread_local, not a plain static: the codec is re-entrant and encodes concurrently, so a
+	 * shared lazily-initialised cache is a data race (ThreadSanitizer caught exactly that here —
+	 * concurrent read/write of the flag from parallel generateJABCode calls). Every thread
+	 * computing its own copy costs one getenv per thread and needs no synchronisation. Mirrors
+	 * the established #91 LDPC-cache / pseudo_random.c pattern. The value is process-constant,
+	 * so per-thread copies cannot disagree. */
+	static _Thread_local jab_int32 cached = -1;
 	if(cached < 0)
 	{
 		const char* v = getenv("JABCODE_DERIVED_PALETTE");
