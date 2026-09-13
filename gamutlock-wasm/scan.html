@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gamutlock — scan</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: system-ui, sans-serif;
+    background: #0b0e13; color: #e8ecf1;
+    display: flex; flex-direction: column; align-items: center;
+    min-height: 100vh; padding: 1rem; gap: .75rem;
+  }
+  h1 { font-size: 1.05rem; font-weight: 600; letter-spacing: .06em; margin: .25rem 0 0; }
+  h1 .dim { color: #6b7686; font-weight: 400; }
+  #stage {
+    position: relative; width: min(94vw, 640px); aspect-ratio: 4/3;
+    background: #12161d; border: 1px solid #232a35; border-radius: 12px;
+    overflow: hidden;
+  }
+  video, #overlay { position: absolute; inset: 0; width: 100%; height: 100%; }
+  video { object-fit: cover; }
+  #overlay { pointer-events: none; }
+  #controls { display: flex; gap: .5rem; flex-wrap: wrap; justify-content: center; }
+  button, label.btn {
+    background: #1a2230; color: #dfe6ee; border: 1px solid #2c3646;
+    border-radius: 8px; padding: .5rem .9rem; font-size: .9rem; cursor: pointer;
+  }
+  button:hover, label.btn:hover { background: #223048; }
+  input[type=file] { display: none; }
+  #status { font-size: .85rem; color: #8b96a5; min-height: 1.2em; text-align: center; }
+  #verdict {
+    width: min(94vw, 640px); border-radius: 12px; padding: 1rem 1.1rem;
+    border: 1px solid #232a35; background: #12161d; display: none;
+  }
+  #verdict.show { display: block; }
+  #verdict .headline { font-size: 1.3rem; font-weight: 700; letter-spacing: .04em; }
+  #verdict .detail { color: #9aa5b4; font-size: .85rem; margin-top: .35rem; white-space: pre-wrap; word-break: break-word; }
+  #verdict .claims { margin-top: .6rem; font-size: .85rem; }
+  #verdict .claims div { padding: .15rem 0; border-top: 1px solid #1d2430; }
+  .v-TRUSTED { color: #4ade80; }
+  .v-UNTRUSTED, .v-TAMPERED, .v-REVOKED, .v-REPLAYED { color: #f87171; }
+  .v-STALE, .v-BOUND_UNPROVEN, .v-SEALED_UNSIGNED { color: #fbbf24; }
+  .v-ERROR { color: #f87171; }
+  footer { font-size: .72rem; color: #566173; margin-top: auto; padding-top: .5rem; text-align: center; }
+</style>
+</head>
+<body>
+<h1>GAMUTLOCK <span class="dim">// scan from your browser — nothing to install</span></h1>
+
+<div id="stage">
+  <video id="video" muted playsinline></video>
+  <canvas id="overlay"></canvas>
+</div>
+
+<div id="controls">
+  <button id="startBtn">Start camera</button>
+  <label class="btn">Scan an image file<input id="fileInput" type="file" accept="image/*"></label>
+  <button id="tamperBtn" title="Re-verify the last decoded mark with one byte flipped — proves the verdict is live, not painted">Replay last mark, tampered</button>
+</div>
+<div id="status">Idle. Start the camera or drop a symbol image.</div>
+
+<div id="verdict">
+  <div class="headline" id="verdictHeadline"></div>
+  <div class="detail" id="verdictDetail"></div>
+  <div class="claims" id="verdictClaims"></div>
+</div>
+
+<footer>
+  Decode runs entirely in this page (WASM build of the Gamutlock codec).
+  The decoded mark is sent to the verify service for the trust verdict — two-tier scan model.
+</footer>
+
+<script type="module">
+import GamutlockDetector from './gamutlock-detector.mjs';
+
+const video = document.getElementById('video');
+const overlay = document.getElementById('overlay');
+const statusEl = document.getElementById('status');
+const verdictBox = document.getElementById('verdict');
+const verdictHeadline = document.getElementById('verdictHeadline');
+const verdictDetail = document.getElementById('verdictDetail');
+const verdictClaims = document.getElementById('verdictClaims');
+
+const detector = new GamutlockDetector();
+const work = document.createElement('canvas');
+const workCtx = work.getContext('2d', { willReadFrequently: true });
+
+let scanning = false;
+let inFlight = false;
+let lastBytes = null;          // last decoded payload (Uint8Array)
+let frameTimes = [];
+
+const setStatus = (t) => { statusEl.textContent = t; };
+
+function b64(bytes) {
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 0x8000)
+    s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+
+function showVerdict(v) {
+  verdictBox.className = 'show';
+  const cls = `v-${v.verdict ?? 'ERROR'}`;
+  verdictHeadline.className = `headline ${cls}`;
+  verdictHeadline.textContent = v.verdict ?? 'VERIFY ERROR';
+  verdictDetail.textContent = [v.frameworkOutcome, v.detail, v.listVersion != null ? `trust list v${v.listVersion}` : null]
+    .filter(Boolean).join(' · ');
+  verdictClaims.innerHTML = '';
+  for (const [k, val] of Object.entries(v.disclosedClaims ?? {})) {
+    const row = document.createElement('div');
+    row.textContent = `${k}: ${val}`;
+    verdictClaims.appendChild(row);
+  }
+}
+
+async function verifyBytes(bytes, label) {
+  setStatus(`Mark decoded (${bytes.length} bytes${label ? ', ' + label : ''}) — asking the verify service…`);
+  try {
+    const res = await fetch('/api/studio/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ blobBase64: b64(bytes) }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      showVerdict({ verdict: 'ERROR', detail: `verify HTTP ${res.status}: ${JSON.stringify(body)}` });
+      return;
+    }
+    showVerdict(body);
+    setStatus('Verdict rendered. Scan again any time.');
+  } catch (e) {
+    showVerdict({ verdict: 'ERROR', detail: String(e) });
+  }
+}
+
+function drawReticle(corners, w, h) {
+  overlay.width = w; overlay.height = h;
+  const ctx = overlay.getContext('2d');
+  ctx.clearRect(0, 0, w, h);
+  if (!corners) return;
+  ctx.strokeStyle = '#4ade80'; ctx.lineWidth = Math.max(2, w / 240);
+  ctx.beginPath();
+  corners.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+  ctx.closePath(); ctx.stroke();
+}
+
+async function scanLoop() {
+  if (!scanning) return;
+  if (!inFlight && video.readyState >= 2) {
+    inFlight = true;
+    const w = video.videoWidth, h = video.videoHeight;
+    work.width = w; work.height = h;
+    workCtx.drawImage(video, 0, 0, w, h);
+    const frame = workCtx.getImageData(0, 0, w, h);
+    const t0 = performance.now();
+    const results = await detector.detect(frame);
+    const dt = performance.now() - t0;
+    frameTimes.push(dt);
+    if (frameTimes.length > 60) frameTimes.shift();
+    const med = [...frameTimes].sort((a, b) => a - b)[frameTimes.length >> 1];
+    if (results.length) {
+      const r = results[0];
+      lastBytes = r.rawBytes;
+      drawReticle(r.cornerPoints, w, h);
+      scanning = false;
+      stopCamera();
+      await verifyBytes(r.rawBytes, `${r.colorCount}-colour, ${dt.toFixed(1)} ms`);
+      inFlight = false;
+      return;
+    }
+    drawReticle(null, w, h);
+    setStatus(`Scanning… ${dt.toFixed(1)} ms/frame (median ${med.toFixed(1)} ms over ${frameTimes.length})`);
+    inFlight = false;
+  }
+  requestAnimationFrame(scanLoop);
+}
+
+let stream = null;
+function stopCamera() {
+  stream?.getTracks().forEach((t) => t.stop());
+  stream = null;
+}
+
+document.getElementById('startBtn').addEventListener('click', async () => {
+  verdictBox.className = '';
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 960 } },
+      audio: false,
+    });
+    video.srcObject = stream;
+    await video.play();
+    scanning = true;
+    frameTimes = [];
+    setStatus('Camera up — hold the mark in view.');
+    scanLoop();
+  } catch (e) {
+    setStatus(`Camera unavailable (${e.name}). Use "Scan an image file" instead.`);
+  }
+});
+
+document.getElementById('fileInput').addEventListener('change', async (ev) => {
+  const file = ev.target.files?.[0];
+  if (!file) return;
+  verdictBox.className = '';
+  const img = await createImageBitmap(await file.arrayBuffer().then((b) => new Blob([b])));
+  work.width = img.width; work.height = img.height;
+  workCtx.drawImage(img, 0, 0);
+  const t0 = performance.now();
+  const results = await detector.detect(workCtx.getImageData(0, 0, img.width, img.height));
+  const dt = performance.now() - t0;
+  if (!results.length) {
+    setStatus(`No Gamutlock mark found in ${file.name} (decode attempt ${dt.toFixed(1)} ms).`);
+    return;
+  }
+  lastBytes = results[0].rawBytes;
+  await verifyBytes(results[0].rawBytes, `${results[0].colorCount}-colour, ${dt.toFixed(1)} ms, from file`);
+});
+
+/* Negative-case proof: same pipeline, one byte flipped. A gate that shows
+ * TRUSTED for the genuine mark and a failure verdict for this replay is
+ * demonstrably reading the mark, not painting green. */
+document.getElementById('tamperBtn').addEventListener('click', async () => {
+  if (!lastBytes) { setStatus('Nothing decoded yet — scan a mark first.'); return; }
+  const tampered = lastBytes.slice();
+  tampered[tampered.length >> 1] ^= 0x01;
+  await verifyBytes(tampered, 'tampered replay');
+});
+
+/* Deep-link demo mode: ?img=<url> decodes a served symbol image through the
+ * identical pipeline (decode → verify → verdict), so the round-trip can be
+ * demonstrated on machines without a camera. */
+async function scanFromUrl(url) {
+  verdictBox.className = '';
+  const blob = await (await fetch(url)).blob();
+  const img = await createImageBitmap(blob);
+  work.width = img.width; work.height = img.height;
+  workCtx.drawImage(img, 0, 0);
+  const t0 = performance.now();
+  const results = await detector.detect(workCtx.getImageData(0, 0, img.width, img.height));
+  const dt = performance.now() - t0;
+  if (!results.length) {
+    setStatus(`No Gamutlock mark found at ${url} (decode attempt ${dt.toFixed(1)} ms).`);
+    return;
+  }
+  lastBytes = results[0].rawBytes;
+  await verifyBytes(results[0].rawBytes, `${results[0].colorCount}-colour, ${dt.toFixed(1)} ms, deep-link`);
+}
+
+detector.prepare().then(async () => {
+  setStatus(`Codec ready: ${await detector.version()}. Start the camera or drop a symbol image.`);
+  const img = new URLSearchParams(location.search).get('img');
+  if (img) await scanFromUrl(img);
+});
+</script>
+</body>
+</html>

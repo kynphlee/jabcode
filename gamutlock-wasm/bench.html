@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>gamutlock-wasm — decode-rate bench (browser side of the A/B)</title>
+<style>
+  body { font-family: ui-monospace, monospace; background: #0b0e13; color: #dfe6ee;
+         margin: 0; padding: 1rem 1.25rem; font-size: 13px; }
+  h1 { font-size: 15px; } .dim { color: #6b7686; }
+  table { border-collapse: collapse; margin-top: .75rem; }
+  th, td { border: 1px solid #263042; padding: .25rem .6rem; text-align: right; }
+  th:first-child, td:first-child { text-align: left; }
+  .ok { color: #4ade80; } .bad { color: #f87171; }
+  #log { white-space: pre-wrap; color: #8b96a5; margin-top: .5rem; }
+  a { color: #7dd3fc; }
+</style>
+</head>
+<body>
+<h1>gamutlock-wasm decode-rate bench
+  <span class="dim" id="buildLabel"></span></h1>
+<div id="log">loading manifest…</div>
+<div id="summary"></div>
+<p><a id="dl" download="wasm_results.jsonl" style="display:none">download per-image JSONL</a></p>
+
+<script type="module">
+/**
+ * Browser side of the WASM-vs-native decode-rate A/B.
+ *
+ * Protocol mirrors the R0 rig probe (robustness/r0/rig/r0_decode.c):
+ * identical images (served from the rig's own corpus directories), decode
+ * through the strict camera path, success = SHA-256 of the decoded payload
+ * equals the manifest's known-good hash (computed from clean sources — never
+ * from a degraded decode). One decode per image, per-decode wall time kept.
+ *
+ * ?build=simd runs the dist-simd module through the same wrapper.
+ */
+import GamutlockDetector from './gamutlock-detector.mjs';
+
+const params = new URLSearchParams(location.search);
+const build = params.get('build') === 'simd' ? 'simd' : 'baseline';
+document.getElementById('buildLabel').textContent = `— build: ${build}`;
+
+const log = (t) => { document.getElementById('log').textContent = t; };
+
+const factory = build === 'simd'
+  ? (await import('./dist-simd/gamutlock-codec.mjs')).default
+  : undefined;
+const detector = new GamutlockDetector(factory ? { moduleFactory: factory } : {});
+
+const tInit0 = performance.now();
+await detector.prepare();
+const initMs = performance.now() - tInit0;
+
+const manifest = await (await fetch('./bench/manifest.json')).json();
+
+async function sha256hex(bytes) {
+  const d = await crypto.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function loadImageData(url) {
+  const blob = await (await fetch(url)).blob();
+  // colorSpaceConversion:'none' — the browser must NOT apply embedded colour
+  // profiles / gamma, or the "byte-identical pixels" premise of the A/B breaks
+  // (libpng readImage on the native side does no colour management either).
+  // premultiplyAlpha:'none' for the same reason; corpus images are opaque.
+  const img = await createImageBitmap(blob, {
+    colorSpaceConversion: 'none', premultiplyAlpha: 'none',
+  });
+  const c = document.createElement('canvas');
+  c.width = img.width; c.height = img.height;       // 1:1 — no rescaling, ever
+  const ctx = c.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(img, 0, 0);
+  return ctx.getImageData(0, 0, img.width, img.height);
+}
+
+// Warm-up decode (tier-up the wasm) on the first clean image; not recorded.
+{
+  const first = manifest.entries.find((e) => e.conditions.startsWith('clean'));
+  if (first) await detector.detect(await loadImageData(first.url));
+}
+
+const results = [];
+let done = 0;
+for (const e of manifest.entries) {
+  const imageData = await loadImageData(e.url);
+  // Pixel-identity receipt: SHA-256 of the exact RGBA bytes the decoder sees.
+  // Compared offline against the native probe's readImage bytes — if these
+  // differ, decode-rate deltas are (partly) an image-pipeline artifact, and
+  // the report must say so.
+  const px_sha = await sha256hex(imageData.data);
+  const t0 = performance.now();
+  const detections = await detector.detect(imageData);
+  const ms = performance.now() - t0;
+
+  let decode_ok = detections.length > 0;
+  let sha_match = null;
+  let decoded_color_count = decode_ok ? detections[0].colorCount : 0;
+  if (decode_ok && e.payload_sha256) {
+    sha_match = (await sha256hex(detections[0].rawBytes)) === e.payload_sha256;
+  }
+  results.push({
+    id: e.id, nc: e.nc, color_count: e.color_count, conditions: e.conditions,
+    payload_known: !!e.payload_sha256,
+    decode_ok, sha_match, decoded_color_count, decode_ms: +ms.toFixed(3),
+    px_sha, build,
+  });
+  done++;
+  log(`decoding… ${done}/${manifest.entries.length} (${e.id})`);
+}
+
+// ---- aggregate by (color_count, conditions) ----
+const groups = new Map();
+for (const r of results) {
+  const key = `${r.color_count}|${r.conditions}`;
+  if (!groups.has(key)) groups.set(key, []);
+  groups.get(key).push(r);
+}
+const rows = [...groups.entries()].map(([key, rs]) => {
+  const [cc, cond] = key.split('|');
+  const okBy = (r) => r.payload_known ? r.sha_match === true : r.decode_ok;
+  const n = rs.length, ok = rs.filter(okBy).length;
+  const med = rs.map((r) => r.decode_ms).sort((a, b) => a - b)[rs.length >> 1];
+  return { color_count: +cc, conditions: cond, n, ok, rate: ok / n, median_ms: med };
+}).sort((a, b) => a.color_count - b.color_count || a.conditions.localeCompare(b.conditions));
+
+const tbl = ['<table><tr><th>condition</th><th>colours</th><th>n</th><th>verified</th><th>rate</th><th>median ms</th></tr>'];
+for (const r of rows) {
+  const cls = r.rate === 1 ? 'ok' : r.rate === 0 ? 'bad' : '';
+  tbl.push(`<tr><td>${r.conditions}</td><td>${r.color_count}</td><td>${r.n}</td>` +
+    `<td>${r.ok}</td><td class="${cls}">${(r.rate * 100).toFixed(0)}%</td>` +
+    `<td>${r.median_ms.toFixed(1)}</td></tr>`);
+}
+tbl.push('</table>');
+document.getElementById('summary').innerHTML = tbl.join('');
+log(`done: ${results.length} images, build=${build}, module init ${initMs.toFixed(1)} ms, ` +
+    `version: ${await detector.version()}`);
+
+const jsonl = results.map((r) => JSON.stringify(r)).join('\n');
+const a = document.getElementById('dl');
+a.href = URL.createObjectURL(new Blob([jsonl], { type: 'text/plain' }));
+a.style.display = 'inline';
+
+window.__benchResults = results;
+window.__benchRows = rows;
+window.__benchMeta = { build, initMs, count: results.length };
+window.__benchDone = true;
+</script>
+</body>
+</html>
