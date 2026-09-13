@@ -1,0 +1,204 @@
+{
+  "manifest": "/mnt/b34628fa-d41e-4c37-8caf-f06a6ecbb1ae/projects/practice/barcode/jabcode.worktrees/wasm-reader/gamutlock-wasm/bench/native_manifest.jsonl",
+  "bucket_keys": [
+    "color_count",
+    "conditions"
+  ],
+  "overall": {
+    "n": 62,
+    "decoded": 52,
+    "decode_rate": 0.8387,
+    "mean_decode_ms": 23.283,
+    "fail_stage_histogram": {
+      "NONE": 52,
+      "DETECT": 7,
+      "LDPC": 3
+    }
+  },
+  "by_condition": {
+    "color_count=None conditions=blur@1.0": {
+      "n": 3,
+      "decoded": 3,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 17.237,
+      "fail_stage_histogram": {
+        "NONE": 3
+      }
+    },
+    "color_count=None conditions=blur@2.0": {
+      "n": 3,
+      "decoded": 2,
+      "decode_rate": 0.6667,
+      "mean_decode_ms": 14.105,
+      "fail_stage_histogram": {
+        "NONE": 2,
+        "LDPC": 1
+      }
+    },
+    "color_count=None conditions=blur@3.0": {
+      "n": 3,
+      "decoded": 2,
+      "decode_rate": 0.6667,
+      "mean_decode_ms": 15.081,
+      "fail_stage_histogram": {
+        "NONE": 2,
+        "LDPC": 1
+      }
+    },
+    "color_count=None conditions=chroma@0.3": {
+      "n": 3,
+      "decoded": 3,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 15.223,
+      "fail_stage_histogram": {
+        "NONE": 3
+      }
+    },
+    "color_count=None conditions=chroma@0.5": {
+      "n": 3,
+      "decoded": 3,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 19.209,
+      "fail_stage_histogram": {
+        "NONE": 3
+      }
+    },
+    "color_count=None conditions=chroma@0.7": {
+      "n": 3,
+      "decoded": 1,
+      "decode_rate": 0.3333,
+      "mean_decode_ms": 6.781,
+      "fail_stage_histogram": {
+        "NONE": 1,
+        "DETECT": 2
+      }
+    },
+    "color_count=None conditions=clean": {
+      "n": 3,
+      "decoded": 3,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 17.996,
+      "fail_stage_histogram": {
+        "NONE": 3
+      }
+    },
+    "color_count=None conditions=downscale@3": {
+      "n": 3,
+      "decoded": 3,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 16.821,
+      "fail_stage_histogram": {
+        "NONE": 3
+      }
+    },
+    "color_count=None conditions=downscale@4": {
+      "n": 3,
+      "decoded": 3,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 20.717,
+      "fail_stage_histogram": {
+        "NONE": 3
+      }
+    },
+    "color_count=None conditions=downscale@6": {
+      "n": 3,
+      "decoded": 3,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 18.261,
+      "fail_stage_histogram": {
+        "NONE": 3
+      }
+    },
+    "color_count=None conditions=jpeg@30": {
+      "n": 3,
+      "decoded": 3,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 17.123,
+      "fail_stage_histogram": {
+        "NONE": 3
+      }
+    },
+    "color_count=None conditions=jpeg@50": {
+      "n": 3,
+      "decoded": 3,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 18.713,
+      "fail_stage_histogram": {
+        "NONE": 3
+      }
+    },
+    "color_count=None conditions=jpeg@70": {
+      "n": 3,
+      "decoded": 3,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 14.621,
+      "fail_stage_histogram": {
+        "NONE": 3
+      }
+    },
+    "color_count=None conditions=lighting@0.3": {
+      "n": 3,
+      "decoded": 3,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 17.53,
+      "fail_stage_histogram": {
+        "NONE": 3
+      }
+    },
+    "color_count=None conditions=lighting@0.5": {
+      "n": 3,
+      "decoded": 3,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 20.347,
+      "fail_stage_histogram": {
+        "NONE": 3
+      }
+    },
+    "color_count=None conditions=lighting@0.7": {
+      "n": 3,
+      "decoded": 3,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 17.318,
+      "fail_stage_histogram": {
+        "NONE": 3
+      }
+    },
+    "color_count=None conditions=perspective@20": {
+      "n": 3,
+      "decoded": 3,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 20.509,
+      "fail_stage_histogram": {
+        "NONE": 3
+      }
+    },
+    "color_count=None conditions=perspective@30": {
+      "n": 3,
+      "decoded": 3,
+      "decode_rate": 1.0,
+      "mean_decode_ms": 22.458,
+      "fail_stage_histogram": {
+        "NONE": 3
+      }
+    },
+    "color_count=None conditions=perspective@35": {
+      "n": 3,
+      "decoded": 2,
+      "decode_rate": 0.6667,
+      "mean_decode_ms": 12.435,
+      "fail_stage_histogram": {
+        "NONE": 2,
+        "LDPC": 1
+      }
+    },
+    "color_count=None conditions=ws5-realframe": {
+      "n": 5,
+      "decoded": 0,
+      "decode_rate": 0.0,
+      "mean_decode_ms": 95.216,
+      "fail_stage_histogram": {
+        "DETECT": 5
+      }
+    }
+  }
+}

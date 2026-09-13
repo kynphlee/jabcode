@@ -1,0 +1,36 @@
+=== test-pn (exit=0) ===
+gcc -O2 -std=c11 -I. test/test_pn_index.c -o build/test_pn_index
+build/test_pn_index
+pn_index regression: draws=557192 legacy_oob=1024 new_oob=0 in_range_mismatch=0
+RESULT: PASS
+=== test-symid (exit=0) ===
+  eci=1 fnc1=1 -> ]j4 (want ]j4) ok
+  eci=1 fnc1=2 -> ]j5 (want ]j5) ok
+symbology-id Table H.1: 6/6 rows correct; base=]j0
+RESULT: PASS
+=== test-eci (exit=0) ===
+  ECI-16  -> "\001000" id=]j1  (want "\001000" ]j1)  ok
+  ECI-22  -> "\123456" id=]j1  (want "\123456" ]j1)  ok
+ECI decode: 3/3 cases correct
+RESULT: PASS
+=== test-table15 (exit=0) ===
+  ISO15434       len=4 id=]j0  (want len=4 ]j0)  ok
+  eci-backslash  len=9 id=]j1  (want len=9 ]j1)  ok
+Table15/FNC1: 7/7 cases correct
+RESULT: PASS
+=== test-roundtrip (exit=0) ===
+  Hello World 123              ok
+  Hi, there! 42.               ok
+text roundtrip: 5/5 byte-identical
+RESULT: PASS
+=== test-cascade-hv (exit=0) ===
+REGRESSION nc16 N=3 v31 9KB javaRandom(0xFA0003): OK (9216 bytes, status=3)
+REGRESSION nc16 N=3 v31 9KB javaRandom(0xFA0003) allECC5: OK (9216 bytes, status=3)
+REGRESSION nc16 N=6 v31 two >8207-byte runs: OK (16664 bytes, status=3)
+test_cascade_highversion: all cases OK
+=== test-concurrent (exit=0) ===
+------------------------------------------------
+round-trips: 400/400 byte-identical, 0 failure(s)
+RESULT: PASS
+================================================
+OVERALL=0

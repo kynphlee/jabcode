@@ -1,0 +1,11 @@
+# build products — regenerate with `make all` / `make simd` / `make fixture`
+dist/
+dist-simd/
+build/
+test/fixtures/
+
+# locally-issued demo marks (contain dev-tenant credential blobs)
+demo/
+
+# node scratch
+node_modules/
