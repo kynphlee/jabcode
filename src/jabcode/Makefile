@@ -21,7 +21,7 @@ VENDORED_SO := $(VENDORED_DIR)/libjabcode.so
 SOURCES := $(wildcard *.c)
 OBJECTS := $(SOURCES:.c=.o)
 
-.PHONY: all clean refresh-lib check-lib bench bench-concurrent bench-cascade sweep transcode profile test-pn test-symid test-eci test-table15 test-roundtrip test-fp-lookalike test-concurrent test-cascade-hv
+.PHONY: all clean refresh-lib check-lib bench bench-concurrent bench-cascade sweep transcode profile test-pn test-symid test-eci test-table15 test-roundtrip test-fp-lookalike test-mask-rule1 test-concurrent test-cascade-hv
 
 all: $(STATIC_LIB) $(SHARED_LIB)
 
@@ -166,6 +166,10 @@ test-roundtrip: $(STATIC_LIB)
 test-fp-lookalike: $(STATIC_LIB)
 	$(CC) -O2 -std=c11 -I. -I./include test/test_fp_lookalike.c $(STATIC_LIB) -lpng16 -ltiff -lz -lm -o $(CORE_DIR)/test_fp_lookalike
 	$(CORE_DIR)/test_fp_lookalike
+
+test-mask-rule1: $(STATIC_LIB)
+	$(CC) -O2 -std=c11 -I. -I./include test/test_mask_rule1.c $(STATIC_LIB) -lpng16 -ltiff -lz -lm -o $(CORE_DIR)/test_mask_rule1
+	$(CORE_DIR)/test_mask_rule1
 
 test-cascade-hv: $(STATIC_LIB)
 	$(CC) -O2 -std=c11 -I. -I./include test/test_cascade_highversion.c $(STATIC_LIB) -lpng16 -ltiff -lz -lm -o $(CORE_DIR)/test_cascade_highversion
