@@ -24,6 +24,7 @@ extern jab_int32	test_mode_color;
 #define MAX_SYMBOL_ROWS		3
 #define MAX_SYMBOL_COLUMNS	3
 #define MAX_FINDER_PATTERNS 500
+#define MAX_FINDER_PATTERN_CANDIDATES 4	//the strongest candidates of each type weighed as a symbol's corners
 #define PI 					3.14159265
 #define CROSS_AREA_WIDTH	14	//the width of the area across the host and slave symbols
 

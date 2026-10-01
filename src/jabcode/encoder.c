@@ -444,7 +444,11 @@ jab_int32* analyzeInputData(jab_data* input, jab_int32* encoded_length)
         {
             if (jab_enconing_table[tmp][j]>-1 && jab_enconing_table[tmp][j]<64) //check if character is in encoding table
                 curr_seq_len[(i+1)*14+j]=curr_seq_len[(i+1)*14+j+7]=character_size[j];
-            else if((jab_enconing_table[tmp][j]==-18 && tmp1==10) || (jab_enconing_table[tmp][j]<-18 && tmp1==32))//read next character to decide if encodalbe in current mode
+            //the Mixed-mode pairs ", " ". " ": " (-20..-22) are one character each, so a SPACE after
+            //them is planned with them. CR (-19) pairs with nothing here: ISO/IEC 23634 Table 13 has
+            //no CR SPACE, and its CR LF (value 19) lists the bytes 10, 13, which the decoder emits as
+            //printed. Planning either would drop or swap a byte, so CR is left to byte mode.
+            else if(jab_enconing_table[tmp][j]<-19 && tmp1==32)
             {
                 curr_seq_len[(i+1)*14+j]=curr_seq_len[(i+1)*14+j+7]=character_size[j];
                 jp_to_nxt_char=1; //jump to next character
@@ -869,11 +873,10 @@ jab_data* encodeData(jab_data* data, jab_int32 encoded_length,jab_int32* encode_
                     jab_int32 tmp1=data->data[current_encoded_length+1];
                     if (tmp1 < 0)
                         tmp1+=256;
-                    //read next character to see if more efficient encoding possible
-                    if (((tmp==44 || tmp== 46 || tmp==58) && tmp1==32) || (tmp==13 && tmp1==10))
+                    //a pair consumes both characters, so write only a pair that exists: anything
+                    //else would drop the second character while the decode still succeeds
+                    if ((tmp==44 || tmp== 46 || tmp==58) && tmp1==32)
                         decimal_value=abs(jab_enconing_table[tmp][encode_seq[counter+1]%7]);
-                    else if (tmp==13 && tmp1!=10)
-                        decimal_value=18;
                     else
                     {
                         reportError("Encoding data failed");

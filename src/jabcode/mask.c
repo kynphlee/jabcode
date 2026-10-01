@@ -33,30 +33,24 @@
 */
 jab_int32 applyRule1(jab_int32* matrix, jab_int32 width, jab_int32 height, jab_int32 color_number)
 {
+	//look for the finder patterns as createMatrix draws them: rings alternating between a
+	//pattern's own core color and its partner's (fp0 with fp3, fp1 with fp2)
 	jab_byte fp0_c1, fp0_c2;
 	jab_byte fp1_c1, fp1_c2;
 	jab_byte fp2_c1, fp2_c2;
 	jab_byte fp3_c1, fp3_c2;
-	if(color_number == 2)                            //two colors: black(000) white(111)
+	if(color_number == 2)                            //two colors: every finder pattern is black(0) and white(1)
 	{
-		fp0_c1 = 0;	fp0_c2 = 1;
-		fp1_c1 = 1;	fp1_c2 = 0;
-		fp2_c1 = 1;	fp2_c2 = 0;
-		fp3_c1 = 1;	fp3_c2 = 0;
-	}
-	else if(color_number == 4)
-	{
-		fp0_c1 = 0;	fp0_c2 = 3;
-		fp1_c1 = 1;	fp1_c2 = 2;
-		fp2_c1 = 2;	fp2_c2 = 1;
-		fp3_c1 = 3;	fp3_c2 = 0;
+		fp0_c1 = fp1_c1 = fp2_c1 = fp3_c1 = 0;
+		fp0_c2 = fp1_c2 = fp2_c2 = fp3_c2 = 1;
 	}
 	else
 	{
-		fp0_c1 = FP0_CORE_COLOR;	fp0_c2 = 7 - FP0_CORE_COLOR;
-		fp1_c1 = FP1_CORE_COLOR;	fp1_c2 = 7 - FP1_CORE_COLOR;
-		fp2_c1 = FP2_CORE_COLOR;	fp2_c2 = 7 - FP2_CORE_COLOR;
-		fp3_c1 = FP3_CORE_COLOR;	fp3_c2 = 7 - FP3_CORE_COLOR;
+		jab_int32 Nc = (jab_int32)round(log(color_number)/log(2.0)) - 1;
+		fp0_c1 = fp0_core_color_index[Nc];	fp0_c2 = fp3_core_color_index[Nc];
+		fp1_c1 = fp1_core_color_index[Nc];	fp1_c2 = fp2_core_color_index[Nc];
+		fp2_c1 = fp2_core_color_index[Nc];	fp2_c2 = fp1_core_color_index[Nc];
+		fp3_c1 = fp3_core_color_index[Nc];	fp3_c2 = fp0_core_color_index[Nc];
 	}
 
 	jab_int32 score = 0;

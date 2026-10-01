@@ -77,13 +77,15 @@ jobs:
           make -C src/jabcodeWriter
           make -C src/jabcodeReader
 
-      # The five fast, self-contained guards. Each prints "RESULT: PASS" and exits
+      # The fast, self-contained guards. Each prints "RESULT: PASS" and exits
       # 0 on success, non-zero on failure; `set -e` fails the job on the first red.
       #   test-pn       pn_index() FP-UB fix (ISO Annex F PRNG)
       #   test-symid    Annex H Table H.1 symbology identifier
       #   test-eci      ISO 23634 5.3.9 / 7.3 ECI decoding (bit-level)
       #   test-table15  ISO 23634 Table 15 / FNC1 backslash-doubling (bit-level)
       #   test-roundtrip multi-mode text encode->decode byte-identity
+      #   test-fp-lookalike a finder pattern copied into the data still decodes
+      #   test-mask-rule1 mask rule 1 recognises every finder pattern the encoder draws
       - name: Run C unit/regression tests
         working-directory: src/jabcode
         run: |
@@ -94,6 +96,8 @@ jobs:
           make test-eci
           make test-table15
           make test-roundtrip
+          make test-fp-lookalike
+          make test-mask-rule1
 
       # Full-spectrum in-library round-trip: encode->decode "HELLO" at every colour
       # mode Nc=0..7 (2,4,8,16,32,64,128,256) and assert byte-identity. This is the
