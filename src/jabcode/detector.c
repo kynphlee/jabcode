@@ -1302,6 +1302,105 @@ jab_finder_pattern getBestPattern(jab_finder_pattern* fps, jab_int32 fp_count)
     return fp;
 }
 
+jab_int32 calculateModuleNumber(jab_finder_pattern fp1, jab_finder_pattern fp2);
+
+/**
+ * @brief Get the turn at corner b on the path a -> b -> c
+ * @return the z component of (b - a) x (c - b): its sign is the turn direction, 0 if collinear
+*/
+static jab_float turnAt(jab_point a, jab_point b, jab_point c)
+{
+	return (b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x);
+}
+
+/**
+ * @brief Measure how far four finder patterns are from being the corners of one symbol
+ * @param fp0 the upper-left candidate
+ * @param fp1 the upper-right candidate
+ * @param fp2 the lower-right candidate
+ * @param fp3 the lower-left candidate
+ * @return the number of modules by which opposite sides disagree | -1 if they cannot be one symbol's corners
+*/
+static jab_int32 measureSymbolDisagreement(jab_finder_pattern fp0, jab_finder_pattern fp1, jab_finder_pattern fp2, jab_finder_pattern fp3)
+{
+	//taken in order, a symbol's corners turn the same way at every corner, at any rotation or perspective
+	jab_float t0 = turnAt(fp3.center, fp0.center, fp1.center);
+	jab_float t1 = turnAt(fp0.center, fp1.center, fp2.center);
+	jab_float t2 = turnAt(fp1.center, fp2.center, fp3.center);
+	jab_float t3 = turnAt(fp2.center, fp3.center, fp0.center);
+	if(!((t0 > 0 && t1 > 0 && t2 > 0 && t3 > 0) || (t0 < 0 && t1 < 0 && t2 < 0 && t3 < 0)))
+		return -1;
+	//and opposite sides span the same number of modules
+	jab_int32 top    = calculateModuleNumber(fp0, fp1);
+	jab_int32 bottom = calculateModuleNumber(fp3, fp2);
+	jab_int32 left   = calculateModuleNumber(fp0, fp3);
+	jab_int32 right  = calculateModuleNumber(fp1, fp2);
+	return abs(top - bottom) + abs(left - right);
+}
+
+/**
+ * @brief Rank finder patterns by how often they were found, keeping scan order among equals
+ * @param fps the finder pattern list
+ * @param fp_count the number of finder patterns in the list
+*/
+static void rankByFoundCount(jab_finder_pattern* fps, jab_int32 fp_count)
+{
+	for(jab_int32 i=1; i<fp_count; i++)
+	{
+		jab_finder_pattern fp = fps[i];
+		jab_int32 j = i - 1;
+		for(; j>=0 && fps[j].found_count < fp.found_count; j--)
+			fps[j+1] = fps[j];
+		fps[j+1] = fp;
+	}
+}
+
+/**
+ * @brief Choose one finder pattern of each type so that the four form one symbol
+ * @param candidates the finder pattern candidates of each type
+ * @param counts the number of candidates of each type
+ * @param fps the chosen finder patterns
+ * @return JAB_SUCCESS | JAB_FAILURE if no four candidates can be one symbol's corners
+*/
+static jab_boolean selectConsistentPatterns(jab_finder_pattern* candidates[4], jab_int32 counts[4], jab_finder_pattern* fps)
+{
+	//data modules can repeat a finder pattern closely enough to pass every check, on as many
+	//scanlines as the real one or more, so neither the found-count nor the scan order can tell
+	//them apart. Only position can: weigh the strongest candidates of each type as one symbol.
+	jab_int32 n[4];
+	for(jab_int32 t=0; t<4; t++)
+	{
+		rankByFoundCount(candidates[t], counts[t]);
+		n[t] = MIN(counts[t], MAX_FINDER_PATTERN_CANDIDATES);
+	}
+	jab_int32 best[4] = {0};
+	jab_int32 best_disagreement = -1;
+	jab_int32 best_found_count = 0;
+	for(jab_int32 i0=0; i0<n[0]; i0++)
+	for(jab_int32 i1=0; i1<n[1]; i1++)
+	for(jab_int32 i2=0; i2<n[2]; i2++)
+	for(jab_int32 i3=0; i3<n[3]; i3++)
+	{
+		jab_int32 disagreement = measureSymbolDisagreement(candidates[0][i0], candidates[1][i1], candidates[2][i2], candidates[3][i3]);
+		if(disagreement < 0)
+			continue;
+		jab_int32 found_count = candidates[0][i0].found_count + candidates[1][i1].found_count +
+								candidates[2][i2].found_count + candidates[3][i3].found_count;
+		if(best_disagreement < 0 || disagreement < best_disagreement ||
+		   (disagreement == best_disagreement && found_count > best_found_count))
+		{
+			best_disagreement = disagreement;
+			best_found_count = found_count;
+			best[0] = i0; best[1] = i1; best[2] = i2; best[3] = i3;
+		}
+	}
+	if(best_disagreement < 0)
+		return JAB_FAILURE;
+	for(jab_int32 t=0; t<4; t++)
+		fps[t] = candidates[t][best[t]];
+	return JAB_SUCCESS;
+}
+
 /**
  * @brief Select the best finder patterns out of the list
  * @param fps the finder pattern list
@@ -1349,34 +1448,42 @@ jab_int32 selectBestPatterns(jab_finder_pattern* fps, jab_int32 fp_count, jab_in
     JAB_REPORT_INFO(("DIAG selectBest: after cnt>=3 filter: FP0=%d FP1=%d FP2=%d FP3=%d", counter0, counter1, counter2, counter3))
 #endif
 
-	//set fp0
-    if(counter0 > 1)
-		fps[0] = getBestPattern(fps0, counter0);
-	else if(counter0 == 1)
-		fps[0] = fps0[0];
-	else
-		memset(&fps[0], 0, sizeof(jab_finder_pattern));
-	//set fp1
-    if(counter1 > 1)
-		fps[1] = getBestPattern(fps1, counter1);
-	else if(counter1 == 1)
-		fps[1] = fps1[0];
-	else
-		memset(&fps[1], 0, sizeof(jab_finder_pattern));
-	//set fp2
-    if(counter2 > 1)
-		fps[2] = getBestPattern(fps2, counter2);
-	else if(counter2 == 1)
-		fps[2] = fps2[0];
-	else
-		memset(&fps[2], 0, sizeof(jab_finder_pattern));
-    //set fp3
-    if(counter3 > 1)
-		fps[3] = getBestPattern(fps3, counter3);
-	else if(counter3 == 1)
-		fps[3] = fps3[0];
-	else
-		memset(&fps[3], 0, sizeof(jab_finder_pattern));
+	//when every type was found and some type more than once, choose the four that form one symbol
+	jab_finder_pattern* candidates[4] = {fps0, fps1, fps2, fps3};
+	jab_int32 counts[4] = {counter0, counter1, counter2, counter3};
+	jab_boolean all_types_found = counter0 > 0 && counter1 > 0 && counter2 > 0 && counter3 > 0;
+	jab_boolean ambiguous = counter0 > 1 || counter1 > 1 || counter2 > 1 || counter3 > 1;
+	if(!(all_types_found && ambiguous && selectConsistentPatterns(candidates, counts, fps)))
+	{
+		//set fp0
+		if(counter0 > 1)
+			fps[0] = getBestPattern(fps0, counter0);
+		else if(counter0 == 1)
+			fps[0] = fps0[0];
+		else
+			memset(&fps[0], 0, sizeof(jab_finder_pattern));
+		//set fp1
+		if(counter1 > 1)
+			fps[1] = getBestPattern(fps1, counter1);
+		else if(counter1 == 1)
+			fps[1] = fps1[0];
+		else
+			memset(&fps[1], 0, sizeof(jab_finder_pattern));
+		//set fp2
+		if(counter2 > 1)
+			fps[2] = getBestPattern(fps2, counter2);
+		else if(counter2 == 1)
+			fps[2] = fps2[0];
+		else
+			memset(&fps[2], 0, sizeof(jab_finder_pattern));
+		//set fp3
+		if(counter3 > 1)
+			fps[3] = getBestPattern(fps3, counter3);
+		else if(counter3 == 1)
+			fps[3] = fps3[0];
+		else
+			memset(&fps[3], 0, sizeof(jab_finder_pattern));
+	}
 
     //if the found-count of a FP is smaller than the half of the max-found-count, abandon it
     jab_int32 max_found_count = 0;
