@@ -21,7 +21,7 @@ VENDORED_SO := $(VENDORED_DIR)/libjabcode.so
 SOURCES := $(wildcard *.c)
 OBJECTS := $(SOURCES:.c=.o)
 
-.PHONY: all clean refresh-lib check-lib bench bench-concurrent bench-cascade sweep transcode profile test-pn test-symid test-eci test-table15 test-roundtrip test-fp-lookalike test-mask-rule1 test-concurrent test-cascade-hv
+.PHONY: all clean refresh-lib check-lib bench bench-concurrent bench-cascade sweep transcode profile test-pn test-symid test-eci test-table15 test-roundtrip test-fp-lookalike test-mode0-large test-mask-rule1 test-concurrent test-cascade-hv
 
 all: $(STATIC_LIB) $(SHARED_LIB)
 
@@ -166,6 +166,12 @@ test-roundtrip: $(STATIC_LIB)
 test-fp-lookalike: $(STATIC_LIB)
 	$(CC) -O2 -std=c11 -I. -I./include test/test_fp_lookalike.c $(STATIC_LIB) -lpng16 -ltiff -lz -lm -o $(CORE_DIR)/test_fp_lookalike
 	$(CORE_DIR)/test_fp_lookalike
+
+# Mode 0 (2-colour) symbols decode at every version: the detector must pick the four
+# real finder patterns out of the many look-alikes a black-and-white data region holds.
+test-mode0-large: $(STATIC_LIB)
+	$(CC) -O2 -std=c11 -I. -I./include test/test_mode0_large.c $(STATIC_LIB) -lpng16 -ltiff -lz -lm -o $(CORE_DIR)/test_mode0_large
+	$(CORE_DIR)/test_mode0_large
 
 test-mask-rule1: $(STATIC_LIB)
 	$(CC) -O2 -std=c11 -I. -I./include test/test_mask_rule1.c $(STATIC_LIB) -lpng16 -ltiff -lz -lm -o $(CORE_DIR)/test_mask_rule1
