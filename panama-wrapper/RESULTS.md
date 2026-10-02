@@ -60,6 +60,36 @@ correct, and the current core round-trips all Nc 2..256.
 
 ## Build notes — jextract + Maven
 
+> **Update 2026-10-02:** the two jextract problems below did not stop the
+> build, and the JaCoCo note does not reproduce. Checked with jextract 25
+> (build 25-jextract+2-4) and Maven on JDK 23.0.1:
+>
+> - **An unknown function name is ignored, not fatal.** With the filter lists
+>   from `pom.xml` at 8a81927 and d82ae0b and from `jextract.sh` at d82ae0b,
+>   jextract exits 0 without a warning, and its output is byte-identical with
+>   and without `decodeJABCodeWithObservations`.
+> - **The wrapper does not use the struct classes.** Its main and test code
+>   import only `jabcode_h` (at d82ae0b too) and read the structs at
+>   hand-computed offsets. The filtered runs did emit only `jabcode_h.java` and
+>   `jabcode_h$shared.java`, but because the `--include-struct` names matched
+>   nothing: `jabcode.h` declares those structs as anonymous typedefs, which
+>   jextract matches by `--include-typedef`. d82ae0b, the commit before these
+>   notes, builds and passes with its own pom, filters and all: 212 tests,
+>   0 failures, 0 errors, 18 skipped.
+> - **JaCoCo does not break native loading.** On c938554, `mvn clean test` with
+>   the agent attached (`target/jacoco.exec` written) gives 280 tests,
+>   0 failures, 0 errors, 18 skipped, the same as with `-Djacoco.skip=true`.
+>   Every `@EnabledIf("isNativeLibraryAvailable")` class runs; the 18 skips are
+>   the `@Disabled` tests in `ColorMode7Test` (15) and `JABCodeEncoderTest` (3).
+>   At f03487c, which added these notes, `NcRoundTripMatrixTest` passes 5 of 5
+>   with JaCoCo on. `-Djacoco.skip=true` in the commands below is harmless but
+>   not needed.
+>
+> Generating the whole header still stands, for another reason: a filter list
+> has to be kept in step with the wrapper by hand, and jextract does not check
+> it (see the comment in `pom.xml`). The rest of this section is the 2026-06-18
+> text, unchanged.
+
 Built cleanly, with **one real blocker fixed** in the wrapper's binding
 generation:
 
