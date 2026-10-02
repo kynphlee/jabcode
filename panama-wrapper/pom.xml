@@ -303,6 +303,15 @@
         <!-- Profile for running benchmarks -->
         <profile>
             <id>benchmarks</id>
+            <properties>
+                <!-- Extra arguments for org.openjdk.jmh.Main, appended to the run-benchmarks
+                     command line below. Empty runs every benchmark at its annotated settings,
+                     which JMH estimates at about two hours. To pick benchmarks by regex and
+                     shorten the run, e.g. a smoke run (about 10 s of JMH):
+                     mvn verify -Pbenchmarks -DskipTests -Djmh.args="SimpleBenchmark -f 1 -wi 1 -i 2 -w 1s -r 1s"
+                     Results always go to benchmark-results.json: JMH rejects a second -rf or -rff. -->
+                <jmh.args></jmh.args>
+            </properties>
             <build>
                 <plugins>
                     <plugin>
@@ -318,17 +327,13 @@
                                 </goals>
                                 <configuration>
                                     <executable>java</executable>
-                                    <arguments>
-                                        <argument>-classpath</argument>
-                                        <classpath/>
-                                        <argument>--enable-native-access=ALL-UNNAMED</argument>
-                                        <argument>-Djava.library.path=${jabcode.lib.path}</argument>
-                                        <argument>org.openjdk.jmh.Main</argument>
-                                        <argument>-rf</argument>
-                                        <argument>json</argument>
-                                        <argument>-rff</argument>
-                                        <argument>benchmark-results.json</argument>
-                                    </arguments>
+                                    <!-- jmh-core and the benchmark classes are test-scoped. With exec's
+                                         default runtime scope, the classpath it passed was target/classes
+                                         alone, and java failed: "Could not find or load main class
+                                         org.openjdk.jmh.Main". -->
+                                    <classpathScope>test</classpathScope>
+                                    <!-- Keep this on one line: exec splits it at spaces, not newlines. -->
+                                    <commandlineArgs>-classpath %classpath --enable-native-access=ALL-UNNAMED -Djava.library.path=${jabcode.lib.path} org.openjdk.jmh.Main -rf json -rff benchmark-results.json ${jmh.args}</commandlineArgs>
                                     <environmentVariables>
                                         <LD_LIBRARY_PATH>${jabcode.lib.path}</LD_LIBRARY_PATH>
                                     </environmentVariables>
