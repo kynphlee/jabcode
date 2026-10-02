@@ -293,4 +293,4 @@ When modifying the C core:
 
 ## License
 
-Same as JABCode (Apache 2.0)
+Same as JABCode (MIT)

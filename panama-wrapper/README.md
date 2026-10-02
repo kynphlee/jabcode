@@ -440,4 +440,4 @@ com.jabcode.panama
 
 ## License
 
-Same as JABCode library (Apache 2.0)
+Same as JABCode library (MIT)
