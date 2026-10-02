@@ -19,6 +19,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Optional;
+import java.util.function.Function;
 
 import static java.lang.foreign.MemoryLayout.PathElement.groupElement;
 import static java.lang.foreign.ValueLayout.JAVA_LONG;
@@ -26,12 +27,13 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
- * Regression test for the native leak in
- * {@link JABCodeDecoder#decodeFromFileEx(Path, int)}.
+ * Regression test for the native leaks in
+ * {@link JABCodeDecoder#decodeFromFileEx(Path, int)} and
+ * {@link JABCodeDecoder#decodeWithObservations(Path, int, boolean)}.
  *
  * <p>{@code readImage} returns a {@code calloc}'d bitmap and {@code decodeJABCode}
- * a {@code malloc}'d {@code jab_data}, both owned by the caller. The method used
- * to free neither, so every {@code decodeFromFile} call stranded a bitmap of
+ * a {@code malloc}'d {@code jab_data}, both owned by the caller. Both methods
+ * used to free neither, so every call stranded a bitmap of
  * 20 + 4 x width x height bytes (254 KB for the 252x252 symbol here).</p>
  *
  * <p>The check reads glibc's {@code mallinfo2} in-use bytes
@@ -93,6 +95,20 @@ class DecodeFromFileLeakIntegrationTest {
 
     @Test
     void decodeFromFileFreesTheNativeBitmap(@TempDir Path tempDir) throws Throwable {
+        JABCodeDecoder decoder = new JABCodeDecoder();
+        assertDecodeFreesTheBitmap(tempDir, "decodeFromFile", decoder::decodeFromFile);
+    }
+
+    @Test
+    void decodeWithObservationsFreesTheNativeBitmap(@TempDir Path tempDir) throws Throwable {
+        JABCodeDecoder decoder = new JABCodeDecoder();
+        assertDecodeFreesTheBitmap(tempDir, "decodeWithObservations",
+            file -> decoder.decodeWithObservations(file, JABCodeDecoder.MODE_NORMAL, false).getData());
+    }
+
+    /** Warm up, then assert that the median batch of {@code decode} calls frees readImage's bitmap. */
+    private static void assertDecodeFreesTheBitmap(
+            Path tempDir, String name, Function<Path, String> decode) throws Throwable {
         Linker linker = Linker.nativeLinker();
         Optional<MemorySegment> symbol = linker.defaultLookup().find("mallinfo2");
         assumeTrue(symbol.isPresent(), "mallinfo2 needs glibc 2.33+");
@@ -106,18 +122,17 @@ class DecodeFromFileLeakIntegrationTest {
 
         Path file = tempDir.resolve("leak.png");
         Files.write(file, png);
-        JABCodeDecoder decoder = new JABCodeDecoder();
 
         // Warm-up
         for (int i = 0; i < WARMUP_DECODES; i++) {
-            assertEquals(PAYLOAD, decoder.decodeFromFile(file));
+            assertEquals(PAYLOAD, decode.apply(file));
         }
 
         long[] growth = new long[BATCHES];
         for (int b = 0; b < BATCHES; b++) {
             long before = mallocInUse(mallinfo2);
             for (int i = 0; i < BATCH_SIZE; i++) {
-                assertEquals(PAYLOAD, decoder.decodeFromFile(file));
+                assertEquals(PAYLOAD, decode.apply(file));
             }
             growth[b] = mallocInUse(mallinfo2) - before;
         }
@@ -126,16 +141,16 @@ class DecodeFromFileLeakIntegrationTest {
         long median = sorted[BATCHES / 2];
 
         System.out.printf(
-            "[DECODE-LEAK] symbol %dx%d, %d batches of %d decodeFromFile: median growth %d bytes "
+            "[DECODE-LEAK] symbol %dx%d, %d batches of %d %s: median growth %d bytes "
                 + "per batch (a leaked bitmap per call is %d); per batch in KB: %s%n",
-            image.getWidth(), image.getHeight(), BATCHES, BATCH_SIZE, median,
+            image.getWidth(), image.getHeight(), BATCHES, BATCH_SIZE, name, median,
             BATCH_SIZE * bitmapBytes, Arrays.toString(Arrays.stream(growth).map(g -> g / 1024).toArray()));
 
         // Leaking the bitmap grows every quiet batch by BATCH_SIZE x bitmapBytes
         // (about 5 MB); a freed one leaves it near zero.
         assertTrue(median < BATCH_SIZE * bitmapBytes / 2, String.format(
-            "median batch of %d decodeFromFile calls grew malloc in-use by %d bytes; "
+            "median batch of %d %s calls grew malloc in-use by %d bytes; "
                 + "readImage's bitmap is %d bytes, so each call is leaking it",
-            BATCH_SIZE, median, bitmapBytes));
+            BATCH_SIZE, name, median, bitmapBytes));
     }
 }
