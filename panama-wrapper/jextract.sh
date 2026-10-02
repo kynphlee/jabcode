@@ -27,16 +27,8 @@ if ! command -v jextract &> /dev/null; then
     echo -e "${RED}ERROR: jextract not found in PATH${NC}"
     echo ""
     echo "Please install jextract:"
-    echo "  1. Use JDK 25+ which may include jextract"
-    echo "  2. Download from: https://jdk.java.net/jextract/"
-    echo "  3. Add jextract to your PATH"
-    echo ""
-    echo "Available JDKs:"
-    ls -1 /home/kynphlee/tools/compilers/java/ | grep jdk-
-    echo ""
-    echo "To use JDK 25:"
-    echo "  export JAVA_HOME=/home/kynphlee/tools/compilers/java/jdk-25.0.1"
-    echo "  export PATH=\"\$JAVA_HOME/bin:\$PATH\""
+    echo "  1. Download from: https://jdk.java.net/jextract/"
+    echo "  2. Add jextract to your PATH"
     exit 1
 fi
 

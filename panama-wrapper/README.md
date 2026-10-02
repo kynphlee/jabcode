@@ -112,12 +112,9 @@ byte[] result = encoder.encodeWithConfig("Data", config);
 
 ### Initial Setup
 
-1. Install jextract (if not included in JDK):
+1. Install jextract:
    ```bash
-   # Option 1: Use JDK 25 (may include jextract)
-   export JAVA_HOME=/home/kynphlee/tools/compilers/java/jdk-25.0.1
-   
-   # Option 2: Download standalone jextract
+   # Download standalone jextract
    # See: https://jdk.java.net/jextract/
    ```
 
