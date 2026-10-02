@@ -303,7 +303,7 @@ module com.jabcode.panama {
 ### Regenerate Bindings Fails
 
 Check:
-1. `jextract` is in PATH
+1. `jextract` is in PATH, or Maven is told where it is: `mvn test -Djextract.executable=/path/to/jextract-25/bin/jextract`
 2. `jabcode.h` exists at `../src/jabcode/include/jabcode.h`
 3. Include paths are correct
 
