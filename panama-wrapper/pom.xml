@@ -36,7 +36,15 @@
         <jabcode.include.dir>../src/jabcode/include</jabcode.include.dir>
         <jabcode.lib.path>../lib</jabcode.lib.path>
         <jextract.output.dir>${project.build.directory}/generated-sources/jextract</jextract.output.dir>
-        
+
+        <!-- The jextract that generate-panama-bindings runs. Was hard-coded to
+             /home/kynphlee/tools/compilers/java/jextract/jextract-25/bin/jextract, which
+             exists on one machine, so mvn could not generate the bindings anywhere else.
+             Defaults to the jextract on PATH, the same lookup jextract.sh does and what
+             CI (.github/workflows/panama-wrapper.yml) puts there. To use another one:
+             mvn test -Djextract.executable=/path/to/jextract-25/bin/jextract -->
+        <jextract.executable>jextract</jextract.executable>
+
         <!-- Panama bindings package -->
         <panama.package>com.jabcode.panama.bindings</panama.package>
         
@@ -206,7 +214,7 @@
                             <goal>exec</goal>
                         </goals>
                         <configuration>
-                            <executable>/home/kynphlee/tools/compilers/java/jextract/jextract-25/bin/jextract</executable>
+                            <executable>${jextract.executable}</executable>
                             <arguments>
                                 <!-- Output directory -->
                                 <argument>--output</argument>

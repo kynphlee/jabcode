@@ -1,0 +1,191 @@
+name: Panama Wrapper (jextract bindings + Maven tests)
+
+# Builds panama-wrapper the way a contributor does: Maven runs jextract over
+# src/jabcode/include/jabcode.h in generate-sources, compiles the wrapper against
+# the generated bindings, and runs the JUnit suite against the VENDORED
+# lib/libjabcode.so (jabcode.lib.path=../lib in panama-wrapper/pom.xml).
+#
+# Why this exists: no workflow ran mvn or jextract, and none had a
+# panama-wrapper/** path filter, so a PR that edited only panama-wrapper (#196)
+# got zero checks. Untested paths here rot: pom.xml ran jextract from one
+# contributor's home directory, so no other machine could generate the
+# bindings, and the README's build steps were wrong in three places (#196).
+# codec-regression.yml's `make check-lib` compares lib/ with the C sources but
+# never loads it from Java; this job does.
+#
+# src/jabcode/*.c is deliberately not a trigger: the tests load the vendored
+# lib/, not a fresh build, so a codec change reaches them when
+# `make -C src/jabcode refresh-lib` updates lib/, which is a trigger.
+on:
+  pull_request:
+    paths:
+      - 'panama-wrapper/**'
+      - 'lib/**'
+      - 'src/jabcode/include/**'
+      - '.github/workflows/panama-wrapper.yml'
+  push:
+    branches: [main, master, swift-java-poc]
+    paths:
+      - 'panama-wrapper/**'
+      - 'lib/**'
+      - 'src/jabcode/include/**'
+      - '.github/workflows/panama-wrapper.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# jextract is not part of the JDK; it ships as a standalone early-access build
+# listed at https://jdk.java.net/jextract/. Pinned to one build by its download
+# URL and published SHA-256 (the same tarball as the local jextract-25 install).
+# To bump it, copy the Linux/x64 tar.gz link and its sha256 from that page; the
+# cache key below follows these values.
+env:
+  JEXTRACT_BUILD: '25-jextract+2-4'
+  JEXTRACT_URL: 'https://download.java.net/java/early_access/jextract/25/2/openjdk-25-jextract+2-4_linux-x64_bin.tar.gz'
+  JEXTRACT_SHA256: 'd0cc481abc1adb16fb9514e1c5e0bfc08d38c29228bece667fb5054ceaffaa42'
+
+jobs:
+  panama-wrapper-tests:
+    name: jextract 25 bindings + mvn test (JDK 23)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      # JDK 23, not 25. On JDK 25 the pom's jdk25 profile compiles to class file
+      # version 69, which the pom's JaCoCo 0.8.12 cannot instrument ("Unsupported
+      # class file major version 69"): the tests still pass, but uninstrumented.
+      # 23 is the JDK the suite's baseline was measured on. It is end-of-life, so
+      # '23' resolves to its final update and does not drift.
+      - name: Set up JDK 23
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '23'
+          cache: 'maven'
+          cache-dependency-path: 'panama-wrapper/pom.xml'
+
+      # The bindings dlopen libjabcode.so by name (jextract --library jabcode);
+      # surefire puts ../lib on LD_LIBRARY_PATH so the vendored copy is the one
+      # found. That .so links libpng16, which links zlib. Install both explicitly,
+      # then fail HERE, with ldd's output, if anything is unresolved, rather than
+      # later as a pile of integration-test errors.
+      - name: Install libjabcode runtime dependencies (libpng16, zlib)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libpng16-16t64 zlib1g
+          ldd lib/libjabcode.so
+          if ldd lib/libjabcode.so | grep -q 'not found'; then
+            echo "::error::lib/libjabcode.so has unresolved dependencies (ldd output above)"
+            exit 1
+          fi
+
+      # Cache jextract under the pinned build and checksum. Restore and save are
+      # separate steps because actions/cache's combined form saves only when the
+      # whole job succeeds, so a red test run would discard a good download.
+      - name: Restore cached jextract
+        id: cache-jextract
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/jextract
+          key: jextract-${{ env.JEXTRACT_BUILD }}-linux-x64-${{ env.JEXTRACT_SHA256 }}
+
+      # On a cache miss, download with a retry (the NDK-install pattern from
+      # android-native-build.yml) so a transient bad download does not fail the
+      # run. The checksum turns a corrupt or substituted tarball into a retry,
+      # and then a failure, instead of a jextract that runs.
+      - name: Download jextract (on cache miss, with retry)
+        if: steps.cache-jextract.outputs.cache-hit != 'true'
+        run: |
+          tarball="$RUNNER_TEMP/jextract.tar.gz"
+          for attempt in 1 2 3; do
+            if curl -fsSL --connect-timeout 30 --max-time 600 -o "$tarball" "$JEXTRACT_URL" &&
+               echo "$JEXTRACT_SHA256  $tarball" | sha256sum --check --strict -; then
+              mkdir -p "$HOME/jextract"
+              tar -xzf "$tarball" -C "$HOME/jextract" --strip-components=1
+              exit 0
+            fi
+            echo "jextract download attempt ${attempt} failed; retrying after backoff"
+            sleep 10
+          done
+          echo "jextract download failed after 3 attempts"; exit 1
+
+      - name: Save jextract to cache
+        if: steps.cache-jextract.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/jextract
+          key: ${{ steps.cache-jextract.outputs.cache-primary-key }}
+
+      # Put jextract on PATH and leave the pom's jextract.executable at its
+      # default ("jextract"): CI resolves it the way a contributor's machine
+      # does, and a machine-specific path committed back into pom.xml fails here.
+      - name: Put jextract on PATH
+        run: |
+          echo "$HOME/jextract/bin" >> "$GITHUB_PATH"
+          "$HOME/jextract/bin/jextract" --version
+
+      # generate-sources runs jextract into target/generated-sources/jextract,
+      # then compile and test. A header change the wrapper does not follow fails
+      # to compile; a binding the vendored .so does not export fails when a test
+      # calls it (the bindings resolve each symbol on first use).
+      - name: Generate bindings and run tests (mvn test)
+        run: mvn -B -ntp -V -f panama-wrapper/pom.xml test
+
+      # Surefire fails the build on a failing test but passes one that was
+      # SKIPPED. The integration tests are @EnabledIf("isNativeLibraryAvailable"),
+      # so if that check stopped finding the library they would skip and this job
+      # would stay green. Baseline (JDK 23.0.1, swift-java-poc 1d7ecad): 40 report
+      # files, 280 tests, 0 failures, 0 errors, 18 skipped, every skip a deliberate
+      # @Disabled in ColorMode7Test (15) or JABCodeEncoderTest (3). Fail on a skip
+      # anywhere else or beyond those counts, and on a run that wrote no test
+      # reports at all (e.g. skipTests switched on in the pom).
+      - name: Check surefire totals (no unexpected skips)
+        run: |
+          python3 - <<'EOF'
+          import glob, os, sys
+          import xml.etree.ElementTree as ET
+
+          # Deliberately @Disabled: test class -> most skips it may report.
+          ALLOWED_SKIPS = {
+              "com.jabcode.panama.ColorMode7Test": 15,
+              "com.jabcode.panama.JABCodeEncoderTest": 3,
+          }
+
+          reports = sorted(glob.glob("panama-wrapper/target/surefire-reports/TEST-*.xml"))
+          totals = dict.fromkeys(("tests", "failures", "errors", "skipped"), 0)
+          problems = []
+          for path in reports:
+              suite = ET.parse(path).getroot()
+              counts = {key: int(suite.get(key, 0)) for key in totals}
+              for key in totals:
+                  totals[key] += counts[key]
+              name = suite.get("name")
+              allowed = ALLOWED_SKIPS.get(name, 0)
+              if counts["skipped"] > allowed:
+                  problems.append(f"{name}: {counts['skipped']} skipped, {allowed} allowed")
+          if totals["tests"] == 0:
+              problems.append("no tests ran (no surefire reports, or all of them empty)")
+          if totals["failures"] or totals["errors"]:
+              problems.append(f"{totals['failures']} failures and {totals['errors']} errors in the reports")
+
+          line = (f"{len(reports)} report files: {totals['tests']} tests, "
+                  f"{totals['failures']} failures, {totals['errors']} errors, "
+                  f"{totals['skipped']} skipped")
+          print(line)
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
+              summary.write(f"### panama-wrapper tests\n\n{line}\n")
+          for problem in problems:
+              print(f"::error::{problem}")
+          sys.exit(1 if problems else 0)
+          EOF
+
+      # The per-test stack traces, one click away in the Actions run.
+      - name: Upload surefire reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: panama-wrapper-surefire-reports
+          path: panama-wrapper/target/surefire-reports/
+          if-no-files-found: ignore
