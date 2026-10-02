@@ -28,9 +28,9 @@ libjabcode.so (JABCode C library)
 |--------|----------------------|---------------|
 | Native Wrapper Code | 500+ lines C++ | 0 lines |
 | Binding Generation | Manual | Automatic (jextract) |
-| Memory Management | Manual (leak-prone) | Automatic (arenas) |
+| Memory Management | Manual (leak-prone) | Arenas, plus explicit `destroyEncode`/`free` for codec memory |
 | Type Safety | Runtime only | Compile-time |
-| Build Dependencies | C++ compiler | None |
+| Build Dependencies | C++ compiler | jextract (Maven runs it) |
 | Maintainability | High effort | Low effort |
 
 ## Directory Structure
@@ -47,8 +47,7 @@ panama-wrapper/
 │               └── jabcode/
 │                   └── panama/
 │                       ├── JABCodeEncoder.java    # High-level API
-│                       ├── JABCodeDecoder.java    # High-level API
-│                       └── JABCodeService.java    # Facade for both
+│                       └── JABCodeDecoder.java    # High-level API
 └── target/
     └── generated-sources/
         └── jextract/                  # Auto-generated bindings (git-ignored)
@@ -144,28 +143,29 @@ mvn test
 
 ## Comparison with javacpp-wrapper
 
-### Current JNI Approach (javacpp-wrapper)
+### JNI Approach (javacpp-wrapper, retired)
 
-**Location:** `/javacpp-wrapper/src/main/c/JABCodeNative_jni.cpp`
+**Location:** `/javacpp-wrapper/src/main/c/JABCodeNative_jni.cpp` on `my-branch` (7f979c6 removed `javacpp-wrapper/` from this branch). Four of its JNI functions:
 
 ```cpp
-JNIEXPORT jbyteArray JNICALL 
-Java_com_jabcode_JABCodeNative_encode(JNIEnv *env, jobject obj, jstring data) {
-    const char *nativeData = (*env)->GetStringUTFChars(env, data, 0);
-    
-    jab_encode* enc = createEncode(8, 1);
-    jab_data jabData;
-    jabData.length = strlen(nativeData);
-    jabData.data = (jab_char*)nativeData;
-    
-    generateJABCode(enc, &jabData);
-    
-    jbyteArray result = (*env)->NewByteArray(env, enc->bitmap->width * enc->bitmap->height * 4);
-    (*env)->SetByteArrayRegion(env, result, 0, length, enc->bitmap->pixel);
-    
-    (*env)->ReleaseStringUTFChars(env, data, nativeData);
-    destroyEncode(enc);
-    
+JNIEXPORT jlong JNICALL Java_com_jabcode_internal_JABCodeNativePtr_createEncodePtr(JNIEnv *env, jclass cls, jint colorNumber, jint symbolNumber) {
+    return (jlong)createEncode_c(colorNumber, symbolNumber);
+}
+
+JNIEXPORT void JNICALL Java_com_jabcode_internal_JABCodeNativePtr_destroyEncodePtr(JNIEnv *env, jclass cls, jlong encPtr) {
+    destroyEncode_c((jab_encode*)encPtr);
+}
+
+JNIEXPORT jint JNICALL Java_com_jabcode_internal_JABCodeNativePtr_generateJABCodePtr(JNIEnv *env, jclass cls, jlong encPtr, jlong dataPtr) {
+    return generateJABCode_c((jab_encode*)encPtr, (jab_data*)dataPtr);
+}
+
+// ...
+
+JNIEXPORT jboolean JNICALL Java_com_jabcode_internal_JABCodeNativePtr_saveImagePtr(JNIEnv *env, jclass cls, jlong bitmapPtr, jstring filename) {
+    const char* filenameChars = env->GetStringUTFChars(filename, NULL);
+    jboolean result = saveImage_c((jab_bitmap*)bitmapPtr, (jab_char*)filenameChars);
+    env->ReleaseStringUTFChars(filename, filenameChars);
     return result;
 }
 ```
@@ -178,41 +178,46 @@ Java_com_jabcode_JABCodeNative_encode(JNIEnv *env, jobject obj, jstring data) {
 
 ### Panama Approach (this wrapper)
 
-**Location:** `/panama-wrapper/src/main/java/com/jabcode/panama/JABCodeEncoder.java`
+**Location:** `/panama-wrapper/src/main/java/com/jabcode/panama/JABCodeEncoder.java`. `encode` delegates to `encodeBytes`, shown here without its argument, null and error checks or its cascade settings:
 
 ```java
-public byte[] encode(String data, int colorNumber, int eccLevel) {
+public byte[] encodeBytes(byte[] data, Config config) {
     try (Arena arena = Arena.ofConfined()) {
         // Create encoder
-        MemorySegment enc = createEncode(arena, colorNumber, 1);
-        
-        // Prepare data
-        MemorySegment dataStr = arena.allocateFrom(data);
-        MemorySegment jabData = jab_data.allocate(arena);
-        jab_data.length(jabData, data.length());
-        // ... set data pointer
-        
-        // Generate code
-        int result = generateJABCode(arena, enc, jabData);
-        
-        // Extract bitmap
-        MemorySegment bitmap = jab_encode.bitmap(enc);
-        int width = jab_bitmap.width(bitmap);
-        int height = jab_bitmap.height(bitmap);
-        
-        return jab_bitmap.pixel(bitmap)
-            .reinterpret(width * height * 4)
-            .toArray(ValueLayout.JAVA_BYTE);
-            
-    } // Arena auto-frees all memory
+        MemorySegment enc = jabcode_h.createEncode(
+            config.getColorNumber(),
+            config.getSymbolNumber()
+        );
+        try {
+            // Prepare jab_data structure: { int32 length; char data[]; }
+            MemorySegment jabData = createJabData(arena, data);
+
+            // Generate JABCode (0 = success per generateJABCode contract)
+            int result = jabcode_h.generateJABCode(enc, jabData);
+            MemorySegment bitmapPtr = getBitmapFromEncoder(enc);
+            MemorySegment outLen = arena.allocate(ValueLayout.JAVA_INT);
+            MemorySegment pngPtr = jabcode_h.saveImageToMemory(bitmapPtr, outLen);
+            try {
+                int pngLen = outLen.get(ValueLayout.JAVA_INT, 0);
+                // Copy the native PNG bytes into a Java-owned array.
+                return pngPtr.reinterpret(pngLen).toArray(ValueLayout.JAVA_BYTE);
+            } finally {
+                // saveImageToMemory malloc's the buffer; the caller owns it.
+                NativeMemory.free(pngPtr);
+            }
+        } finally {
+            jabcode_h.destroyEncode(enc);
+        }
+    } catch (Exception e) {
+        throw new RuntimeException("Encoding failed", e);
+    }
 }
 ```
 
 **Benefits:**
 - Pure Java (no C++ code)
-- Automatic memory management (arena)
+- Arenas free what Java allocates; memory the C library allocates is still freed explicitly (`destroyEncode`, `NativeMemory.free`)
 - Type-safe at compile time
-- ~100 lines vs ~500 lines
 
 ## Performance
 
@@ -237,12 +242,10 @@ Panama is often **faster** than JNI due to:
 - Server deployments (JDK 23+)
 
 ❌ **Not Supported:**
-- Android (stuck on Java 8 APIs)
+- Android (no `java.lang.foreign` in the Android API, as of API 35)
 - Embedded systems with old JVMs
 
-For Android, use:
-- `my-branch` (JNI wrapper)
-- `swift-java-poc` (Swift layer)
+For Android, use the Kotlin `jabcode-sdk` in `jabauth-android/framework/jabcode-sdk/`. It calls the C library over JNI through `libjabcode-mobile`, which the NDK builds from `swift-java-wrapper/`. Swift is that wrapper's iOS side.
 
 ## Migration from javacpp-wrapper
 
@@ -250,10 +253,10 @@ If you want to migrate existing code:
 
 ### Before (JNI)
 ```java
-import com.jabcode.JABCodeNative;
+import com.jabcode.core.JABCode;
+import java.awt.image.BufferedImage;
 
-JABCodeNative native = new JABCodeNative();
-byte[] result = native.encode(data);
+BufferedImage image = JABCode.encode(data.getBytes(), JABCode.ColorMode.OCTAL, 1, 5);
 ```
 
 ### After (Panama)
@@ -266,17 +269,14 @@ byte[] result = encoder.encode(data, 8, 5);
 
 ## Troubleshooting
 
-### "UnsatisfiedLinkError: Can't find libjabcode.so"
+### "IllegalArgumentException: Cannot open library: libjabcode.so"
 
 Set library path:
 ```bash
 export LD_LIBRARY_PATH=/path/to/jabcode/lib:$LD_LIBRARY_PATH
 ```
 
-Or in Java:
-```java
-System.setProperty("java.library.path", "/path/to/jabcode/lib");
-```
+Setting `java.library.path` does not help, with `-D` or `System.setProperty`: the bindings `dlopen` the library by name, so the loader must find it on `LD_LIBRARY_PATH` when the JVM starts.
 
 ### "IllegalCallerException: Illegal native access"
 
@@ -285,12 +285,7 @@ Enable native access:
 java --enable-native-access=ALL-UNNAMED YourClass
 ```
 
-Or in `module-info.java`:
-```java
-module com.jabcode.panama {
-    requires java.base;
-}
-```
+`ALL-UNNAMED` covers the class path only. On the module path the jar is the automatic module `jabcode.panama`, so name that module instead: `--enable-native-access=jabcode.panama`. A `module-info.java` cannot grant native access.
 
 ### Regenerate Bindings Fails
 
@@ -382,9 +377,9 @@ int maskValue = DataMasking.maskAt(x, y, maskRef, colorCount);
 import com.jabcode.panama.quality.PaletteQuality;
 
 // ISO 8.3 quality metrics
-double minSep = PaletteQuality.minColorSeparation(palette);
-boolean accurate = PaletteQuality.validatePaletteAccuracy(palette, maxError);
-double variation = PaletteQuality.colorVariation(palette);
+double minSep = PaletteQuality.minColorSeparation(fullPalette);
+boolean accurate = PaletteQuality.validatePaletteAccuracy(fullPalette, maxError);
+double variation = PaletteQuality.colorVariation(fullPalette);
 ```
 
 ### Architecture
@@ -419,16 +414,13 @@ com.jabcode.panama
 ✅ **Phase 5:** ISO quality metrics  
 ✅ **Phase 6:** Documentation & examples  
 
-**Next:** Full encoder/decoder integration pending Panama bindings generation via jextract.
+**Integration:** done. Maven generates the bindings with jextract in `generate-sources`, and `JABCodeEncoder` and `JABCodeDecoder` call them.
 
 ## Resources
 
 - **JEP 454:** https://openjdk.org/jeps/454
 - **Panama Tutorial:** https://foojay.io/today/project-panama-for-newbies-part-1/
 - **jextract Guide:** https://github.com/openjdk/jextract
-- **Comparison:** `/memory-bank/integration-approaches-comparison.md`
-- **Color Modes Roadmap:** `/memory-bank/research/panama-poc/03-panama-implementation-roadmap.md`
-- **Spec Audit:** `/memory-bank/research/panama-poc/codebase-audit/`
 
 ## License
 
