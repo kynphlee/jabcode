@@ -61,13 +61,19 @@ mkdir -p "$OUTPUT_DIR"
 echo "Generating Panama bindings..."
 echo ""
 
-# No --include-function / --include-struct filters: jextract 25 only emits a
-# standalone struct file when the struct is reachable from an *included*
-# declaration, so pairing per-function filters with --include-struct silently
-# dropped the jab_encode / jab_data / jab_bitmap structs the wrapper needs.
-# Generating the whole (small, stable) header emits all 8 struct classes plus
-# jabcode_h. The old filter list also named decodeJABCodeWithObservations, which
-# is not in this header (never merged to swift-java-poc) and made jextract fail.
+# No --include-function / --include-struct filters: generate the whole (small,
+# stable) header, which emits all 8 struct classes plus jabcode_h. The wrapper
+# imports only jabcode_h; it reads the structs at hand-computed offsets. A
+# filter list has to be kept in step with the wrapper by hand, and jextract 25
+# does not check it: a name that matches nothing is ignored without a warning
+# (exit 0, output unchanged), and a function missing from the list only shows
+# up as a compile error. The 8a81927 list, for one, lacked saveImageToMemory and
+# readImageFromMemory, which the wrapper now calls. The old --include-struct
+# entries matched nothing either: jabcode.h declares those structs as anonymous
+# typedefs, which jextract matches by --include-typedef.
+# This comment used to say the filters dropped struct classes the wrapper needs
+# and that naming decodeJABCodeWithObservations (not in this header) made
+# jextract fail. Neither reproduces; see RESULTS.md, "Update 2026-10-02".
 jextract \
     --output "$OUTPUT_DIR" \
     --target-package "$PACKAGE" \
