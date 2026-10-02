@@ -40,6 +40,8 @@ Added `2` (monochrome, newly supported per panama-poc commit `bb91db7` "WS-6.5 a
 
 ## What's known-broken
 
+> **Update 2026-10-02:** both failures below are fixed. `mvn test` now runs 280 tests: 0 failures, 0 errors, 18 skipped (15 of them in `ColorMode7Test`, which is still `@Disabled`). `ColorMode6Test` passes 13 of 13 (see `RESULTS.md`), and `JABCodeEncoderConfigTest` has accepted color_number=2 since 3485d6c. The rest of this section records the state at the time of the port.
+
 ### 36 unit-test failures
 
 `mvn test` reports 36 failures out of 205 tests. These failures are **functional**, not infrastructural:
@@ -93,11 +95,11 @@ The Nc=2 decode at 10.492 ms/op is **the very Nc that fails 100% on Android came
 
 ## Native library
 
-`lib/libjabcode.so` is the WS-5 native build (copied from `javacpp-wrapper/target/classes/com/jabcode/linux-x86_64/libjabcode.so` during rebuild). To rebuild, follow the `javacpp-wrapper` build process.
+At the time of this port, `lib/libjabcode.so` was the WS-5 native build (copied from `javacpp-wrapper/target/classes/com/jabcode/linux-x86_64/libjabcode.so` during rebuild). It has been rebuilt from `src/jabcode` since. To rebuild it, run `make -C ../src/jabcode refresh-lib` from `panama-wrapper/`.
 
 ## Open follow-on work
 
-- Update `JABCodeEncoderConfigTest.invalidColorNumbersRejected` to expect color_number=2 as **valid**, not rejected, per panama-poc's WS-6.5 commit.
+- ~~Update `JABCodeEncoderConfigTest.invalidColorNumbersRejected` to expect color_number=2 as **valid**, not rejected, per panama-poc's WS-6.5 commit.~~ Done in 3485d6c.
 - Verify whether Nc=7 (256-color) encoder malloc issue has been fixed in WS-5; if so, re-add `"256"` to `EncodingBenchmark.@Param`.
 - Re-enable observation-based decoding by porting `decodeJABCodeWithObservations` from panama-poc to swift-java-poc (research-side).
 - Establish baseline JSON file at `panama-wrapper/baseline-benchmarks.json` for regression detection.
