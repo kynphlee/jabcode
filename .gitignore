@@ -23,10 +23,25 @@ build/
 lib/
 libs/
 !javacpp-wrapper/libs/.gitkeep
-# lib/ is ignored, but lib/libjabcode.so is intentionally tracked: the
-# panama-wrapper tests load it via -Djava.library.path=../lib, and
-# run-integration-tests.sh requires it to pre-exist (it does not run `make`).
-!lib/libjabcode.so
+# Re-included below: git cannot re-include a file whose parent directory is
+# excluded, so each block first re-includes the directory, then ignores its
+# contents, then re-includes the tracked files.
+#
+# Repo-root lib/ is the VENDORED libjabcode: `make -C src/jabcode refresh-lib`
+# writes both files, `make check-lib` (codec-regression.yml) guards the .so,
+# and panama-wrapper loads it via jabcode.lib.path=../lib (pom.xml).
+!/lib/
+/lib/*
+!/lib/libjabcode.so
+!/lib/libjabcode.a
+# Third-party tooling vendored under panama-wrapper/tools/ (see LICENSE) ships
+# its own lib/; profile-decode.sh loads libasyncProfiler.so from it.
+!/panama-wrapper/tools/*/lib/
+!/panama-wrapper/tools/*/lib/*
+# Upstream's placeholder for the C library's output directory.
+!/src/jabcode/build/
+/src/jabcode/build/*
+!/src/jabcode/build/.gitkeep
 CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
@@ -82,6 +97,8 @@ local.properties
 captures/
 .navigation/
 *.apk
+# Upstream's prebuilt reader app (byte-identical to upstream/master).
+!/android_reader/JabCodeApp.apk
 *.ap_
 *.dex
 
@@ -103,9 +120,13 @@ build_file_index.txt
 additional_project_files.txt
 hash_key.txt
 
-# Compiled CLI tool binaries (output directories)
-src/jabcodeReader/bin/
-src/jabcodeWriter/bin/
+# Compiled CLI tool binaries (output directories). The .gitkeep placeholders
+# stay tracked: the upstream reader/writer Makefiles link into bin/ without
+# creating it, so a fresh clone fails to link without them.
+src/jabcodeReader/bin/*
+src/jabcodeWriter/bin/*
+!src/jabcodeReader/bin/.gitkeep
+!src/jabcodeWriter/bin/.gitkeep
 
 # Gradle local build cache (Android wrapper)
 **/.gradle/
