@@ -85,6 +85,7 @@ jobs:
       #   test-table15  ISO 23634 Table 15 / FNC1 backslash-doubling (bit-level)
       #   test-roundtrip multi-mode text encode->decode byte-identity
       #   test-fp-lookalike a finder pattern copied into the data still decodes
+      #   test-mode0-large 2-colour symbols decode at every version (1..32)
       #   test-mask-rule1 mask rule 1 recognises every finder pattern the encoder draws
       - name: Run C unit/regression tests
         working-directory: src/jabcode
@@ -97,6 +98,7 @@ jobs:
           make test-table15
           make test-roundtrip
           make test-fp-lookalike
+          make test-mode0-large
           make test-mask-rule1
 
       # Full-spectrum in-library round-trip: encode->decode "HELLO" at every colour

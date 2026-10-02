@@ -967,6 +967,12 @@ jab_boolean crossCheckPattern(jab_bitmap* ch[], jab_finder_pattern* fp, jab_int3
 		 * doesn't exist in monochrome. Skip both for Mode 0. */
 		if (g_mode0_decode)
 		{
+			//keep the centre and module size the cross-check measured, as the colour branch
+			//below does, not the scanline's: its y is only the row the scan was on, so one
+			//pattern's finds spread over the height of its core
+			fp->module_size = module_size_g;
+			fp->center.x = centerx_g;
+			fp->center.y = centery_g;
 			fp->direction = dir_g;
 			goto crosscheck_pattern_done;
 		}
@@ -1034,6 +1040,10 @@ jab_boolean crossCheckPattern(jab_bitmap* ch[], jab_finder_pattern* fp, jab_int3
 		 * needed. G channel already verified the pattern. Skip B/R channel checks. */
 		if (g_mode0_decode)
 		{
+			//keep the measured centre and module size, as for FP1 and FP2 above
+			fp->module_size = module_size_g;
+			fp->center.x = centerx_g;
+			fp->center.y = centery_g;
 			fp->direction = dir_g;
 			goto crosscheck_pattern_done;
 		}
@@ -1142,12 +1152,15 @@ jab_int32 saveAlignmentPattern(jab_alignment_pattern* ap, jab_alignment_pattern*
 */
 void saveFinderPattern(jab_finder_pattern* fp, jab_finder_pattern* fps, jab_int32* counter, jab_int32* fp_type_count)
 {
-    //combine the finder patterns at the same position with the same size
+    //combine the finder patterns at the same position with the same size. Mode 0 centres are
+    //cross-checked, so one pattern's finds agree to a pixel or two, while a black-cored
+    //look-alike can sit a module away diagonally: within a module it would be merged in
+    jab_float radius = g_mode0_decode ? fp->module_size / 2.0f : fp->module_size;
     for(jab_int32 i=0; i<(*counter); i++)
     {
         if(fps[i].found_count > 0)
         {
-            if( fabs(fp->center.x - fps[i].center.x) <= fp->module_size && fabs(fp->center.y - fps[i].center.y) <= fp->module_size &&
+            if( fabs(fp->center.x - fps[i].center.x) <= radius && fabs(fp->center.y - fps[i].center.y) <= radius &&
                 (fabs(fp->module_size - fps[i].module_size) <= fps[i].module_size || fabs(fp->module_size - fps[i].module_size) <= 1.0) &&
                 fp->type == fps[i].type)
             {
@@ -1356,6 +1369,38 @@ static void rankByFoundCount(jab_finder_pattern* fps, jab_int32 fp_count)
 }
 
 /**
+ * @brief Measure how far a finder pattern lies towards its own corner of the image
+ * @param fp the finder pattern
+ * @param type the finder pattern type, which names the corner
+ * @return the centre projected on the corner's diagonal; the sum over one pattern of each type
+ *         does not depend on where the origin is
+*/
+static jab_float outwardness(jab_finder_pattern fp, jab_int32 type)
+{
+	jab_float sx = (type == FP1 || type == FP2) ? 1.0f : -1.0f;
+	jab_float sy = (type == FP2 || type == FP3) ? 1.0f : -1.0f;
+	return sx * fp.center.x + sy * fp.center.y;
+}
+
+/**
+ * @brief Rank finder patterns of one type from the outermost in, keeping scan order among equals
+ * @param fps the finder pattern list
+ * @param fp_count the number of finder patterns in the list
+ * @param type the finder pattern type
+*/
+static void rankByOutwardness(jab_finder_pattern* fps, jab_int32 fp_count, jab_int32 type)
+{
+	for(jab_int32 i=1; i<fp_count; i++)
+	{
+		jab_finder_pattern fp = fps[i];
+		jab_int32 j = i - 1;
+		for(; j>=0 && outwardness(fps[j], type) < outwardness(fp, type); j--)
+			fps[j+1] = fps[j];
+		fps[j+1] = fp;
+	}
+}
+
+/**
  * @brief Choose one finder pattern of each type so that the four form one symbol
  * @param candidates the finder pattern candidates of each type
  * @param counts the number of candidates of each type
@@ -1367,15 +1412,26 @@ static jab_boolean selectConsistentPatterns(jab_finder_pattern* candidates[4], j
 	//data modules can repeat a finder pattern closely enough to pass every check, on as many
 	//scanlines as the real one or more, so neither the found-count nor the scan order can tell
 	//them apart. Only position can: weigh the strongest candidates of each type as one symbol.
+	//
+	//Mode 0 types a candidate by its image quadrant, not its colour, so in a large 2-colour
+	//symbol every quadrant holds dozens of look-alikes, and the most-found are look-alikes: a
+	//real pattern is found once per pixel row of its core, a taller look-alike more often. But
+	//look-alikes are made of data modules, which lie inside the four real patterns, so there
+	//the outermost candidates are weighed, and of the sets that form one symbol the outermost
+	//wins. A real set can itself disagree by a module -- each module size is measured to about
+	//1%, and 1% of a large side is a module -- so that much counts as agreeing.
 	jab_int32 n[4];
 	for(jab_int32 t=0; t<4; t++)
 	{
-		rankByFoundCount(candidates[t], counts[t]);
+		if(g_mode0_decode)
+			rankByOutwardness(candidates[t], counts[t], t);
+		else
+			rankByFoundCount(candidates[t], counts[t]);
 		n[t] = MIN(counts[t], MAX_FINDER_PATTERN_CANDIDATES);
 	}
 	jab_int32 best[4] = {0};
 	jab_int32 best_disagreement = -1;
-	jab_int32 best_found_count = 0;
+	jab_float best_rank = 0;
 	for(jab_int32 i0=0; i0<n[0]; i0++)
 	for(jab_int32 i1=0; i1<n[1]; i1++)
 	for(jab_int32 i2=0; i2<n[2]; i2++)
@@ -1384,13 +1440,24 @@ static jab_boolean selectConsistentPatterns(jab_finder_pattern* candidates[4], j
 		jab_int32 disagreement = measureSymbolDisagreement(candidates[0][i0], candidates[1][i1], candidates[2][i2], candidates[3][i3]);
 		if(disagreement < 0)
 			continue;
-		jab_int32 found_count = candidates[0][i0].found_count + candidates[1][i1].found_count +
-								candidates[2][i2].found_count + candidates[3][i3].found_count;
+		jab_float rank;
+		if(g_mode0_decode)
+		{
+			if(disagreement <= 1)
+				disagreement = 0;
+			rank = outwardness(candidates[0][i0], FP0) + outwardness(candidates[1][i1], FP1) +
+				   outwardness(candidates[2][i2], FP2) + outwardness(candidates[3][i3], FP3);
+		}
+		else
+		{
+			rank = (jab_float)(candidates[0][i0].found_count + candidates[1][i1].found_count +
+							   candidates[2][i2].found_count + candidates[3][i3].found_count);
+		}
 		if(best_disagreement < 0 || disagreement < best_disagreement ||
-		   (disagreement == best_disagreement && found_count > best_found_count))
+		   (disagreement == best_disagreement && rank > best_rank))
 		{
 			best_disagreement = disagreement;
-			best_found_count = found_count;
+			best_rank = rank;
 			best[0] = i0; best[1] = i1; best[2] = i2; best[3] = i3;
 		}
 	}
@@ -1649,6 +1716,9 @@ void scanPatternVertical(jab_bitmap* ch[], jab_int32 min_module_size, jab_finder
 					 * the equivalent block in scanPatternHorizontal for rationale. */
 					if (g_mode0_decode)
 					{
+						//see the black-core check in findMasterSymbol
+						if(type_g != 0)
+							continue;
 						jab_int32 half_w = ch[0]->width / 2;
 						jab_int32 half_h = ch[0]->height / 2;
 						jab_int32 cx = (jab_int32)fp.center.x;
@@ -2105,6 +2175,11 @@ jab_finder_pattern* findMasterSymbol(jab_bitmap* bitmap, jab_bitmap* ch[], jab_d
 					 * type labels at the same position, producing degenerate transforms). */
 					if (g_mode0_decode)
 					{
+						//every Mode 0 master finder pattern has a black core (createMatrix draws its
+						//even rings K and its odd ring W), so a white-cored candidate is data. One
+						//can sit on the W beside a real core, a module away, and be merged into it
+						if(type_g != 0)
+							continue;
 						jab_int32 half_w = ch[0]->width / 2;
 						jab_int32 half_h = ch[0]->height / 2;
 						jab_int32 cx = (jab_int32)fp.center.x;
