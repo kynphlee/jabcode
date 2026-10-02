@@ -228,7 +228,7 @@ public class JABCodeDecoder {
      *
      * <p>Mirror of {@link #decodeFromFileEx(Path, int)} that loads the bitmap from a
      * memory buffer ({@code readImageFromMemory}) instead of a file ({@code readImage}),
-     * keeping the image off disk. Unlike the file path, the bitmap is freed here.</p>
+     * keeping the image off disk.</p>
      *
      * @param imageData Raw PNG image bytes
      * @return DecodedResult with data and metadata
@@ -274,7 +274,6 @@ public class JABCodeDecoder {
 
             } finally {
                 // readImageFromMemory calloc's the bitmap as a single block we own.
-                // (The file-based readImage path leaks its bitmap; this one does not.)
                 NativeMemory.free(bitmap);
             }
         } catch (Exception e) {
@@ -411,30 +410,29 @@ public class JABCodeDecoder {
                 if (result == null || result.address() == 0) {
                     return new DecodedResult((byte[]) null, 0, false);
                 }
-                
-                // Extract decoded data
-                // jab_data struct: { int32 length; char data[]; }
-                int dataLength = result.get(ValueLayout.JAVA_INT, 0);
 
-                if (dataLength <= 0) {
-                    return new DecodedResult(new byte[0], 1, true);
+                try {
+                    // Extract decoded data
+                    // jab_data struct: { int32 length; char data[]; }
+                    int dataLength = result.get(ValueLayout.JAVA_INT, 0);
+
+                    if (dataLength <= 0) {
+                        return new DecodedResult(new byte[0], 1, true);
+                    }
+
+                    // Read data bytes starting at offset 4
+                    byte[] decodedBytes = new byte[dataLength];
+                    MemorySegment.copy(result, ValueLayout.JAVA_BYTE, 4, decodedBytes, 0, dataLength);
+
+                    return new DecodedResult(decodedBytes, 1, true);
+                } finally {
+                    // decodeJABCode malloc's the jab_data result; the caller owns it.
+                    NativeMemory.free(result);
                 }
 
-                // Read data bytes starting at offset 4
-                byte[] decodedBytes = new byte[dataLength];
-                MemorySegment.copy(result, ValueLayout.JAVA_BYTE, 4, decodedBytes, 0, dataLength);
-
-                // Note: The C library allocates the result with malloc
-                // We should ideally free it, but there's no destroyData function
-                // TODO: Check for memory leaks
-
-                return new DecodedResult(decodedBytes, 1, true);
-                
             } finally {
-                // Free bitmap
-                // Note: readImage allocates bitmap with malloc
-                // We should free it, but there's no destroyBitmap function
-                // TODO: Check for memory leaks and add proper cleanup
+                // readImage calloc's the bitmap as a single block we own.
+                NativeMemory.free(bitmap);
             }
         } catch (Exception e) {
             throw new RuntimeException("Decoding failed", e);
