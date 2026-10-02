@@ -30,7 +30,10 @@ libs/
 CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
-Makefile
+# Only CMake GENERATES a Makefile, and swift-java-wrapper/ holds the repo's only
+# CMakeLists.txt. Keep this anchored: a bare `Makefile` also matched hand-written
+# ones and silently kept gamutlock-wasm/Makefile out of PR #191.
+/swift-java-wrapper/Makefile
 
 # NOTE: Files already tracked in git history (e.g. javacpp-wrapper/build/*.o,
 # javacpp-wrapper/lib*/*.so, top-level *.pdf, prior *.logcat captures) require

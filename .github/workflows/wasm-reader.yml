@@ -1,0 +1,81 @@
+name: WASM reader (gamutlock-wasm build + node smoke)
+
+# Builds the browser bridge in gamutlock-wasm/ from the same src/jabcode sources the
+# server and mobile libraries compile, then runs its node smoke: the host codec
+# encodes a fixture, the WASM module decodes it, and the payload must match byte for
+# byte (a corrupted frame must fail closed).
+#
+# Why this exists: no job built gamutlock-wasm, so its Makefile -- kept out of #191 by
+# a bare `Makefile` ignore rule -- was missing from the repo for 19 days with every
+# check green. The Makefile also hand-lists CODEC_SRCS, the pattern that left the NDK
+# build without decode_profile.c for weeks (#102). A codec .c file added without
+# updating that list fails here, at link time.
+on:
+  pull_request:
+    paths:
+      - 'gamutlock-wasm/**'
+      - 'src/jabcode/**'
+      - 'swift-java-wrapper/src/c/**'
+      - 'swift-java-wrapper/include/**'
+      - '.github/workflows/wasm-reader.yml'
+  push:
+    branches: [swift-java-poc]
+    paths:
+      - 'gamutlock-wasm/**'
+      - 'src/jabcode/**'
+      - 'swift-java-wrapper/src/c/**'
+      - 'swift-java-wrapper/include/**'
+      - '.github/workflows/wasm-reader.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # Pinned: the version the 2026-09-13 bundle measurements and this job's first green
+  # run were made with. A floating "latest" re-resolves on every cache miss.
+  EMSDK_VERSION: '6.0.9'
+
+jobs:
+  wasm-reader:
+    name: WASM reader build + node smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      # The host libjabcode.a (fixture encoder) compiles every src/jabcode/*.c,
+      # image.c included, so it needs the codec's image-I/O headers.
+      - name: Install C build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential libpng-dev libtiff-dev zlib1g-dev
+
+      - name: Cache emsdk
+        uses: actions/cache@v4
+        with:
+          path: ~/emsdk
+          key: emsdk-${{ env.EMSDK_VERSION }}-${{ runner.os }}
+
+      - name: Install emsdk ${{ env.EMSDK_VERSION }}
+        run: |
+          set -euo pipefail
+          if [ ! -x "$HOME/emsdk/emsdk" ]; then
+            git clone --depth 1 https://github.com/emscripten-core/emsdk.git "$HOME/emsdk"
+          fi
+          "$HOME/emsdk/emsdk" install "$EMSDK_VERSION"
+          "$HOME/emsdk/emsdk" activate "$EMSDK_VERSION"
+
+      - name: Build host libjabcode.a (fixture encoder)
+        run: make -C src/jabcode build/libjabcode.a
+
+      # `smoke` builds dist/gamutlock-codec.{mjs,wasm}, encodes the fixture natively,
+      # then decodes it in node through the module; node-smoke.mjs exits non-zero on
+      # any failed check.
+      - name: Build the WASM module and run the node smoke
+        run: |
+          set -euo pipefail
+          source "$HOME/emsdk/emsdk_env.sh"
+          make -C gamutlock-wasm smoke
+          make -s -C gamutlock-wasm size
