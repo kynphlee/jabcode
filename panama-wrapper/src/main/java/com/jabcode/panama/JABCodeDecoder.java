@@ -104,22 +104,28 @@ public class JABCodeDecoder {
                 if (dataPtr.address() == 0) {
                     return new DecodedResultWithObservations(null, 0, false, obsBuffer, obsCount);
                 }
-                
-                // Read decoded data
-                int length = dataPtr.get(ValueLayout.JAVA_INT, 0);
-                byte[] decodedBytes = new byte[length];
-                MemorySegment dataSegment = dataPtr.asSlice(4, length);
-                MemorySegment.copy(dataSegment, ValueLayout.JAVA_BYTE, 0,
-                                 decodedBytes, 0, length);
-                
-                String decodedString = new String(decodedBytes, StandardCharsets.UTF_8);
-                
-                return new DecodedResultWithObservations(
-                    decodedString, 1, true, obsBuffer, obsCount
-                );
-                
+
+                try {
+                    // Read decoded data
+                    int length = dataPtr.get(ValueLayout.JAVA_INT, 0);
+                    byte[] decodedBytes = new byte[length];
+                    MemorySegment dataSegment = dataPtr.asSlice(4, length);
+                    MemorySegment.copy(dataSegment, ValueLayout.JAVA_BYTE, 0,
+                                     decodedBytes, 0, length);
+
+                    String decodedString = new String(decodedBytes, StandardCharsets.UTF_8);
+
+                    return new DecodedResultWithObservations(
+                        decodedString, 1, true, obsBuffer, obsCount
+                    );
+                } finally {
+                    // decodeJABCode malloc's the jab_data result; the caller owns it.
+                    NativeMemory.free(dataPtr);
+                }
+
             } finally {
-                // Bitmap cleanup handled by C library
+                // readImage calloc's the bitmap as a single block we own.
+                NativeMemory.free(bitmapPtr);
             }
         } catch (Exception e) {
             throw new RuntimeException("Decoding with observations failed", e);
@@ -260,17 +266,22 @@ public class JABCodeDecoder {
                     return new DecodedResult((byte[]) null, 0, false);
                 }
 
-                // Extract decoded data — jab_data struct: { int32 length; char data[]; }
-                int dataLength = result.get(ValueLayout.JAVA_INT, 0);
-                if (dataLength <= 0) {
-                    return new DecodedResult(new byte[0], 1, true);
+                try {
+                    // Extract decoded data — jab_data struct: { int32 length; char data[]; }
+                    int dataLength = result.get(ValueLayout.JAVA_INT, 0);
+                    if (dataLength <= 0) {
+                        return new DecodedResult(new byte[0], 1, true);
+                    }
+
+                    byte[] decodedBytes = new byte[dataLength];
+                    MemorySegment.copy(result, ValueLayout.JAVA_BYTE, 4, decodedBytes, 0, dataLength);
+
+                    // Bytes are the canonical payload; no String round-trip here.
+                    return new DecodedResult(decodedBytes, 1, true);
+                } finally {
+                    // decodeJABCode malloc's the jab_data result; the caller owns it.
+                    NativeMemory.free(result);
                 }
-
-                byte[] decodedBytes = new byte[dataLength];
-                MemorySegment.copy(result, ValueLayout.JAVA_BYTE, 4, decodedBytes, 0, dataLength);
-
-                // Bytes are the canonical payload; no String round-trip here.
-                return new DecodedResult(decodedBytes, 1, true);
 
             } finally {
                 // readImageFromMemory calloc's the bitmap as a single block we own.
@@ -326,16 +337,21 @@ public class JABCodeDecoder {
                 return new DecodedResult((byte[]) null, 0, false);
             }
 
-            int dataLength = result.get(ValueLayout.JAVA_INT, 0);
-            if (dataLength <= 0) {
-                return new DecodedResult(new byte[0], 1, true);
+            try {
+                int dataLength = result.get(ValueLayout.JAVA_INT, 0);
+                if (dataLength <= 0) {
+                    return new DecodedResult(new byte[0], 1, true);
+                }
+
+                byte[] decodedBytes = new byte[dataLength];
+                MemorySegment.copy(result, ValueLayout.JAVA_BYTE, 4, decodedBytes, 0, dataLength);
+
+                return new DecodedResult(decodedBytes, 1, true);
+            } finally {
+                // decodeJABCode malloc's the jab_data result; the caller owns it.
+                // The bitmap is Arena-owned (freed on scope exit), so it is not freed here.
+                NativeMemory.free(result);
             }
-
-            byte[] decodedBytes = new byte[dataLength];
-            MemorySegment.copy(result, ValueLayout.JAVA_BYTE, 4, decodedBytes, 0, dataLength);
-
-            // The bitmap is Arena-owned (freed on scope exit); nothing to free here.
-            return new DecodedResult(decodedBytes, 1, true);
         } catch (Exception e) {
             throw new RuntimeException("Decoding from RGBA buffer failed", e);
         }
