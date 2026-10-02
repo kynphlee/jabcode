@@ -65,6 +65,12 @@ size: $(DIST)/gamutlock-codec.mjs
 #   make -C ../src/jabcode build/libjabcode.a
 BRIDGE_DIR := ../swift-java-wrapper
 
+# The node that runs the smoke: emsdk's own (EMSDK_NODE, exported by emsdk_env.sh),
+# by absolute path. emsdk_env.sh puts the emsdk ROOT on PATH, and that root holds a
+# node/ DIRECTORY. GNU make 4.3 (Ubuntu 24.04) stops its PATH search at that
+# directory and fails with "node: Permission denied"; an absolute path never searches.
+NODE ?= $(or $(EMSDK_NODE),node)
+
 fixture: tools/make_fixture.c
 	mkdir -p build test/fixtures
 	cc -O2 -std=c11 -I$(CODEC) -I$(CODEC)/include -I$(BRIDGE_DIR)/include \
@@ -73,7 +79,7 @@ fixture: tools/make_fixture.c
 	./build/make_fixture test/fixtures/fixture
 
 smoke: all fixture
-	node test/node-smoke.mjs
+	$(NODE) test/node-smoke.mjs
 
 # Pixel-identity receipt tool for the A/B (see tools/rgba_sha.c). Needs the
 # host static lib and host libpng/libtiff (same deps as the R0 rig probe).
