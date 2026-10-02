@@ -53,6 +53,10 @@ These failures are diagnostic signals about the decoder's state, not blockers fo
 
 ## How to run the benchmarks
 
+> **Update 2026-10-02:** the two full sweeps below said ~10 and ~12 minutes, and the decode comment ended `(5+10) × 1s = ~600s` (its factors come to 1080 s). `DecodingBenchmark` and `EncodingBenchmark` take `@Warmup`, `@Measurement` and `@Fork` from `BenchmarkConfig` (5 × 2 s, 10 × 2 s, 3 forks), which override `BenchmarkBase`'s 1 s iterations, so each parameter combination gets 90 s of timed iterations. JMH reads the `EncodingBenchmark` argument as a regular expression, which also matches `CascadedEncodingBenchmark`. JMH's own ETA confirms the new figures. Run from `panama-wrapper/` without the `-rf`/`-rff` arguments and stopped at the first progress line, `bash run-benchmark.sh DecodingBenchmark` printed `# Run progress: 0.00% complete, ETA 00:36:00`, and `bash run-benchmark.sh EncodingBenchmark` printed `# Run progress: 0.00% complete, ETA 00:54:00`.
+>
+> The ETA assumes every combination runs. A combination that throws (a message too long for one symbol, a failed decode) ends in about a second, so real runs are shorter. The runs behind the `results/per-nc-*.json` files committed on 2026-05-28 logged `Total time: 00:09:40` and `Total time: 00:34:23` (`benchmark-results/decoding_results.txt` and `encoding_results.txt`), with 18 of 24 and 14 of 36 combinations failing. A one-iteration pass (`"-wi 0 -i 1 -f 1 -r 1s"`) on 2026-10-02 had 6 of 24 and 14 of 36 failing. Maven and fork start-up come on top of the ETA. The two quick runs printed ETAs of `00:00:09` and `00:00:03` and took 16.9 s and 10.0 s end to end, about 6 s of each in `run-benchmark.sh`'s Maven steps.
+
 ### Quick smoke test (~15 seconds per benchmark)
 
 ```bash
@@ -66,17 +70,18 @@ bash run-benchmark.sh SimpleBenchmark "-wi 1 -i 2 -f 1 -r 1s -w 1s"
 bash run-benchmark.sh DecodingBenchmark "-wi 1 -i 2 -f 1 -r 1s -w 1s -p colorMode=2 -p messageSize=100"
 ```
 
-### Full per-Nc decode sweep (~10 minutes)
+### Full per-Nc decode sweep (up to ~36 minutes)
 
 ```bash
-# All 8 Nc × 3 message sizes × default 3-fork × (5+10) × 1s = ~600s
+# All 8 Nc × 3 message sizes × default 3-fork × (5+10) × 2s = 2160s
 bash run-benchmark.sh DecodingBenchmark "-rf json -rff results/per-nc-decode.json"
 ```
 
-### Full encoding sweep (~12 minutes)
+### Full encoding sweep (up to ~54 minutes)
 
 ```bash
-# 7 Nc × 4 message sizes (Nc=7 excluded for malloc)
+# 7 Nc × 4 message sizes (Nc=7 excluded for malloc), plus CascadedEncodingBenchmark's
+# 2 Nc × 4 symbol counts, which the pattern also matches: 36 × 3-fork × (5+10) × 2s = 3240s
 bash run-benchmark.sh EncodingBenchmark "-rf json -rff results/per-nc-encode.json"
 ```
 
