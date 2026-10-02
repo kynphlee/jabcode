@@ -57,23 +57,20 @@ panama-wrapper/
 ## Build Process
 
 1. **Generate Native Library** (if not already built)
+
+   Maven's tests load the vendored `../lib/libjabcode.so` (`jabcode.lib.path` in `pom.xml`). A bare `make` leaves the library in `../src/jabcode/build/`; `refresh-lib` builds it and copies it into `../lib`.
    ```bash
-   cd ../src/jabcode
-   make
+   make -C ../src/jabcode refresh-lib
    ```
 
-2. **Generate Panama Bindings**
-   ```bash
-   cd panama-wrapper
-   ./jextract.sh
-   ```
+2. **Build Java Wrapper**
 
-3. **Build Java Wrapper**
+   Maven generates the Panama bindings itself: jextract runs in the `generate-sources` phase.
    ```bash
    mvn clean package
    ```
 
-4. **Run Tests**
+3. **Run Tests**
    ```bash
    mvn test
    ```
@@ -115,12 +112,9 @@ byte[] result = encoder.encodeWithConfig("Data", config);
 
 ### Initial Setup
 
-1. Install jextract (if not included in JDK):
+1. Install jextract:
    ```bash
-   # Option 1: Use JDK 25 (may include jextract)
-   export JAVA_HOME=/home/kynphlee/tools/compilers/java/jdk-25.0.1
-   
-   # Option 2: Download standalone jextract
+   # Download standalone jextract
    # See: https://jdk.java.net/jextract/
    ```
 
@@ -146,8 +140,6 @@ Run with FFM access enabled:
 
 ```bash
 mvn test
-# OR manually:
-java --enable-native-access=ALL-UNNAMED -jar target/jabcode-panama-1.0.0.jar
 ```
 
 ## Comparison with javacpp-wrapper
