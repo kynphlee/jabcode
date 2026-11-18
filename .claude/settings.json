@@ -1,0 +1,49 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/scripts/goal-gate.sh --hook"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/scripts/goal-gate.sh --hook"
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "deny": [
+      "Bash(git push * main)",
+      "Bash(git push * main:*)",
+      "Bash(git push *:main)",
+      "Bash(git push * swift-java-poc)",
+      "Bash(git push * swift-java-poc:*)",
+      "Bash(git push *:swift-java-poc)",
+      "Bash(git push * master)",
+      "Bash(git push * master:*)",
+      "Bash(git push *:master)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git branch -D *)",
+      "Bash(git branch -d *)",
+      "Bash(git push * --delete *)",
+      "Bash(git worktree remove *)",
+      "Bash(glab mr merge*)",
+      "Bash(gh pr merge*)",
+      "mcp__GitLab__accept_merge_request",
+      "mcp__9dbd5ffd-a344-4bb0-bcfb-3d0399417d69__send_message",
+      "mcp__9dbd5ffd-a344-4bb0-bcfb-3d0399417d69__reply",
+      "mcp__9dbd5ffd-a344-4bb0-bcfb-3d0399417d69__forward"
+    ]
+  }
+}

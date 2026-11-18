@@ -1,0 +1,1 @@
+# One path or glob per line. A line is added only with Kendall's approval, named in the pull request.

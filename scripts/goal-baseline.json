@@ -1,0 +1,9 @@
+{
+  "base_commit": "cef2c6f31b840336bd7060f6fdb5f1ba9f6f77fe",
+  "trunk": "swift-java-poc",
+  "date": "2026-11-18",
+  "note": "Counts from the untouched base. wasm_smoke is the node smoke of gamutlock-wasm (make -C gamutlock-wasm smoke) with emcc 6.0.9, the version .github/workflows/wasm-reader.yml pins. The repo's other suites are not in this gate.",
+  "suites": {
+    "wasm_smoke": { "tests": 6, "failures": 0, "skipped": 0, "status": "pass" }
+  }
+}

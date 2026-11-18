@@ -1,0 +1,13 @@
+# One path or glob per line. A change to a matching path fails the gate unless
+# scripts/goal-allow.txt names it.
+scripts/goal-gate.sh
+scripts/goal-baseline.json
+scripts/goal-protected.txt
+scripts/goal-allow.txt
+.claude/settings.json
+# Key material
+**/*.pem
+**/*.jks
+**/*.p12
+**/*.key
+**/*.keystore
